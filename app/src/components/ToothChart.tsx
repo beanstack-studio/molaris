@@ -55,23 +55,23 @@ function statusTheme(s: ToothStatus) {
   // wrap: tooth tile background; border: tile border; chip: legend/button
   switch (s) {
     case "HEALTHY":
-      return { wrap: "bg-white", border: "border-slate-200", chip: "bg-slate-100 text-slate-800 border-slate-200" };
+        return { wrap: "bg-white", border: "border-slate-200", chip: "bg-slate-100 text-slate-800 border-slate-200", halo: "bg-slate-50" };
     case "CARIES":
-      return { wrap: "bg-rose-50", border: "border-rose-200", chip: "bg-rose-100 text-rose-900 border-rose-200" };
+        return { wrap: "bg-rose-50", border: "border-rose-300", chip: "bg-rose-200 text-rose-950 border-rose-300", halo: "bg-rose-100" };
     case "FILLED":
-      return { wrap: "bg-emerald-50", border: "border-emerald-200", chip: "bg-emerald-100 text-emerald-900 border-emerald-200" };
+        return { wrap: "bg-emerald-50", border: "border-emerald-300", chip: "bg-emerald-200 text-emerald-950 border-emerald-300", halo: "bg-emerald-100" };
     case "MISSING":
-      return { wrap: "bg-slate-100", border: "border-slate-300", chip: "bg-slate-200 text-slate-800 border-slate-300" };
+        return { wrap: "bg-slate-100", border: "border-slate-400", chip: "bg-slate-300 text-slate-900 border-slate-400", halo: "bg-slate-200" };
     case "EXTRACTED":
-      return { wrap: "bg-orange-50", border: "border-orange-200", chip: "bg-orange-100 text-orange-900 border-orange-200" };
+        return { wrap: "bg-orange-50", border: "border-orange-300", chip: "bg-orange-200 text-orange-950 border-orange-300", halo: "bg-orange-100" };
     case "RCT":
-      return { wrap: "bg-indigo-50", border: "border-indigo-200", chip: "bg-indigo-100 text-indigo-900 border-indigo-200" };
+        return { wrap: "bg-indigo-50", border: "border-indigo-300", chip: "bg-indigo-200 text-indigo-950 border-indigo-300", halo: "bg-indigo-100" };
     case "CROWN":
-      return { wrap: "bg-amber-50", border: "border-amber-200", chip: "bg-amber-100 text-amber-900 border-amber-200" };
+        return { wrap: "bg-amber-50", border: "border-amber-300", chip: "bg-amber-200 text-amber-950 border-amber-300", halo: "bg-amber-100" };
     case "IMPLANT":
-      return { wrap: "bg-cyan-50", border: "border-cyan-200", chip: "bg-cyan-100 text-cyan-900 border-cyan-200" };
+        return { wrap: "bg-cyan-50", border: "border-cyan-300", chip: "bg-cyan-200 text-cyan-950 border-cyan-300", halo: "bg-cyan-100" };
     case "DENTURE":
-      return { wrap: "bg-purple-50", border: "border-purple-200", chip: "bg-purple-100 text-purple-900 border-purple-200" };
+        return { wrap: "bg-purple-50", border: "border-purple-300", chip: "bg-purple-200 text-purple-950 border-purple-300", halo: "bg-purple-100" };
   }
 }
 
@@ -139,16 +139,17 @@ function ToothTile({
             selected ? "ring-2 ring-slate-700" : "hover:bg-slate-100",
         ].join(" ")}
         >
-      {/* Status background behind tooth icon (soft) */}
-      <span
-        className={[
-          "absolute top-1 left-1 right-1 h-12 rounded-2xl border",
-          theme.wrap,
-          theme.border,
-          status === "HEALTHY" ? "opacity-0" : "opacity-100",
-        ].join(" ")}
-        aria-hidden="true"
-      />
+    {/* Status halo behind tooth icon (stronger but still soft) */}
+        <span
+            className={[
+                "absolute top-0.5 left-0.5 right-0.5 h-14 rounded-[18px] border",
+                theme.halo,
+                theme.border,
+                status === "HEALTHY" ? "opacity-0" : "opacity-100",
+                status !== "HEALTHY" ? "ring-1 ring-black/5" : "",
+            ].join(" ")}
+            aria-hidden="true"
+        />
 
       <div className="relative text-slate-800">
         {/* smaller than before */}
@@ -208,8 +209,8 @@ export default function ToothChart({
   return (
     <div className="grid gap-4">
       <div className="rounded-xl border bg-white p-4">
-        <div className="text-sm font-semibold">Legend</div>
-        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-700">
+        <div className="text-sm font-semibold text-center">Legend</div>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-700 justify-center">
           {legendStatuses.map((s) => {
             const theme = statusTheme(s);
             return (
