@@ -42,6 +42,19 @@ type Treatment = {
   notes: string | null;
 };
 
+type Attachment = {
+  id: string;
+  type: string;
+  file_path: string;
+  file_name: string | null;
+  content_type: string | null;
+  file_size_bytes: number | null;
+  created_at: string;
+};
+
+const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
+type AttachmentType = (typeof attachmentTypes)[number];
+
 const tabs = ["Info", "Medical", "Chart", "Treatments", "Files", "Documents"] as const;
 type Tab = (typeof tabs)[number];
 
@@ -54,6 +67,10 @@ export default function PatientProfilePage() {
   const [med, setMed] = useState<MedHist | null>(null);
   const [chart, setChart] = useState<ChartEntry[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadType, setUploadType] = useState<AttachmentType>("XRAY");
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   // Forms
@@ -128,6 +145,14 @@ export default function PatientProfilePage() {
       .limit(200);
 
     if (!t.error && t.data) setTreatments(t.data as Treatment[]);
+    
+    const a = await supabase
+      .from("attachments")
+      .select("id, type, file_path, file_name, content_type, file_size_bytes, created_at")
+      .eq("patient_id", id)
+      .order("created_at", { ascending: false });
+
+    if (!a.error && a.data) setAttachments(a.data as Attachment[]);
 
     setLoading(false);
   }
@@ -221,6 +246,77 @@ export default function PatientProfilePage() {
     setFee("");
     setTNotes("");
     await loadAll();
+  }
+
+  function safeFileName(name: string) {
+    return name.replace(/[^\w.\-() ]+/g, "_").slice(0, 120);
+  }
+
+  async function uploadAttachment() {
+    if (!fileToUpload) return;
+
+    setBusy(true);
+    setErr(null);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user?.id ?? null;
+
+    const ext = fileToUpload.name.includes(".") ? fileToUpload.name.split(".").pop() : "";
+    const base = safeFileName(fileToUpload.name);
+    const random = crypto.randomUUID();
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Path inside the bucket:
+    // patientId/YYYY-MM-DD/uuid_filename.ext
+    const path = `${id}/${today}/${random}_${base}`;
+
+    const up = await supabase.storage
+      .from("patient-files")
+      .upload(path, fileToUpload, {
+        contentType: fileToUpload.type || "application/octet-stream",
+        upsert: false,
+      });
+
+    if (up.error) {
+      setBusy(false);
+      setErr(up.error.message);
+      return;
+    }
+
+    const ins = await supabase.from("attachments").insert({
+      patient_id: id,
+      type: uploadType,
+      file_path: path,
+      file_name: fileToUpload.name,
+      content_type: fileToUpload.type || null,
+      file_size_bytes: fileToUpload.size ?? null,
+      uploaded_by: userId,
+    });
+
+    setBusy(false);
+
+    if (ins.error) {
+      setErr(ins.error.message);
+      return;
+    }
+
+    setFileToUpload(null);
+    await loadAll();
+  }
+
+  async function openAttachment(a: Attachment) {
+    setErr(null);
+
+    const signed = await supabase.storage
+      .from("patient-files")
+      .createSignedUrl(a.file_path, 60 * 10); // 10 minutes
+
+    if (signed.error || !signed.data?.signedUrl) {
+      setErr(signed.error?.message ?? "Failed to generate signed URL.");
+      return;
+    }
+
+    window.open(signed.data.signedUrl, "_blank", "noopener,noreferrer");
   }
 
   if (loading) {
@@ -412,8 +508,96 @@ export default function PatientProfilePage() {
           ) : null}
 
           {tab === "Files" ? (
-            <div className="text-sm text-slate-600">
-              Next: upload X-rays/photos to Supabase Storage and list them here.
+            <div className="grid gap-4">
+              <div className="rounded-lg border p-4 bg-slate-50">
+                <div className="text-sm font-semibold">Upload file</div>
+                <p className="text-xs text-slate-600 mt-1">
+                  Use for X-rays, photos, consent forms, lab results. Files are stored privately.
+                </p>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <label className="block text-sm font-medium">Type</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border px-3 py-2 bg-white"
+                      value={uploadType}
+                      onChange={(e) => setUploadType(e.target.value as AttachmentType)}
+                    >
+                      {attachmentTypes.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium">Choose file</label>
+                    <input
+                      className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
+                    />
+                    <div className="mt-1 text-xs text-slate-600">
+                      {fileToUpload ? `Selected: ${fileToUpload.name}` : "No file selected."}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex justify-end">
+                  <button
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    disabled={busy || !fileToUpload}
+                    onClick={uploadAttachment}
+                  >
+                    {busy ? "Uploading…" : "Upload"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border overflow-hidden">
+                <div className="bg-white px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold">Patient files</div>
+                    <div className="text-xs text-slate-600">{attachments.length} file(s)</div>
+                  </div>
+                </div>
+
+                <div className="bg-white">
+                  {attachments.length === 0 ? (
+                    <div className="px-4 py-6 text-sm text-slate-600">No files uploaded yet.</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-100 text-slate-700">
+                        <tr>
+                          <th className="text-left px-4 py-2">Type</th>
+                          <th className="text-left px-4 py-2">File</th>
+                          <th className="text-left px-4 py-2">Uploaded</th>
+                          <th className="text-right px-4 py-2">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attachments.map((a) => (
+                          <tr key={a.id} className="border-t">
+                            <td className="px-4 py-2 font-medium">{a.type}</td>
+                            <td className="px-4 py-2">{a.file_name ?? a.file_path}</td>
+                            <td className="px-4 py-2">{new Date(a.created_at).toLocaleString()}</td>
+                            <td className="px-4 py-2 text-right">
+                              <button
+                                className="rounded-lg border bg-white px-3 py-1 text-sm font-medium"
+                                onClick={() => openAttachment(a)}
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
             </div>
           ) : null}
 
