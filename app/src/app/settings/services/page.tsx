@@ -201,135 +201,126 @@ export default function ServicesSettingsPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-600">Loading…</div>;
+    return <div className="flex items-center justify-center py-16 text-slate-600">Loading…</div>;
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
-      <div className="mx-auto max-w-5xl">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Settings · Services</h1>
-            <p className="text-sm text-slate-600">
-              Manage your clinic’s service menu (services + add-ons). Treatments will use this dropdown.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
-            disabled={busy}
-            onClick={load}
-          >
-            Refresh
-          </button>
+    <div className="mx-auto max-w-5xl">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Services</h1>
+          <p className="text-sm text-slate-600">
+            Manage your clinic’s service menu (services + add-ons). Treatments will use this dropdown.
+          </p>
         </div>
 
-        {err ? <div className="mt-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+        <button
+          type="button"
+          className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+          disabled={busy}
+          onClick={load}
+        >
+          Refresh
+        </button>
+      </div>
 
-        {/* Add form */}
-        <div className="mt-4 rounded-xl border bg-white p-4">
-          <div className="text-sm font-semibold">Add menu item</div>
+      {err ? <div className="mt-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-6">
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium">Type</label>
-              <select
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                value={itemType}
-                onChange={(e) => setItemType(e.target.value as any)}
-                disabled={busy}
-              >
-                <option value="SERVICE">Service</option>
-                <option value="ADD_ON">Add-on</option>
-              </select>
-            </div>
+      <div className="mt-4 rounded-xl border bg-white p-4">
+        <div className="text-sm font-semibold">Add menu item</div>
 
-            <div className="sm:col-span-3">
-              <label className="block text-sm font-medium">Name</label>
-              <input
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Oral prophylaxis"
-                disabled={busy}
-              />
-            </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-6">
+          <div className="sm:col-span-1">
+            <label className="block text-sm font-medium">Type</label>
+            <select
+              className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
+              value={itemType}
+              onChange={(e) => setItemType(e.target.value as any)}
+              disabled={busy}
+            >
+              <option value="SERVICE">Service</option>
+              <option value="ADD_ON">Add-on</option>
+            </select>
+          </div>
 
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium">Price (PHP)</label>
-              <input
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="0.00"
-                disabled={busy}
-              />
-            </div>
+          <div className="sm:col-span-3">
+            <label className="block text-sm font-medium">Name</label>
+            <input
+              className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Oral prophylaxis"
+              disabled={busy}
+            />
+          </div>
 
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium">Sort</label>
-              <input
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                placeholder="0"
-                disabled={busy}
-              />
-            </div>
+          <div className="sm:col-span-1">
+            <label className="block text-sm font-medium">Price (PHP)</label>
+            <input
+              className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="0.00"
+              disabled={busy}
+            />
+          </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium">Active</label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={(e) => setActive(e.target.checked)}
-                  disabled={busy}
-                />
-                <span className="text-sm text-slate-700">{active ? "Active" : "Inactive"}</span>
-              </div>
-            </div>
+          <div className="sm:col-span-1">
+            <label className="block text-sm font-medium">Sort</label>
+            <input
+              className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              placeholder="0"
+              disabled={busy}
+            />
+          </div>
 
-            <div className="sm:col-span-4 flex items-end justify-end">
-              <button
-                type="button"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                disabled={busy}
-                onClick={addItem}
-              >
-                {busy ? "Saving…" : "Add item"}
-              </button>
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium">Active</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} disabled={busy} />
+              <span className="text-sm text-slate-700">{active ? "Active" : "Inactive"}</span>
             </div>
           </div>
-        </div>
 
-        {/* Lists */}
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <MenuList
-            title="Services"
-            items={services}
-            busy={busy}
-            onToggleActive={toggleActive}
-            onUpdateSort={updateSort}
-            onUpdatePrice={updatePrice}
-            onUpdateName={updateName}
-            onDelete={deleteItem}
-          />
-
-          <MenuList
-            title="Add-ons"
-            items={addons}
-            busy={busy}
-            onToggleActive={toggleActive}
-            onUpdateSort={updateSort}
-            onUpdatePrice={updatePrice}
-            onUpdateName={updateName}
-            onDelete={deleteItem}
-          />
+          <div className="sm:col-span-4 flex items-end justify-end">
+            <button
+              type="button"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={busy}
+              onClick={addItem}
+            >
+              {busy ? "Saving…" : "Add item"}
+            </button>
+          </div>
         </div>
       </div>
-    </main>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <MenuList
+          title="Services"
+          items={services}
+          busy={busy}
+          onToggleActive={toggleActive}
+          onUpdateSort={updateSort}
+          onUpdatePrice={updatePrice}
+          onUpdateName={updateName}
+          onDelete={deleteItem}
+        />
+
+        <MenuList
+          title="Add-ons"
+          items={addons}
+          busy={busy}
+          onToggleActive={toggleActive}
+          onUpdateSort={updateSort}
+          onUpdatePrice={updatePrice}
+          onUpdateName={updateName}
+          onDelete={deleteItem}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -354,7 +345,9 @@ function MenuList({
 }) {
   return (
     <div className="rounded-xl border bg-white overflow-hidden">
-      <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">{title} ({items.length})</div>
+      <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">
+        {title} ({items.length})
+      </div>
 
       {items.length === 0 ? (
         <div className="px-4 py-6 text-sm text-slate-600">No items yet.</div>
@@ -364,17 +357,15 @@ function MenuList({
             <div key={r.id} className="p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-[240px] flex-1">
-                  <div className="flex items-center gap-2">
-                    <input
-                      className="w-full rounded-lg border bg-white px-3 py-2 text-sm font-semibold"
-                      defaultValue={r.service_name}
-                      disabled={busy}
-                      onBlur={(e) => {
-                        const next = e.target.value.trim();
-                        if (next && next !== r.service_name) onUpdateName(r.id, next);
-                      }}
-                    />
-                  </div>
+                  <input
+                    className="w-full rounded-lg border bg-white px-3 py-2 text-sm font-semibold"
+                    defaultValue={r.service_name}
+                    disabled={busy}
+                    onBlur={(e) => {
+                      const next = e.target.value.trim();
+                      if (next && next !== r.service_name) onUpdateName(r.id, next);
+                    }}
+                  />
 
                   <div className="mt-2 grid gap-2 sm:grid-cols-3">
                     <div>

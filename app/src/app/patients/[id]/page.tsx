@@ -148,6 +148,36 @@ function num(n: any) {
   return Number.isFinite(v) ? v : 0;
 }
 
+function formatDateTimePH(isoOrDate: string) {
+  const d = new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return isoOrDate;
+
+  return d.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatDatePH(isoDate: string | null | undefined) {
+  if (!isoDate) return "";
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return String(isoDate);
+
+  return d.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function dentistForActiveInvoice(items: InvoiceItemRow[]) {
+  const v = (items.find((x) => (x.dentist_name ?? "").trim())?.dentist_name ?? "").trim();
+  return v || "—";
+}
+
 function isMissingColumnError(msg: string) {
   return msg.toLowerCase().includes("could not find the") && msg.toLowerCase().includes("column");
 }
@@ -199,13 +229,14 @@ export default function PatientProfilePage() {
 
   // Visit header (pick once)
   const [visitDate, setVisitDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [visitDentistId, setVisitDentistId] = useState<string>(""); // uses dentists table
+  const [visitDentistId, setVisitDentistId] = useState("SELECT");
   const [visitNote, setVisitNote] = useState("");
 
   // Draft procedure line inputs
   const [lineTooth, setLineTooth] = useState("");
   const [txServiceId, setTxServiceId] = useState<string>("");
   const [txServiceName, setTxServiceName] = useState<string>("");
+  const [lineNote, setLineNote] = useState("");
 
   // Draft list
   type DraftLine = {
@@ -213,7 +244,9 @@ export default function PatientProfilePage() {
     tooth_number: number | null;
     service_price_id: string | null;
     procedure: string;
+    note: string | null; // optional per-procedure note
   };
+
   const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
 
   // Files
@@ -620,32 +653,27 @@ export default function PatientProfilePage() {
   function addDraftLine() {
     setErr(null);
 
-    if (!visitDate) {
-      setErr("Select a visit date first.");
-      return;
-    }
-    if (!visitDentistId) {
-      setErr("Select the attending dentist first.");
-      return;
-    }
     if (!txServiceId || !txServiceName.trim()) {
       setErr("Select a procedure/service from the menu.");
       return;
     }
 
     const toothVal = parseToothOrNull(lineTooth);
+    const cleanedNote = lineNote.trim() || null;
 
     const next: DraftLine = {
       id: crypto.randomUUID(),
       tooth_number: toothVal,
       service_price_id: txServiceId || null,
       procedure: txServiceName.trim(),
+      note: cleanedNote,
     };
 
     setDraftLines((prev) => [next, ...prev]);
 
     // clear line inputs
     setLineTooth("");
+    setLineNote("");
     setTxServiceId("");
     setTxServiceName("");
   }
@@ -660,100 +688,65 @@ export default function PatientProfilePage() {
     setBusy(true);
     setErr(null);
 
-    // Validate visit basics
     if (!visitDate) {
       setBusy(false);
       setErr("Select a date for this visit.");
       return;
     }
-
-    // Dentist must be selected (neutral state is "")
     if (!visitDentistId) {
       setBusy(false);
       setErr("Select the attending dentist.");
       return;
     }
-
-    const dentistName = dentists.find((d) => d.id === visitDentistId)?.full_name ?? null;
-    if (!dentistName) {
-      setBusy(false);
-      setErr("Select a valid dentist.");
-      return;
-    }
-
     if (draftLines.length === 0) {
       setBusy(false);
       setErr("Add at least one procedure for this visit.");
       return;
     }
 
-    // Session (audit)
+    const dentistName = dentists.find((d) => d.id === visitDentistId)?.full_name ?? null;
+
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
 
-    // 1) Ensure encounter + invoice exists for this date
-    const invoiceId = await ensureEncounterInvoice(patient.id, visitDate, visitNote);
-    if (!invoiceId) {
-      setBusy(false);
-      return;
-    }
+    const payload = draftLines.map((line: DraftLine) => {
+    const dentistLine = `Dentist: ${visitDentistId}`;
+    const visit = visitNote.trim();
+    const proc = (line.note ?? "").trim();
 
-    // 2) Fetch encounter_id from the invoice (so treatments can link)
-    const inv = await supabase.from("invoices").select("encounter_id").eq("id", invoiceId).single();
+    const notesParts = [dentistLine, visit, proc].filter((x) => x && x.trim());
+    const combinedNotes = notesParts.length ? notesParts.join("\n\n") : null;
 
-    if (inv.error) {
-      setBusy(false);
-      setErr(inv.error.message);
-      return;
-    }
-
-    const encounterId = (inv.data as any)?.encounter_id ?? null;
-    if (!encounterId) {
-      setBusy(false);
-      setErr("Invoice was created but encounter_id was missing. Check ensure_encounter_invoice().");
-      return;
-    }
-
-    // 3) Insert each draft line as a treatment row
-    const payload = draftLines.map((ln) => ({
+    return {
       patient_id: patient.id,
-      encounter_id: encounterId,
       treatment_date: visitDate,
-      procedure: ln.procedure,
-      service_price_id: ln.service_price_id,
-      tooth_number: ln.tooth_number,
-      notes: visitNote.trim() || null,     // one note per visit (duplicated into rows)
-      dentist_name: dentistName,           // human-readable for history/printing
-      dentist_id: visitDentistId,          // real dentist reference
+      procedure: line.procedure,
+      service_price_id: line.service_price_id,
+      tooth_number: line.tooth_number,
+      notes: combinedNotes,
       created_by: userId,
-    })) as any[];
+      dentist_id: userId, // keep for audit for now
+    } as any;
+  });
 
     const res = await supabase.from("treatments").insert(payload);
+
+    setBusy(false);
+
     if (res.error) {
-      setBusy(false);
       setErr(res.error.message);
       return;
     }
 
-    // 4) Sync invoice items from treatments, then open Billing on that invoice
-    const ok = await syncInvoiceFromTreatments(invoiceId);
-    if (!ok) {
-      setBusy(false);
-      return;
-    }
-
-    setActiveInvoiceId(invoiceId);
-
-    // Clear visit draft
     setDraftLines([]);
-    setVisitNote("");
     setLineTooth("");
+    setLineNote("");
     setTxServiceId("");
     setTxServiceName("");
+    setLineNote("");
+    // keep visitDate + dentist selected so you can add another visit quickly if you want
 
-    setBusy(false);
     await loadAll();
-    await loadInvoiceDetails(invoiceId);
   }
 
   async function saveToothStatus(status: string) {
@@ -1311,25 +1304,8 @@ export default function PatientProfilePage() {
               {patient.phone ?? "No phone"} {patient.birth_date ? `• Born ${patient.birth_date}` : ""}
             </p>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
-              onClick={() => router.push("/settings/services")}
-            >
-              Settings · Services
-            </button>
-
-            <button
-              type="button"
-              className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
-              onClick={() => router.push("/settings/dentists")}
-            >
-              Settings · Dentists
-            </button>
-          </div>
         </div>
+
         {/* Tabs */}
         <div className="mt-4 flex flex-wrap gap-2">
           {tabs.map((t) => (
@@ -1616,7 +1592,7 @@ export default function PatientProfilePage() {
                 <table className="w-full text-sm">
                   <thead className="bg-white text-slate-700">
                     <tr className="border-b">
-                      <th className="text-left px-3 py-2">Date</th>
+                      <th className="text-left px-3 py-2">Recorded</th>
                       <th className="text-left px-3 py-2">Tooth</th>
                       <th className="text-left px-3 py-2">Status</th>
                       <th className="text-left px-3 py-2">Detail</th>
@@ -1627,7 +1603,7 @@ export default function PatientProfilePage() {
                   <tbody>
                     {(selectedTooth ? chart.filter((e) => e.tooth_number === selectedTooth) : chart).map((e) => (
                       <tr key={e.id} className="border-t">
-                        <td className="px-3 py-2">{new Date(e.recorded_at).toLocaleString()}</td>
+                        <td className="px-3 py-2">{formatDateTimePH(e.recorded_at)}</td>
                         <td className="px-3 py-2">{e.tooth_number}</td>
                         <td className="px-3 py-2 font-medium">{e.finding_code}</td>
                         <td className="px-3 py-2">{e.finding_detail ?? "-"}</td>
@@ -1650,13 +1626,13 @@ export default function PatientProfilePage() {
 
           {tab === "Treatments" ? (
             <div className="grid gap-4">
-              {/* Step 1: Date + Dentist */}
+              {/* Visit header (date + dentist once) */}
               <div className="rounded-xl border bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold">Visit</div>
                     <div className="text-xs text-slate-600">
-                      Select date and attending dentist, then add procedures. Visit note is last.
+                      Choose date and dentist once, then add procedures. Notes are per procedure.
                     </div>
                   </div>
 
@@ -1665,15 +1641,13 @@ export default function PatientProfilePage() {
                     className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     disabled={busy || !patient || !visitDate || !visitDentistId || draftLines.length === 0}
                     onClick={saveVisit}
-                    title={!visitDentistId ? "Select dentist first" : draftLines.length === 0 ? "Add at least 1 procedure" : ""}
                   >
                     Save visit
                   </button>
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <Field label="Visit date" value={visitDate} onChange={setVisitDate} type="date" />
-
+                  <Field label="Visit date" value={visitDate} onChange={setVisitDate} type="date" placeholder="Select…" />
                   <div>
                     <label className="block text-sm font-medium">Attending dentist</label>
                     <select
@@ -1689,23 +1663,16 @@ export default function PatientProfilePage() {
                         </option>
                       ))}
                     </select>
-                    <div className="mt-1 text-xs text-slate-600">
-                      Required.
-                    </div>
+                    <div className="mt-1 text-xs text-slate-600">Required.</div>
                   </div>
 
-                  <div className="hidden sm:block" />
+                  <div className="sm:col-span-1" />
                 </div>
               </div>
 
-              {/* Step 2: Procedures */}
+              {/* Add procedure (one row, tooth shorter, note longer, add button aligned) */}
               <div className="rounded-xl border bg-white p-4">
-                <div className="text-sm font-semibold">Procedures</div>
-                <div className="mt-1 text-xs text-slate-600">
-                  Add procedures for this visit. Fees are handled in Billing.
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-6">
+                <div className="mt-3 grid gap-3 sm:grid-cols-12">
                   <div className="sm:col-span-1">
                     <Field label="Tooth" value={lineTooth} onChange={setLineTooth} placeholder="e.g., 11" />
                   </div>
@@ -1716,13 +1683,14 @@ export default function PatientProfilePage() {
                       className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
                       value={txServiceId}
                       onChange={(e) => {
-                        const sid = e.target.value;
-                        setTxServiceId(sid);
+                        const id = e.target.value;
+                        setTxServiceId(id);
 
-                        const pick = serviceMenu.find((x) => x.id === sid);
-                        setTxServiceName(pick ? pick.service_name : "");
+                        const pick = serviceMenu.find((x) => x.id === id);
+                        if (pick) setTxServiceName(pick.service_name);
+                        else setTxServiceName("");
                       }}
-                      disabled={busy || !visitDate || !visitDentistId}
+                      disabled={busy}
                     >
                       <option value="">Select…</option>
                       {serviceMenu
@@ -1733,23 +1701,24 @@ export default function PatientProfilePage() {
                           </option>
                         ))}
                     </select>
-                    {!visitDentistId ? (
-                      <div className="mt-1 text-xs text-rose-600">Select the dentist first.</div>
-                    ) : null}
+                  </div>
+
+                  <div className="sm:col-span-6">
+                    <Field label="Note (optional)" value={lineNote} onChange={setLineNote} placeholder="Optional" />
                   </div>
 
                   <div className="sm:col-span-1 flex items-end justify-end">
                     <button
                       type="button"
-                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      disabled={busy || !visitDate || !visitDentistId || !txServiceId}
+                      className="h-[42px] w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      disabled={busy || !txServiceId}
                       onClick={addDraftLine}
                     >
                       Add
                     </button>
                   </div>
                 </div>
-
+                
                 <div className="mt-4 rounded-lg border overflow-hidden">
                   {draftLines.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-slate-600">No procedures added yet.</div>
@@ -1785,23 +1754,6 @@ export default function PatientProfilePage() {
                 </div>
               </div>
 
-              {/* Step 3: Visit note (last) */}
-              <div className="rounded-xl border bg-white p-4">
-                <div className="text-sm font-semibold">Visit note (optional)</div>
-                <div className="mt-1 text-xs text-slate-600">
-                  One note per visit (shared across procedures). This will show in History under the date.
-                </div>
-
-                <textarea
-                  className="mt-3 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                  rows={4}
-                  value={visitNote}
-                  onChange={(e) => setVisitNote(e.target.value)}
-                  placeholder="Long notes for this visit."
-                  disabled={busy}
-                />
-              </div>
-
               {/* History */}
               <div className="rounded-xl border bg-white overflow-hidden">
                 <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">History</div>
@@ -1820,27 +1772,20 @@ export default function PatientProfilePage() {
                       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
                       .map(([date, rows]) => (
                         <div key={date} className="p-4">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-sm font-semibold">{date}</div>
-                            {/* dentist is per-row in DB, so show the first row dentist_name if present */}
-                            <div className="text-xs text-slate-600">
-                              {rows[0] && (rows[0] as any).dentist_name ? `Dentist: ${(rows[0] as any).dentist_name}` : ""}
-                            </div>
-                          </div>
-
-                          {rows[0]?.notes ? (
-                            <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 whitespace-pre-wrap">
-                              {rows[0].notes}
-                            </div>
-                          ) : null}
+                          <div className="text-sm font-semibold">{date}</div>
 
                           <ul className="mt-3 space-y-2">
                             {rows.map((r) => (
                               <li key={r.id} className="text-sm">
-                                <span className="font-semibold">
-                                  {r.tooth_number ? `Tooth ${r.tooth_number}: ` : ""}
-                                </span>
-                                {r.procedure}
+                                <div>
+                                  <span className="font-semibold">{r.tooth_number ? `Tooth ${r.tooth_number}: ` : ""}</span>
+                                  {r.procedure}
+                                </div>
+                                {r.notes?.trim() ? (
+                                  <div className="mt-1 text-xs text-slate-600 whitespace-pre-wrap">
+                                    Note: {r.notes}
+                                  </div>
+                                ) : null}
                               </li>
                             ))}
                           </ul>
@@ -2102,7 +2047,7 @@ export default function PatientProfilePage() {
                   <div>
                     <div className="text-sm font-semibold">Billing</div>
                     <div className="text-xs text-slate-600">
-                      Select a visit date that has Treatments. We auto-generate the invoice and items from Treatments.
+                      Invoices are generated from Treatments. Open a date from the invoice list below.
                     </div>
                   </div>
 
@@ -2120,38 +2065,8 @@ export default function PatientProfilePage() {
                   </button>
                 </div>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <div className="sm:col-span-1">
-                    <label className="block text-sm font-medium">Visit date</label>
-                    <select
-                      className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
-                      value={(() => {
-                        const active = invoices.find((x) => x.id === activeInvoiceId);
-                        return active?.invoice_date ?? "";
-                      })()}
-                      onChange={async (e) => {
-                        const d = e.target.value;
-                        if (!d) return;
-                        await openBillingForVisitDate(d);
-                      }}
-                      disabled={busy || visitDates.length === 0}
-                    >
-                      <option value="">{visitDates.length === 0 ? "No visits yet" : "Select…"}</option>
-                      {visitDates.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="mt-1 text-xs text-slate-600">
-                      Only dates with Treatments appear here.
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2 rounded-lg border bg-slate-50 p-3 text-sm text-slate-700">
-                    Tip: If you edit Treatments (add/remove procedures), re-open the date or click “Refresh from Treatments” below.
-                  </div>
+                <div className="mt-2 text-xs text-slate-600">
+                  Tip: If you edit Treatments, click “Refresh from Treatments” inside the invoice.
                 </div>
               </div>
 
@@ -2168,6 +2083,7 @@ export default function PatientProfilePage() {
                     <div className="divide-y">
                       {invoices.map((inv) => {
                         const isActive = inv.id === activeInvoiceId;
+
                         return (
                           <button
                             key={inv.id}
@@ -2176,11 +2092,19 @@ export default function PatientProfilePage() {
                               "w-full text-left px-4 py-3 transition",
                               isActive ? "bg-slate-900 text-white" : "hover:bg-slate-50",
                             ].join(" ")}
-                            onClick={() => setActiveInvoiceId(inv.id)}
+                            disabled={busy}
+                            onClick={async () => {
+                              // Always open via visit date so it also ensures invoice exists and syncs items
+                              await openBillingForVisitDate(inv.invoice_date);
+                            }}
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="text-sm font-semibold">{inv.invoice_date}</div>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-semibold">{formatDatePH(inv.invoice_date)}</div>
                               <div className="text-xs opacity-80">{inv.status ?? "OPEN"}</div>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between gap-3 text-xs opacity-80">
+                              <div>Dentist: {isActive ? dentistForActiveInvoice(invoiceItems) : "—"}</div>
+                              <div>Total: PHP {num(inv.total).toFixed(2)}</div>
                             </div>
                             <div className="mt-1 text-xs opacity-80">Total: PHP {num(inv.total).toFixed(2)}</div>
                           </button>
@@ -2270,10 +2194,7 @@ export default function PatientProfilePage() {
                                 <tr className="border-b">
                                   <th className="text-left px-3 py-2">Service</th>
                                   <th className="text-left px-3 py-2">Tooth</th>
-                                  <th className="text-left px-3 py-2">Dentist</th>
-                                  <th className="text-right px-3 py-2">Qty</th>
-                                  <th className="text-right px-3 py-2">Unit</th>
-                                  <th className="text-right px-3 py-2">Line</th>
+                                  <th className="text-right px-3 py-2">Amount</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -2283,9 +2204,6 @@ export default function PatientProfilePage() {
                                       <div className="font-medium">{it.service_name}</div>
                                     </td>
                                     <td className="px-3 py-2">{it.tooth_number ?? "—"}</td>
-                                    <td className="px-3 py-2">{it.dentist_name ?? "—"}</td>
-                                    <td className="px-3 py-2 text-right">{it.qty}</td>
-                                    <td className="px-3 py-2 text-right">PHP {num(it.unit_price).toFixed(2)}</td>
                                     <td className="px-3 py-2 text-right font-semibold">PHP {num(it.line_total).toFixed(2)}</td>
                                   </tr>
                                 ))}
