@@ -255,6 +255,42 @@ export default function PatientProfilePage() {
   const [newEncounterDate, setNewEncounterDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [newEncounterNotes, setNewEncounterNotes] = useState("");
 
+    // Billing: visit dates available (from Treatments)
+  const visitDates = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of treatments) {
+      if (t.treatment_date) set.add(t.treatment_date);
+    }
+    return Array.from(set).sort((a, b) => (a < b ? 1 : -1));
+  }, [treatments]);
+
+  async function openBillingForVisitDate(date: string) {
+    if (!patient) return;
+
+    setBusy(true);
+    setErr(null);
+
+    // Ensure invoice exists for this visit date, then rebuild items from Treatments
+    const invoiceId = await ensureEncounterInvoice(patient.id, date, undefined);
+    if (!invoiceId) {
+      setBusy(false);
+      return;
+    }
+
+    const ok = await syncInvoiceFromTreatments(invoiceId);
+    if (!ok) {
+      setBusy(false);
+      return;
+    }
+
+    setActiveInvoiceId(invoiceId);
+
+    // Reload lists + details
+    await loadAll();
+    await loadInvoiceDetails(invoiceId);
+
+    setBusy(false);
+  }
 
   // Create invoice
   const [newInvoiceDate, setNewInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -1269,13 +1305,31 @@ export default function PatientProfilePage() {
             <button className="rounded-lg border bg-white px-3 py-1 text-sm" onClick={() => router.push("/patients")}>
               ← Back
             </button>
+
             <h1 className="mt-2 text-2xl font-semibold">{patient.full_name}</h1>
             <p className="text-sm text-slate-600">
               {patient.phone ?? "No phone"} {patient.birth_date ? `• Born ${patient.birth_date}` : ""}
             </p>
           </div>
-        </div>
 
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+              onClick={() => router.push("/settings/services")}
+            >
+              Settings · Services
+            </button>
+
+            <button
+              type="button"
+              className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+              onClick={() => router.push("/settings/dentists")}
+            >
+              Settings · Dentists
+            </button>
+          </div>
+        </div>
         {/* Tabs */}
         <div className="mt-4 flex flex-wrap gap-2">
           {tabs.map((t) => (
@@ -2042,43 +2096,74 @@ export default function PatientProfilePage() {
 
           {tab === "Billing" ? (
             <div className="grid gap-4">
+              {/* Visit selector (jump to visit dates only) */}
               <div className="rounded-xl border bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-sm font-semibold">Visit Billing</div>
+                    <div className="text-sm font-semibold">Billing</div>
                     <div className="text-xs text-slate-600">
-                      Visits create an invoice automatically from Treatments. This tab is for discounts and payments.
+                      Select a visit date that has Treatments. We auto-generate the invoice and items from Treatments.
                     </div>
                   </div>
 
                   <button
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                    disabled={busy || !patient}
-                    onClick={createEncounter}
+                    type="button"
+                    className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+                    disabled={busy || visitDates.length === 0}
+                    onClick={async () => {
+                      if (visitDates.length === 0) return;
+                      await openBillingForVisitDate(visitDates[0]);
+                    }}
+                    title={visitDates.length === 0 ? "No visits yet. Add Treatments first." : "Open the most recent visit"}
                   >
-                    Create visit
+                    Open latest visit
                   </button>
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <Field label="Visit date" value={newEncounterDate} onChange={setNewEncounterDate} type="date" />
-                  <div className="sm:col-span-2">
-                    <Field
-                      label="Visit notes (optional)"
-                      value={newEncounterNotes}
-                      onChange={setNewEncounterNotes}
-                      placeholder="Optional notes"
-                    />
+                  <div className="sm:col-span-1">
+                    <label className="block text-sm font-medium">Visit date</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
+                      value={(() => {
+                        const active = invoices.find((x) => x.id === activeInvoiceId);
+                        return active?.invoice_date ?? "";
+                      })()}
+                      onChange={async (e) => {
+                        const d = e.target.value;
+                        if (!d) return;
+                        await openBillingForVisitDate(d);
+                      }}
+                      disabled={busy || visitDates.length === 0}
+                    >
+                      <option value="">{visitDates.length === 0 ? "No visits yet" : "Select…"}</option>
+                      {visitDates.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="mt-1 text-xs text-slate-600">
+                      Only dates with Treatments appear here.
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2 rounded-lg border bg-slate-50 p-3 text-sm text-slate-700">
+                    Tip: If you edit Treatments (add/remove procedures), re-open the date or click “Refresh from Treatments” below.
                   </div>
                 </div>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[320px,1fr]">
+                {/* Visits list (only those that exist as invoices already) */}
                 <div className="rounded-xl border bg-white overflow-hidden">
-                  <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">Visits ({invoices.length})</div>
+                  <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">Invoices ({invoices.length})</div>
 
                   {invoices.length === 0 ? (
-                    <div className="px-4 py-6 text-sm text-slate-600">No invoices yet.</div>
+                    <div className="px-4 py-6 text-sm text-slate-600">
+                      No invoices yet. Select a visit date above to auto-generate one.
+                    </div>
                   ) : (
                     <div className="divide-y">
                       {invoices.map((inv) => {
@@ -2105,9 +2190,12 @@ export default function PatientProfilePage() {
                   )}
                 </div>
 
+                {/* Details */}
                 <div className="grid gap-4">
                   {!activeInvoiceId ? (
-                    <div className="rounded-xl border bg-white p-6 text-sm text-slate-600">Select an invoice to view details.</div>
+                    <div className="rounded-xl border bg-white p-6 text-sm text-slate-600">
+                      Select a visit date above to open billing.
+                    </div>
                   ) : (
                     <>
                       {/* Totals summary */}
@@ -2147,7 +2235,7 @@ export default function PatientProfilePage() {
                           <div>
                             <div className="text-sm font-semibold">Invoice items</div>
                             <div className="text-xs text-slate-600">
-                              Items are generated from Treatments for this encounter. To change items, edit Treatments.
+                              Items are generated from Treatments. To change items, edit Treatments.
                             </div>
                           </div>
 
@@ -2204,10 +2292,6 @@ export default function PatientProfilePage() {
                               </tbody>
                             </table>
                           )}
-                        </div>
-
-                        <div className="mt-3 text-xs text-slate-600">
-                          Tip: If totals look off after editing Treatments, click “Refresh from Treatments”.
                         </div>
                       </div>
 

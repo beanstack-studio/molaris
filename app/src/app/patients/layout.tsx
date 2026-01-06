@@ -1,44 +1,28 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
+import React from "react";
 
 export default function PatientsLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const [ready, setReady] = useState(false);
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Global header for all /patients routes */}
+      <div className="sticky top-0 z-50 border-b bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
+          <Link href="/patients" className="text-sm font-semibold text-slate-900 hover:underline">
+            Matira Dental Studio
+          </Link>
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function check() {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        router.replace("/login");
-        return;
-      }
-      if (mounted) setReady(true);
-    }
-
-    check();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.replace("/login");
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, [router]);
-
-  if (!ready) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        Loading...
+          <div className="flex items-center gap-2">
+            <Link
+              href="/settings"
+              className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+            >
+              Settings
+            </Link>
+          </div>
+        </div>
       </div>
-    );
-  }
 
-  return <>{children}</>;
+      <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">{children}</div>
+    </div>
+  );
 }
