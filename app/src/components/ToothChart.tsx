@@ -24,8 +24,11 @@ export type ToothStatus =
 
 const upperRight = [18, 17, 16, 15, 14, 13, 12, 11];
 const upperLeft = [21, 22, 23, 24, 25, 26, 27, 28];
-const lowerLeft = [38, 37, 36, 35, 34, 33, 32, 31];
-const lowerRight = [41, 42, 43, 44, 45, 46, 47, 48];
+
+// Lower should mirror the upper layout:
+// left side of the screen is patient's RIGHT (quadrant 4), then patient's LEFT (quadrant 3)
+const lowerRight = [48, 47, 46, 45, 44, 43, 42, 41];
+const lowerLeft = [31, 32, 33, 34, 35, 36, 37, 38];
 
 function statusLabel(s: ToothStatus) {
   switch (s) {
@@ -75,14 +78,23 @@ function statusTheme(s: ToothStatus) {
   }
 }
 
-function ToothOcclusalIcon({ status }: { status: ToothStatus }) {
-  // Original "top view" occlusal style tooth.
-  // It’s a rounded crown with cusps and grooves, plus small marks per status.
+function ToothOcclusalIcon({
+  status,
+  jaw,
+}: {
+  status: ToothStatus;
+  jaw: "upper" | "lower";
+}) {
+  // Flip upper teeth so the icon orientation matches a real chart
   const missing = status === "MISSING";
   const extracted = status === "EXTRACTED";
 
   return (
-    <svg viewBox="12 10 40 44" className="h-14 w-14" aria-hidden="true">
+    <svg
+      viewBox="12 10 40 44"
+      className={["h-14 w-14", jaw === "upper" ? "rotate-180" : ""].join(" ")}
+      aria-hidden="true"
+    >
       {/* Tooth outline */}
       <path
         d="M20 18c4-4 9-6 12-6s8 2 12 6c4 4 6 9 6 14 0 9-4 16-10 18-3 1-6-1-8-4-2 3-5 5-8 4-6-2-10-9-10-18 0-5 2-10 6-14Z"
@@ -116,6 +128,7 @@ function ToothOcclusalIcon({ status }: { status: ToothStatus }) {
 function ToothTile({
   tooth,
   status,
+  jaw,
   hasNote,
   count,
   selected,
@@ -123,6 +136,7 @@ function ToothTile({
 }: {
   tooth: number;
   status: ToothStatus;
+  jaw: "upper" | "lower";
   hasNote: boolean;
   count: number;
   selected: boolean;
@@ -153,7 +167,7 @@ function ToothTile({
 
       <div className="relative text-slate-800">
         {/* smaller than before */}
-        <ToothOcclusalIcon status={status} />
+        <ToothOcclusalIcon status={status} jaw={jaw} />
       </div>
 
       <div className="text-xs font-semibold text-slate-800">{tooth}</div>
@@ -189,20 +203,22 @@ export default function ToothChart({
   }, [entries]);
 
   function renderTooth(t: number) {
-    const s = statuses[t]?.status ?? "HEALTHY";
-    const note = statuses[t]?.note ?? null;
-    return (
-      <ToothTile
-        key={t}
-        tooth={t}
-        status={s}
-        hasNote={!!note && note.trim().length > 0}
-        count={counts.get(t) ?? 0}
-        selected={selectedTooth === t}
-        onClick={() => onSelectTooth(t)}
-      />
-    );
-  }
+  const s = statuses[t]?.status ?? "HEALTHY";
+  const note = statuses[t]?.note ?? null;
+  const jaw: "upper" | "lower" = t >= 11 && t <= 28 ? "upper" : "lower";
+  return (
+    <ToothTile
+      key={t}
+      tooth={t}
+      status={s}
+      jaw={jaw}
+      hasNote={!!note && note.trim().length > 0}
+      count={counts.get(t) ?? 0}
+      selected={selectedTooth === t}
+      onClick={() => onSelectTooth(t)}
+    />
+  );
+}
 
   const legendStatuses: ToothStatus[] = ["HEALTHY","CARIES","FILLED","MISSING","EXTRACTED","RCT","CROWN","IMPLANT","DENTURE"];
 
@@ -228,9 +244,9 @@ export default function ToothChart({
       {/* Upper: single line */}
       <div className="rounded-xl border bg-slate-50 p-4">
         <div className="text-sm font-semibold text-slate-700">Upper</div>
-        <div className="mt-3 flex flex-wrap gap-0 justify-center">
+        <div className="mt-3 flex flex-nowrap gap-0 justify-center overflow-x-auto">
           {upperRight.map(renderTooth)}
-          <div className="w-0 shrink-0" />
+          <div className="w-6 shrink-0" />
           {upperLeft.map(renderTooth)}
         </div>
       </div>
@@ -238,10 +254,10 @@ export default function ToothChart({
       {/* Lower: single line */}
       <div className="rounded-xl border bg-slate-50 p-4">
         <div className="text-sm font-semibold text-slate-700">Lower</div>
-        <div className="mt-3 flex flex-wrap gap-0 justify-center">
-          {lowerLeft.map(renderTooth)}
-          <div className="w-0 shrink-0" />
+        <div className="mt-3 flex flex-nowrap gap-0 justify-center overflow-x-auto">
           {lowerRight.map(renderTooth)}
+          <div className="w-6 shrink-0" />
+          {lowerLeft.map(renderTooth)}
         </div>
       </div>
 

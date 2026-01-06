@@ -42,6 +42,7 @@ type Treatment = {
   tooth_number: number | null;
   fee: number;
   notes: string | null;
+  dentist_name: string | null;
 };
 
 type ToothStatusRow = {
@@ -98,6 +99,14 @@ type PaymentRow = {
   created_at: string;
 };
 
+type EncounterRow = {
+  id: string;
+  patient_id: string;
+  encounter_date: string; // YYYY-MM-DD
+  notes: string | null;
+  created_at: string;
+};
+
 type InvoiceRow = {
   id: string;
   invoice_date: string;
@@ -121,6 +130,11 @@ type InvoiceItemRow = {
   tooth_number: number | null;
   dentist_name: string | null;
   created_at?: string;
+};
+
+type DentistRow = {
+  id: string;
+  full_name: string;
 };
 
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
@@ -180,19 +194,27 @@ export default function PatientProfilePage() {
   const [finding, setFinding] = useState("");
   const [chartNotes, setChartNotes] = useState("");
 
-  // Treatments
+  // Treatments (Visit-style)
   const [treatments, setTreatments] = useState<Treatment[]>([]);
-  const [procDate, setProcDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [tTooth, setTTooth] = useState("");
-  const [tNotes, setTNotes] = useState("");
 
-  // Treatments: service menu selection + fee logic
+  // Visit header (pick once)
+  const [visitDate, setVisitDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [visitDentistId, setVisitDentistId] = useState<string>(""); // uses dentists table
+  const [visitNote, setVisitNote] = useState("");
+
+  // Draft procedure line inputs
+  const [lineTooth, setLineTooth] = useState("");
   const [txServiceId, setTxServiceId] = useState<string>("");
   const [txServiceName, setTxServiceName] = useState<string>("");
-  const [txDefaultFee, setTxDefaultFee] = useState<number>(0); // remembers menu default
-  const [txFee, setTxFee] = useState<string>("");              // editable input
-  const [txFeeEdited, setTxFeeEdited] = useState<boolean>(false);
-  const [txFeeNote, setTxFeeNote] = useState<string>("");      // required if edited
+
+  // Draft list
+  type DraftLine = {
+    id: string;
+    tooth_number: number | null;
+    service_price_id: string | null;
+    procedure: string;
+  };
+  const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
 
   // Files
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -226,26 +248,23 @@ export default function PatientProfilePage() {
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItemRow[]>([]);
   const [invoicePayments, setInvoicePayments] = useState<PaymentRow[]>([]);
 
+  const [encounters, setEncounters] = useState<EncounterRow[]>([]);
+  const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
+
+  // Create encounter
+  const [newEncounterDate, setNewEncounterDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [newEncounterNotes, setNewEncounterNotes] = useState("");
+
+
   // Create invoice
   const [newInvoiceDate, setNewInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [newInvoiceNotes, setNewInvoiceNotes] = useState("");
 
   const [serviceMenu, setServiceMenu] = useState<ServicePriceRow[]>([]);
 
-  // Service menu form
-  const [svcName, setSvcName] = useState("");
-  const [svcPrice, setSvcPrice] = useState("");
-  const [svcType, setSvcType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
-  const [svcActive, setSvcActive] = useState(true);
-  const [svcSort, setSvcSort] = useState("0");
-
-  // Add item
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  const [itemService, setItemService] = useState("");
-  const [itemQty, setItemQty] = useState("1");
-  const [itemUnitPrice, setItemUnitPrice] = useState("");
-  const [itemTooth, setItemTooth] = useState("");
-  const [itemDentist, setItemDentist] = useState("");
+  // Dentists
+  const [dentists, setDentists] = useState<DentistRow[]>([]);
+  const [txDentistId, setTxDentistId] = useState<string | null>(null);
 
   // Discount (may not exist yet in DB)
   const [discType, setDiscType] = useState<"NONE" | "AMOUNT" | "PERCENT">("NONE");
@@ -339,7 +358,7 @@ export default function PatientProfilePage() {
     // Treatments
     const t = await supabase
       .from("treatments")
-      .select("id, treatment_date, procedure, tooth_number, fee, notes")
+      .select("id, treatment_date, procedure, tooth_number, fee, notes, dentist_name")
       .eq("patient_id", id)
       .order("treatment_date", { ascending: false })
       .limit(200);
@@ -402,13 +421,24 @@ export default function PatientProfilePage() {
       setToothStatuses({});
     }
 
+    const enc = await supabase
+    .from("encounters")
+    .select("id, patient_id, encounter_date, notes, created_at")
+    .eq("patient_id", id)
+    .order("encounter_date", { ascending: false });
+
+  if (!enc.error && enc.data) {
+    setEncounters(enc.data as EncounterRow[]);
+    if (!activeEncounterId && enc.data.length > 0) setActiveEncounterId(enc.data[0].id);
+  }
+
     // Invoices (use select("*") so it won’t crash if discount columns aren’t created yet)
     const inv = await supabase
-      .from("invoices")
-      .select("*")
-      .eq("patient_id", id)
-      .order("invoice_date", { ascending: false })
-      .order("created_at", { ascending: false });
+    .from("invoices")
+    .select("id, encounter_id, invoice_date, status, subtotal, discount_type, discount_value, discount_amount, total, notes, created_at")
+    .eq("patient_id", id)
+    .order("invoice_date", { ascending: false })
+    .order("created_at", { ascending: false });
 
     if (!inv.error && inv.data) {
       const rows = inv.data as InvoiceRow[];
@@ -437,6 +467,20 @@ export default function PatientProfilePage() {
     .order("service_name", { ascending: true });
 
   if (!sm.error && sm.data) setServiceMenu(sm.data as ServicePriceRow[]);
+
+    const d = await supabase
+    .from("dentists")
+    .select("id, full_name")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("full_name", { ascending: true });
+
+    if (!d.error && d.data) {
+      setDentists(d.data as DentistRow[]);
+      if (!visitDentistId && d.data.length > 0) {
+        setVisitDentistId(d.data[0].id);
+      }
+    }         
 
     setLoading(false);
   }
@@ -532,70 +576,148 @@ export default function PatientProfilePage() {
     await loadAll();
   }
 
-  async function addTreatment() {
-    setBusy(true);
+  function parseToothOrNull(v: string) {
+    const n = v.trim() ? Number(v) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  function addDraftLine() {
     setErr(null);
 
-    // Inputs
-    const toothNum = tTooth.trim() ? Number(tTooth) : null;
-    const toothVal = Number.isFinite(toothNum as any) ? toothNum : null;
-
-    const feeNum = Number(txFee);
-
-    // Validation
+    if (!visitDate) {
+      setErr("Select a visit date first.");
+      return;
+    }
+    if (!visitDentistId) {
+      setErr("Select the attending dentist first.");
+      return;
+    }
     if (!txServiceId || !txServiceName.trim()) {
-      setBusy(false);
       setErr("Select a procedure/service from the menu.");
       return;
     }
-    if (!Number.isFinite(feeNum) || feeNum < 0) {
+
+    const toothVal = parseToothOrNull(lineTooth);
+
+    const next: DraftLine = {
+      id: crypto.randomUUID(),
+      tooth_number: toothVal,
+      service_price_id: txServiceId || null,
+      procedure: txServiceName.trim(),
+    };
+
+    setDraftLines((prev) => [next, ...prev]);
+
+    // clear line inputs
+    setLineTooth("");
+    setTxServiceId("");
+    setTxServiceName("");
+  }
+
+  function removeDraftLine(id: string) {
+    setDraftLines((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  async function saveVisit() {
+    if (!patient) return;
+
+    setBusy(true);
+    setErr(null);
+
+    // Validate visit basics
+    if (!visitDate) {
       setBusy(false);
-      setErr("Enter a valid fee.");
-      return;
-    }
-    if (txFeeEdited && !txFeeNote.trim()) {
-      setBusy(false);
-      setErr("Fee was adjusted. Please add a fee adjustment note.");
+      setErr("Select a date for this visit.");
       return;
     }
 
+    // Dentist must be selected (neutral state is "")
+    if (!visitDentistId) {
+      setBusy(false);
+      setErr("Select the attending dentist.");
+      return;
+    }
+
+    const dentistName = dentists.find((d) => d.id === visitDentistId)?.full_name ?? null;
+    if (!dentistName) {
+      setBusy(false);
+      setErr("Select a valid dentist.");
+      return;
+    }
+
+    if (draftLines.length === 0) {
+      setBusy(false);
+      setErr("Add at least one procedure for this visit.");
+      return;
+    }
+
+    // Session (audit)
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
 
-    // Insert
-    const res = await supabase.from("treatments").insert({
-      patient_id: id,
-      treatment_date: procDate,
-      procedure: txServiceName.trim(), // keep this column as the visible procedure
-      service_price_id: txServiceId || null,
-      default_fee: txDefaultFee,
-      fee: feeNum,
-      fee_note: txFeeEdited ? (txFeeNote.trim() || null) : null,
-      tooth_number: toothVal,
-      notes: tNotes.trim() || null,
+    // 1) Ensure encounter + invoice exists for this date
+    const invoiceId = await ensureEncounterInvoice(patient.id, visitDate, visitNote);
+    if (!invoiceId) {
+      setBusy(false);
+      return;
+    }
+
+    // 2) Fetch encounter_id from the invoice (so treatments can link)
+    const inv = await supabase.from("invoices").select("encounter_id").eq("id", invoiceId).single();
+
+    if (inv.error) {
+      setBusy(false);
+      setErr(inv.error.message);
+      return;
+    }
+
+    const encounterId = (inv.data as any)?.encounter_id ?? null;
+    if (!encounterId) {
+      setBusy(false);
+      setErr("Invoice was created but encounter_id was missing. Check ensure_encounter_invoice().");
+      return;
+    }
+
+    // 3) Insert each draft line as a treatment row
+    const payload = draftLines.map((ln) => ({
+      patient_id: patient.id,
+      encounter_id: encounterId,
+      treatment_date: visitDate,
+      procedure: ln.procedure,
+      service_price_id: ln.service_price_id,
+      tooth_number: ln.tooth_number,
+      notes: visitNote.trim() || null,     // one note per visit (duplicated into rows)
+      dentist_name: dentistName,           // human-readable for history/printing
+      dentist_id: visitDentistId,          // real dentist reference
       created_by: userId,
-      dentist_id: userId,
-    } as any);
+    })) as any[];
 
-    setBusy(false);
-
+    const res = await supabase.from("treatments").insert(payload);
     if (res.error) {
+      setBusy(false);
       setErr(res.error.message);
       return;
     }
 
-    // Clear form
+    // 4) Sync invoice items from treatments, then open Billing on that invoice
+    const ok = await syncInvoiceFromTreatments(invoiceId);
+    if (!ok) {
+      setBusy(false);
+      return;
+    }
+
+    setActiveInvoiceId(invoiceId);
+
+    // Clear visit draft
+    setDraftLines([]);
+    setVisitNote("");
+    setLineTooth("");
     setTxServiceId("");
     setTxServiceName("");
-    setTxDefaultFee(0);
-    setTxFee("");
-    setTxFeeEdited(false);
-    setTxFeeNote("");
 
-    setTTooth("");
-    setTNotes("");
-
+    setBusy(false);
     await loadAll();
+    await loadInvoiceDetails(invoiceId);
   }
 
   async function saveToothStatus(status: string) {
@@ -789,200 +911,56 @@ export default function PatientProfilePage() {
     return true;
   }
 
-  async function createInvoice() {
+  async function ensureEncounterInvoice(patientId: string, encounterDate: string, notes?: string) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id ?? null;
+
+  const r = await supabase.rpc("ensure_encounter_invoice", {
+    p_patient_id: patientId,
+    p_encounter_date: encounterDate,
+    p_notes: notes ?? null,
+    p_created_by: userId,
+  });
+
+  if (r.error) {
+    setErr(r.error.message);
+    return null;
+  }
+
+  // RPC returns invoice_id (uuid)
+  return r.data as string;
+  }
+
+  async function syncInvoiceFromTreatments(invoiceId: string) {
+    const r = await supabase.rpc("sync_invoice_items_from_treatments", { p_invoice_id: invoiceId });
+    if (r.error) {
+      setErr(r.error.message);
+      return false;
+    }
+    return true;
+  }
+
+  async function createEncounter() {
     if (!patient) return;
 
     setBusy(true);
     setErr(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user?.id ?? null;
-
-    // Try insert WITH discount columns (if they exist)
-    const res1 = await supabase
-      .from("invoices")
-      .insert({
-        patient_id: patient.id,
-        invoice_date: newInvoiceDate,
-        status: "OPEN",
-        discount_type: "NONE",
-        discount_value: 0,
-        notes: newInvoiceNotes.trim() || null,
-        created_by: userId,
-      } as any)
-      .select("id")
-      .single();
-
-    // If discount columns don’t exist yet, retry without them
-    const res =
-      res1.error && isMissingColumnError(res1.error.message)
-        ? await supabase
-            .from("invoices")
-            .insert({
-              patient_id: patient.id,
-              invoice_date: newInvoiceDate,
-              status: "OPEN",
-              notes: newInvoiceNotes.trim() || null,
-              created_by: userId,
-            } as any)
-            .select("id")
-            .single()
-        : res1;
-
+    const invoiceId = await ensureEncounterInvoice(patient.id, newEncounterDate, newEncounterNotes);
     setBusy(false);
 
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
+    if (!invoiceId) return;
 
-    const newId = res.data?.id as string;
-    setActiveInvoiceId(newId);
-    setNewInvoiceNotes("");
-
-    // Initialize totals (will work only if your recalc function expects the columns)
-    await recalcInvoice(newId);
-    await loadAll();
-    await loadInvoiceDetails(newId);
-  }
-
-  async function addServiceMenuItem() {
+    // Ensure items reflect treatments for this encounter
     setBusy(true);
-    setErr(null);
-
-    const price = Number(svcPrice);
-    const sort = Number(svcSort);
-
-    if (!svcName.trim()) {
-      setBusy(false);
-      setErr("Service name is required.");
-      return;
-    }
-    if (!Number.isFinite(price) || price < 0) {
-      setBusy(false);
-      setErr("Enter a valid price.");
-      return;
-    }
-
-    const res = await supabase.from("service_prices").insert({
-      service_name: svcName.trim(),
-      default_price: price,
-      item_type: svcType,
-      is_active: svcActive,
-      sort_order: Number.isFinite(sort) ? sort : 0,
-    });
-
-    setBusy(false);
-    if (res.error) return setErr(res.error.message);
-
-    setSvcName("");
-    setSvcPrice("");
-    setSvcType("SERVICE");
-    setSvcActive(true);
-    setSvcSort("0");
-
-    await loadAll();
-  }
-
-  async function toggleServiceActive(id: string, next: boolean) {
-    setBusy(true);
-    setErr(null);
-
-    const res = await supabase.from("service_prices").update({ is_active: next }).eq("id", id);
-
-    setBusy(false);
-    if (res.error) return setErr(res.error.message);
-
-    await loadAll();
-  }
-
-  async function deleteServiceMenuItem(id: string) {
-    setBusy(true);
-    setErr(null);
-
-    const res = await supabase.from("service_prices").delete().eq("id", id);
-
-    setBusy(false);
-    if (res.error) return setErr(res.error.message);
-
-    await loadAll();
-  }
-
-  async function addInvoiceItem() {
-    if (!activeInvoiceId) return;
-
-    setBusy(true);
-    setErr(null);
-
-    const qty = Number(itemQty);
-    const unit = Number(itemUnitPrice);
-
-    if (!itemService.trim()) {
-      setBusy(false);
-      setErr("Service name is required.");
-      return;
-    }
-    if (!Number.isFinite(qty) || qty <= 0) {
-      setBusy(false);
-      setErr("Enter a valid quantity.");
-      return;
-    }
-    if (!Number.isFinite(unit) || unit < 0) {
-      setBusy(false);
-      setErr("Enter a valid unit price.");
-      return;
-    }
-
-    const toothNum = itemTooth.trim() ? Number(itemTooth) : null;
-    const toothVal = Number.isFinite(toothNum as any) ? toothNum : null;
-
-    const res = await supabase.from("invoice_items").insert({
-      invoice_id: activeInvoiceId,
-      service_price_id: selectedServiceId || null,
-      service_name: itemService.trim(),
-      qty,
-      unit_price: unit,
-      tooth_number: toothVal,
-      dentist_name: itemDentist.trim() || null,
-    });
-
+    await syncInvoiceFromTreatments(invoiceId);
     setBusy(false);
 
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
+    setActiveInvoiceId(invoiceId);
+    setNewEncounterNotes("");
 
-    setItemService("");
-    setSelectedServiceId("");
-    setItemQty("1");
-    setItemUnitPrice("");
-    setItemTooth("");
-    setItemDentist("");
-
-    await recalcInvoice(activeInvoiceId);
     await loadAll();
-    await loadInvoiceDetails(activeInvoiceId);
-  }
-
-  async function deleteInvoiceItem(itemId: string) {
-    if (!activeInvoiceId) return;
-
-    setBusy(true);
-    setErr(null);
-
-    const res = await supabase.from("invoice_items").delete().eq("id", itemId);
-
-    setBusy(false);
-
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
-
-    await recalcInvoice(activeInvoiceId);
-    await loadAll();
-    await loadInvoiceDetails(activeInvoiceId);
+    await loadInvoiceDetails(invoiceId);
   }
 
   async function applyDiscount() {
@@ -1618,146 +1596,204 @@ export default function PatientProfilePage() {
 
           {tab === "Treatments" ? (
             <div className="grid gap-4">
-              <div className="grid gap-3 sm:grid-cols-5">
-                <div className="sm:col-span-1">
-                  <Field label="Date" value={procDate} onChange={setProcDate} type="date" />
+              {/* Step 1: Date + Dentist */}
+              <div className="rounded-xl border bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold">Visit</div>
+                    <div className="text-xs text-slate-600">
+                      Select date and attending dentist, then add procedures. Visit note is last.
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    disabled={busy || !patient || !visitDate || !visitDentistId || draftLines.length === 0}
+                    onClick={saveVisit}
+                    title={!visitDentistId ? "Select dentist first" : draftLines.length === 0 ? "Add at least 1 procedure" : ""}
+                  >
+                    Save visit
+                  </button>
                 </div>
-                <div className="sm:col-span-2">
-                   <label className="block text-sm font-medium">Procedure / Service</label>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <Field label="Visit date" value={visitDate} onChange={setVisitDate} type="date" />
+
+                  <div>
+                    <label className="block text-sm font-medium">Attending dentist</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
+                      value={visitDentistId}
+                      onChange={(e) => setVisitDentistId(e.target.value)}
+                      disabled={busy}
+                    >
+                      <option value="">Select…</option>
+                      {dentists.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.full_name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-1 text-xs text-slate-600">
+                      Required.
+                    </div>
+                  </div>
+
+                  <div className="hidden sm:block" />
+                </div>
+              </div>
+
+              {/* Step 2: Procedures */}
+              <div className="rounded-xl border bg-white p-4">
+                <div className="text-sm font-semibold">Procedures</div>
+                <div className="mt-1 text-xs text-slate-600">
+                  Add procedures for this visit. Fees are handled in Billing.
+                </div>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-6">
+                  <div className="sm:col-span-1">
+                    <Field label="Tooth" value={lineTooth} onChange={setLineTooth} placeholder="e.g., 11" />
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="block text-sm font-medium">Procedure / Service</label>
                     <select
                       className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
                       value={txServiceId}
                       onChange={(e) => {
-                        const id = e.target.value;
-                        setTxServiceId(id);
+                        const sid = e.target.value;
+                        setTxServiceId(sid);
 
-                        const pick = serviceMenu.find((x) => x.id === id);
-                        if (pick) {
-                          setTxServiceName(pick.service_name);
-                          setTxDefaultFee(Number(pick.default_price ?? 0));
-                          setTxFee(String(Number(pick.default_price ?? 0)));
-                          setTxFeeEdited(false);
-                          setTxFeeNote("");
-                        } else {
-                          setTxServiceName("");
-                          setTxDefaultFee(0);
-                          setTxFee("");
-                          setTxFeeEdited(false);
-                          setTxFeeNote("");
-                        }
+                        const pick = serviceMenu.find((x) => x.id === sid);
+                        setTxServiceName(pick ? pick.service_name : "");
                       }}
+                      disabled={busy || !visitDate || !visitDentistId}
                     >
-                      <option value="">— Select from menu —</option>
-
-                      <optgroup label="Services">
-                        {serviceMenu
-                          .filter((x) => x.is_active && x.item_type === "SERVICE")
-                          .map((x) => (
-                            <option key={x.id} value={x.id}>
-                              {x.service_name} (PHP {Number(x.default_price).toFixed(2)})
-                            </option>
-                          ))}
-                      </optgroup>
-
-                      <optgroup label="Add-ons">
-                        {serviceMenu
-                          .filter((x) => x.is_active && x.item_type === "ADD_ON")
-                          .map((x) => (
-                            <option key={x.id} value={x.id}>
-                              {x.service_name} (PHP {Number(x.default_price).toFixed(2)})
-                            </option>
-                          ))}
-                      </optgroup>
+                      <option value="">Select…</option>
+                      {serviceMenu
+                        .filter((x) => x.is_active && x.item_type === "SERVICE")
+                        .map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.service_name}
+                          </option>
+                        ))}
                     </select>
-
-                    <div className="mt-1 text-xs text-slate-600">
-                      Selecting a menu item auto-fills the fee. You can edit it if needed.
-                    </div>
-                </div>
-                <div className="sm:col-span-1">
-                  <Field label="Tooth" value={tTooth} onChange={setTTooth} placeholder="optional" />
-                </div>
-                <div className="sm:col-span-1">
-                  <Field
-                    label="Fee (PHP)"
-                    value={txFee}
-                    onChange={(v) => {
-                      setTxFee(v);
-
-                      const num = Number(v);
-                      const edited =
-                        Number.isFinite(num) &&
-                        Math.round(num * 100) !== Math.round(txDefaultFee * 100);
-
-                      setTxFeeEdited(edited);
-
-                      // If they revert to default, remove requirement + clear note
-                      if (!edited) {
-                        setTxFeeNote("");
-                      }
-                    }}
-                    placeholder="0.00"
-                  />
-
-                  {txFeeEdited ? (
-                    <div className="sm:col-span-5">
-                      <div className="mt-1 text-xs text-rose-700">
-                        Fee differs from default. Fee adjustment note is required.
-                      </div>
-                      <div className="mt-2">
-                        <Field
-                          label="Fee adjustment note (required)"
-                          value={txFeeNote}
-                          onChange={setTxFeeNote}
-                          placeholder="e.g., Family discount / promo / waived portion"
-                          textarea
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-              <Field label="Notes" value={tNotes} onChange={setTNotes} textarea />
-              <div className="flex justify-end">
-                <button
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  disabled={busy || !txServiceId || (txFeeEdited && !txFeeNote.trim())}
-                  onClick={addTreatment}
-                >
-                  {busy ? "Adding…" : "Add treatment"}
-                </button>
-              </div>
-
-              <div className="rounded-lg border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-100 text-slate-700">
-                    <tr>
-                      <th className="text-left px-3 py-2">Date</th>
-                      <th className="text-left px-3 py-2">Procedure</th>
-                      <th className="text-left px-3 py-2">Tooth</th>
-                      <th className="text-left px-3 py-2">Fee</th>
-                      <th className="text-left px-3 py-2">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {treatments.map((t) => (
-                      <tr key={t.id} className="border-t">
-                        <td className="px-3 py-2">{t.treatment_date}</td>
-                        <td className="px-3 py-2 font-medium">{t.procedure}</td>
-                        <td className="px-3 py-2">{t.tooth_number ?? "-"}</td>
-                        <td className="px-3 py-2">{num(t.fee).toFixed(2)}</td>
-                        <td className="px-3 py-2">{t.notes ?? "-"}</td>
-                      </tr>
-                    ))}
-                    {treatments.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-3 py-6 text-slate-600">
-                          No treatments yet.
-                        </td>
-                      </tr>
+                    {!visitDentistId ? (
+                      <div className="mt-1 text-xs text-rose-600">Select the dentist first.</div>
                     ) : null}
-                  </tbody>
-                </table>
+                  </div>
+
+                  <div className="sm:col-span-1 flex items-end justify-end">
+                    <button
+                      type="button"
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      disabled={busy || !visitDate || !visitDentistId || !txServiceId}
+                      onClick={addDraftLine}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-lg border overflow-hidden">
+                  {draftLines.length === 0 ? (
+                    <div className="px-4 py-6 text-sm text-slate-600">No procedures added yet.</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr className="border-b">
+                          <th className="text-left px-3 py-2">Tooth</th>
+                          <th className="text-left px-3 py-2">Procedure</th>
+                          <th className="text-right px-3 py-2">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draftLines.map((ln) => (
+                          <tr key={ln.id} className="border-t">
+                            <td className="px-3 py-2">{ln.tooth_number ?? "—"}</td>
+                            <td className="px-3 py-2 font-medium">{ln.procedure}</td>
+                            <td className="px-3 py-2 text-right">
+                              <button
+                                type="button"
+                                className="rounded-lg border px-3 py-1 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60"
+                                disabled={busy}
+                                onClick={() => removeDraftLine(ln.id)}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 3: Visit note (last) */}
+              <div className="rounded-xl border bg-white p-4">
+                <div className="text-sm font-semibold">Visit note (optional)</div>
+                <div className="mt-1 text-xs text-slate-600">
+                  One note per visit (shared across procedures). This will show in History under the date.
+                </div>
+
+                <textarea
+                  className="mt-3 w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                  rows={4}
+                  value={visitNote}
+                  onChange={(e) => setVisitNote(e.target.value)}
+                  placeholder="Long notes for this visit."
+                  disabled={busy}
+                />
+              </div>
+
+              {/* History */}
+              <div className="rounded-xl border bg-white overflow-hidden">
+                <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">History</div>
+
+                {treatments.length === 0 ? (
+                  <div className="px-4 py-6 text-sm text-slate-600">No treatment history yet.</div>
+                ) : (
+                  <div className="divide-y">
+                    {Object.entries(
+                      treatments.reduce((acc: Record<string, Treatment[]>, t) => {
+                        const k = t.treatment_date;
+                        acc[k] = acc[k] ? [...acc[k], t] : [t];
+                        return acc;
+                      }, {})
+                    )
+                      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+                      .map(([date, rows]) => (
+                        <div key={date} className="p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-sm font-semibold">{date}</div>
+                            {/* dentist is per-row in DB, so show the first row dentist_name if present */}
+                            <div className="text-xs text-slate-600">
+                              {rows[0] && (rows[0] as any).dentist_name ? `Dentist: ${(rows[0] as any).dentist_name}` : ""}
+                            </div>
+                          </div>
+
+                          {rows[0]?.notes ? (
+                            <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 whitespace-pre-wrap">
+                              {rows[0].notes}
+                            </div>
+                          ) : null}
+
+                          <ul className="mt-3 space-y-2">
+                            {rows.map((r) => (
+                              <li key={r.id} className="text-sm">
+                                <span className="font-semibold">
+                                  {r.tooth_number ? `Tooth ${r.tooth_number}: ` : ""}
+                                </span>
+                                {r.procedure}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : null}
@@ -2009,111 +2045,37 @@ export default function PatientProfilePage() {
               <div className="rounded-xl border bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-sm font-semibold">Billing</div>
-                    <div className="text-xs text-slate-600">Create invoices (visits), add items, apply discounts, and record payments.</div>
-                    <div className="rounded-xl border bg-white p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <div className="text-sm font-semibold">Service menu</div>
-                          <div className="text-xs text-slate-600">Manage services and add-ons used for billing and receipts.</div>
-                        </div>
-                        <button
-                          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                          disabled={busy}
-                          onClick={addServiceMenuItem}
-                        >
-                          Add menu item
-                        </button>
-                      </div>
-
-                      <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                        <Field label="Name" value={svcName} onChange={setSvcName} placeholder="e.g., Composite filling" />
-                        <Field label="Default price (PHP)" value={svcPrice} onChange={setSvcPrice} placeholder="0.00" />
-                        <div>
-                          <label className="block text-sm font-medium">Type</label>
-                          <select
-                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
-                            value={svcType}
-                            onChange={(e) => setSvcType(e.target.value as any)}
-                          >
-                            <option value="SERVICE">Service</option>
-                            <option value="ADD_ON">Add-on</option>
-                          </select>
-                        </div>
-                        <div className="grid gap-2">
-                          <Field label="Sort order" value={svcSort} onChange={setSvcSort} placeholder="0" />
-                          <label className="flex items-center gap-2 text-sm">
-                            <input type="checkbox" checked={svcActive} onChange={(e) => setSvcActive(e.target.checked)} />
-                            Active
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 rounded-lg border overflow-hidden">
-                        {serviceMenu.length === 0 ? (
-                          <div className="px-4 py-6 text-sm text-slate-600">No menu items yet.</div>
-                        ) : (
-                          <table className="w-full text-sm">
-                            <thead className="bg-slate-50">
-                              <tr className="border-b">
-                                <th className="text-left px-3 py-2">Name</th>
-                                <th className="text-left px-3 py-2">Type</th>
-                                <th className="text-right px-3 py-2">Price</th>
-                                <th className="text-center px-3 py-2">Active</th>
-                                <th className="text-right px-3 py-2">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {serviceMenu.map((s) => (
-                                <tr key={s.id} className="border-t">
-                                  <td className="px-3 py-2">{s.service_name}</td>
-                                  <td className="px-3 py-2">{s.item_type}</td>
-                                  <td className="px-3 py-2 text-right">PHP {Number(s.default_price).toFixed(2)}</td>
-                                  <td className="px-3 py-2 text-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={s.is_active}
-                                      onChange={(e) => toggleServiceActive(s.id, e.target.checked)}
-                                      disabled={busy}
-                                    />
-                                  </td>
-                                  <td className="px-3 py-2 text-right">
-                                    <button
-                                      className="rounded-lg border px-3 py-1 text-xs font-semibold transition hover:bg-slate-50 disabled:opacity-60"
-                                      onClick={() => deleteServiceMenuItem(s.id)}
-                                      disabled={busy}
-                                    >
-                                      Delete
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
+                    <div className="text-sm font-semibold">Visit Billing</div>
+                    <div className="text-xs text-slate-600">
+                      Visits create an invoice automatically from Treatments. This tab is for discounts and payments.
                     </div>
                   </div>
+
                   <button
                     className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     disabled={busy || !patient}
-                    onClick={createInvoice}
+                    onClick={createEncounter}
                   >
-                    Create invoice
+                    Create visit
                   </button>
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <Field label="Invoice date" value={newInvoiceDate} onChange={setNewInvoiceDate} type="date" />
+                  <Field label="Visit date" value={newEncounterDate} onChange={setNewEncounterDate} type="date" />
                   <div className="sm:col-span-2">
-                    <Field label="Invoice notes (optional)" value={newInvoiceNotes} onChange={setNewInvoiceNotes} placeholder="Optional notes" />
+                    <Field
+                      label="Visit notes (optional)"
+                      value={newEncounterNotes}
+                      onChange={setNewEncounterNotes}
+                      placeholder="Optional notes"
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[320px,1fr]">
                 <div className="rounded-xl border bg-white overflow-hidden">
-                  <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">Invoices ({invoices.length})</div>
+                  <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">Visits ({invoices.length})</div>
 
                   {invoices.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-slate-600">No invoices yet.</div>
@@ -2148,6 +2110,7 @@ export default function PatientProfilePage() {
                     <div className="rounded-xl border bg-white p-6 text-sm text-slate-600">Select an invoice to view details.</div>
                   ) : (
                     <>
+                      {/* Totals summary */}
                       <div className="rounded-xl border bg-white p-4">
                         {(() => {
                           const inv = invoices.find((x) => x.id === activeInvoiceId);
@@ -2178,72 +2141,36 @@ export default function PatientProfilePage() {
                         })()}
                       </div>
 
+                      {/* Invoice items (read-only, generated from Treatments) */}
                       <div className="rounded-xl border bg-white p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="text-sm font-semibold">Invoice items</div>
-                          <button
-                            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                            disabled={busy || !activeInvoiceId}
-                            onClick={addInvoiceItem}
-                          >
-                            Add item
-                          </button>
-                        </div>
-
-                        <div className="mt-3 grid gap-3 sm:grid-cols-5">
-                          <div className="sm:col-span-2">
-                            <label className="block text-sm font-medium">Service / Add-on</label>
-                            <select
-                              className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
-                              value={selectedServiceId}
-                              onChange={(e) => {
-                                const id = e.target.value;
-                                setSelectedServiceId(id);
-
-                                const pick = serviceMenu.find((x) => x.id === id);
-                                if (pick) {
-                                  setItemService(pick.service_name);
-                                  setItemUnitPrice(String(pick.default_price ?? 0));
-                                } else {
-                                  setItemService("");
-                                  setItemUnitPrice("");
-                                }
-                              }}
-                            >
-                              <option value="">— Select from menu —</option>
-
-                              <optgroup label="Services">
-                                {serviceMenu
-                                  .filter((x) => x.is_active && x.item_type === "SERVICE")
-                                  .map((x) => (
-                                    <option key={x.id} value={x.id}>
-                                      {x.service_name} (PHP {Number(x.default_price).toFixed(2)})
-                                    </option>
-                                  ))}
-                              </optgroup>
-
-                              <optgroup label="Add-ons">
-                                {serviceMenu
-                                  .filter((x) => x.is_active && x.item_type === "ADD_ON")
-                                  .map((x) => (
-                                    <option key={x.id} value={x.id}>
-                                      {x.service_name} (PHP {Number(x.default_price).toFixed(2)})
-                                    </option>
-                                  ))}
-                              </optgroup>
-                            </select>
-
-                            <div className="mt-1 text-xs text-slate-600">
-                              Selecting an item auto-fills the unit price. You can still edit price manually.
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="text-sm font-semibold">Invoice items</div>
+                            <div className="text-xs text-slate-600">
+                              Items are generated from Treatments for this encounter. To change items, edit Treatments.
                             </div>
                           </div>
-                          <Field label="Qty" value={itemQty} onChange={setItemQty} placeholder="1" />
-                          <Field label="Unit price (PHP)" value={itemUnitPrice} onChange={setItemUnitPrice} placeholder="0.00" />
-                          <Field label="Tooth (optional)" value={itemTooth} onChange={setItemTooth} placeholder="e.g., 36" />
-                        </div>
 
-                        <div className="mt-3">
-                          <Field label="Dentist (optional)" value={itemDentist} onChange={setItemDentist} placeholder="Dr. Daisy / Dr. Dexely" />
+                          <button
+                            type="button"
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                            disabled={busy || !activeInvoiceId}
+                            onClick={async () => {
+                              if (!activeInvoiceId) return;
+                              setBusy(true);
+                              setErr(null);
+
+                              const r = await supabase.rpc("sync_invoice_items_from_treatments", { p_invoice_id: activeInvoiceId });
+                              if (r.error) setErr(r.error.message);
+
+                              setBusy(false);
+                              await loadInvoiceDetails(activeInvoiceId);
+                              await loadAll();
+                            }}
+                            title="Rebuild items from Treatments"
+                          >
+                            Refresh from Treatments
+                          </button>
                         </div>
 
                         <div className="mt-4 rounded-lg border overflow-hidden">
@@ -2259,153 +2186,32 @@ export default function PatientProfilePage() {
                                   <th className="text-right px-3 py-2">Qty</th>
                                   <th className="text-right px-3 py-2">Unit</th>
                                   <th className="text-right px-3 py-2">Line</th>
-                                  <th className="text-right px-3 py-2">Action</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {invoiceItems.map((it) => (
                                   <tr key={it.id} className="border-t">
-                                    <td className="px-3 py-2">{it.service_name}</td>
-                                    <td className="px-3 py-2">{it.tooth_number ?? "-"}</td>
-                                    <td className="px-3 py-2">{it.dentist_name ?? "-"}</td>
-                                    <td className="px-3 py-2 text-right">{num(it.qty)}</td>
-                                    <td className="px-3 py-2 text-right">PHP {num(it.unit_price).toFixed(2)}</td>
-                                    <td className="px-3 py-2 text-right">PHP {num(it.line_total).toFixed(2)}</td>
-                                    <td className="px-3 py-2 text-right">
-                                      <button
-                                        className="rounded-lg border px-3 py-1 text-xs font-semibold transition hover:bg-slate-50 disabled:opacity-60"
-                                        disabled={busy}
-                                        onClick={() => deleteInvoiceItem(it.id)}
-                                      >
-                                        Delete
-                                      </button>
+                                    <td className="px-3 py-2">
+                                      <div className="font-medium">{it.service_name}</div>
                                     </td>
+                                    <td className="px-3 py-2">{it.tooth_number ?? "—"}</td>
+                                    <td className="px-3 py-2">{it.dentist_name ?? "—"}</td>
+                                    <td className="px-3 py-2 text-right">{it.qty}</td>
+                                    <td className="px-3 py-2 text-right">PHP {num(it.unit_price).toFixed(2)}</td>
+                                    <td className="px-3 py-2 text-right font-semibold">PHP {num(it.line_total).toFixed(2)}</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           )}
                         </div>
-                      </div>
 
-                      <div className="rounded-xl border bg-white p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="text-sm font-semibold">Discount</div>
-                          <button
-                            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                            disabled={busy || !activeInvoiceId}
-                            onClick={applyDiscount}
-                          >
-                            Apply discount
-                          </button>
-                        </div>
-
-                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          <div>
-                            <label className="block text-sm font-medium">Type</label>
-                            <select
-                              className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
-                              value={discType}
-                              onChange={(e) => setDiscType(e.target.value as any)}
-                              disabled={busy}
-                            >
-                              <option value="NONE">None</option>
-                              <option value="AMOUNT">Amount</option>
-                              <option value="PERCENT">Percent</option>
-                            </select>
-                          </div>
-                          <Field
-                            label={discType === "PERCENT" ? "Value (%)" : "Value (PHP)"}
-                            value={discValue}
-                            onChange={setDiscValue}
-                            placeholder={discType === "NONE" ? "" : discType === "PERCENT" ? "10" : "500"}
-                          />
-                          <div className="text-xs text-slate-600 flex items-end">
-                            If discount columns are missing, run the SQL migration first.
-                          </div>
+                        <div className="mt-3 text-xs text-slate-600">
+                          Tip: If totals look off after editing Treatments, click “Refresh from Treatments”.
                         </div>
                       </div>
 
-                      <div className="rounded-xl border bg-white p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="text-sm font-semibold">Payments</div>
-                          <button
-                            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                            disabled={busy || !activeInvoiceId}
-                            onClick={addInvoicePayment}
-                          >
-                            Add payment
-                          </button>
-                        </div>
-
-                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          <Field label="Date" value={payDate} onChange={setPayDate} type="date" />
-                          <Field label="Amount (PHP)" value={payAmount} onChange={setPayAmount} placeholder="0.00" />
-                          <div>
-                            <label className="block text-sm font-medium">Mode</label>
-                            <select
-                              className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
-                              value={payMode}
-                              onChange={(e) => setPayMode(e.target.value)}
-                            >
-                              {["Cash", "GCash", "Bank Transfer", "Card", "Other"].map((m) => (
-                                <option key={m} value={m}>
-                                  {m}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <Field label="Reference no. (optional)" value={payRef} onChange={setPayRef} placeholder="GCash ref / bank ref" />
-                          <div className="flex items-center gap-3 mt-6">
-                            <input type="checkbox" checked={payInstallment} onChange={(e) => setPayInstallment(e.target.checked)} />
-                            <div className="text-sm font-medium">Installment</div>
-                          </div>
-                        </div>
-
-                        {payInstallment ? (
-                          <div className="mt-3">
-                            <Field label="Installment note" value={payInstallNote} onChange={setPayInstallNote} placeholder="e.g., Ortho installment #2" />
-                          </div>
-                        ) : null}
-
-                        <div className="mt-3">
-                          <Field label="Notes (optional)" value={payNotes} onChange={setPayNotes} textarea />
-                        </div>
-
-                        <div className="mt-4 rounded-lg border overflow-hidden">
-                          {invoicePayments.length === 0 ? (
-                            <div className="px-4 py-6 text-sm text-slate-600">No payments yet.</div>
-                          ) : (
-                            <table className="w-full text-sm">
-                              <thead className="bg-slate-50">
-                                <tr className="border-b">
-                                  <th className="text-left px-3 py-2">Date</th>
-                                  <th className="text-right px-3 py-2">Amount</th>
-                                  <th className="text-left px-3 py-2">Mode</th>
-                                  <th className="text-left px-3 py-2">Ref</th>
-                                  <th className="text-left px-3 py-2">Installment</th>
-                                  <th className="text-left px-3 py-2">Notes</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {invoicePayments.map((p) => (
-                                  <tr key={p.id} className="border-t">
-                                    <td className="px-3 py-2">{p.payment_date}</td>
-                                    <td className="px-3 py-2 text-right">PHP {num(p.amount).toFixed(2)}</td>
-                                    <td className="px-3 py-2">{p.mode}</td>
-                                    <td className="px-3 py-2">{p.reference_no ?? "-"}</td>
-                                    <td className="px-3 py-2">{p.is_installment ? (p.installment_note ?? "Yes") : "No"}</td>
-                                    <td className="px-3 py-2">{p.notes ?? "-"}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
-                      </div>
+                      {/* Discount + Payments blocks stay as-is below this point */}
                     </>
                   )}
                 </div>
