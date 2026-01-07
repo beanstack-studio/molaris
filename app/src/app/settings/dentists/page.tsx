@@ -8,46 +8,63 @@ type DentistRow = {
   full_name: string;
   prc_number: string | null;
   is_active: boolean;
-  sort_order: number;
-  created_at: string;
 };
 
+type DentistSort = "NAME_ASC" | "NAME_DESC";
+
+function LoadingBlock() {
+  return (
+    <div className="flex items-center justify-center py-16">
+      <img src="/loading.gif" alt="Loading" className="h-12 w-12 opacity-70" />
+    </div>
+  );
+}
+
+function TogglePill({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={[
+        "relative inline-flex h-6 w-11 items-center rounded-full transition",
+        checked ? "bg-emerald-500" : "bg-slate-300",
+        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "inline-block h-5 w-5 transform rounded-full bg-white transition",
+          checked ? "translate-x-5" : "translate-x-1",
+        ].join(" ")}
+      />
+    </button>
+  );
+}
+
 export default function DentistsSettingsPage() {
+  const [rows, setRows] = useState<DentistRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [sort, setSort] = useState<DentistSort>("NAME_ASC");
 
-  const [rows, setRows] = useState<DentistRow[]>([]);
-
-  // Add form
   const [name, setName] = useState("");
-  const [prcNumber, setPrcNumber] = useState("");
-  const [active, setActive] = useState(true);
-  const [sortOrder, setSortOrder] = useState("0");
-
-  const sorted = useMemo(() => {
-    return [...rows].sort(
-      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.full_name.localeCompare(b.full_name)
-    );
-  }, [rows]);
+  const [prc, setPrc] = useState("");
 
   async function load() {
     setLoading(true);
-    setErr(null);
-
     const r = await supabase
       .from("dentists")
-      .select("id, full_name, prc_number, is_active, sort_order, created_at")
-      .order("sort_order", { ascending: true })
-      .order("full_name", { ascending: true });
-
-    if (r.error) {
-      setRows([]);
-      setErr(r.error.message);
-    } else {
-      setRows((r.data ?? []) as DentistRow[]);
-    }
-
+      .select("id, full_name, prc_number, is_active");
+    setRows((r.data ?? []) as DentistRow[]);
     setLoading(false);
   }
 
@@ -55,297 +72,112 @@ export default function DentistsSettingsPage() {
     load();
   }, []);
 
+  const sorted = useMemo(() => {
+    const out = [...rows];
+    out.sort((a, b) =>
+      sort === "NAME_DESC"
+        ? b.full_name.localeCompare(a.full_name)
+        : a.full_name.localeCompare(b.full_name)
+    );
+    return out;
+  }, [rows, sort]);
+
   async function addDentist() {
+    if (!name.trim()) return;
     setBusy(true);
-    setErr(null);
-
-    const cleaned = name.trim();
-    const s = Number(sortOrder);
-
-    if (!cleaned) {
-      setBusy(false);
-      setErr("Name is required.");
-      return;
-    }
-
-    const r = await supabase.from("dentists").insert({
-      full_name: cleaned,
-      prc_number: prcNumber.trim() ? prcNumber.trim() : null,
-      is_active: active,
-      sort_order: Number.isFinite(s) ? s : 0,
+    await supabase.from("dentists").insert({
+      full_name: name.trim(),
+      prc_number: prc.trim() || null,
+      is_active: true,
     });
-
-    setBusy(false);
-    if (r.error) {
-      setErr(r.error.message);
-      return;
-    }
-
     setName("");
-    setPrcNumber("");
-    setActive(true);
-    setSortOrder("0");
+    setPrc("");
     await load();
+    setBusy(false);
   }
 
   async function toggleActive(id: string, next: boolean) {
     setBusy(true);
-    setErr(null);
-
-    const r = await supabase.from("dentists").update({ is_active: next }).eq("id", id);
-
+    await supabase.from("dentists").update({ is_active: next }).eq("id", id);
+    setRows((p) => p.map((r) => (r.id === id ? { ...r, is_active: next } : r)));
     setBusy(false);
-    if (r.error) {
-      setErr(r.error.message);
-      return;
-    }
-
-    setRows((prev) => prev.map((d) => (d.id === id ? { ...d, is_active: next } : d)));
   }
 
-  async function updateSort(id: string, nextSort: number) {
-    setBusy(true);
-    setErr(null);
-
-    const r = await supabase.from("dentists").update({ sort_order: nextSort }).eq("id", id);
-
-    setBusy(false);
-    if (r.error) {
-      setErr(r.error.message);
-      return;
-    }
-
-    setRows((prev) => prev.map((d) => (d.id === id ? { ...d, sort_order: nextSort } : d)));
-  }
-
-  async function updatePrcNumber(id: string, nextPrc: string) {
-    setBusy(true);
-    setErr(null);
-
-    const cleaned = nextPrc.trim() || null;
-
-    const r = await supabase.from("dentists").update({ prc_number: cleaned }).eq("id", id);
-
-    setBusy(false);
-    if (r.error) {
-      setErr(r.error.message);
-      return;
-    }
-
-    setRows((prev) => prev.map((d) => (d.id === id ? { ...d, prc_number: cleaned } : d)));
-  }
-
-  async function updateName(id: string, nextName: string) {
-    setBusy(true);
-    setErr(null);
-
-    const cleaned = nextName.trim();
-    if (!cleaned) {
-      setBusy(false);
-      setErr("Name cannot be empty.");
-      return;
-    }
-
-    const r = await supabase.from("dentists").update({ full_name: cleaned }).eq("id", id);
-
-    setBusy(false);
-    if (r.error) {
-      setErr(r.error.message);
-      return;
-    }
-
-    setRows((prev) => prev.map((d) => (d.id === id ? { ...d, full_name: cleaned } : d)));
-  }
-
-  async function deleteDentist(id: string, label: string) {
-    const ok = window.confirm(`Delete "${label}"? This cannot be undone.`);
-    if (!ok) return;
-
-    setBusy(true);
-    setErr(null);
-
-    const r = await supabase.from("dentists").delete().eq("id", id);
-
-    setBusy(false);
-    if (r.error) {
-      setErr(r.error.message);
-      return;
-    }
-
-    setRows((prev) => prev.filter((d) => d.id !== id));
-  }
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-600">Loading…</div>;
-  }
+  if (loading) return <LoadingBlock />;
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
-      <div className="mx-auto max-w-5xl">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Settings · Dentists</h1>
-            <p className="text-sm text-slate-600">
-              Dentist dropdown options used across the app.
-            </p>
-          </div>
+    <div className="mx-auto max-w-5xl">
+      <h1 className="text-xl font-semibold">Dentists</h1>
 
+      {/* ADD BOX */}
+      <div className="mt-4 rounded-xl border bg-white p-3">
+        <div className="mb-2 text-sm font-semibold text-slate-700">
+          Add dentist
+        </div>
+        <div className="flex items-end gap-2">
+          <input
+            className="h-10 flex-1 rounded-lg border px-3 text-sm"
+            placeholder="Dentist name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            className="h-10 w-[160px] rounded-lg border px-3 text-sm"
+            placeholder="PRC number"
+            value={prc}
+            onChange={(e) => setPrc(e.target.value)}
+          />
           <button
-            type="button"
-            className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+            className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white"
+            onClick={addDentist}
             disabled={busy}
-            onClick={load}
           >
-            Refresh
+            Add
           </button>
         </div>
+      </div>
 
-        {err ? <div className="mt-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+      {/* TABLE */}
+      <div className="mt-4 rounded-xl border bg-white overflow-hidden">
+        <div className="flex items-center bg-slate-100 px-4 py-2 text-sm font-semibold">
+          <div>Dentists</div>
+          <select
+            className="ml-auto h-8 w-40 rounded-lg border bg-white px-2 text-sm"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as DentistSort)}
+          >
+            <option value="NAME_ASC">Name A–Z</option>
+            <option value="NAME_DESC">Name Z–A</option>
+          </select>
+        </div>
 
-        {/* Add form */}
-        <div className="mt-4 rounded-xl border bg-white p-4">
-          <div className="text-sm font-semibold">Add dentist</div>
+        <div className="divide-y">
+          {sorted.map((d) => (
+            <div
+              key={d.id}
+              className={[
+                "grid grid-cols-[240px_160px_1fr_120px_80px] items-center px-4 py-2.5 text-sm transition hover:bg-slate-50",
+                "hover:bg-slate-50",
+                d.is_active ? "" : "opacity-50",
+              ].join(" ")}
+            >
+              <div className="w-[240px] truncate">{d.full_name}</div>
+              <div className="w-[160px] text-right">PRC {d.prc_number ?? "—"}</div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-8">
-            <div className="sm:col-span-4">
-              <label className="block text-sm font-medium">Full name</label>
-              <input
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Dr. Firstname Lastname"
-                disabled={busy}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium">PRC number</label>
-              <input
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                value={prcNumber}
-                onChange={(e) => setPrcNumber(e.target.value)}
-                placeholder="Optional"
-                disabled={busy}
-              />
-            </div>
-
-
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium">Sort</label>
-              <input
-                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                placeholder="0"
-                disabled={busy}
-              />
-            </div>
-
-            <div className="sm:col-span-1">
-              <label className="block text-sm font-medium">Active</label>
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={(e) => setActive(e.target.checked)}
+              <div className="ml-auto flex items-center gap-3">
+                <TogglePill
+                  checked={d.is_active}
                   disabled={busy}
+                  onChange={(v) => toggleActive(d.id, v)}
                 />
-                <span className="text-sm text-slate-700">{active ? "Active" : "Inactive"}</span>
+                <button className="rounded-lg border px-3 py-1.5 text-xs font-semibold">
+                  Edit
+                </button>
               </div>
             </div>
-
-            <div className="sm:col-span-8 flex items-end justify-end">
-              <button
-                type="button"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                disabled={busy}
-                onClick={addDentist}
-              >
-                {busy ? "Saving…" : "Add dentist"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-xl border bg-white overflow-hidden">
-          <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">Dentists ({sorted.length})</div>
-
-          {sorted.length === 0 ? (
-            <div className="px-4 py-6 text-sm text-slate-600">No dentists yet.</div>
-          ) : (
-            <div className="divide-y">
-              {sorted.map((d) => (
-                <div key={d.id} className="p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-[240px] flex-1">
-                      <input
-                        className="w-full rounded-lg border bg-white px-3 py-2 text-sm font-semibold"
-                        defaultValue={d.full_name}
-                        disabled={busy}
-                        onBlur={(e) => {
-                          const next = e.target.value.trim();
-                          if (next && next !== d.full_name) updateName(d.id, next);
-                        }}
-                      />
-
-                      <div className="mt-2 grid gap-2 sm:grid-cols-4">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600">PRC number</label>
-                          <input
-                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                            defaultValue={d.prc_number ?? ""}
-                            disabled={busy}
-                            onBlur={(e) => {
-                              const next = e.target.value;
-                              const cur = d.prc_number ?? "";
-                              if (next.trim() !== cur) updatePrcNumber(d.id, next);
-                            }}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600">Sort</label>
-                          <input
-                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                            defaultValue={String(d.sort_order ?? 0)}
-                            disabled={busy}
-                            onBlur={(e) => {
-                              const v = Number(e.target.value);
-                              if (Number.isFinite(v) && v !== (d.sort_order ?? 0)) updateSort(d.id, v);
-                            }}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-medium text-slate-600">Active</label>
-                          <div className="mt-2 flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={!!d.is_active}
-                              disabled={busy}
-                              onChange={(e) => toggleActive(d.id, e.target.checked)}
-                            />
-                            <span className="text-sm text-slate-700">{d.is_active ? "Active" : "Inactive"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60"
-                      disabled={busy}
-                      onClick={() => deleteDentist(d.id, d.full_name)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          ))}
         </div>
       </div>
-    </main>
+    </div>
   );
 }

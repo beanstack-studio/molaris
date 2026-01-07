@@ -30,7 +30,7 @@ export default function TopNav({ title = "Matira Dental Studio" }: { title?: str
             Patients
           </Link>
 
-          <Link href="/settings" className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">
+          <Link href="/settings/clinic-profile" className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">
             Settings
           </Link>
 

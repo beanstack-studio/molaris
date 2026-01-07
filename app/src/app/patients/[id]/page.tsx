@@ -140,6 +140,8 @@ type DraftLine = {
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
 type AttachmentType = (typeof attachmentTypes)[number];
 
+
+
 const tabs = ["Info", "Medical", "Chart", "Treatments", "Attachments", "Documents", "Billing"] as const;
 type Tab = (typeof tabs)[number];
 
@@ -373,12 +375,14 @@ export default function PatientProfilePage() {
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [renameAttachmentId, setRenameAttachmentId] = useState<string | null>(null);
   const [renameAttachmentValue, setRenameAttachmentValue] = useState("");
+  const [attachmentSort, setAttachmentSort] = useState<"DATE_DESC" | "DATE_ASC" | "NAME_ASC">("DATE_DESC");
 
   // Documents
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDoc[]>([]);
+  const [docSort, setDocSort] = useState<"DATE_DESC" | "DATE_ASC" | "TYPE_ASC">("DATE_DESC");
 
   const [docVisitDate, setDocVisitDate] = useState(() => todayLocalISO());
   const [docDentistId, setDocDentistId] = useState<string>(""); // neutral
@@ -424,6 +428,40 @@ export default function PatientProfilePage() {
     () => templates.find((t) => t.id === selectedTemplateId) ?? null,
     [templates, selectedTemplateId]
   );
+
+  const displayedAttachments = useMemo(() => {
+  const copy = [...attachments];
+    if (attachmentSort === "NAME_ASC") {
+      copy.sort((a, b) => {
+        const an = (a.file_name ?? a.file_path.split("/").slice(-1)[0] ?? "").toLowerCase();
+        const bn = (b.file_name ?? b.file_path.split("/").slice(-1)[0] ?? "").toLowerCase();
+        return an.localeCompare(bn);
+      });
+      return copy;
+    }
+    if (attachmentSort === "DATE_ASC") {
+      copy.sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+      return copy;
+    }
+    // DATE_DESC
+    copy.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    return copy;
+  }, [attachments, attachmentSort]);
+
+  const displayedGeneratedDocs = useMemo(() => {
+    const copy = [...generatedDocs];
+    if (docSort === "TYPE_ASC") {
+      copy.sort((a, b) => (a.doc_type ?? "").localeCompare(b.doc_type ?? "") || (a.created_at < b.created_at ? 1 : -1));
+      return copy;
+    }
+    if (docSort === "DATE_ASC") {
+      copy.sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+      return copy;
+    }
+    // DATE_DESC
+    copy.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    return copy;
+  }, [generatedDocs, docSort]);
 
   const invoicesById = useMemo(() => {
     const m: Record<string, InvoiceRow> = {};
@@ -865,7 +903,8 @@ export default function PatientProfilePage() {
       setActiveInvoiceId(null);
       setInvoiceItems([]);
       setInvoicePayments([]);
-      setBillingVisitDate("");
+      // Do NOT clear billingVisitDate here; it is the user's UI selection
+      // setBillingVisitDate("");
     }
 
     setLoading(false);
@@ -876,6 +915,14 @@ export default function PatientProfilePage() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+   // Keep Billing visit dropdown synced to the active invoice
+  useEffect(() => {
+    if (!activeInvoiceId) return;
+    const inv = invoicesById[activeInvoiceId];
+    if (inv?.invoice_date) setBillingVisitDate(inv.invoice_date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeInvoiceId]);
 
   /* =========================
      Actions
@@ -1242,7 +1289,23 @@ export default function PatientProfilePage() {
 
     // Reload invoice details so the new row shows up immediately
     await loadInvoiceDetails(activeInvoiceId);
-    await loadAll();
+
+    // Refresh invoice + payments totals only (do NOT call loadAll; it resets billing selection)
+    const inv = await supabase
+      .from("invoices")
+      .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
+      .eq("patient_id", id)
+      .order("invoice_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (!inv.error && inv.data) setInvoices(inv.data as InvoiceRow[]);
+
+    const pay = await supabase
+      .from("payments")
+      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
+      .eq("patient_id", id);
+
+    if (!pay.error && pay.data) setPayments(pay.data as PaymentRow[]);
 
     setBusy(false);
 
@@ -1486,7 +1549,10 @@ export default function PatientProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-slate-600">
-        Loading…
+        <div className="flex flex-col items-center gap-3">
+          <img src="/loading.gif" alt="Loading" className="h-12 w-12" />
+          <div className="text-sm">Loading…</div>
+        </div>
       </div>
     );
   }
@@ -2355,7 +2421,7 @@ export default function PatientProfilePage() {
 
                 <div className="rounded-2xl border bg-white p-4">
                   <div className="text-sm font-semibold">Attachments</div>
-
+                  
                   <div className="mt-3 overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead>
@@ -2367,7 +2433,7 @@ export default function PatientProfilePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {attachments.map((a) => (
+                        {displayedAttachments.map((a) => (
                           <tr key={a.id} className="border-t">
                             <td className="py-2 pr-3">{formatDateTimePH(a.created_at)}</td>
                             <td className="py-2 pr-3">{a.type}</td>
