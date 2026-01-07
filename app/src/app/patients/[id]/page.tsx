@@ -1,10 +1,13 @@
 "use client";
 
-import ToothChart, { getStatusTheme, ToothStatus } from "@/components/ToothChart";
-import { useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import ToothChart, { ToothStatus, getStatusTheme } from "@/components/ToothChart";
 import { supabase } from "@/lib/supabaseClient";
 
+/* =========================
+   Types
+========================= */
 type Patient = {
   id: string;
   full_name: string;
@@ -25,6 +28,8 @@ type MedHist = {
   conditions: any;
 };
 
+type DentistRow = { id: string; full_name: string };
+
 type ChartEntry = {
   id: string;
   tooth_number: number;
@@ -35,21 +40,78 @@ type ChartEntry = {
   recorded_at: string;
 };
 
-type Treatment = {
-  id: string;
-  treatment_date: string;
-  procedure: string;
-  tooth_number: number | null;
-  fee: number;
-  notes: string | null;
-  dentist_name: string | null;
-};
-
 type ToothStatusRow = {
   tooth_number: number;
   status: string;
   note: string | null;
   updated_at: string | null;
+};
+
+type Treatment = {
+  id: string;
+  treatment_date: string;
+  procedure: string;
+  tooth_number: number | null;
+  notes: string | null;
+  dentist_id: string | null;
+  dentist_name: string | null;
+  service_price_id: string | null;
+  created_at: string | null;
+};
+
+type ServicePriceRow = {
+  id: string;
+  service_name: string;
+  default_price: number;
+  item_type: "SERVICE" | "ADD_ON";
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+type InvoiceRow = {
+  id: string;
+  invoice_date: string;
+  status: string | null;
+  subtotal: number | null;
+  discount_amount: number | null;
+  total: number | null;
+  notes: string | null;
+  created_at: string | null;
+};
+
+type InvoiceItemRow = {
+  id: string;
+  invoice_id: string;
+  service_name: string;
+  description?: string | null;
+  qty: number;
+  unit_price: number;
+  line_total: number;
+  tooth_number: number | null;
+  dentist_name: string | null;
+  created_at: string | null;
+};
+
+type PaymentRow = {
+  id: string;
+  invoice_id: string;
+  payment_date: string;
+  amount: number;
+  mode: string;
+  reference_no: string | null;
+  notes: string | null;
+  created_at: string | null;
+};
+
+type Attachment = {
+  id: string;
+  type: string;
+  file_path: string;
+  file_name: string | null;
+  content_type: string | null;
+  file_size_bytes: number | null;
+  created_at: string;
 };
 
 type DocTemplate = {
@@ -67,138 +129,172 @@ type GeneratedDoc = {
   created_at: string;
 };
 
-type Attachment = {
+type DraftLine = {
   id: string;
-  type: string;
-  file_path: string;
-  file_name: string | null;
-  content_type: string | null;
-  file_size_bytes: number | null;
-  created_at: string;
-};
-
-type ServicePriceRow = {
-  id: string;
-  service_name: string;
-  default_price: number;
-  item_type: "SERVICE" | "ADD_ON";
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-};
-
-type PaymentRow = {
-  id: string;
-  payment_date: string;
-  amount: number;
-  mode: string;
-  reference_no: string | null;
-  is_installment: boolean;
-  installment_note: string | null;
-  notes: string | null;
-  created_at: string;
-};
-
-type EncounterRow = {
-  id: string;
-  patient_id: string;
-  encounter_date: string; // YYYY-MM-DD
-  notes: string | null;
-  created_at: string;
-};
-
-type InvoiceRow = {
-  id: string;
-  invoice_date: string;
-  status: string | null;
-  subtotal?: number | null;
-  discount_type?: "NONE" | "AMOUNT" | "PERCENT" | null;
-  discount_value?: number | null;
-  discount_amount?: number | null;
-  total?: number | null;
-  notes?: string | null;
-  created_at?: string;
-};
-
-type InvoiceItemRow = {
-  id: string;
-  invoice_id: string;
-  service_name: string;
-  qty: number;
-  unit_price: number;
-  line_total: number;
   tooth_number: number | null;
-  dentist_name: string | null;
-  created_at?: string;
-};
-
-type DentistRow = {
-  id: string;
-  full_name: string;
+  service_price_id: string | null;
+  procedure: string;
+  note: string;
 };
 
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
 type AttachmentType = (typeof attachmentTypes)[number];
 
-const tabs = ["Info", "Medical", "Chart", "Treatments", "Files", "Documents", "Billing"] as const;
+const tabs = ["Info", "Medical", "Chart", "Treatments", "Attachments", "Documents", "Billing"] as const;
 type Tab = (typeof tabs)[number];
 
+/* =========================
+   Helpers
+========================= */
 function num(n: any) {
   const v = Number(n);
   return Number.isFinite(v) ? v : 0;
 }
 
-function formatDateTimePH(isoOrDate: string) {
-  const d = new Date(isoOrDate);
-  if (Number.isNaN(d.getTime())) return isoOrDate;
+function todayLocalISO() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
-  return d.toLocaleString("en-PH", {
+function formatDatePH(isoDate: string | null | undefined) {
+  if (!isoDate) return "—";
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return isoDate;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!y || !m || !d) return isoDate;
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "2-digit" });
+}
+
+function formatDateTimePH(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const dt = new Date(iso);
+  return dt.toLocaleString("en-PH", {
     year: "numeric",
     month: "short",
-    day: "numeric",
+    day: "2-digit",
     hour: "numeric",
     minute: "2-digit",
   });
 }
 
-function formatDatePH(isoDate: string | null | undefined) {
-  if (!isoDate) return "";
-  const d = new Date(`${isoDate}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return String(isoDate);
+function calcAge(isoDate: string | null | undefined) {
+  if (!isoDate) return null;
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return null;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!y || !m || !d) return null;
 
-  return d.toLocaleDateString("en-PH", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const today = new Date();
+  let age = today.getFullYear() - y;
+  const mm = today.getMonth() + 1;
+  const dd = today.getDate();
+  if (mm < m || (mm === m && dd < d)) age -= 1;
+  return age;
 }
 
-function dentistForActiveInvoice(items: InvoiceItemRow[]) {
-  const v = (items.find((x) => (x.dentist_name ?? "").trim())?.dentist_name ?? "").trim();
-  return v || "—";
+function generateReceiptNo() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `RCPT-${y}${m}${d}-${rand}`;
 }
 
-function isMissingColumnError(msg: string) {
-  return msg.toLowerCase().includes("could not find the") && msg.toLowerCase().includes("column");
+function safeFileName(name: string) {
+  return name.replace(/[^\w.\-() ]+/g, "_").slice(0, 120);
 }
 
+function parseToothOrNull(v: string) {
+  const n = v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function escapeHtml(s: string) {
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function renderTemplate(html: string, vars: Record<string, string>) {
+  let out = html;
+  for (const [key, val] of Object.entries(vars)) out = out.replaceAll(`{{${key}}}`, val);
+  return out;
+}
+
+/* =========================
+   Modal
+========================= */
+function Modal({
+  open,
+  title,
+  children,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
+      onDoubleClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white shadow-xl border overflow-hidden"
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b bg-slate-50">
+          <div className="text-sm font-semibold">{title}</div>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================
+   Page
+========================= */
 export default function PatientProfilePage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams();
   const router = useRouter();
+
+  const id = (params?.id as string) || "";
 
   const [tab, setTab] = useState<Tab>("Info");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Patient + edit mode
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [editMode, setEditMode] = useState(false);
+
+// Last visit (concern will later come from appointments integration)
+  const [lastVisitDate, setLastVisitDate] = useState<string>("");
+  const [lastVisitDentist, setLastVisitDentist] = useState<string>("");
+  const [lastVisitConcern, setLastVisitConcern] = useState<string>("");
+
+  // Info edit
+  const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editAddress, setEditAddress] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deletePatientText, setDeletePatientText] = useState("");
 
   // Medical
   const [med, setMed] = useState<MedHist | null>(null);
@@ -207,7 +303,26 @@ export default function PatientProfilePage() {
   const [bp, setBp] = useState("");
   const [medNotes, setMedNotes] = useState("");
 
-  // Chart + Tooth status
+  // Dentists + services
+  const [dentists, setDentists] = useState<DentistRow[]>([]);
+  const [serviceMenu, setServiceMenu] = useState<ServicePriceRow[]>([]);
+
+  const dentistNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const d of dentists) m[d.id] = d.full_name;
+    return m;
+  }, [dentists]);
+
+  const statusOptions = [
+    { value: "healthy", label: "Healthy", className: "bg-emerald-50 border-emerald-200 text-emerald-800" },
+    { value: "caries", label: "Caries", className: "bg-rose-50 border-rose-200 text-rose-800" },
+    { value: "filled", label: "Filled", className: "bg-sky-50 border-sky-200 text-sky-800" },
+    { value: "extracted", label: "Extracted", className: "bg-slate-100 border-slate-200 text-slate-700" },
+    { value: "missing", label: "Missing", className: "bg-amber-50 border-amber-200 text-amber-800" },
+    { value: "rct", label: "RCT", className: "bg-violet-50 border-violet-200 text-violet-800" },
+  ] as const;
+
+  // Chart
   const [chart, setChart] = useState<ChartEntry[]>([]);
   const [toothStatuses, setToothStatuses] = useState<
     Record<number, { status: ToothStatus; note: string | null; updated_at?: string }>
@@ -217,42 +332,47 @@ export default function PatientProfilePage() {
   const [surfaceSel, setSurfaceSel] = useState<string[]>([]);
   const [findingDetail, setFindingDetail] = useState("");
   const [pendingStatus, setPendingStatus] = useState<string>("HEALTHY");
-
-  // Chart entry form (kept for later, but currently you use Tooth status editor)
-  const [tooth, setTooth] = useState("");
-  const [surfaces, setSurfaces] = useState("");
-  const [finding, setFinding] = useState("");
-  const [chartNotes, setChartNotes] = useState("");
-
-  // Treatments (Visit-style)
+  
+  // Treatments
   const [treatments, setTreatments] = useState<Treatment[]>([]);
+  useEffect(() => {
+    if (!treatments || treatments.length === 0) {
+      setLastVisitDate("");
+      setLastVisitDentist("");
+      setLastVisitConcern("");
+      return;
+    }
 
-  // Visit header (pick once)
-  const [visitDate, setVisitDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [visitDentistId, setVisitDentistId] = useState("SELECT");
-  const [visitNote, setVisitNote] = useState("");
+    // pick the latest treatment_date; tie-breaker by created_at if present
+    const latest = [...treatments].sort((a, b) => {
+      const da = (a.treatment_date ?? "").localeCompare(b.treatment_date ?? "");
+      const dc = (a.created_at ?? "").localeCompare(b.created_at ?? "");
+      if (da !== 0) return da * -1;
+      return dc * -1;
+    })[0];
 
-  // Draft procedure line inputs
+    setLastVisitDate(latest.treatment_date ?? "");
+    setLastVisitDentist(latest.dentist_name ?? "");
+
+    // Scheduling integration TODO:
+    // "Concern" should come from Appointments/Visits chief complaint, not from procedure names.
+    setLastVisitConcern("");
+  }, [treatments]);
+
+  const [visitDate, setVisitDate] = useState(() => todayLocalISO());
+  const [visitDentistId, setVisitDentistId] = useState<string>(""); // neutral
+  const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
   const [lineTooth, setLineTooth] = useState("");
   const [txServiceId, setTxServiceId] = useState<string>("");
   const [txServiceName, setTxServiceName] = useState<string>("");
   const [lineNote, setLineNote] = useState("");
 
-  // Draft list
-  type DraftLine = {
-    id: string;
-    tooth_number: number | null;
-    service_price_id: string | null;
-    procedure: string;
-    note: string | null; // optional per-procedure note
-  };
-
-  const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
-
-  // Files
+  // Attachments
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [uploadType, setUploadType] = useState<AttachmentType>("XRAY");
+  const [uploadType, setUploadType] = useState<AttachmentType | "">("");
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+  const [renameAttachmentId, setRenameAttachmentId] = useState<string | null>(null);
+  const [renameAttachmentValue, setRenameAttachmentValue] = useState("");
 
   // Documents
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
@@ -260,35 +380,83 @@ export default function PatientProfilePage() {
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDoc[]>([]);
 
-  // Document input fields
-  const [docType, setDocType] = useState<"" | "CERTIFICATE" | "RECEIPT">("");
-  const [docVisitDate, setDocVisitDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [docFindings, setDocFindings] = useState("");
-  const [docTreatmentDone, setDocTreatmentDone] = useState("");
-  const [docRemarks, setDocRemarks] = useState("");
-  const [docDentistName, setDocDentistName] = useState("");
-  const [docPrcLicense, setDocPrcLicense] = useState("");
+  const [docVisitDate, setDocVisitDate] = useState(() => todayLocalISO());
+  const [docDentistId, setDocDentistId] = useState<string>(""); // neutral
   const [docReceiptNo, setDocReceiptNo] = useState("");
   const [docItems, setDocItems] = useState("");
   const [docAmountPaid, setDocAmountPaid] = useState("");
   const [docPaymentMethod, setDocPaymentMethod] = useState("Cash");
   const [docBalance, setDocBalance] = useState("");
+  const [docFindings, setDocFindings] = useState("");
+  const [docTreatmentDone, setDocTreatmentDone] = useState("");
+  const [docRemarks, setDocRemarks] = useState("");
   const [docIssuedBy, setDocIssuedBy] = useState("");
 
-  // BILLING
+  // Billing
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItemRow[]>([]);
   const [invoicePayments, setInvoicePayments] = useState<PaymentRow[]>([]);
+  const [visitSelectInvoiceId, setVisitSelectInvoiceId] = useState<string>("");
 
-  const [encounters, setEncounters] = useState<EncounterRow[]>([]);
-  const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
+  // Discount modal
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discountMode, setDiscountMode] = useState<"AMOUNT" | "PERCENT">("AMOUNT");
+  const [discountValue, setDiscountValue] = useState("");
 
-  // Create encounter
-  const [newEncounterDate, setNewEncounterDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [newEncounterNotes, setNewEncounterNotes] = useState("");
+  // Edit item modal
+  const [editItemOpen, setEditItemOpen] = useState(false);
+  const [editItem, setEditItem] = useState<InvoiceItemRow | null>(null);
+  const [editItemQty, setEditItemQty] = useState("1");
+  const [editItemUnit, setEditItemUnit] = useState("0");
+  const [deleteItemConfirmOpen, setDeleteItemConfirmOpen] = useState(false);
+  const [deleteItemText, setDeleteItemText] = useState("");
 
-    // Billing: visit dates available (from Treatments)
+  // Payments add
+  const [payDate, setPayDate] = useState(() => todayLocalISO());
+  const [payAmount, setPayAmount] = useState("");
+  const [payMode, setPayMode] = useState("Cash");
+  const [payRef, setPayRef] = useState("");
+  const [payNotes, setPayNotes] = useState("");
+
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.id === selectedTemplateId) ?? null,
+    [templates, selectedTemplateId]
+  );
+
+  const invoicesById = useMemo(() => {
+    const m: Record<string, InvoiceRow> = {};
+    for (const i of invoices) m[i.id] = i;
+    return m;
+  }, [invoices]);
+
+  const groupedTreatmentHistory = useMemo(() => {
+    const acc: Record<string, Treatment[]> = {};
+    for (const t of treatments) {
+      const k = t.treatment_date;
+      acc[k] = acc[k] ? [...acc[k], t] : [t];
+    }
+    for (const k of Object.keys(acc)) {
+      acc[k] = acc[k].slice().sort((a, b) => {
+        const aa = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bb - aa;
+      });
+    }
+    return Object.entries(acc).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [treatments]);
+
+  const treatmentsByDate = useMemo(() => {
+    const map = new Map<string, Treatment[]>();
+    for (const t of treatments) {
+      const k = t.treatment_date;
+      map.set(k, [...(map.get(k) ?? []), t]);
+    }
+    return map;
+  }, [treatments]);
+
+  // Billing: visit dates available (from Treatments)
   const visitDates = useMemo(() => {
     const set = new Set<string>();
     for (const t of treatments) {
@@ -297,83 +465,239 @@ export default function PatientProfilePage() {
     return Array.from(set).sort((a, b) => (a < b ? 1 : -1));
   }, [treatments]);
 
+  // Billing: dropdown value is a visit date (not invoice id)
+  const [billingVisitDate, setBillingVisitDate] = useState<string>("");
+
+  const invoiceDentistLabelByInvoiceId = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const inv of invoices) {
+      const rows = treatmentsByDate.get(inv.invoice_date) ?? [];
+      const did = rows.find((r) => r.dentist_id)?.dentist_id ?? null;
+      const name =
+        (did ? dentistNameById[did] : "") ||
+        rows.find((r) => r.dentist_name)?.dentist_name ||
+        "—";
+      out[inv.id] = name;
+    }
+    return out;
+  }, [invoices, treatmentsByDate, dentistNameById]);
+
+  const billingSummary = useMemo(() => {
+    const totalAll = invoices.reduce((sum, i) => sum + num(i.total), 0);
+    const paidAll = payments.reduce((sum, p) => sum + num(p.amount), 0);
+    const balanceAll = Math.max(0, totalAll - paidAll);
+    return { totalAll, paidAll, balanceAll };
+  }, [invoices, payments]);
+
+  const activeInvoice = activeInvoiceId ? invoicesById[activeInvoiceId] : null;
+  const activePaid = invoicePayments.reduce((sum, p) => sum + num(p.amount), 0);
+  const activeTotal = num(activeInvoice?.total);
+  const activeBalance = Math.max(0, activeTotal - activePaid);
+
+  const invoiceSubtotalComputed = useMemo(() => {
+    return invoiceItems.reduce((sum, it) => {
+      const isDiscount = (it.service_name ?? "").toLowerCase() === "discount";
+      return sum + (isDiscount ? 0 : num(it.line_total));
+    }, 0);
+  }, [invoiceItems]);
+
+  const invoiceDiscountComputed = useMemo(() => {
+    // Discount rows should be negative totals (unit_price and line_total negative)
+    return invoiceItems.reduce((sum, it) => {
+      const isDiscount = (it.service_name ?? "").toLowerCase() === "discount";
+      return sum + (isDiscount ? num(it.line_total) : 0);
+    }, 0);
+  }, [invoiceItems]);
+
+  const invoiceTotalComputed = useMemo(() => {
+    return invoiceItems.reduce((sum, it) => sum + num(it.line_total), 0);
+  }, [invoiceItems]);
+
+  /* =========================
+     Data loading
+  ========================= */
+  async function loadInvoiceDetails(invoiceId: string) {
+    const it = await supabase
+      .from("invoice_items")
+      .select(
+        "id, invoice_id, service_name, description, qty, unit_price, line_total, tooth_number, dentist_name, created_at"
+      )
+      .eq("invoice_id", invoiceId)
+      .order("created_at", { ascending: true }); // stable base order
+
+    if (it.error || !it.data) {
+      setInvoiceItems([]);
+    } else {
+      const items = it.data as InvoiceItemRow[];
+
+      const isDiscount = (x: InvoiceItemRow) => (x.service_name ?? "").toLowerCase() === "discount";
+
+      const sorted = items.slice().sort((a, b) => {
+        const ad = isDiscount(a);
+        const bd = isDiscount(b);
+        if (ad !== bd) return ad ? 1 : -1; // discount LAST always
+
+        // then tooth number (nulls last)
+        const ta = a.tooth_number ?? 9999;
+        const tb = b.tooth_number ?? 9999;
+        if (ta !== tb) return ta - tb;
+
+        // finally created_at
+        const ca = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const cb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return ca - cb;
+      });
+
+      setInvoiceItems(sorted);
+    }
+
+    const pay = await supabase
+      .from("payments")
+      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
+      .eq("invoice_id", invoiceId)
+      .order("payment_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (pay.error || !pay.data) setInvoicePayments([]);
+    else setInvoicePayments(pay.data as PaymentRow[]);
+  }
+
+  async function ensureEncounterInvoice(patientId: string, encounterDate: string, notes?: string) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user?.id ?? null;
+
+    const r = await supabase.rpc("ensure_encounter_invoice", {
+      p_patient_id: patientId,
+      p_encounter_date: encounterDate,
+      p_notes: notes ?? null,
+      p_created_by: userId,
+    });
+
+    if (r.error) {
+      setErr(r.error.message);
+      return null;
+    }
+
+    return r.data as string;
+  }
+
+  async function syncInvoiceFromTreatments(invoiceId: string) {
+    const r = await supabase.rpc("sync_invoice_items_from_treatments", { p_invoice_id: invoiceId });
+    if (r.error) {
+      setErr(r.error.message);
+      return false;
+    }
+    return true;
+  }
+
   async function openBillingForVisitDate(date: string) {
     if (!patient) return;
 
     setBusy(true);
     setErr(null);
 
-    // Ensure invoice exists for this visit date, then rebuild items from Treatments
+    // Ensure invoice exists for this visit date
     const invoiceId = await ensureEncounterInvoice(patient.id, date, undefined);
     if (!invoiceId) {
       setBusy(false);
       return;
     }
 
+    // Rebuild items from Treatments
     const ok = await syncInvoiceFromTreatments(invoiceId);
     if (!ok) {
       setBusy(false);
       return;
     }
 
+    // Set active invoice and keep dropdown synced
     setActiveInvoiceId(invoiceId);
+    setVisitSelectInvoiceId(invoiceId);
+    setBillingVisitDate(date);
 
-    // Reload lists + details
-    await loadAll();
+    // Recalc invoice totals after sync (important)
+    const rec = await supabase.rpc("recalc_invoice", { p_invoice_id: invoiceId });
+    if (rec.error) {
+      setBusy(false);
+      setErr(rec.error.message);
+      return;
+    }
+
+    // Reload just what Billing needs (avoid loadAll overwrite)
     await loadInvoiceDetails(invoiceId);
+
+    // Still refresh the overall invoice list + payments totals
+    // BUT do it safely: only refresh invoices/payments, not active invoice selection
+    const inv = await supabase
+      .from("invoices")
+      .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
+      .eq("patient_id", id)
+      .order("invoice_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (!inv.error && inv.data) setInvoices(inv.data as InvoiceRow[]);
+
+    const pay = await supabase
+      .from("payments")
+      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
+      .eq("patient_id", id);
+
+    if (!pay.error && pay.data) setPayments(pay.data as PaymentRow[]);
 
     setBusy(false);
   }
 
-  // Create invoice
-  const [newInvoiceDate, setNewInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [newInvoiceNotes, setNewInvoiceNotes] = useState("");
+  async function refreshActiveInvoiceFromTreatments() {
+    if (!activeInvoiceId) {
+      setErr("Open an invoice first (select a visit date).");
+      return;
+    }
 
-  const [serviceMenu, setServiceMenu] = useState<ServicePriceRow[]>([]);
+    setBusy(true);
+    setErr(null);
 
-  // Dentists
-  const [dentists, setDentists] = useState<DentistRow[]>([]);
-  const [txDentistId, setTxDentistId] = useState<string | null>(null);
+    const r = await supabase.rpc("sync_invoice_items_from_treatments", {
+      p_invoice_id: activeInvoiceId,
+    });
+    if (r.error) {
+      setBusy(false);
+      setErr(r.error.message);
+      return;
+    }
 
-  // Discount (may not exist yet in DB)
-  const [discType, setDiscType] = useState<"NONE" | "AMOUNT" | "PERCENT">("NONE");
-  const [discValue, setDiscValue] = useState("");
+    const rec = await supabase.rpc("recalc_invoice", { p_invoice_id: activeInvoiceId });
+    if (rec.error) {
+      setBusy(false);
+      setErr(rec.error.message);
+      return;
+    }
 
-  // Add payment (linked to invoice)
-  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [payAmount, setPayAmount] = useState("");
-  const [payMode, setPayMode] = useState("Cash");
-  const [payRef, setPayRef] = useState("");
-  const [payInstallment, setPayInstallment] = useState(false);
-  const [payInstallNote, setPayInstallNote] = useState("");
-  const [payNotes, setPayNotes] = useState("");
+    await loadInvoiceDetails(activeInvoiceId);
 
-  async function loadInvoiceDetails(invoiceId: string) {
-    const it = await supabase
-      .from("invoice_items")
-      .select("id, invoice_id, service_name, qty, unit_price, line_total, tooth_number, dentist_name, created_at")
-      .eq("invoice_id", invoiceId)
-      .order("created_at", { ascending: true });
+    // refresh totals lists without overriding active invoice
+    const inv = await supabase
+      .from("invoices")
+      .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
+      .eq("patient_id", id)
+      .order("invoice_date", { ascending: false })
+      .order("created_at", { ascending: false });
 
-    if (!it.error && it.data) setInvoiceItems(it.data as InvoiceItemRow[]);
-    else setInvoiceItems([]);
+    if (!inv.error && inv.data) setInvoices(inv.data as InvoiceRow[]);
 
     const pay = await supabase
       .from("payments")
-      .select("id, payment_date, amount, mode, reference_no, is_installment, installment_note, notes, created_at")
-      .eq("invoice_id", invoiceId)
-      .order("payment_date", { ascending: false })
-      .order("created_at", { ascending: false });
+      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
+      .eq("patient_id", id);
 
-    if (!pay.error && pay.data) setInvoicePayments(pay.data as PaymentRow[]);
-    else setInvoicePayments([]);
+    if (!pay.error && pay.data) setPayments(pay.data as PaymentRow[]);
+
+    setBusy(false);
   }
 
   async function loadAll() {
     setLoading(true);
     setErr(null);
 
-    // Patient
     const p = await supabase
       .from("patients")
       .select("id, full_name, phone, birth_date, address, occupation, email, notes")
@@ -388,14 +712,11 @@ export default function PatientProfilePage() {
 
     const pat = p.data as Patient;
     setPatient(pat);
-
-    // Initialize edit fields from fetched patient (not from stale state)
     setEditName(pat.full_name ?? "");
     setEditPhone(pat.phone ?? "");
     setEditBirthDate(pat.birth_date ?? "");
     setEditAddress(pat.address ?? "");
 
-    // Medical history (latest)
     const m = await supabase
       .from("patient_medical_histories")
       .select("id, allergies, medications, blood_pressure, notes, conditions")
@@ -412,65 +733,38 @@ export default function PatientProfilePage() {
       setMedNotes(row.notes ?? "");
     } else {
       setMed(null);
+      setAllergies("");
+      setMedications("");
+      setBp("");
+      setMedNotes("");
     }
 
-    // Chart history
+    const d = await supabase
+      .from("dentists")
+      .select("id, full_name")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("full_name", { ascending: true });
+
+    setDentists(!d.error && d.data ? (d.data as DentistRow[]) : []);
+
+    const sm = await supabase
+      .from("service_prices")
+      .select("id, service_name, default_price, item_type, is_active, sort_order, created_at")
+      .order("item_type", { ascending: true })
+      .order("sort_order", { ascending: true })
+      .order("service_name", { ascending: true });
+
+    setServiceMenu(!sm.error && sm.data ? (sm.data as ServicePriceRow[]) : []);
+
     const c = await supabase
       .from("dental_chart_entries")
       .select("id, tooth_number, surfaces, finding_code, finding_detail, notes, recorded_at")
       .eq("patient_id", id)
       .order("recorded_at", { ascending: false });
 
-    if (!c.error && c.data) setChart(c.data as ChartEntry[]);
-    else setChart([]);
+    setChart(!c.error && c.data ? (c.data as ChartEntry[]) : []);
 
-    // Treatments
-    const t = await supabase
-      .from("treatments")
-      .select("id, treatment_date, procedure, tooth_number, fee, notes, dentist_name")
-      .eq("patient_id", id)
-      .order("treatment_date", { ascending: false })
-      .limit(200);
-
-    if (!t.error && t.data) setTreatments(t.data as Treatment[]);
-    else setTreatments([]);
-
-    // Attachments
-    const a = await supabase
-      .from("attachments")
-      .select("id, type, file_path, file_name, content_type, file_size_bytes, created_at")
-      .eq("patient_id", id)
-      .order("created_at", { ascending: false });
-
-    if (!a.error && a.data) setAttachments(a.data as Attachment[]);
-    else setAttachments([]);
-
-    // Templates
-    const tpl = await supabase
-      .from("document_templates")
-      .select("id, name, doc_type, content_html")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
-
-    if (!tpl.error && tpl.data) {
-      setTemplates(tpl.data as DocTemplate[]);
-      if (!selectedTemplateId && tpl.data.length) setSelectedTemplateId(tpl.data[0].id);
-    } else {
-      setTemplates([]);
-    }
-
-    // Generated docs
-    const gd = await supabase
-      .from("generated_documents")
-      .select("id, doc_type, doc_number, payload, created_at")
-      .eq("patient_id", id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (!gd.error && gd.data) setGeneratedDocs(gd.data as GeneratedDoc[]);
-    else setGeneratedDocs([]);
-
-    // Tooth statuses
     const s = await supabase
       .from("tooth_statuses")
       .select("tooth_number, status, note, updated_at")
@@ -490,102 +784,139 @@ export default function PatientProfilePage() {
       setToothStatuses({});
     }
 
-    const enc = await supabase
-    .from("encounters")
-    .select("id, patient_id, encounter_date, notes, created_at")
-    .eq("patient_id", id)
-    .order("encounter_date", { ascending: false });
+    const t = await supabase
+      .from("treatments")
+      .select("id, treatment_date, procedure, tooth_number, notes, dentist_id, dentist_name, service_price_id, created_at")
+      .eq("patient_id", id)
+      .order("treatment_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(500);
 
-  if (!enc.error && enc.data) {
-    setEncounters(enc.data as EncounterRow[]);
-    if (!activeEncounterId && enc.data.length > 0) setActiveEncounterId(enc.data[0].id);
+    setTreatments(!t.error && t.data ? (t.data as Treatment[]) : []);
+
+    const a = await supabase
+      .from("attachments")
+      .select("id, type, file_path, file_name, content_type, file_size_bytes, created_at")
+      .eq("patient_id", id)
+      .order("created_at", { ascending: false });
+
+    setAttachments(!a.error && a.data ? (a.data as Attachment[]) : []);
+
+    const tpl = await supabase
+      .from("document_templates")
+      .select("id, name, doc_type, content_html")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    setTemplates(!tpl.error && tpl.data ? (tpl.data as DocTemplate[]) : []);
+
+    const gd = await supabase
+      .from("generated_documents")
+      .select("id, doc_type, doc_number, payload, created_at")
+      .eq("patient_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    setGeneratedDocs(!gd.error && gd.data ? (gd.data as GeneratedDoc[]) : []);
+
+    const inv = await supabase
+      .from("invoices")
+      .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
+      .eq("patient_id", id)
+      .order("invoice_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    const invRows = !inv.error && inv.data ? (inv.data as InvoiceRow[]) : [];
+    setInvoices(invRows);
+
+   const latest = invRows[0] ?? null;
+  // Only override "Last visit" from invoices if an invoice actually exists.
+  // Otherwise keep the Treatments-derived last visit.
+  if (latest?.invoice_date) {
+    setLastVisitDate(latest.invoice_date ?? "");
+    setLastVisitDentist((latest as any)?.dentist_name ?? "");
   }
 
-    // Invoices (use select("*") so it won’t crash if discount columns aren’t created yet)
-    const inv = await supabase
-    .from("invoices")
-    .select("id, encounter_id, invoice_date, status, subtotal, discount_type, discount_value, discount_amount, total, notes, created_at")
-    .eq("patient_id", id)
-    .order("invoice_date", { ascending: false })
-    .order("created_at", { ascending: false });
+    // For now, treat invoice notes as "concern" until appointments/scheduling exists
+    setLastVisitConcern((latest as any)?.notes ?? "");
 
-    if (!inv.error && inv.data) {
-      const rows = inv.data as InvoiceRow[];
-      setInvoices(rows);
+    const pay = await supabase
+      .from("payments")
+      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
+      .eq("patient_id", id);
 
-      // Set active invoice
-      const nextActive = activeInvoiceId ? rows.find((r) => r.id === activeInvoiceId)?.id : null;
-      if (!nextActive && rows.length > 0) setActiveInvoiceId(rows[0].id);
+    setPayments(!pay.error && pay.data ? (pay.data as PaymentRow[]) : []);
 
-      // Sync discount UI from active (if exists)
-      const active = rows.find((r) => r.id === (nextActive ?? activeInvoiceId)) ?? rows[0];
-      if (active) {
-        const dt = (active.discount_type ?? "NONE") as any;
-        setDiscType(dt === "AMOUNT" || dt === "PERCENT" ? dt : "NONE");
-        setDiscValue(dt === "NONE" ? "" : String(active.discount_value ?? ""));
-      }
+    // Default invoice selection
+    if (invRows.length) {
+      // IMPORTANT:
+      // Do NOT override activeInvoiceId if one is already set (ex: Billing visit-date selection)
+      const next = activeInvoiceId || visitSelectInvoiceId || invRows[0].id;
+
+      setVisitSelectInvoiceId(next);
+      setActiveInvoiceId(next);
+      await loadInvoiceDetails(next);
+
+      // Keep billing dropdown in sync when possible
+      const chosen = invRows.find((x) => x.id === next);
+      if (chosen?.invoice_date) setBillingVisitDate(chosen.invoice_date);
     } else {
-      setInvoices([]);
+      setVisitSelectInvoiceId("");
+      setActiveInvoiceId(null);
+      setInvoiceItems([]);
+      setInvoicePayments([]);
+      setBillingVisitDate("");
     }
-
-    const sm = await supabase
-    .from("service_prices")
-    .select("id, service_name, default_price, item_type, is_active, sort_order, created_at")
-    .order("item_type", { ascending: true })
-    .order("sort_order", { ascending: true })
-    .order("service_name", { ascending: true });
-
-  if (!sm.error && sm.data) setServiceMenu(sm.data as ServicePriceRow[]);
-
-    const d = await supabase
-    .from("dentists")
-    .select("id, full_name")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("full_name", { ascending: true });
-
-    if (!d.error && d.data) {
-      setDentists(d.data as DentistRow[]);
-      if (!visitDentistId && d.data.length > 0) {
-        setVisitDentistId(d.data[0].id);
-      }
-    }         
 
     setLoading(false);
   }
 
   useEffect(() => {
+    if (!id) return;
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  useEffect(() => {
-    if (activeInvoiceId) loadInvoiceDetails(activeInvoiceId);
-  }, [activeInvoiceId]);
+  /* =========================
+     Actions
+  ========================= */
+  async function savePatientEdits() {
+    if (!patient) return;
+    setBusy(true);
+    setErr(null);
 
-  function toggleSurface(s: string) {
-    setSurfaceSel((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+    const res = await supabase
+      .from("patients")
+      .update({
+        full_name: editName.trim(),
+        phone: editPhone.trim() || null,
+        birth_date: editBirthDate || null,
+        address: editAddress.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", patient.id);
+
+    setBusy(false);
+    if (res.error) return setErr(res.error.message);
+
+    setEditOpen(false);
+    setDeletePatientText("");
+    await loadAll();
   }
 
   async function deletePatient() {
     if (!patient) return;
-
-    if (deleteConfirm.trim().toUpperCase() !== "DELETE") {
-      setErr('Type DELETE to confirm.');
+    if (deletePatientText.trim().toUpperCase() !== "DELETE") {
+      setErr("Type DELETE to confirm.");
       return;
     }
-
     setBusy(true);
     setErr(null);
 
     const res = await supabase.from("patients").delete().eq("id", patient.id);
 
     setBusy(false);
-
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
+    if (res.error) return setErr(res.error.message);
 
     window.location.href = "/patients";
   }
@@ -613,138 +944,6 @@ export default function PatientProfilePage() {
 
     setBusy(false);
     if (res.error) return setErr(res.error.message);
-    await loadAll();
-  }
-
-  async function addChartEntry() {
-    const toothNum = Number(tooth);
-    if (!toothNum || toothNum < 1) return;
-
-    setBusy(true);
-    setErr(null);
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user?.id ?? null;
-
-    const res = await supabase.from("dental_chart_entries").insert({
-      patient_id: id,
-      tooth_number: toothNum,
-      surfaces: surfaces.trim() || null,
-      finding_code: finding.trim(),
-      notes: chartNotes.trim() || null,
-      recorded_by: userId,
-    });
-
-    setBusy(false);
-    if (res.error) return setErr(res.error.message);
-
-    setTooth("");
-    setSurfaces("");
-    setFinding("");
-    setChartNotes("");
-    await loadAll();
-  }
-
-  function parseToothOrNull(v: string) {
-    const n = v.trim() ? Number(v) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : null;
-  }
-
-  function addDraftLine() {
-    setErr(null);
-
-    if (!txServiceId || !txServiceName.trim()) {
-      setErr("Select a procedure/service from the menu.");
-      return;
-    }
-
-    const toothVal = parseToothOrNull(lineTooth);
-    const cleanedNote = lineNote.trim() || null;
-
-    const next: DraftLine = {
-      id: crypto.randomUUID(),
-      tooth_number: toothVal,
-      service_price_id: txServiceId || null,
-      procedure: txServiceName.trim(),
-      note: cleanedNote,
-    };
-
-    setDraftLines((prev) => [next, ...prev]);
-
-    // clear line inputs
-    setLineTooth("");
-    setLineNote("");
-    setTxServiceId("");
-    setTxServiceName("");
-  }
-
-  function removeDraftLine(id: string) {
-    setDraftLines((prev) => prev.filter((x) => x.id !== id));
-  }
-
-  async function saveVisit() {
-    if (!patient) return;
-
-    setBusy(true);
-    setErr(null);
-
-    if (!visitDate) {
-      setBusy(false);
-      setErr("Select a date for this visit.");
-      return;
-    }
-    if (!visitDentistId) {
-      setBusy(false);
-      setErr("Select the attending dentist.");
-      return;
-    }
-    if (draftLines.length === 0) {
-      setBusy(false);
-      setErr("Add at least one procedure for this visit.");
-      return;
-    }
-
-    const dentistName = dentists.find((d) => d.id === visitDentistId)?.full_name ?? null;
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user?.id ?? null;
-
-    const payload = draftLines.map((line: DraftLine) => {
-    const dentistLine = `Dentist: ${visitDentistId}`;
-    const visit = visitNote.trim();
-    const proc = (line.note ?? "").trim();
-
-    const notesParts = [dentistLine, visit, proc].filter((x) => x && x.trim());
-    const combinedNotes = notesParts.length ? notesParts.join("\n\n") : null;
-
-    return {
-      patient_id: patient.id,
-      treatment_date: visitDate,
-      procedure: line.procedure,
-      service_price_id: line.service_price_id,
-      tooth_number: line.tooth_number,
-      notes: combinedNotes,
-      created_by: userId,
-      dentist_id: userId, // keep for audit for now
-    } as any;
-  });
-
-    const res = await supabase.from("treatments").insert(payload);
-
-    setBusy(false);
-
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
-
-    setDraftLines([]);
-    setLineTooth("");
-    setLineNote("");
-    setTxServiceId("");
-    setTxServiceName("");
-    setLineNote("");
-    // keep visitDate + dentist selected so you can add another visit quickly if you want
 
     await loadAll();
   }
@@ -758,7 +957,6 @@ export default function PatientProfilePage() {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
 
-    // Save snapshot
     const up = await supabase.from("tooth_statuses").upsert(
       {
         patient_id: id,
@@ -773,14 +971,14 @@ export default function PatientProfilePage() {
 
     if (up.error) {
       setBusy(false);
-      setErr(up.error.message);
-      return;
+      return setErr(up.error.message);
     }
 
-    // Append history
     const surfacesToSave =
       status === "CARIES" || status === "FILLED"
-        ? (surfaceSel.length ? surfaceSel.slice().sort().join("") : null)
+        ? surfaceSel.length
+          ? surfaceSel.slice().sort().join("")
+          : null
         : null;
 
     const hist = await supabase.from("dental_chart_entries").insert({
@@ -794,34 +992,103 @@ export default function PatientProfilePage() {
     });
 
     setBusy(false);
+    if (hist.error) return setErr(hist.error.message);
 
-    if (hist.error) {
-      setErr(hist.error.message);
-      return;
-    }
-
-    // Clear surfaces if not caries/filled
     if (status !== "CARIES" && status !== "FILLED") setSurfaceSel([]);
-
     await loadAll();
   }
 
-  function safeFileName(name: string) {
-    return name.replace(/[^\w.\-() ]+/g, "_").slice(0, 120);
+  function addDraftLine() {
+    setErr(null);
+
+    if (!visitDate) return setErr("Select a visit date first.");
+    if (!visitDentistId) return setErr("Select the attending dentist first.");
+    if (!txServiceId || !txServiceName.trim()) return setErr("Select a procedure/service.");
+
+    const toothVal = parseToothOrNull(lineTooth);
+
+    const next: DraftLine = {
+      id: crypto.randomUUID(),
+      tooth_number: toothVal,
+      service_price_id: txServiceId || null,
+      procedure: txServiceName.trim(),
+      note: lineNote.trim(),
+    };
+
+    setDraftLines((prev) => [next, ...prev]);
+    setLineTooth("");
+    setTxServiceId("");
+    setTxServiceName("");
+    setLineNote("");
+  }
+
+  function removeDraftLine(lineId: string) {
+    setDraftLines((prev) => prev.filter((x) => x.id !== lineId));
+  }
+
+  async function saveVisit() {
+    if (!patient) return;
+    setErr(null);
+
+    if (!visitDate) return setErr("Select a visit date.");
+    if (!visitDentistId) return setErr("Select the attending dentist.");
+    if (draftLines.length === 0) return setErr("Add at least one procedure.");
+
+    setBusy(true);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user?.id ?? null;
+
+    const payload = draftLines.map((ln) => ({
+      patient_id: patient.id,
+      treatment_date: visitDate,
+      dentist_id: visitDentistId,
+      procedure: ln.procedure,
+      service_price_id: ln.service_price_id,
+      tooth_number: ln.tooth_number,
+      notes: ln.note || null,
+      created_by: userId,
+    }));
+
+    const res = await supabase.from("treatments").insert(payload);
+
+    setBusy(false);
+    if (res.error) return setErr(res.error.message);
+
+    setDraftLines([]);
+    await loadAll();
+  }
+
+  async function openAttachment(a: Attachment) {
+    setErr(null);
+    const signed = await supabase.storage.from("patient-files").createSignedUrl(a.file_path, 60 * 10);
+    if (signed.error || !signed.data?.signedUrl) {
+      setErr(signed.error?.message ?? "Failed to generate signed URL.");
+      return;
+    }
+    window.open(signed.data.signedUrl, "_blank", "noopener,noreferrer");
   }
 
   async function uploadAttachment() {
     if (!fileToUpload) return;
+    if (!uploadType) {
+      setErr("Please select an attachment type.");
+      return;
+    }
+    if (fileToUpload.size > 5 * 1024 * 1024) {
+      setErr("File is too large. Please upload a file up to 5 MB.");
+      return;
+    }
 
-    setBusy(true);
     setErr(null);
+    setBusy(true);
 
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
 
     const base = safeFileName(fileToUpload.name);
     const random = crypto.randomUUID();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocalISO();
     const path = `${id}/${today}/${random}_${base}`;
 
     const up = await supabase.storage.from("patient-files").upload(path, fileToUpload, {
@@ -846,13 +1113,10 @@ export default function PatientProfilePage() {
     });
 
     setBusy(false);
-
-    if (ins.error) {
-      setErr(ins.error.message);
-      return;
-    }
+    if (ins.error) return setErr(ins.error.message);
 
     setFileToUpload(null);
+    setUploadType("");
     await loadAll();
   }
 
@@ -862,16 +1126,14 @@ export default function PatientProfilePage() {
 
     const res = await supabase
       .from("attachments")
-      .update({ file_name: newFileName })
+      .update({ file_name: newFileName.trim() || null })
       .eq("id", attachmentId);
 
     setBusy(false);
+    if (res.error) return setErr(res.error.message);
 
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
-
+    setRenameAttachmentId(null);
+    setRenameAttachmentValue("");
     await loadAll();
   }
 
@@ -879,57 +1141,19 @@ export default function PatientProfilePage() {
     setBusy(true);
     setErr(null);
 
-    // 1) remove from storage bucket
-    const bucket = "patient-files";
-    const s = await supabase.storage.from(bucket).remove([storagePath]);
-
+    const s = await supabase.storage.from("patient-files").remove([storagePath]);
     if (s.error) {
       setBusy(false);
-      setErr(s.error.message);
-      return;
+      return setErr(s.error.message);
     }
 
-    // 2) remove DB record
     const d = await supabase.from("attachments").delete().eq("id", attachmentId);
 
     setBusy(false);
-
-    if (d.error) {
-      setErr(d.error.message);
-      return;
-    }
+    if (d.error) return setErr(d.error.message);
 
     await loadAll();
   }
-  async function savePatientEdits() {
-    if (!patient) return;
-
-    setBusy(true);
-    setErr(null);
-
-    const res = await supabase
-      .from("patients")
-      .update({
-        full_name: editName.trim(),
-        phone: editPhone.trim(),
-        birth_date: editBirthDate || null,
-        address: editAddress.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", patient.id);
-
-    setBusy(false);
-
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
-
-    setEditMode(false);
-    await loadAll();
-  }
-
-  // ===== BILLING functions =====
 
   async function recalcInvoice(invoiceId: string) {
     const r = await supabase.rpc("recalc_invoice", { p_invoice_id: invoiceId });
@@ -940,111 +1164,172 @@ export default function PatientProfilePage() {
     return true;
   }
 
-  async function ensureEncounterInvoice(patientId: string, encounterDate: string, notes?: string) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id ?? null;
-
-  const r = await supabase.rpc("ensure_encounter_invoice", {
-    p_patient_id: patientId,
-    p_encounter_date: encounterDate,
-    p_notes: notes ?? null,
-    p_created_by: userId,
-  });
-
-  if (r.error) {
-    setErr(r.error.message);
-    return null;
+  function subtotalExcludingDiscount(items: InvoiceItemRow[]) {
+    return items
+      .filter((it) => (it.service_name ?? "").toLowerCase() !== "discount")
+      .reduce((sum, it) => sum + num(it.line_total), 0);
   }
 
-  // RPC returns invoice_id (uuid)
-  return r.data as string;
-  }
-
-  async function syncInvoiceFromTreatments(invoiceId: string) {
-    const r = await supabase.rpc("sync_invoice_items_from_treatments", { p_invoice_id: invoiceId });
-    if (r.error) {
-      setErr(r.error.message);
-      return false;
+  async function applyDiscountAsLine() {
+    setErr(null);
+    if (!activeInvoiceId) {
+      setErr("Open an invoice first (select a visit date) before adding a discount.");
+      return;
     }
-    return true;
-  }
 
-  async function createEncounter() {
-    if (!patient) return;
-
-    setBusy(true);
-    setErr(null);
-
-    const invoiceId = await ensureEncounterInvoice(patient.id, newEncounterDate, newEncounterNotes);
-    setBusy(false);
-
-    if (!invoiceId) return;
-
-    // Ensure items reflect treatments for this encounter
-    setBusy(true);
-    await syncInvoiceFromTreatments(invoiceId);
-    setBusy(false);
-
-    setActiveInvoiceId(invoiceId);
-    setNewEncounterNotes("");
-
-    await loadAll();
-    await loadInvoiceDetails(invoiceId);
-  }
-
-  async function applyDiscount() {
-    if (!activeInvoiceId) return;
-
-    setBusy(true);
-    setErr(null);
-
-    const v = discType === "NONE" ? 0 : Number(discValue);
-    if (discType !== "NONE" && (!Number.isFinite(v) || v < 0)) {
-      setBusy(false);
+    const raw = Number(discountValue);
+    if (!Number.isFinite(raw) || raw <= 0) {
       setErr("Enter a valid discount value.");
       return;
     }
 
-    const res = await supabase
-      .from("invoices")
-      .update({
-        discount_type: discType,
-        discount_value: v,
-        updated_at: new Date().toISOString(),
-      } as any)
-      .eq("id", activeInvoiceId);
+    const base = subtotalExcludingDiscount(invoiceItems);
+
+    let amount = 0;
+    if (discountMode === "AMOUNT") amount = raw;
+    else amount = (base * raw) / 100;
+
+    amount = Math.max(0, amount);
+    if (amount <= 0) {
+      setErr("Discount computed to 0.");
+      return;
+    }
+
+    setBusy(true);
+
+    // Remove existing discount lines to avoid duplicates
+    const existing = invoiceItems.filter((it) => (it.service_name ?? "").toLowerCase() === "discount");
+    if (existing.length) {
+      const del = await supabase
+        .from("invoice_items")
+        .delete()
+        .in(
+          "id",
+          existing.map((x) => x.id)
+        );
+
+      if (del.error) {
+        setBusy(false);
+        setErr(del.error.message);
+        return;
+      }
+    }
+
+    const ins = await supabase.from("invoice_items").insert({
+      invoice_id: activeInvoiceId,
+      service_name: "Discount",
+      description: discountMode === "PERCENT" ? `${raw}% discount` : `PHP ${raw.toFixed(2)} discount`,
+      qty: 1,
+      unit_price: -amount,
+      line_total: -amount,
+      tooth_number: null,
+      dentist_name: null,
+    });
+
+    if (ins.error) {
+      setBusy(false);
+      setErr(ins.error.message);
+      return;
+    }
+
+    // Recalc totals (RPC)
+    const rec = await supabase.rpc("recalc_invoice", { p_invoice_id: activeInvoiceId });
+    if (rec.error) {
+      setBusy(false);
+      setErr(rec.error.message);
+      return;
+    }
+
+    // Reload invoice details so the new row shows up immediately
+    await loadInvoiceDetails(activeInvoiceId);
+    await loadAll();
 
     setBusy(false);
 
-    if (res.error) {
-      // Clear message if columns are missing
-      if (isMissingColumnError(res.error.message)) {
-        setErr(
-          "Discount columns are not in your invoices table yet. Run the SQL migration to add discount_type / discount_value / discount_amount, then try again."
-        );
-        return;
-      }
-      setErr(res.error.message);
-      return;
-    }
-
-    await recalcInvoice(activeInvoiceId);
-    await loadAll();
-    await loadInvoiceDetails(activeInvoiceId);
+    // Close modal + reset
+    setDiscountOpen(false);
+    setDiscountValue("");
   }
 
-  async function addInvoicePayment() {
-    if (!activeInvoiceId || !patient) return;
+  function openEditItem(it: InvoiceItemRow) {
+    setEditItem(it);
+    setEditItemQty(String(it.qty ?? 1));
+    setEditItemUnit(String(it.unit_price ?? 0));
+    setEditItemOpen(true);
+  }
 
-    setBusy(true);
+  async function saveEditItem() {
+    if (!editItem) return;
     setErr(null);
 
-    const amt = Number(payAmount);
-    if (!Number.isFinite(amt) || amt <= 0) {
+    const q = Number(editItemQty);
+    const u = Number(editItemUnit);
+
+    if (!Number.isFinite(q) || q <= 0) return setErr("Qty must be a valid number.");
+    if (!Number.isFinite(u)) return setErr("Unit price must be a valid number.");
+
+    const lt = q * u;
+
+    setBusy(true);
+    const res = await supabase
+      .from("invoice_items")
+      .update({ qty: q, unit_price: u, line_total: lt })
+      .eq("id", editItem.id);
+
+    if (res.error) {
       setBusy(false);
-      setErr("Enter a valid payment amount.");
+      return setErr(res.error.message);
+    }
+
+    if (activeInvoiceId) await recalcInvoice(activeInvoiceId);
+
+    setBusy(false);
+    setEditItemOpen(false);
+    setEditItem(null);
+
+    if (activeInvoiceId) {
+      await loadInvoiceDetails(activeInvoiceId);
+      await loadAll();
+    }
+  }
+
+  async function deleteInvoiceItem() {
+    if (!editItem) return;
+    if (deleteItemText.trim().toUpperCase() !== "DELETE") {
+      setErr("Type DELETE to confirm.");
       return;
     }
+
+    setBusy(true);
+    const res = await supabase.from("invoice_items").delete().eq("id", editItem.id);
+
+    if (res.error) {
+      setBusy(false);
+      return setErr(res.error.message);
+    }
+
+    if (activeInvoiceId) await recalcInvoice(activeInvoiceId);
+
+    setBusy(false);
+    setDeleteItemConfirmOpen(false);
+    setEditItemOpen(false);
+    setEditItem(null);
+    setDeleteItemText("");
+
+    if (activeInvoiceId) {
+      await loadInvoiceDetails(activeInvoiceId);
+      await loadAll();
+    }
+  }
+
+  async function addPayment() {
+    if (!activeInvoiceId || !patient) return;
+
+    setErr(null);
+    const amt = Number(payAmount);
+    if (!Number.isFinite(amt) || amt <= 0) return setErr("Enter a valid payment amount.");
+
+    setBusy(true);
 
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
@@ -1056,236 +1341,160 @@ export default function PatientProfilePage() {
       amount: amt,
       mode: payMode,
       reference_no: payRef.trim() || null,
-      is_installment: payInstallment,
-      installment_note: payInstallment ? (payInstallNote.trim() || null) : null,
       notes: payNotes.trim() || null,
       created_by: userId,
     });
 
     setBusy(false);
-
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
+    if (res.error) return setErr(res.error.message);
 
     setPayAmount("");
     setPayRef("");
-    setPayInstallment(false);
-    setPayInstallNote("");
     setPayNotes("");
 
-    await loadAll();
     await loadInvoiceDetails(activeInvoiceId);
-  }
-
-  async function renameFile(fileId: string, newName: string) {
-    setBusy(true);
-    setErr(null);
-
-    const res = await supabase.from("files").update({ display_name: newName.trim() }).eq("id", fileId);
-
-    setBusy(false);
-    if (res.error) return setErr(res.error.message);
-
     await loadAll();
   }
 
-  async function openAttachment(a: Attachment) {
-    setErr(null);
-
-    const signed = await supabase.storage.from("patient-files").createSignedUrl(a.file_path, 60 * 10);
-    if (signed.error || !signed.data?.signedUrl) {
-      setErr(signed.error?.message ?? "Failed to generate signed URL.");
-      return;
-    }
-    window.open(signed.data.signedUrl, "_blank", "noopener,noreferrer");
-  }
-
-  async function deleteFile(fileId: string, storagePath: string) {
-    setBusy(true);
-    setErr(null);
-
-    // 1) remove from storage
-    const bucket = "patient-files"; // change if your bucket name is different
-    const s = await supabase.storage.from(bucket).remove([storagePath]);
-    if (s.error) {
-      setBusy(false);
-      setErr(s.error.message);
-      return;
-    }
-
-    // 2) remove db record
-    const d = await supabase.from("files").delete().eq("id", fileId);
-
-    setBusy(false);
-    if (d.error) return setErr(d.error.message);
-
-    await loadAll();
-  } 
-
-  function escapeHtml(s: string) {
-    return s
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-
-  function renderTemplate(html: string, vars: Record<string, string>) {
-    let out = html;
-    for (const [key, val] of Object.entries(vars)) out = out.replaceAll(`{{${key}}}`, val);
-    return out;
-  }
-
-  function patientBirthDateLine(p: Patient) {
-    if (!p.birth_date) return "";
-    return `, born on <b>${escapeHtml(p.birth_date)}</b>,`;
-  }
-
-  function todayISO() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  const selectedTemplate = useMemo(() => {
-    return templates.find((t) => t.id === selectedTemplateId) ?? null;
-  }, [templates, selectedTemplateId]);
-
-  function buildVars(): Record<string, string> {
+  function buildDocVars(): Record<string, string> {
     if (!patient) return {};
+    const dentistName = docDentistId ? dentistNameById[docDentistId] ?? "" : "";
 
     return {
-      "patient.full_name": escapeHtml(patient.full_name),
-      "patient.birth_date_line": patientBirthDateLine(patient),
-
-      "doc.visit_date": escapeHtml(docVisitDate || todayISO()),
-      "doc.issue_date": escapeHtml(todayISO()),
-
-      "doc.findings": escapeHtml(docFindings || "-").replaceAll("\n", "<br />"),
-      "doc.treatment_done": escapeHtml(docTreatmentDone || "-").replaceAll("\n", "<br />"),
-      "doc.remarks": escapeHtml(docRemarks || "-").replaceAll("\n", "<br />"),
-
-      "doc.dentist_name": escapeHtml(docDentistName || "________________"),
-      "doc.prc_license": escapeHtml(docPrcLicense || "__________"),
-
-      "doc.receipt_no": escapeHtml(docReceiptNo || "__________"),
-      "doc.items": escapeHtml(docItems || "-").replaceAll("\n", "<br />"),
-      "doc.amount_paid": escapeHtml(docAmountPaid || "0.00"),
-      "doc.payment_method": escapeHtml(docPaymentMethod || "Cash"),
-      "doc.balance": escapeHtml(docBalance || "0.00"),
-      "doc.issued_by": escapeHtml(docIssuedBy || "________________"),
+      "patient.full_name": escapeHtml(patient.full_name ?? ""),
+      "patient.phone": escapeHtml(patient.phone ?? ""),
+      "patient.birth_date": escapeHtml(patient.birth_date ?? ""),
+      "patient.address": escapeHtml(patient.address ?? ""),
+      "doc.visit_date": escapeHtml(docVisitDate || todayLocalISO()),
+      "doc.dentist_name": escapeHtml(dentistName),
+      "doc.receipt_no": escapeHtml(docReceiptNo),
+      "doc.items": escapeHtml(docItems).replaceAll("\n", "<br/>"),
+      "doc.amount_paid": escapeHtml(docAmountPaid),
+      "doc.payment_method": escapeHtml(docPaymentMethod),
+      "doc.balance": escapeHtml(docBalance),
+      "doc.findings": escapeHtml(docFindings).replaceAll("\n", "<br/>"),
+      "doc.treatment_done": escapeHtml(docTreatmentDone).replaceAll("\n", "<br/>"),
+      "doc.remarks": escapeHtml(docRemarks).replaceAll("\n", "<br/>"),
+      "doc.issued_by": escapeHtml(docIssuedBy),
     };
   }
 
-  function generatePreview() {
-    if (!selectedTemplate) return;
-    const vars = buildVars();
-    const html = renderTemplate(selectedTemplate.content_html, vars);
+  function updatePreviewFromTemplate(tpl: DocTemplate | null) {
+    if (!tpl) {
+      setPreviewHtml("");
+      return;
+    }
+    const vars = buildDocVars();
+    const html = renderTemplate(tpl.content_html ?? "", vars);
     setPreviewHtml(html);
   }
 
-  function printPreview() {
-    if (!previewHtml) return;
+  useEffect(() => {
+    updatePreviewFromTemplate(selectedTemplate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    selectedTemplateId,
+    patient?.id,
+    docVisitDate,
+    docDentistId,
+    docReceiptNo,
+    docItems,
+    docAmountPaid,
+    docPaymentMethod,
+    docBalance,
+    docFindings,
+    docTreatmentDone,
+    docRemarks,
+    docIssuedBy,
+  ]);
 
-    const w = window.open("about:blank", "_blank");
-    if (!w) {
-      setErr("Popup blocked. Please allow popups for this site, then try again.");
-      return;
-    }
-
-    try {
-      // @ts-ignore
-      w.opener = null;
-    } catch {}
-
-    w.document.open();
-    w.document.write(`
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Print</title>
-          <style>
-            body { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; }
-            @page { margin: 12mm; }
-          </style>
-        </head>
-        <body>
-          ${previewHtml}
-          <script>
-            window.onload = function () {
-              window.focus();
-              window.print();
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    w.document.close();
-  }
-
-  async function saveGeneratedDoc() {
-    if (!selectedTemplate || !patient) return;
+  async function generateDocument() {
+    if (!patient) return;
+    if (!selectedTemplate) return setErr("Select a template.");
+    if (!docVisitDate) return setErr("Select a visit date.");
+    if (!docDentistId) return setErr("Select a dentist.");
 
     setBusy(true);
     setErr(null);
 
     const payload = {
-      patient: {
-        id: patient.id,
-        full_name: patient.full_name,
-        birth_date: patient.birth_date,
-        phone: patient.phone,
-        address: patient.address,
+      template_id: selectedTemplate.id,
+      template_name: selectedTemplate.name,
+      doc_type: selectedTemplate.doc_type,
+      visit_date: docVisitDate,
+      dentist_id: docDentistId,
+      dentist_name: dentistNameById[docDentistId] ?? null,
+      fields: {
+        receipt_no: docReceiptNo || null,
+        items: docItems || null,
+        amount_paid: docAmountPaid || null,
+        payment_method: docPaymentMethod || null,
+        balance: docBalance || null,
+        findings: docFindings || null,
+        treatment_done: docTreatmentDone || null,
+        remarks: docRemarks || null,
+        issued_by: docIssuedBy || null,
       },
-      doc: {
-        visit_date: docVisitDate || todayISO(),
-        issue_date: todayISO(),
-        findings: docFindings,
-        treatment_done: docTreatmentDone,
-        remarks: docRemarks,
-        dentist_name: docDentistName,
-        prc_license: docPrcLicense,
-        receipt_no: docReceiptNo,
-        items: docItems,
-        amount_paid: docAmountPaid,
-        payment_method: docPaymentMethod,
-        balance: docBalance,
-        issued_by: docIssuedBy,
-      },
+      rendered_html: previewHtml,
     };
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user?.id ?? null;
-
-    const res = await supabase.from("generated_documents").insert({
-      template_id: selectedTemplate.id,
+    const ins = await supabase.from("generated_documents").insert({
       patient_id: patient.id,
       doc_type: selectedTemplate.doc_type,
+      doc_number: docReceiptNo.trim() || null,
       payload,
-      created_by: userId,
     });
 
     setBusy(false);
-    if (res.error) return setErr(res.error.message);
+    if (ins.error) return setErr(ins.error.message);
 
     await loadAll();
   }
 
+  function printHtml(html: string) {
+    if (!html) return;
+    const w = window.open("", "_blank", "noopener,noreferrer");
+    if (!w) return;
+    w.document.open();
+    w.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"/><title>Print</title></head><body>${html}</body></html>`
+    );
+    w.document.close();
+    w.focus();
+    w.print();
+  }
+
+  function downloadHtml(filename: string, html: string) {
+    if (!html) return;
+    const blob = new Blob(
+      [`<!doctype html><html><head><meta charset="utf-8"/></head><body>${html}</body></html>`],
+      { type: "text/html;charset=utf-8" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /* =========================
+     Render
+  ========================= */
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-600">Loading…</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-slate-600">
+        Loading…
+      </div>
+    );
   }
 
   if (!patient) {
     return (
-      <div className="min-h-screen p-6">
-        <button className="rounded-lg border bg-white px-4 py-2" onClick={() => router.push("/patients")}>
-          Back
-        </button>
-        <p className="mt-4 text-red-600">Patient not found.</p>
-        {err ? <p className="mt-2 text-slate-600">{err}</p> : null}
+      <div className="min-h-screen p-6 text-red-600">
+        Patient not found.
       </div>
     );
   }
@@ -1293,610 +1502,931 @@ export default function PatientProfilePage() {
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
       <div className="mx-auto max-w-6xl">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <button className="rounded-lg border bg-white px-3 py-1 text-sm" onClick={() => router.push("/patients")}>
-              ← Back
-            </button>
-
-            <h1 className="mt-2 text-2xl font-semibold">{patient.full_name}</h1>
-            <p className="text-sm text-slate-600">
-              {patient.phone ?? "No phone"} {patient.birth_date ? `• Born ${patient.birth_date}` : ""}
-            </p>
+            <h1 className="text-2xl font-semibold">{patient.full_name}</h1>
           </div>
+
+          <button
+            className="rounded-lg border bg-white px-3 py-2 text-sm"
+            onClick={() => router.push("/patients")}
+          >
+            Back
+          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {tabs.map((t) => (
-            <button
-              key={t}
-              className={
-                "rounded-lg px-3 py-2 text-sm font-medium border " +
-                (tab === t ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-900")
-              }
-              onClick={() => setTab(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        {err ? (
+          <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-red-600">
+            {err}
+          </div>
+        ) : null}
 
-        {err ? <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
-
-        {/* Tab content */}
-        <div className="mt-4 rounded-xl border bg-white p-4">
-          {tab === "Info" ? (
-            <div className="grid gap-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold">Patient info</div>
-
-                {!editMode ? (
-                  <button
-                    className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold transition hover:bg-slate-50"
-                    onClick={() => setEditMode(true)}
-                    disabled={busy}
-                  >
-                    Edit
-                  </button>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold transition hover:bg-slate-50"
-                      onClick={() => {
-                        setEditName(patient.full_name ?? "");
-                        setEditPhone(patient.phone ?? "");
-                        setEditBirthDate(patient.birth_date ?? "");
-                        setEditAddress(patient.address ?? "");
-                        setEditMode(false);
-                      }}
-                      disabled={busy}
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      onClick={savePatientEdits}
-                      disabled={busy || editName.trim().length < 2}
-                    >
-                      {busy ? "Saving…" : "Save"}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  {editMode ? (
-                    <Field label="Full name" value={editName} onChange={setEditName} placeholder="Full name" />
-                  ) : (
-                    <InfoRow label="Full name" value={patient.full_name ?? "-"} />
-                  )}
-                </div>
-
-                {editMode ? (
-                  <Field label="Phone" value={editPhone} onChange={setEditPhone} placeholder="Phone" />
-                ) : (
-                  <InfoRow label="Phone" value={patient.phone ?? "-"} />
-                )}
-
-                {editMode ? (
-                  <Field label="Birth date" value={editBirthDate} onChange={setEditBirthDate} type="date" />
-                ) : (
-                  <InfoRow label="Birth date" value={patient.birth_date ?? "-"} />
-                )}
-
-                <div className="sm:col-span-2">
-                  {editMode ? (
-                    <Field label="Address" value={editAddress} onChange={setEditAddress} placeholder="Address" textarea />
-                  ) : (
-                    <InfoRow label="Address" value={patient.address ?? "-"} />
-                  )}
-                </div>
-
-                <InfoRow label="Email" value={patient.email ?? "-"} />
-                <InfoRow label="Occupation" value={patient.occupation ?? "-"} />
-                <InfoRow label="Notes" value={patient.notes ?? "-"} />
-              </div>
-
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-                <div className="text-sm font-semibold text-rose-900">Danger zone</div>
-                <div className="mt-1 text-sm text-rose-900/80">
-                  Deleting a patient removes associated chart entries, files, documents, and billing records.
-                </div>
-
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <Field label='Type "DELETE" to confirm' value={deleteConfirm} onChange={setDeleteConfirm} placeholder="DELETE" />
-                  <div className="flex items-end">
-                    <button
-                      className="w-full rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      disabled={busy}
-                      onClick={deletePatient}
-                    >
-                      Delete patient
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {tab === "Medical" ? (
-            <div className="grid gap-3">
-              <Field label="Allergies" value={allergies} onChange={setAllergies} />
-              <Field label="Medications" value={medications} onChange={setMedications} />
-              <Field label="Blood pressure" value={bp} onChange={setBp} placeholder="e.g., 120/80" />
-              <Field label="Notes" value={medNotes} onChange={setMedNotes} textarea />
-              <div className="flex justify-end">
+        {/* Main box */}
+        <div className="mt-4 rounded-2xl border bg-white overflow-hidden">
+          {/* Outer tabs only */}
+          <div className="flex flex-wrap gap-1 border-b bg-slate-50 px-2 pt-2">
+            {tabs.map((t) => {
+              const active = tab === t;
+              return (
                 <button
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  disabled={busy}
-                  onClick={saveMedical}
+                  key={t}
+                  type="button"
+                  onClick={() => setTab(t)}
+                  className={[
+                    "px-3 py-2 text-sm font-semibold rounded-t-xl border",
+                    active
+                      ? "bg-white border-b-white"
+                      : "bg-slate-50 hover:bg-white",
+                  ].join(" ")}
                 >
-                  {busy ? "Saving…" : "Save medical history"}
+                  {t}
                 </button>
-              </div>
-            </div>
-          ) : null}
+              );
+            })}
+          </div>
 
-          {tab === "Chart" ? (
-            <div className="grid gap-4">
-              <ToothChart
-                entries={chart}
-                statuses={toothStatuses}
-                selectedTooth={selectedTooth}
-                onSelectTooth={(t) => {
-                  setSelectedTooth(t);
-                  setTooth(String(t));
-                  setToothNote(toothStatuses[t]?.note ?? "");
-                  setSurfaceSel([]);
-                  setFindingDetail("");
-                }}
-              />
+          {/* Content */}
+          <div className="p-4">
+            {/* ================= Modals ================= */}
+            <Modal
+              open={editOpen}
+              title="Edit patient"
+              onClose={() => {
+                setEditOpen(false);
+                setDeletePatientText("");
+              }}
+            >
+              <div className="grid gap-3">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Full name</span>
+                  <input
+                    className="rounded-lg border px-3 py-2"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                </label>
 
-              {selectedTooth ? (
-                <div className="rounded-xl border bg-white p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm font-semibold">Selected tooth: {selectedTooth}</div>
-                    <div className="text-xs text-slate-600">
-                      History: {chart.filter((e) => e.tooth_number === selectedTooth).length}
-                    </div>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Phone</span>
+                  <input
+                    className="rounded-lg border px-3 py-2"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Birth date</span>
+                  <input
+                    type="date"
+                    className="rounded-lg border px-3 py-2"
+                    value={editBirthDate}
+                    onChange={(e) => setEditBirthDate(e.target.value)}
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Address</span>
+                  <input
+                    className="rounded-lg border px-3 py-2"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                  />
+                </label>
+
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <button
+                    className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
+                    onClick={() => setEditOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={busy}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    onClick={savePatientEdits}
+                  >
+                    Save
+                  </button>
+                </div>
+
+                {/* Delete inside edit modal */}
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
+                  <div className="text-sm font-semibold text-red-700">
+                    Danger zone
+                  </div>
+                  <div className="mt-1 text-sm text-red-700">
+                    To delete this patient, type DELETE and click Delete.
                   </div>
 
                   <div className="mt-2 flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-700">Current status:</span>
-                    <span
-                      className={[
-                        "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
-                        getStatusTheme((toothStatuses[selectedTooth]?.status ?? "HEALTHY") as ToothStatus).chip,
-                      ].join(" ")}
-                    >
-                      {(toothStatuses[selectedTooth]?.status ?? "HEALTHY") as string}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 text-sm text-slate-700">
-                    <span className="font-medium">Last updated:</span>{" "}
-                    {toothStatuses[selectedTooth]?.updated_at
-                      ? new Date(toothStatuses[selectedTooth].updated_at!).toLocaleString()
-                      : "—"}
-                  </div>
-
-                  <div className="mt-2 text-sm text-slate-700">
-                    <span className="font-medium">Note:</span>{" "}
-                    {toothStatuses[selectedTooth]?.note?.trim() ? toothStatuses[selectedTooth].note!.slice(0, 140) : "—"}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="rounded-xl border bg-white p-4">
-                <div className="text-sm font-semibold">Update tooth status</div>
-
-                <div className="mt-3">
-                  <label className="block text-sm font-medium">Finding detail (optional)</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
-                    value={findingDetail}
-                    onChange={(e) => setFindingDetail(e.target.value)}
-                    disabled={!selectedTooth || busy}
-                  >
-                    <option value="">— Select —</option>
-                    <option value="Deep caries">Deep caries</option>
-                    <option value="Recurrent caries">Recurrent caries</option>
-                    <option value="Fracture">Fracture</option>
-                    <option value="Abrasion">Abrasion</option>
-                    <option value="Attrition">Attrition</option>
-                    <option value="Mobility">Mobility</option>
-                    <option value="Impacted">Impacted</option>
-                    <option value="For extraction">For extraction</option>
-                    <option value="Under observation">Under observation</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div className="mt-3">
-                  <div className="text-sm font-medium">Surfaces (optional)</div>
-
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {["M", "O", "D", "B", "L", "I"].map((s) => {
-                      const active = surfaceSel.includes(s);
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          className={[
-                            "h-10 w-10 rounded-xl border text-sm font-semibold transition",
-                            active ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50",
-                          ].join(" ")}
-                          onClick={() => toggleSurface(s)}
-                          disabled={!selectedTooth || busy || (pendingStatus !== "CARIES" && pendingStatus !== "FILLED")}
-                          title={s === "I" ? "Incisal" : s}
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-1 text-xs text-slate-600">
-                    Selected: {surfaceSel.length ? surfaceSel.slice().sort().join("") : "-"}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-600">Surfaces are only used for Caries or Filled.</div>
-                </div>
-
-                <div className="mt-3">
-                  <label className="block text-sm font-medium">Tooth note</label>
-                  <textarea
-                    className="mt-1 w-full rounded-lg border px-3 py-2 min-h-[90px]"
-                    value={toothNote}
-                    onChange={(e) => setToothNote(e.target.value)}
-                    placeholder="Optional notes for this tooth"
-                    disabled={!selectedTooth || busy}
-                  />
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {["HEALTHY", "CARIES", "FILLED", "MISSING", "EXTRACTED", "RCT", "CROWN", "IMPLANT", "DENTURE"].map((s) => {
-                    const theme = getStatusTheme(s as any);
-                    const isCurrent = selectedTooth && (toothStatuses[selectedTooth]?.status ?? "HEALTHY") === s;
-
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        className={[
-                          "rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-60 transition",
-                          "hover:brightness-95 hover:ring-2 hover:ring-slate-400 active:scale-[0.99]",
-                          theme.chip,
-                          isCurrent ? "ring-2 ring-slate-700" : "",
-                        ].join(" ")}
-                        disabled={!selectedTooth || busy}
-                        onClick={() => {
-                          setPendingStatus(s);
-                          saveToothStatus(s);
-                        }}
-                      >
-                        {s}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="rounded-lg border overflow-hidden">
-                <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">
-                  {selectedTooth ? `Tooth ${selectedTooth} history` : "All chart history"}
-                </div>
-
-                <table className="w-full text-sm">
-                  <thead className="bg-white text-slate-700">
-                    <tr className="border-b">
-                      <th className="text-left px-3 py-2">Recorded</th>
-                      <th className="text-left px-3 py-2">Tooth</th>
-                      <th className="text-left px-3 py-2">Status</th>
-                      <th className="text-left px-3 py-2">Detail</th>
-                      <th className="text-left px-3 py-2">Surfaces</th>
-                      <th className="text-left px-3 py-2">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(selectedTooth ? chart.filter((e) => e.tooth_number === selectedTooth) : chart).map((e) => (
-                      <tr key={e.id} className="border-t">
-                        <td className="px-3 py-2">{formatDateTimePH(e.recorded_at)}</td>
-                        <td className="px-3 py-2">{e.tooth_number}</td>
-                        <td className="px-3 py-2 font-medium">{e.finding_code}</td>
-                        <td className="px-3 py-2">{e.finding_detail ?? "-"}</td>
-                        <td className="px-3 py-2">{e.surfaces ?? "-"}</td>
-                        <td className="px-3 py-2">{e.notes ?? "-"}</td>
-                      </tr>
-                    ))}
-                    {chart.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-3 py-6 text-slate-600">
-                          No chart history yet.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
-
-          {tab === "Treatments" ? (
-            <div className="grid gap-4">
-              {/* Visit header (date + dentist once) */}
-              <div className="rounded-xl border bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold">Visit</div>
-                    <div className="text-xs text-slate-600">
-                      Choose date and dentist once, then add procedures. Notes are per procedure.
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                    disabled={busy || !patient || !visitDate || !visitDentistId || draftLines.length === 0}
-                    onClick={saveVisit}
-                  >
-                    Save visit
-                  </button>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <Field label="Visit date" value={visitDate} onChange={setVisitDate} type="date" placeholder="Select…" />
-                  <div>
-                    <label className="block text-sm font-medium">Attending dentist</label>
-                    <select
-                      className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
-                      value={visitDentistId}
-                      onChange={(e) => setVisitDentistId(e.target.value)}
-                      disabled={busy}
-                    >
-                      <option value="">Select…</option>
-                      {dentists.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.full_name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="mt-1 text-xs text-slate-600">Required.</div>
-                  </div>
-
-                  <div className="sm:col-span-1" />
-                </div>
-              </div>
-
-              {/* Add procedure (one row, tooth shorter, note longer, add button aligned) */}
-              <div className="rounded-xl border bg-white p-4">
-                <div className="mt-3 grid gap-3 sm:grid-cols-12">
-                  <div className="sm:col-span-1">
-                    <Field label="Tooth" value={lineTooth} onChange={setLineTooth} placeholder="e.g., 11" />
-                  </div>
-
-                  <div className="sm:col-span-4">
-                    <label className="block text-sm font-medium">Procedure / Service</label>
-                    <select
-                      className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
-                      value={txServiceId}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setTxServiceId(id);
-
-                        const pick = serviceMenu.find((x) => x.id === id);
-                        if (pick) setTxServiceName(pick.service_name);
-                        else setTxServiceName("");
-                      }}
-                      disabled={busy}
-                    >
-                      <option value="">Select…</option>
-                      {serviceMenu
-                        .filter((x) => x.is_active && x.item_type === "SERVICE")
-                        .map((x) => (
-                          <option key={x.id} value={x.id}>
-                            {x.service_name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="sm:col-span-6">
-                    <Field label="Note (optional)" value={lineNote} onChange={setLineNote} placeholder="Optional" />
-                  </div>
-
-                  <div className="sm:col-span-1 flex items-end justify-end">
+                    <input
+                      className="flex-1 rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Type DELETE"
+                      value={deletePatientText}
+                      onChange={(e) => setDeletePatientText(e.target.value)}
+                    />
                     <button
-                      type="button"
-                      className="h-[42px] w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      disabled={busy || !txServiceId}
-                      onClick={addDraftLine}
+                      disabled={busy}
+                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      onClick={deletePatient}
                     >
-                      Add
+                      Delete
                     </button>
                   </div>
                 </div>
-                
-                <div className="mt-4 rounded-lg border overflow-hidden">
-                  {draftLines.length === 0 ? (
-                    <div className="px-4 py-6 text-sm text-slate-600">No procedures added yet.</div>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50">
-                        <tr className="border-b">
-                          <th className="text-left px-3 py-2">Tooth</th>
-                          <th className="text-left px-3 py-2">Procedure</th>
-                          <th className="text-right px-3 py-2">Action</th>
+              </div>
+            </Modal>
+
+            <Modal
+              open={discountOpen}
+              title="Add discount"
+              onClose={() => {
+                setDiscountOpen(false);
+                setDiscountValue("");
+              }}
+            >
+              <div className="grid gap-3">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Type</span>
+                  <select
+                    className="rounded-lg border px-3 py-2"
+                    value={discountMode}
+                    onChange={(e) =>
+                      setDiscountMode(e.target.value as "AMOUNT" | "PERCENT")
+                    }
+                  >
+                    <option value="AMOUNT">Amount</option>
+                    <option value="PERCENT">Percent</option>
+                  </select>
+                </label>
+
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Value</span>
+                  <input
+                    className="rounded-lg border px-3 py-2"
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    placeholder={discountMode === "PERCENT" ? "e.g., 10" : "e.g., 500"}
+                  />
+                </label>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
+                    onClick={() => setDiscountOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={busy}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    onClick={applyDiscountAsLine}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </Modal>
+
+            <Modal
+              open={editItemOpen}
+              title="Edit invoice item"
+              onClose={() => {
+                setEditItemOpen(false);
+                setEditItem(null);
+                setDeleteItemConfirmOpen(false);
+                setDeleteItemText("");
+              }}
+            >
+              {!editItem ? null : (
+                <div className="grid gap-3">
+                  <div className="text-sm font-semibold">{editItem.service_name}</div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Qty</span>
+                      <input
+                        className="rounded-lg border px-3 py-2"
+                        value={editItemQty}
+                        onChange={(e) => setEditItemQty(e.target.value)}
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Unit price</span>
+                      <input
+                        className="rounded-lg border px-3 py-2"
+                        value={editItemUnit}
+                        onChange={(e) => setEditItemUnit(e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
+                      onClick={() => setDeleteItemConfirmOpen(true)}
+                    >
+                      Delete
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
+                        onClick={() => setEditItemOpen(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        disabled={busy}
+                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        onClick={saveEditItem}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+
+                  {deleteItemConfirmOpen ? (
+                    <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3">
+                      <div className="text-sm font-semibold text-red-700">
+                        Confirm delete
+                      </div>
+                      <div className="mt-1 text-sm text-red-700">
+                        Type DELETE to confirm.
+                      </div>
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          className="flex-1 rounded-lg border px-3 py-2 text-sm"
+                          placeholder="Type DELETE"
+                          value={deleteItemText}
+                          onChange={(e) => setDeleteItemText(e.target.value)}
+                        />
+                        <button
+                          disabled={busy}
+                          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                          onClick={deleteInvoiceItem}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </Modal>
+
+            {/* ================= Tab content ================= */}
+            {tab === "Info" ? (
+              <div className="grid gap-4">
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold">Patient information</div>
+                    <button
+                      className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold"
+                      onClick={() => setEditOpen(true)}
+                    >
+                      Edit
+                    </button>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Full name</span>
+                      <input
+                        className="rounded-lg border bg-slate-50 px-3 py-2"
+                        value={patient.full_name ?? ""}
+                        readOnly
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Phone</span>
+                      <input
+                        className="rounded-lg border bg-slate-50 px-3 py-2"
+                        value={patient.phone ?? ""}
+                        readOnly
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Birth date</span>
+                      <input
+                        className="rounded-lg border bg-slate-50 px-3 py-2"
+                        value={patient.birth_date ?? ""}
+                        readOnly
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Age</span>
+                      <input
+                        className="rounded-lg border bg-slate-50 px-3 py-2"
+                        value={calcAge(patient.birth_date)?.toString() ?? ""}
+                        readOnly
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm sm:col-span-2">
+                      <span className="text-slate-700">Address</span>
+                      <input
+                        className="rounded-lg border bg-slate-50 px-3 py-2"
+                        value={patient.address ?? ""}
+                        readOnly
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border bg-slate-50 p-4">
+                  <div className="text-sm font-semibold text-slate-800">Last visit</div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Date</span>
+                      <input
+                        className="rounded-lg border bg-white px-3 py-2"
+                        value={lastVisitDate ? formatDatePH(lastVisitDate) : ""}
+                        readOnly
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Dentist</span>
+                      <input
+                        className="rounded-lg border bg-white px-3 py-2"
+                        value={lastVisitDentist || ""}
+                        readOnly
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Concern</span>
+                      <input
+                        className="rounded-lg border bg-white px-3 py-2"
+                        value={lastVisitConcern || ""}
+                        readOnly
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-2 text-xs text-slate-500">
+                    TODO: Replace “Concern” with appointment/visit chief complaint once scheduling/messenger integration is done.
+                  </div>
+                </div>
+
+              </div>
+            ) : null}
+
+            {tab === "Medical" ? (
+              <div className="rounded-2xl border bg-white p-4">
+                <div className="grid gap-3">
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Allergies</span>
+                    <textarea
+                      className="rounded-lg border px-3 py-2"
+                      rows={3}
+                      value={allergies}
+                      onChange={(e) => setAllergies(e.target.value)}
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Medications</span>
+                    <textarea
+                      className="rounded-lg border px-3 py-2"
+                      rows={3}
+                      value={medications}
+                      onChange={(e) => setMedications(e.target.value)}
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Blood pressure</span>
+                    <input
+                      className="rounded-lg border px-3 py-2"
+                      value={bp}
+                      onChange={(e) => setBp(e.target.value)}
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Notes</span>
+                    <textarea
+                      className="rounded-lg border px-3 py-2"
+                      rows={3}
+                      value={medNotes}
+                      onChange={(e) => setMedNotes(e.target.value)}
+                    />
+                  </label>
+
+                  <div className="flex items-center justify-end">
+                    <button
+                      disabled={busy}
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      onClick={saveMedical}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {tab === "Chart" ? (
+              <div className="rounded-2xl border bg-white p-4">
+                <ToothChart
+                  entries={chart ?? []}
+                  statuses={toothStatuses}
+                  selectedTooth={selectedTooth}
+                  onSelectTooth={(n) => {
+                    setSelectedTooth(n);
+                    setToothNote(toothStatuses[n]?.note ?? "");
+                    setPendingStatus(toothStatuses[n]?.status ?? "HEALTHY");
+                    setSurfaceSel([]);
+                    setFindingDetail("");
+                  }}
+                />
+
+                <div className="mt-4 rounded-xl border bg-slate-50 p-3">
+                  <div className="flex items-center justify-center">
+                    <div className="text-sm font-semibold">Tooth tools</div>
+                  </div>
+
+                  <div className="mt-2 text-center text-sm text-slate-700">
+                    Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
+                  </div>
+
+                  {/* Status buttons (centered, NO auto-save) */}
+                  <div className="mt-4">
+                    <div className="mt-2 flex flex-wrap justify-center gap-2">
+                      {(
+                        ["HEALTHY", "CARIES", "FILLED", "MISSING", "EXTRACTED", "RCT", "CROWN", "IMPLANT", "DENTURE"] as ToothStatus[]
+                      ).map((s) => {
+                        const theme = getStatusTheme(s);
+                        const isCurrent = pendingStatus === s;
+
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            className={[
+                              "rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-60 transition",
+                              "hover:brightness-95 active:scale-[0.99]",
+                              theme.chip,
+                              isCurrent ? "ring-2 ring-slate-700" : "",
+                            ].join(" ")}
+                            disabled={!selectedTooth || busy}
+                            onClick={() => {
+                              setPendingStatus(s);
+                              if (s !== "CARIES" && s !== "FILLED") setSurfaceSel([]);
+                            }}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Surfaces (centered, NO auto-save) */}
+                  {pendingStatus === "CARIES" || pendingStatus === "FILLED" ? (
+                    <div className="mt-4">
+                      <div className="mt-2 flex flex-wrap justify-center gap-2">
+                        {[
+                          { code: "O", label: "O" },
+                          { code: "M", label: "M" },
+                          { code: "D", label: "D" },
+                          { code: "B", label: "B" },
+                          { code: "L", label: "L" },
+                          { code: "I", label: "I" },
+                        ].map((s) => {
+                          const on = surfaceSel.includes(s.code);
+                          return (
+                            <button
+                              key={s.code}
+                              type="button"
+                              className={[
+                                "h-10 w-10 rounded-xl border text-sm font-semibold transition disabled:opacity-60",
+                                on ? "bg-slate-900 text-white border-slate-900" : "bg-white hover:bg-slate-50",
+                              ].join(" ")}
+                              onClick={() =>
+                                setSurfaceSel((prev) =>
+                                  prev.includes(s.code) ? prev.filter((x) => x !== s.code) : [...prev, s.code]
+                                )
+                              }
+                              disabled={!selectedTooth || busy}
+                              title={s.code === "I" ? "Incisal" : s.code}
+                            >
+                              {s.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Note */}
+                  <div className="mt-3 flex justify-center">
+                    <label className="grid w-full max-w-xl gap-1 text-sm">
+                      <span className="text-slate-700">Note</span>
+                      <input
+                        className="h-[42px] rounded-lg border bg-white px-3"
+                        value={toothNote}
+                        onChange={(e) => setToothNote(e.target.value)}
+                        placeholder="Optional"
+                        disabled={!selectedTooth || busy}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Save button below Note */}
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      type="button"
+                      className="h-[42px] rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white disabled:opacity-60"
+                      disabled={!selectedTooth || busy}
+                      onClick={() => saveToothStatus(pendingStatus)}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <div className="text-sm font-semibold">History</div>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-slate-600">
+                          <th className="py-2 pr-3">Date</th>
+                          <th className="py-2 pr-3">Tooth</th>
+                          <th className="py-2 pr-3">Finding</th>
+                          <th className="py-2 pr-3">Surfaces</th>
+                          <th className="py-2 pr-3">Note</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {draftLines.map((ln) => (
-                          <tr key={ln.id} className="border-t">
-                            <td className="px-3 py-2">{ln.tooth_number ?? "—"}</td>
-                            <td className="px-3 py-2 font-medium">{ln.procedure}</td>
-                            <td className="px-3 py-2 text-right">
-                              <button
-                                type="button"
-                                className="rounded-lg border px-3 py-1 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60"
-                                disabled={busy}
-                                onClick={() => removeDraftLine(ln.id)}
-                              >
-                                Remove
-                              </button>
-                            </td>
+                        {chart.map((row) => (
+                          <tr key={row.id} className="border-t">
+                            <td className="py-2 pr-3">{formatDateTimePH(row.recorded_at)}</td>
+                            <td className="py-2 pr-3">{row.tooth_number}</td>
+                            <td className="py-2 pr-3">{row.finding_code}</td>
+                            <td className="py-2 pr-3">{row.surfaces ?? "—"}</td>
+                            <td className="py-2 pr-3">{row.notes ?? "—"}</td>
                           </tr>
                         ))}
+                        {!chart.length ? (
+                          <tr>
+                            <td className="py-3 text-slate-500" colSpan={5}>
+                              No chart history yet.
+                            </td>
+                          </tr>
+                        ) : null}
                       </tbody>
                     </table>
-                  )}
+                  </div>
                 </div>
               </div>
+            ) : null}
 
-              {/* History */}
-              <div className="rounded-xl border bg-white overflow-hidden">
-                <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">History</div>
+            {tab === "Treatments" ? (
+              <div className="grid gap-4">
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="text-sm font-semibold">New visit</div>
 
-                {treatments.length === 0 ? (
-                  <div className="px-4 py-6 text-sm text-slate-600">No treatment history yet.</div>
-                ) : (
-                  <div className="divide-y">
-                    {Object.entries(
-                      treatments.reduce((acc: Record<string, Treatment[]>, t) => {
-                        const k = t.treatment_date;
-                        acc[k] = acc[k] ? [...acc[k], t] : [t];
-                        return acc;
-                      }, {})
-                    )
-                      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-                      .map(([date, rows]) => (
-                        <div key={date} className="p-4">
-                          <div className="text-sm font-semibold">{date}</div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Visit date</span>
+                      <input
+                        type="date"
+                        className="rounded-lg border px-3 py-2"
+                        value={visitDate}
+                        onChange={(e) => setVisitDate(e.target.value)}
+                      />
+                    </label>
 
-                          <ul className="mt-3 space-y-2">
-                            {rows.map((r) => (
-                              <li key={r.id} className="text-sm">
-                                <div>
-                                  <span className="font-semibold">{r.tooth_number ? `Tooth ${r.tooth_number}: ` : ""}</span>
-                                  {r.procedure}
-                                </div>
-                                {r.notes?.trim() ? (
-                                  <div className="mt-1 text-xs text-slate-600 whitespace-pre-wrap">
-                                    Note: {r.notes}
-                                  </div>
-                                ) : null}
-                              </li>
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Dentist</span>
+                      <select
+                        className="rounded-lg border px-3 py-2"
+                        value={visitDentistId}
+                        onChange={(e) => setVisitDentistId(e.target.value)}
+                      >
+                        <option value="">Select</option>
+                        {dentists.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.full_name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="mt-3 grid gap-3">
+                    {/* Tooth column smaller */}
+                    <div className="grid gap-2 grid-cols-1 sm:grid-cols-[72px_minmax(0,2fr)_minmax(0,3fr)_110px] items-end">
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-slate-700">Tooth</span>
+                        <input
+                          className="h-[36px] w-[72px] rounded-lg border px-2 text-sm"
+                          value={lineTooth}
+                          onChange={(e) => setLineTooth(e.target.value)}
+                          placeholder="11"
+                          inputMode="numeric"
+                        />
+                      </label>
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-slate-700">Procedure/Service</span>
+                        <select
+                          className="rounded-lg border px-3 py-2 min-w-0"
+                          value={txServiceId}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setTxServiceId(v);
+                            const row = serviceMenu.find((x) => x.id === v);
+                            setTxServiceName(row?.service_name ?? "");
+                          }}
+                        >
+                          <option value="">Select</option>
+                          {serviceMenu
+                            .filter((x) => x.is_active)
+                            .map((row) => (
+                              <option key={row.id} value={row.id}>
+                                {row.service_name}
+                              </option>
                             ))}
-                          </ul>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : null}
+                        </select>
+                      </label>
 
-          {tab === "Files" ? (
-            <div className="grid gap-4">
-              <div className="rounded-lg border p-4 bg-slate-50">
-                <div className="text-sm font-semibold">Upload file</div>
-                <p className="text-xs text-slate-600 mt-1">
-                  Use for X-rays, photos, consent forms, lab results. Files are stored privately.
-                </p>
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-slate-700">Note</span>
+                        <input
+                          className="rounded-lg border px-3 py-2 min-w-0"
+                          value={lineNote}
+                          onChange={(e) => setLineNote(e.target.value)}
+                          placeholder="Optional"
+                        />
+                      </label>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <label className="block text-sm font-medium">Type</label>
-                    <select
-                      className="mt-1 w-full rounded-lg border px-3 py-2 bg-white"
-                      value={uploadType}
-                      onChange={(e) => setUploadType(e.target.value as AttachmentType)}
-                    >
-                      {attachmentTypes.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                      <button
+                        type="button"
+                        className="h-[42px] rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                        disabled={busy}
+                        onClick={addDraftLine}
+                      >
+                        Add
+                      </button>
+                    </div>
 
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium">Choose file</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
-                    />
-                    <div className="mt-1 text-xs text-slate-600">
-                      {fileToUpload ? `Selected: ${fileToUpload.name}` : "No file selected."}
+                    {draftLines.length ? (
+                      <div className="mt-2 overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-slate-600">
+                              <th className="py-2 pr-3">Tooth</th>
+                              <th className="py-2 pr-3">Procedure</th>
+                              <th className="py-2 pr-3">Note</th>
+                              <th className="py-2 pr-3"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {draftLines.map((ln) => (
+                              <tr key={ln.id} className="border-t">
+                                <td className="py-2 pr-3">{ln.tooth_number ?? "—"}</td>
+                                <td className="py-2 pr-3">{ln.procedure}</td>
+                                <td className="py-2 pr-3">{ln.note || "—"}</td>
+                                <td className="py-2 pr-3 text-right">
+                                  <button
+                                    className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                    onClick={() => removeDraftLine(ln.id)}
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-500">No procedures added yet.</div>
+                    )}
+
+                    <div className="flex items-center justify-end">
+                      <button
+                        disabled={busy}
+                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        onClick={saveVisit}
+                      >
+                        Save visit
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-3 flex justify-end">
-                  <button
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                    disabled={busy || !fileToUpload}
-                    onClick={uploadAttachment}
-                  >
-                    {busy ? "Uploading…" : "Upload"}
-                  </button>
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="text-sm font-semibold">Treatment history</div>
+                  <div className="mt-3 grid gap-3">
+                    {groupedTreatmentHistory.map(([date, rows]) => {
+                      const firstDid = rows.find((r) => r.dentist_id)?.dentist_id ?? null;
+                      const label =
+                        (firstDid ? dentistNameById[firstDid] : "") ||
+                        rows.find((r) => r.dentist_name)?.dentist_name ||
+                        "—";
+
+                      return (
+                        <div key={date} className="rounded-xl border p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold">{formatDatePH(date)}</div>
+                            <div className="text-sm text-slate-600">{label}</div>
+                          </div>
+
+                          <div className="mt-2 overflow-x-auto">
+                            <table className="min-w-full text-sm">
+                              <thead>
+                                <tr className="text-left text-slate-600">
+                                  <th className="py-2 pr-3">Tooth</th>
+                                  <th className="py-2 pr-3">Procedure</th>
+                                  <th className="py-2 pr-3">Note</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((r) => (
+                                  <tr key={r.id} className="border-t">
+                                    <td className="py-2 pr-3">{r.tooth_number ?? "—"}</td>
+                                    <td className="py-2 pr-3">{r.procedure}</td>
+                                    <td className="py-2 pr-3 whitespace-pre-wrap">{r.notes ?? "—"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!groupedTreatmentHistory.length ? (
+                      <div className="text-sm text-slate-500">No treatments yet.</div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
+            ) : null}
 
-              <div className="rounded-lg border overflow-hidden">
-                <div className="bg-white px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold">Patient files</div>
-                    <div className="text-xs text-slate-600">{attachments.length} file(s)</div>
+            {tab === "Attachments" ? (
+              <div className="grid gap-4">
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="text-sm font-semibold">Upload attachment</div>
+
+                  {/* One-row upload controls */}
+                  <div className="mt-3 grid gap-2">
+                    <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)_120px] items-end">
+                      {/* Type */}
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-slate-700">Type</span>
+                        <select
+                          className="h-[42px] rounded-lg border px-3 text-sm"
+                          value={uploadType}
+                          onChange={(e) => {
+                            const v = e.target.value as any;
+                            setUploadType(v);
+                          }}
+                        >
+                          <option value="">Select</option>
+                          {attachmentTypes.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {/* File */}
+                        <div className="grid gap-1 text-sm min-w-0">
+                          <span className="text-slate-700">File</span>
+
+                          {/* Unified file input box */}
+                          <div className="h-[42px] min-w-0 flex items-center rounded-lg border bg-slate-50 overflow-hidden">
+                            {/* Choose file button (embedded) */}
+                            <label className="h-full shrink-0 cursor-pointer px-4 flex items-center justify-center bg-white border-r text-sm font-semibold hover:bg-slate-100">
+                              Choose file
+                              <input
+                                type="file"
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0] ?? null;
+
+                                  if (f && f.size > 5 * 1024 * 1024) {
+                                    setErr("File is too large. Please upload a file up to 5 MB.");
+                                    setFileToUpload(null);
+                                    e.currentTarget.value = "";
+                                    return;
+                                  }
+
+                                  setErr(null);
+                                  setFileToUpload(f);
+                                }}
+                                disabled={busy}
+                              />
+                            </label>
+
+                            {/* Filename / placeholder */}
+                            <div className="flex-1 px-3 text-sm text-slate-700 truncate">
+                              {fileToUpload ? fileToUpload.name : "No file selected"}
+                            </div>
+                          </div>
+                        </div>
+                      {/* Upload */}
+                      <button
+                        type="button"
+                        disabled={busy || !fileToUpload || !uploadType}
+                        className="h-[42px] rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                        onClick={uploadAttachment}
+                      >
+                        Upload
+                      </button>
+                    </div>
+
+                    <div className="text-xs text-slate-500">Max file size: 5 MB.</div>
                   </div>
                 </div>
 
-                <div className="bg-white">
-                  {attachments.length === 0 ? (
-                    <div className="px-4 py-6 text-sm text-slate-600">No files uploaded yet.</div>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-100 text-slate-700">
-                        <tr>
-                          <th className="text-left px-4 py-2">Type</th>
-                          <th className="text-left px-4 py-2">File</th>
-                          <th className="text-left px-4 py-2">Uploaded</th>
-                          <th className="text-right px-4 py-2">Action</th>
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="text-sm font-semibold">Attachments</div>
+
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-slate-600">
+                          <th className="py-2 pr-3">Date</th>
+                          <th className="py-2 pr-3">Type</th>
+                          <th className="py-2 pr-3">Name</th>
+                          <th className="py-2 pr-3"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {attachments.map((a) => (
                           <tr key={a.id} className="border-t">
-                            <td className="px-4 py-2 font-medium">{a.type}</td>
-                            <td className="px-4 py-2">{a.file_name ?? a.file_path}</td>
-                            <td className="px-4 py-2">{new Date(a.created_at).toLocaleString()}</td>
-                            <td className="px-4 py-2 text-right">
-                              <div className="flex justify-end gap-2">
+                            <td className="py-2 pr-3">{formatDateTimePH(a.created_at)}</td>
+                            <td className="py-2 pr-3">{a.type}</td>
+                            <td className="py-2 pr-3">
+                              {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
+                            </td>
+                            <td className="py-2 pr-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
                                 <button
-                                  className="rounded-lg border bg-white px-3 py-1 text-sm font-medium"
+                                  className="rounded-lg border bg-white px-3 py-1 text-sm"
                                   onClick={() => openAttachment(a)}
                                 >
-                                  View
+                                  Open
                                 </button>
 
-                                <button
-                                  className="rounded-lg border bg-white px-3 py-1 text-sm font-medium transition hover:bg-slate-50"
-                                  onClick={() => {
-                                    const n = window.prompt("Rename file to:", a.file_name ?? "");
-                                    if (n && n.trim()) renameAttachment(a.id, n.trim());
-                                  }}
-                                >
-                                  Rename
-                                </button>
+                                {renameAttachmentId === a.id ? (
+                                  <>
+                                    <input
+                                      className="w-56 rounded-lg border px-3 py-1 text-sm"
+                                      value={renameAttachmentValue}
+                                      onChange={(e) => setRenameAttachmentValue(e.target.value)}
+                                      placeholder="New name"
+                                    />
+                                    <button
+                                      className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                      onClick={() =>
+                                        renameAttachment(
+                                          a.id,
+                                          renameAttachmentValue || (a.file_name ?? "")
+                                        )
+                                      }
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                      onClick={() => {
+                                        setRenameAttachmentId(null);
+                                        setRenameAttachmentValue("");
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                    onClick={() => {
+                                      setRenameAttachmentId(a.id);
+                                      setRenameAttachmentValue(a.file_name ?? "");
+                                    }}
+                                  >
+                                    Rename
+                                  </button>
+                                )}
 
                                 <button
-                                  className="rounded-lg border bg-white px-3 py-1 text-sm font-medium transition hover:bg-slate-50"
-                                  onClick={() => {
-                                    if (confirm("Delete this file?")) deleteAttachment(a.id, a.file_path);
-                                  }}
+                                  className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                  onClick={() => deleteAttachment(a.id, a.file_path)}
                                 >
                                   Delete
                                 </button>
@@ -1904,371 +2434,594 @@ export default function PatientProfilePage() {
                             </td>
                           </tr>
                         ))}
+
+                        {!attachments.length ? (
+                          <tr>
+                            <td className="py-3 text-slate-500" colSpan={4}>
+                              No attachments yet.
+                            </td>
+                          </tr>
+                        ) : null}
                       </tbody>
                     </table>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {tab === "Documents" ? (
-            <div className="grid gap-4">
-              <div className="rounded-lg border p-4 bg-slate-50">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold">Generate document</div>
-                    <p className="text-xs text-slate-600 mt-1">Choose a template, fill details, preview, print, and save a record.</p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button className="rounded-lg border bg-white px-4 py-2 text-sm font-medium" onClick={generatePreview}>
-                      Preview
-                    </button>
-                    <button
-                      className="rounded-lg border bg-white px-4 py-2 text-sm font-medium disabled:opacity-60"
-                      onClick={printPreview}
-                      disabled={!previewHtml}
-                    >
-                      Print
-                    </button>
-                    <button
-                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                      onClick={saveGeneratedDoc}
-                      disabled={busy || !selectedTemplate}
-                    >
-                      {busy ? "Saving…" : "Save record"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-sm font-medium">Template</label>
-                    <select
-                      className="mt-1 w-full rounded-lg border px-3 py-2 bg-white"
-                      value={selectedTemplateId}
-                      onChange={(e) => {
-                        setSelectedTemplateId(e.target.value);
-                        setPreviewHtml("");
-                      }}
-                    >
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Field label="Visit date" value={docVisitDate} onChange={setDocVisitDate} type="date" />
-                  </div>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <Field label="Dentist name" value={docDentistName} onChange={setDocDentistName} placeholder="Dr. ____" />
-                  <Field label="PRC license no." value={docPrcLicense} onChange={setDocPrcLicense} placeholder="____" />
-                </div>
-
-                <div className="mt-3 grid gap-3">
-                  <Field label="Findings / Diagnosis" value={docFindings} onChange={setDocFindings} textarea />
-                  <Field label="Treatment done" value={docTreatmentDone} onChange={setDocTreatmentDone} textarea />
-                  <Field label="Remarks / Recommendation" value={docRemarks} onChange={setDocRemarks} textarea />
-                </div>
-
-                <div className="mt-4 rounded-lg border bg-white p-3">
-                  <div className="text-sm font-semibold">Receipt fields (use when template is Receipt)</div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <Field label="Receipt no." value={docReceiptNo} onChange={setDocReceiptNo} placeholder="R-2026-0001" />
-                    <Field label="Issued by" value={docIssuedBy} onChange={setDocIssuedBy} placeholder="Staff name" />
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <Field label="Amount paid" value={docAmountPaid} onChange={setDocAmountPaid} placeholder="0.00" />
-                    <Field label="Balance" value={docBalance} onChange={setDocBalance} placeholder="0.00" />
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <Field label="Payment method" value={docPaymentMethod} onChange={setDocPaymentMethod} placeholder="Cash / GCash" />
-                    <Field label="Items / Services" value={docItems} onChange={setDocItems} textarea />
                   </div>
                 </div>
               </div>
+            ) : null}
 
-              <div className="rounded-lg border bg-white overflow-hidden">
-                <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">Preview</div>
-                <div className="p-4">
-                  {previewHtml ? (
-                    <div className="max-w-none" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            {tab === "Documents" ? (
+              <div className="grid gap-4">
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="text-sm font-semibold">Generate document</div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <label className="grid gap-1 text-sm sm:col-span-2">
+                      <span className="text-slate-700">Template</span>
+                      <select
+                        className="rounded-lg border px-3 py-2"
+                        value={selectedTemplateId}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setSelectedTemplateId(v);
+
+                          const tmpl = templates.find((x) => x.id === v) ?? null;
+
+                          // Reset preview then let effect rebuild
+                          setPreviewHtml("");
+
+                          // Auto-generate receipt number when selecting receipt template
+                          if (tmpl?.doc_type === "receipt") {
+                            setDocReceiptNo(generateReceiptNo());
+                          } else {
+                            setDocReceiptNo("");
+                          }
+                        }}
+                      >
+                        <option value="">Select</option>
+                        {templates.map((t) => {
+                          const label =
+                            t.doc_type === "dental_certificate"
+                              ? "Dental certificate"
+                              : t.doc_type === "receipt"
+                                ? "Receipt"
+                                : t.name;
+                          return (
+                            <option key={t.id} value={t.id}>
+                              {label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+
+                    {selectedTemplate?.doc_type === "receipt" ? (
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-slate-700">Receipt no</span>
+                        <input
+                          className="rounded-lg border px-3 py-2"
+                          value={docReceiptNo}
+                          onChange={(e) => setDocReceiptNo(e.target.value)}
+                        />
+                      </label>
+                    ) : (
+                      <div />
+                    )}
+                  </div>
+
+                  {!selectedTemplateId ? (
+                    <div className="mt-3 text-sm text-slate-600">
+                      Select a template to show the form fields and preview.
+                    </div>
                   ) : (
-                    <div className="text-sm text-slate-600">Click Preview to generate.</div>
-                  )}
-                </div>
-              </div>
+                    <div className="mt-3 grid gap-4">
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-slate-700">Visit date</span>
+                          <input
+                            type="date"
+                            className="rounded-lg border px-3 py-2"
+                            value={docVisitDate}
+                            onChange={(e) => setDocVisitDate(e.target.value)}
+                          />
+                        </label>
 
-              <div className="rounded-lg border bg-white overflow-hidden">
-                <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">Saved documents</div>
-                {generatedDocs.length === 0 ? (
-                  <div className="px-4 py-6 text-sm text-slate-600">No saved documents yet.</div>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead className="bg-white text-slate-700">
-                      <tr className="border-b">
-                        <th className="text-left px-4 py-2">Type</th>
-                        <th className="text-left px-4 py-2">Created</th>
-                        <th className="text-left px-4 py-2">Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {generatedDocs.map((d) => (
-                        <tr key={d.id} className="border-t">
-                          <td className="px-4 py-2 font-medium">{d.doc_type}</td>
-                          <td className="px-4 py-2">{new Date(d.created_at).toLocaleString()}</td>
-                          <td className="px-4 py-2 text-slate-600">
-                            {d.payload?.doc?.receipt_no
-                              ? `Receipt #${d.payload.doc.receipt_no}`
-                              : d.payload?.doc?.visit_date
-                              ? `Visit ${d.payload.doc.visit_date}`
-                              : "-"}
-                          </td>
+                        <label className="grid gap-1 text-sm sm:col-span-2">
+                          <span className="text-slate-700">Dentist</span>
+                          <select
+                            className="rounded-lg border px-3 py-2"
+                            value={docDentistId}
+                            onChange={(e) => setDocDentistId(e.target.value)}
+                          >
+                            <option value="">Select</option>
+                            {dentists.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.full_name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      {selectedTemplate?.doc_type === "receipt" ? (
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <label className="grid gap-1 text-sm sm:col-span-2">
+                            <span className="text-slate-700">Items</span>
+                            <textarea
+                              className="rounded-lg border px-3 py-2"
+                              rows={4}
+                              value={docItems}
+                              onChange={(e) => setDocItems(e.target.value)}
+                              placeholder="One per line"
+                            />
+                          </label>
+
+                          <div className="grid gap-3">
+                            <label className="grid gap-1 text-sm">
+                              <span className="text-slate-700">Amount paid</span>
+                              <input
+                                className="rounded-lg border px-3 py-2"
+                                value={docAmountPaid}
+                                onChange={(e) => setDocAmountPaid(e.target.value)}
+                                placeholder="0.00"
+                              />
+                            </label>
+
+                            <label className="grid gap-1 text-sm">
+                              <span className="text-slate-700">Payment method</span>
+                              <select
+                                className="rounded-lg border px-3 py-2"
+                                value={docPaymentMethod}
+                                onChange={(e) => setDocPaymentMethod(e.target.value)}
+                              >
+                                {["Cash", "GCash", "Card", "Bank transfer", "Other"].map((m) => (
+                                  <option key={m} value={m}>
+                                    {m}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="grid gap-1 text-sm">
+                              <span className="text-slate-700">Balance</span>
+                              <input
+                                className="rounded-lg border px-3 py-2"
+                                value={docBalance}
+                                onChange={(e) => setDocBalance(e.target.value)}
+                                placeholder="0.00"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {selectedTemplate?.doc_type === "dental_certificate" ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="grid gap-1 text-sm">
+                            <span className="text-slate-700">Findings</span>
+                            <textarea
+                              className="rounded-lg border px-3 py-2"
+                              rows={4}
+                              value={docFindings}
+                              onChange={(e) => setDocFindings(e.target.value)}
+                              placeholder="Optional"
+                            />
+                          </label>
+
+                          <label className="grid gap-1 text-sm">
+                            <span className="text-slate-700">Treatment done</span>
+                            <textarea
+                              className="rounded-lg border px-3 py-2"
+                              rows={4}
+                              value={docTreatmentDone}
+                              onChange={(e) => setDocTreatmentDone(e.target.value)}
+                              placeholder="Optional"
+                            />
+                          </label>
+
+                          <label className="grid gap-1 text-sm sm:col-span-2">
+                            <span className="text-slate-700">Remarks</span>
+                            <textarea
+                              className="rounded-lg border px-3 py-2"
+                              rows={3}
+                              value={docRemarks}
+                              onChange={(e) => setDocRemarks(e.target.value)}
+                              placeholder="Optional"
+                            />
+                          </label>
+
+                          <label className="grid gap-1 text-sm sm:col-span-2">
+                            <span className="text-slate-700">Issued by</span>
+                            <input
+                              className="rounded-lg border px-3 py-2"
+                              value={docIssuedBy}
+                              onChange={(e) => setDocIssuedBy(e.target.value)}
+                              placeholder="Optional"
+                            />
+                          </label>
+                        </div>
+                      ) : null}
+
+                      {previewHtml ? (
+                        <div className="rounded-xl border bg-white p-3">
+                          <div className="text-sm font-semibold">Preview</div>
+                          <div
+                            className="mt-2 rounded-lg border bg-white p-3"
+                            dangerouslySetInnerHTML={{ __html: previewHtml }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <button
+                      disabled={busy || !selectedTemplateId}
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      onClick={generateDocument}
+                    >
+                      Generate
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold">Preview</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="rounded-lg border bg-white px-3 py-2 text-sm"
+                        onClick={() => printHtml(previewHtml)}
+                        disabled={!previewHtml}
+                      >
+                        Print
+                      </button>
+                      <button
+                        className="rounded-lg border bg-white px-3 py-2 text-sm"
+                        onClick={() => downloadHtml(`document_${todayLocalISO()}.html`, previewHtml)}
+                        disabled={!previewHtml}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-xl border bg-white p-3">
+                    {previewHtml ? (
+                      <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                    ) : (
+                      <div className="text-sm text-slate-500">
+                        Select a template and fill fields to see the preview.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="text-sm font-semibold">Generated documents</div>
+
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-slate-600">
+                          <th className="py-2 pr-3">Date</th>
+                          <th className="py-2 pr-3">Type</th>
+                          <th className="py-2 pr-3">Number</th>
+                          <th className="py-2 pr-3"></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                      </thead>
+                      <tbody>
+                        {generatedDocs.map((d) => (
+                          <tr key={d.id} className="border-t">
+                            <td className="py-2 pr-3">{formatDateTimePH(d.created_at)}</td>
+                            <td className="py-2 pr-3">{d.doc_type}</td>
+                            <td className="py-2 pr-3">{d.doc_number ?? "—"}</td>
+                            <td className="py-2 pr-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                  onClick={() => {
+                                    const html = d.payload?.rendered_html || d.payload?.renderedHtml || "";
+                                    if (html) printHtml(html);
+                                  }}
+                                >
+                                  Print
+                                </button>
+                                <button
+                                  className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                  onClick={() => {
+                                    const html = d.payload?.rendered_html || d.payload?.renderedHtml || "";
+                                    if (html) downloadHtml(`generated_${d.doc_type}_${d.id}.html`, html);
+                                  }}
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {!generatedDocs.length ? (
+                          <tr>
+                            <td className="py-3 text-slate-500" colSpan={4}>
+                              No generated documents yet.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {tab === "Billing" ? (
-            <div className="grid gap-4">
-              {/* Visit selector (jump to visit dates only) */}
-              <div className="rounded-xl border bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold">Billing</div>
-                    <div className="text-xs text-slate-600">
-                      Invoices are generated from Treatments. Open a date from the invoice list below.
+            {tab === "Billing" ? (
+              <div className="grid gap-4">
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="text-sm font-semibold text-center">Billing overview</div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border bg-slate-50 p-3 text-center">
+                      <div className="text-xs text-slate-600">Total</div>
+                      <div className="mt-1 text-2xl font-semibold">
+                        {billingSummary.totalAll.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border bg-slate-50 p-3 text-center">
+                      <div className="text-xs text-slate-600">Paid</div>
+                      <div className="mt-1 text-2xl font-semibold">
+                        {billingSummary.paidAll.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border bg-slate-50 p-3 text-center">
+                      <div className="text-xs text-slate-600">Balance</div>
+                      <div className="mt-1 text-2xl font-semibold">
+                        {billingSummary.balanceAll.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-sm font-semibold">Invoice</div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        className="rounded-lg border bg-white px-3 py-2 text-sm"
+                        value={billingVisitDate}
+                        onChange={async (e) => {
+                          const nextDate = e.target.value;
+                          setBillingVisitDate(nextDate);
+                          if (!nextDate) return;
+                          await openBillingForVisitDate(nextDate);
+                        }}
+                        disabled={busy}
+                      >
+                        <option value="">Select visit date</option>
+
+                        {visitDates.map((d) => (
+                          <option key={d} value={d}>
+                            {formatDatePH(d)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold"
+                        onClick={refreshActiveInvoiceFromTreatments}
+                        disabled={busy || !activeInvoiceId}
+                      >
+                        Refresh from Treatments
+                      </button>
+
+                      <button
+                        className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold"
+                        onClick={() => {
+                          setErr(null);
+                          setDiscountOpen(true);
+                        }}
+                        disabled={busy || !activeInvoiceId}
+                      >
+                        Add discount
+                      </button>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
-                    disabled={busy || visitDates.length === 0}
-                    onClick={async () => {
-                      if (visitDates.length === 0) return;
-                      await openBillingForVisitDate(visitDates[0]);
-                    }}
-                    title={visitDates.length === 0 ? "No visits yet. Add Treatments first." : "Open the most recent visit"}
-                  >
-                    Open latest visit
-                  </button>
-                </div>
-
-                <div className="mt-2 text-xs text-slate-600">
-                  Tip: If you edit Treatments, click “Refresh from Treatments” inside the invoice.
-                </div>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-[320px,1fr]">
-                {/* Visits list (only those that exist as invoices already) */}
-                <div className="rounded-xl border bg-white overflow-hidden">
-                  <div className="bg-slate-100 px-4 py-2 text-sm font-semibold">Invoices ({invoices.length})</div>
-
-                  {invoices.length === 0 ? (
-                    <div className="px-4 py-6 text-sm text-slate-600">
-                      No invoices yet. Select a visit date above to auto-generate one.
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border bg-slate-50 p-3">
+                      <div className="text-xs text-slate-600">Subtotal</div>
+                      <div className="text-lg font-semibold">
+                        {invoiceSubtotalComputed.toFixed(2)}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="divide-y">
-                      {invoices.map((inv) => {
-                        const isActive = inv.id === activeInvoiceId;
+                    <div className="rounded-xl border bg-slate-50 p-3">
+                      <div className="text-xs text-slate-600">Paid</div>
+                      <div className="text-lg font-semibold">{activePaid.toFixed(2)}</div>
+                    </div>
+                    <div className="rounded-xl border bg-slate-50 p-3">
+                      <div className="text-xs text-slate-600">Balance</div>
+                      <div className="text-lg font-semibold">{activeBalance.toFixed(2)}</div>
+                    </div>
+                  </div>
+
+                  {/* Invoice table with footer rows */}
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-slate-600">
+                          <th className="py-2 pr-3">Tooth</th>
+                          <th className="py-2 pr-3">Item</th>
+                          <th className="py-2 pr-3">Qty</th>
+                          <th className="py-2 pr-3">Unit</th>
+                          <th className="py-2 pr-3">Total</th>
+                          <th className="py-2 pr-3"></th>
+                        </tr>
+                      </thead>
+                      
+                      <tbody>
+                      {(() => {
+                        const isDiscountItem = (it: any) => (it.service_name ?? "").toLowerCase() === "discount";
+
+                        const normalItems = invoiceItems.filter((x) => !isDiscountItem(x));
+                        const discountItems = invoiceItems.filter((x) => isDiscountItem(x));
+
+                        const subtotalFromLines = normalItems.reduce((sum, x) => sum + num(x.line_total), 0);
+                        const discountTotal = discountItems.reduce((sum, x) => sum + num(x.line_total), 0); // negative
+                        const totalAfterDiscount = subtotalFromLines + discountTotal;
+
+                        if (!invoiceItems.length) {
+                          return (
+                            <tr>
+                              <td className="py-3 text-slate-500" colSpan={6}>
+                                No invoice items yet.
+                              </td>
+                            </tr>
+                          );
+                        }
 
                         return (
-                          <button
-                            key={inv.id}
-                            type="button"
-                            className={[
-                              "w-full text-left px-4 py-3 transition",
-                              isActive ? "bg-slate-900 text-white" : "hover:bg-slate-50",
-                            ].join(" ")}
-                            disabled={busy}
-                            onClick={async () => {
-                              // Always open via visit date so it also ensures invoice exists and syncs items
-                              await openBillingForVisitDate(inv.invoice_date);
-                            }}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="text-sm font-semibold">{formatDatePH(inv.invoice_date)}</div>
-                              <div className="text-xs opacity-80">{inv.status ?? "OPEN"}</div>
-                            </div>
-                            <div className="mt-1 flex items-center justify-between gap-3 text-xs opacity-80">
-                              <div>Dentist: {isActive ? dentistForActiveInvoice(invoiceItems) : "—"}</div>
-                              <div>Total: PHP {num(inv.total).toFixed(2)}</div>
-                            </div>
-                            <div className="mt-1 text-xs opacity-80">Total: PHP {num(inv.total).toFixed(2)}</div>
-                          </button>
+                          <>
+                            {/* Procedure lines only */}
+                            {normalItems.map((it) => (
+                              <tr key={it.id} className="border-t">
+                                <td className="py-2 pr-3">{it.tooth_number ?? "—"}</td>
+                                <td className="py-2 pr-3">{it.service_name}</td>
+                                <td className="py-2 pr-3">{it.qty}</td>
+                                <td className="py-2 pr-3">{num(it.unit_price).toFixed(2)}</td>
+                                <td className="py-2 pr-3">{num(it.line_total).toFixed(2)}</td>
+                                <td className="py-2 pr-3 text-right">
+                                  <button
+                                    className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                    onClick={() => openEditItem(it)}
+                                  >
+                                    Edit
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+
+                            {/* Subtotal row */}
+                            <tr className="border-t">
+                              <td colSpan={4} className="py-2 pr-3 text-right font-semibold">
+                                Subtotal
+                              </td>
+                              <td className="py-2 pr-3 font-semibold">{subtotalFromLines.toFixed(2)}</td>
+                              <td />
+                            </tr>
+
+                            {/* Discount rows (after subtotal, before total) */}
+                            {discountItems.map((it) => (
+                              <tr key={it.id} className="border-t text-red-700 italic">
+                                <td className="py-2 pr-3">—</td>
+                                <td className="py-2 pr-3">{it.service_name}</td>
+                                <td className="py-2 pr-3">{it.qty}</td>
+                                <td className="py-2 pr-3">{num(it.unit_price).toFixed(2)}</td>
+                                <td className="py-2 pr-3 font-semibold">{num(it.line_total).toFixed(2)}</td>
+                                <td className="py-2 pr-3" />
+                              </tr>
+                            ))}
+
+                            {/* Total row */}
+                            <tr className="border-t">
+                              <td colSpan={4} className="py-2 pr-3 text-right text-base font-semibold">
+                                Total
+                              </td>
+                              <td className="py-2 pr-3 text-base font-semibold">{totalAfterDiscount.toFixed(2)}</td>
+                              <td />
+                            </tr>
+                          </>
                         );
-                      })}
-                    </div>
-                  )}
+                      })()}
+                    </tbody>
+                    </table>
+                  </div>
                 </div>
 
-                {/* Details */}
-                <div className="grid gap-4">
-                  {!activeInvoiceId ? (
-                    <div className="rounded-xl border bg-white p-6 text-sm text-slate-600">
-                      Select a visit date above to open billing.
-                    </div>
-                  ) : (
-                    <>
-                      {/* Totals summary */}
-                      <div className="rounded-xl border bg-white p-4">
-                        {(() => {
-                          const inv = invoices.find((x) => x.id === activeInvoiceId);
-                          const paid = invoicePayments.reduce((sum, p) => sum + num(p.amount), 0);
-                          const total = num(inv?.total);
-                          const bal = Math.max(0, total - paid);
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="text-sm font-semibold">Payments</div>
 
-                          return (
-                            <div className="grid gap-2 sm:grid-cols-4">
-                              <div>
-                                <div className="text-xs text-slate-600">Subtotal</div>
-                                <div className="text-sm font-semibold">PHP {num(inv?.subtotal).toFixed(2)}</div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-slate-600">Discount</div>
-                                <div className="text-sm font-semibold">PHP {num(inv?.discount_amount).toFixed(2)}</div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-slate-600">Paid</div>
-                                <div className="text-sm font-semibold">PHP {paid.toFixed(2)}</div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-slate-600">Balance</div>
-                                <div className="text-sm font-semibold">PHP {bal.toFixed(2)}</div>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-5 items-end">
+                    <label className="grid gap-1 text-sm sm:col-span-1">
+                      <span className="text-slate-700">Date</span>
+                      <input
+                        type="date"
+                        className="rounded-lg border px-3 py-2"
+                        value={payDate}
+                        onChange={(e) => setPayDate(e.target.value)}
+                      />
+                    </label>
 
-                      {/* Invoice items (read-only, generated from Treatments) */}
-                      <div className="rounded-xl border bg-white p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <div className="text-sm font-semibold">Invoice items</div>
-                            <div className="text-xs text-slate-600">
-                              Items are generated from Treatments. To change items, edit Treatments.
-                            </div>
-                          </div>
+                    <label className="grid gap-1 text-sm sm:col-span-1">
+                      <span className="text-slate-700">Amount</span>
+                      <input
+                        className="rounded-lg border px-3 py-2"
+                        value={payAmount}
+                        onChange={(e) => setPayAmount(e.target.value)}
+                      />
+                    </label>
 
-                          <button
-                            type="button"
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-                            disabled={busy || !activeInvoiceId}
-                            onClick={async () => {
-                              if (!activeInvoiceId) return;
-                              setBusy(true);
-                              setErr(null);
+                    <label className="grid gap-1 text-sm sm:col-span-1">
+                      <span className="text-slate-700">Mode</span>
+                      <input
+                        className="rounded-lg border px-3 py-2"
+                        value={payMode}
+                        onChange={(e) => setPayMode(e.target.value)}
+                      />
+                    </label>
 
-                              const r = await supabase.rpc("sync_invoice_items_from_treatments", { p_invoice_id: activeInvoiceId });
-                              if (r.error) setErr(r.error.message);
+                    <label className="grid gap-1 text-sm sm:col-span-1">
+                      <span className="text-slate-700">Reference</span>
+                      <input
+                        className="rounded-lg border px-3 py-2"
+                        value={payRef}
+                        onChange={(e) => setPayRef(e.target.value)}
+                      />
+                    </label>
 
-                              setBusy(false);
-                              await loadInvoiceDetails(activeInvoiceId);
-                              await loadAll();
-                            }}
-                            title="Rebuild items from Treatments"
-                          >
-                            Refresh from Treatments
-                          </button>
-                        </div>
+                    <button
+                      disabled={busy || !activeInvoiceId}
+                      className="h-[42px] rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                      onClick={addPayment}
+                    >
+                      Add payment
+                    </button>
+                  </div>
 
-                        <div className="mt-4 rounded-lg border overflow-hidden">
-                          {invoiceItems.length === 0 ? (
-                            <div className="px-4 py-6 text-sm text-slate-600">No items yet.</div>
-                          ) : (
-                            <table className="w-full text-sm">
-                              <thead className="bg-slate-50">
-                                <tr className="border-b">
-                                  <th className="text-left px-3 py-2">Service</th>
-                                  <th className="text-left px-3 py-2">Tooth</th>
-                                  <th className="text-right px-3 py-2">Amount</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {invoiceItems.map((it) => (
-                                  <tr key={it.id} className="border-t">
-                                    <td className="px-3 py-2">
-                                      <div className="font-medium">{it.service_name}</div>
-                                    </td>
-                                    <td className="px-3 py-2">{it.tooth_number ?? "—"}</td>
-                                    <td className="px-3 py-2 text-right font-semibold">PHP {num(it.line_total).toFixed(2)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Discount + Payments blocks stay as-is below this point */}
-                    </>
-                  )}
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-slate-600">
+                          <th className="py-2 pr-3">Date</th>
+                          <th className="py-2 pr-3">Amount</th>
+                          <th className="py-2 pr-3">Mode</th>
+                          <th className="py-2 pr-3">Reference</th>
+                          <th className="py-2 pr-3">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoicePayments.map((p) => (
+                          <tr key={p.id} className="border-t">
+                            <td className="py-2 pr-3">{formatDatePH(p.payment_date)}</td>
+                            <td className="py-2 pr-3">{num(p.amount).toFixed(2)}</td>
+                            <td className="py-2 pr-3">{p.mode}</td>
+                            <td className="py-2 pr-3">{p.reference_no ?? "—"}</td>
+                            <td className="py-2 pr-3">{p.notes ?? "—"}</td>
+                          </tr>
+                        ))}
+                        {!invoicePayments.length ? (
+                          <tr>
+                            <td className="py-3 text-slate-500" colSpan={5}>
+                              No payments yet.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </div>
     </main>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border p-3">
-      <div className="text-xs font-medium text-slate-500">{label}</div>
-      <div className="mt-1 text-sm">{value}</div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  textarea,
-  type,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  textarea?: boolean;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium">{label}</label>
-      {textarea ? (
-        <textarea
-          className="mt-1 w-full rounded-lg border px-3 py-2 min-h-[90px]"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-        />
-      ) : (
-        <input
-          className="mt-1 w-full rounded-lg border px-3 py-2"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          type={type ?? "text"}
-        />
-      )}
-    </div>
   );
 }

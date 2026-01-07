@@ -54,36 +54,116 @@ function statusLabel(s: ToothStatus) {
 }
 
 function statusTheme(s: ToothStatus) {
-  // Soft pastel themes. Identifiable but not loud.
-  // wrap: tooth tile background; border: tile border; chip: legend/button
+  // More prominent tile themes.
+  // wrap: status tint layer; border: tile border; chip: legend/button
   switch (s) {
     case "HEALTHY":
-        return { wrap: "bg-white", border: "border-slate-200", chip: "bg-slate-100 text-slate-800 border-slate-200", halo: "bg-slate-50" };
+      return {
+        wrap: "bg-transparent",
+        border: "border-slate-200",
+        chip: "bg-slate-100 text-slate-800 border-slate-200",
+        halo: "bg-transparent",
+      };
+
     case "CARIES":
-        return { wrap: "bg-rose-50", border: "border-rose-300", chip: "bg-rose-200 text-rose-950 border-rose-300", halo: "bg-rose-100" };
+      return {
+        wrap: "bg-rose-200/80",
+        border: "border-rose-400",
+        chip: "bg-rose-200 text-rose-950 border-rose-300",
+        halo: "bg-rose-200/70",
+      };
+
     case "FILLED":
-        return { wrap: "bg-emerald-50", border: "border-emerald-300", chip: "bg-emerald-200 text-emerald-950 border-emerald-300", halo: "bg-emerald-100" };
+      return {
+        wrap: "bg-emerald-200/80",
+        border: "border-emerald-400",
+        chip: "bg-emerald-200 text-emerald-950 border-emerald-300",
+        halo: "bg-emerald-200/70",
+      };
+
     case "MISSING":
-        return { wrap: "bg-slate-100", border: "border-slate-400", chip: "bg-slate-300 text-slate-900 border-slate-400", halo: "bg-slate-200" };
+      return {
+        wrap: "bg-slate-300/70",
+        border: "border-slate-500",
+        chip: "bg-slate-300 text-slate-900 border-slate-400",
+        halo: "bg-slate-300/60",
+      };
+
     case "EXTRACTED":
-        return { wrap: "bg-orange-50", border: "border-orange-300", chip: "bg-orange-200 text-orange-950 border-orange-300", halo: "bg-orange-100" };
+      return {
+        wrap: "bg-orange-200/80",
+        border: "border-orange-400",
+        chip: "bg-orange-200 text-orange-950 border-orange-300",
+        halo: "bg-orange-200/70",
+      };
+
     case "RCT":
-        return { wrap: "bg-indigo-50", border: "border-indigo-300", chip: "bg-indigo-200 text-indigo-950 border-indigo-300", halo: "bg-indigo-100" };
+      return {
+        wrap: "bg-indigo-200/80",
+        border: "border-indigo-400",
+        chip: "bg-indigo-200 text-indigo-950 border-indigo-300",
+        halo: "bg-indigo-200/70",
+      };
+
     case "CROWN":
-        return { wrap: "bg-amber-50", border: "border-amber-300", chip: "bg-amber-200 text-amber-950 border-amber-300", halo: "bg-amber-100" };
+      return {
+        wrap: "bg-amber-200/80",
+        border: "border-amber-400",
+        chip: "bg-amber-200 text-amber-950 border-amber-300",
+        halo: "bg-amber-200/70",
+      };
+
     case "IMPLANT":
-        return { wrap: "bg-cyan-50", border: "border-cyan-300", chip: "bg-cyan-200 text-cyan-950 border-cyan-300", halo: "bg-cyan-100" };
+      return {
+        wrap: "bg-cyan-200/80",
+        border: "border-cyan-400",
+        chip: "bg-cyan-200 text-cyan-950 border-cyan-300",
+        halo: "bg-cyan-200/70",
+      };
+
     case "DENTURE":
-        return { wrap: "bg-purple-50", border: "border-purple-300", chip: "bg-purple-200 text-purple-950 border-purple-300", halo: "bg-purple-100" };
+      return {
+        wrap: "bg-purple-200/80",
+        border: "border-purple-400",
+        chip: "bg-purple-200 text-purple-950 border-purple-300",
+        halo: "bg-purple-200/70",
+      };
+  }
+}
+
+function iconTintClass(status: ToothStatus) {
+  // Applies only to the SVG (icon), not the button background.
+  // Feel free to tweak shades later.
+  switch (status) {
+    case "HEALTHY":
+      return "text-slate-700";
+    case "CARIES":
+      return "text-rose-600";
+    case "FILLED":
+      return "text-emerald-600";
+    case "MISSING":
+      return "text-slate-500";
+    case "EXTRACTED":
+      return "text-orange-600";
+    case "RCT":
+      return "text-indigo-600";
+    case "CROWN":
+      return "text-amber-600";
+    case "IMPLANT":
+      return "text-cyan-600";
+    case "DENTURE":
+      return "text-purple-600";
   }
 }
 
 function ToothOcclusalIcon({
   status,
   jaw,
+  className,
 }: {
   status: ToothStatus;
   jaw: "upper" | "lower";
+  className?: string;
 }) {
   // Flip upper teeth so the icon orientation matches a real chart
   const missing = status === "MISSING";
@@ -92,7 +172,7 @@ function ToothOcclusalIcon({
   return (
     <svg
       viewBox="12 10 40 44"
-      className={["h-14 w-14", jaw === "upper" ? "rotate-180" : ""].join(" ")}
+      className={["h-12 w-12", jaw === "upper" ? "rotate-180" : ""].join(" ")}
       aria-hidden="true"
     >
       {/* Tooth outline */}
@@ -100,7 +180,7 @@ function ToothOcclusalIcon({
         d="M20 18c4-4 9-6 12-6s8 2 12 6c4 4 6 9 6 14 0 9-4 16-10 18-3 1-6-1-8-4-2 3-5 5-8 4-6-2-10-9-10-18 0-5 2-10 6-14Z"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2.4"
+        strokeWidth="2.5"
         opacity={missing ? 0.35 : 1}
       />
 
@@ -146,41 +226,68 @@ function ToothTile({
 
   return (
     <button
-        type="button"
-        onClick={onClick}
-        className={[
-            "relative flex w-[46px] flex-col items-center justify-center p-0 m-0 select-none",
-            selected ? "ring-2 ring-slate-700" : "hover:bg-slate-100",
-        ].join(" ")}
-        >
-    {/* Status halo behind tooth icon (stronger but still soft) */}
-        <span
-            className={[
-                "absolute top-0.5 left-0.5 right-0.5 h-14 rounded-[18px] border",
-                theme.halo,
-                theme.border,
-                status === "HEALTHY" ? "opacity-0" : "opacity-100",
-                status !== "HEALTHY" ? "ring-1 ring-black/5" : "",
-            ].join(" ")}
-            aria-hidden="true"
-        />
+      type="button"
+      onClick={onClick}
+      className={[
+        // No square tile background at all
+        "relative flex w-[52px] flex-col items-center justify-center select-none",
+        "transition-transform",
+        selected ? "scale-[1.30]" : "hover:scale-[1.05]",
+      ].join(" ")}
+    >
+      {/* ICON WRAP */}
+      <div className="relative flex h-[44px] w-[44px] items-center justify-center">
+        {/* Selected highlight (behind icon only) */}
+        {selected ? (
+          <span className="absolute inset-0 rounded-[14px] bg-white/60 shadow-md" />
+        ) : null}
 
-      <div className="relative text-slate-800">
-        {/* smaller than before */}
-        <ToothOcclusalIcon status={status} jaw={jaw} />
+        {/* Status highlight (behind icon only, and only when status is not HEALTHY)
+            - for selected: it sits BEHIND the icon but still within the icon wrap
+            - does NOT create a big rounded square tile
+        */}
+        {status !== "HEALTHY" ? (
+          <span
+            className={[
+              "absolute inset-1 rounded-[12px] opacity-90",
+              // stronger + more prominent color chip behind the icon
+              // reuse your statusTheme().wrap if you like, but it must be a bg-* class
+              statusTheme(status).wrap,
+            ].join(" ")}
+          />
+        ) : null}
+
+        {/* The icon itself (tinted by status) */}
+        <div className={["relative", iconTintClass(status)].join(" ")}>
+          <ToothOcclusalIcon status={status} jaw={jaw} className="h-8 w-8" />
+        </div>
       </div>
 
-      <div className="text-xs font-semibold text-slate-800">{tooth}</div>
+      {/* Label */}
+      <div className="mt-1 text-xs font-semibold text-slate-800">{tooth}</div>
 
-      {/* History count badge */}
+      {/* Count badge */}
       {count > 0 ? (
-        <span className={["absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full text-[11px] flex items-center justify-center border", theme.chip].join(" ")}>
+        <span
+          className={[
+            "absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full text-[11px] flex items-center justify-center border",
+            statusTheme(status).chip,
+          ].join(" ")}
+        >
           {count}
         </span>
       ) : null}
 
       {/* Note dot */}
-      {hasNote ? <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-slate-700" title="Has note" /> : null}
+      {hasNote ? (
+        <span
+          className={[
+            "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full",
+            selected ? "bg-slate-900" : "bg-slate-700",
+          ].join(" ")}
+          title="Has note"
+        />
+      ) : null}
     </button>
   );
 }
@@ -244,7 +351,7 @@ export default function ToothChart({
       {/* Upper: single line */}
       <div className="rounded-xl border bg-slate-50 p-4">
         <div className="text-sm font-semibold text-slate-700">Upper</div>
-        <div className="mt-3 flex flex-nowrap gap-0 justify-center overflow-x-auto">
+        <div className="mt-3 flex flex-nowrap gap-0.5 justify-center overflow-x-auto min-h-[100px] items-center py-3">
           {upperRight.map(renderTooth)}
           <div className="w-6 shrink-0" />
           {upperLeft.map(renderTooth)}
@@ -254,16 +361,13 @@ export default function ToothChart({
       {/* Lower: single line */}
       <div className="rounded-xl border bg-slate-50 p-4">
         <div className="text-sm font-semibold text-slate-700">Lower</div>
-        <div className="mt-3 flex flex-nowrap gap-0 justify-center overflow-x-auto">
+        <div className="mt-3 flex flex-nowrap gap-0.5 justify-center overflow-x-auto min-h-[100px] items-center py-3">
           {lowerRight.map(renderTooth)}
           <div className="w-6 shrink-0" />
           {lowerLeft.map(renderTooth)}
         </div>
       </div>
 
-      <div className="text-xs text-slate-600">
-        Tap a tooth. Add a note (optional). Tap a status to save.
-      </div>
     </div>
   );
 }

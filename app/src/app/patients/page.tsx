@@ -82,10 +82,6 @@ export default function PatientsPage() {
     await loadPatients();
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
-  }
-
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
       <div className="mx-auto max-w-6xl">
@@ -96,12 +92,6 @@ export default function PatientsPage() {
           </div>
 
           <div className="flex gap-2">
-            <button
-              className="rounded-lg border bg-white px-4 py-2 text-sm font-medium"
-              onClick={signOut}
-            >
-              Sign out
-            </button>
             <button
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
               onClick={() => setShowAdd(true)}

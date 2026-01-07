@@ -24,7 +24,12 @@ export default function TopNav({ title = "Matira Dental Studio" }: { title?: str
           {title}
         </Link>
 
+        
         <div className="flex items-center gap-2">
+          <Link href="/patients" className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">
+            Patients
+          </Link>
+
           <Link href="/settings" className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">
             Settings
           </Link>

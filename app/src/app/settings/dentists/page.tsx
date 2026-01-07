@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 type DentistRow = {
   id: string;
   full_name: string;
+  prc_number: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -20,6 +21,7 @@ export default function DentistsSettingsPage() {
 
   // Add form
   const [name, setName] = useState("");
+  const [prcNumber, setPrcNumber] = useState("");
   const [active, setActive] = useState(true);
   const [sortOrder, setSortOrder] = useState("0");
 
@@ -35,7 +37,7 @@ export default function DentistsSettingsPage() {
 
     const r = await supabase
       .from("dentists")
-      .select("id, full_name, is_active, sort_order, created_at")
+      .select("id, full_name, prc_number, is_active, sort_order, created_at")
       .order("sort_order", { ascending: true })
       .order("full_name", { ascending: true });
 
@@ -68,6 +70,7 @@ export default function DentistsSettingsPage() {
 
     const r = await supabase.from("dentists").insert({
       full_name: cleaned,
+      prc_number: prcNumber.trim() ? prcNumber.trim() : null,
       is_active: active,
       sort_order: Number.isFinite(s) ? s : 0,
     });
@@ -79,6 +82,7 @@ export default function DentistsSettingsPage() {
     }
 
     setName("");
+    setPrcNumber("");
     setActive(true);
     setSortOrder("0");
     await load();
@@ -112,6 +116,23 @@ export default function DentistsSettingsPage() {
     }
 
     setRows((prev) => prev.map((d) => (d.id === id ? { ...d, sort_order: nextSort } : d)));
+  }
+
+  async function updatePrcNumber(id: string, nextPrc: string) {
+    setBusy(true);
+    setErr(null);
+
+    const cleaned = nextPrc.trim() || null;
+
+    const r = await supabase.from("dentists").update({ prc_number: cleaned }).eq("id", id);
+
+    setBusy(false);
+    if (r.error) {
+      setErr(r.error.message);
+      return;
+    }
+
+    setRows((prev) => prev.map((d) => (d.id === id ? { ...d, prc_number: cleaned } : d)));
   }
 
   async function updateName(id: string, nextName: string) {
@@ -185,7 +206,7 @@ export default function DentistsSettingsPage() {
         <div className="mt-4 rounded-xl border bg-white p-4">
           <div className="text-sm font-semibold">Add dentist</div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-6">
+          <div className="mt-3 grid gap-3 sm:grid-cols-8">
             <div className="sm:col-span-4">
               <label className="block text-sm font-medium">Full name</label>
               <input
@@ -196,6 +217,18 @@ export default function DentistsSettingsPage() {
                 disabled={busy}
               />
             </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium">PRC number</label>
+              <input
+                className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                value={prcNumber}
+                onChange={(e) => setPrcNumber(e.target.value)}
+                placeholder="Optional"
+                disabled={busy}
+              />
+            </div>
+
 
             <div className="sm:col-span-1">
               <label className="block text-sm font-medium">Sort</label>
@@ -221,7 +254,7 @@ export default function DentistsSettingsPage() {
               </div>
             </div>
 
-            <div className="sm:col-span-6 flex items-end justify-end">
+            <div className="sm:col-span-8 flex items-end justify-end">
               <button
                 type="button"
                 className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -255,7 +288,21 @@ export default function DentistsSettingsPage() {
                         }}
                       />
 
-                      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                      <div className="mt-2 grid gap-2 sm:grid-cols-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600">PRC number</label>
+                          <input
+                            className="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm"
+                            defaultValue={d.prc_number ?? ""}
+                            disabled={busy}
+                            onBlur={(e) => {
+                              const next = e.target.value;
+                              const cur = d.prc_number ?? "";
+                              if (next.trim() !== cur) updatePrcNumber(d.id, next);
+                            }}
+                          />
+                        </div>
+
                         <div>
                           <label className="block text-xs font-medium text-slate-600">Sort</label>
                           <input
