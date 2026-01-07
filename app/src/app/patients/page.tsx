@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type Patient = {
@@ -13,6 +15,8 @@ type Patient = {
 };
 
 export default function PatientsPage() {
+  const router = useRouter();
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -88,7 +92,9 @@ export default function PatientsPage() {
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Patients</h1>
-            <p className="text-sm text-slate-600">Search, add, and manage patient records</p>
+            <p className="text-sm text-slate-600">
+              Search, add, and manage patient records
+            </p>
           </div>
 
           <div className="flex gap-2">
@@ -103,7 +109,7 @@ export default function PatientsPage() {
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <input
-            className="w-full sm:max-w-md rounded-lg border px-3 py-2"
+            className="w-full rounded-lg border px-3 py-2 sm:max-w-md"
             placeholder="Search by name or phone"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -114,32 +120,41 @@ export default function PatientsPage() {
         </div>
 
         {/* Table for tablets/desktop */}
-        <div className="mt-4 hidden md:block rounded-xl border bg-white overflow-hidden">
+        <div className="mt-4 hidden md:block overflow-hidden rounded-xl border bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-slate-700">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">Name</th>
-                <th className="text-left px-4 py-3 font-medium">Phone</th>
-                <th className="text-left px-4 py-3 font-medium">Birth date</th>
-                <th className="text-left px-4 py-3 font-medium">Address</th>
+                <th className="px-4 py-3 text-left font-medium">Name</th>
+                <th className="px-4 py-3 text-left font-medium">Phone</th>
+                <th className="px-4 py-3 text-left font-medium">Birth date</th>
+                <th className="px-4 py-3 text-left font-medium">Address</th>
               </tr>
             </thead>
+
             <tbody>
               {filtered.map((p) => (
                 <tr
-                    key={p.id}
-                    className="border-t cursor-pointer hover:bg-slate-50"
-                    onClick={() => (window.location.href = `/patients/${p.id}`)}
+                  key={p.id}
+                  className="cursor-pointer border-t hover:bg-slate-50"
+                  onClick={() => router.push(`/patients/${p.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/patients/${p.id}`);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="link"
                 >
-                    <td className="px-4 py-3 font-medium underline decoration-slate-300">
-                        {p.full_name}
-                    </td>
-                    <td className="px-4 py-3">{p.phone ?? "-"}</td>
-                    <td className="px-4 py-3">{p.birth_date ?? "-"}</td>
-                    <td className="px-4 py-3">{p.address ?? "-"}</td>
-                    </tr>
-
+                  <td className="px-4 py-3 font-medium underline decoration-slate-300">
+                    {p.full_name}
+                  </td>
+                  <td className="px-4 py-3">{p.phone ?? "-"}</td>
+                  <td className="px-4 py-3">{p.birth_date ?? "-"}</td>
+                  <td className="px-4 py-3">{p.address ?? "-"}</td>
+                </tr>
               ))}
+
               {!loading && filtered.length === 0 ? (
                 <tr>
                   <td className="px-4 py-6 text-slate-600" colSpan={4}>
@@ -154,24 +169,41 @@ export default function PatientsPage() {
         {/* Cards for mobile */}
         <div className="mt-4 grid gap-3 md:hidden">
           {filtered.map((p) => (
-            <div key={p.id} className="rounded-xl border bg-white p-4">
-              <div className="font-semibold">{p.full_name}</div>
-              <div className="mt-2 text-sm text-slate-700">
-                <div><span className="text-slate-500">Phone:</span> {p.phone ?? "-"}</div>
-                <div><span className="text-slate-500">Birth date:</span> {p.birth_date ?? "-"}</div>
-                <div className="mt-1"><span className="text-slate-500">Address:</span> {p.address ?? "-"}</div>
+            <Link
+              key={p.id}
+              href={`/patients/${p.id}`}
+              className="block rounded-xl border bg-white p-4 hover:bg-slate-50 active:bg-slate-100"
+            >
+              <div className="font-semibold underline decoration-slate-300">
+                {p.full_name}
               </div>
-            </div>
+              <div className="mt-2 text-sm text-slate-700">
+                <div>
+                  <span className="text-slate-500">Phone:</span> {p.phone ?? "-"}
+                </div>
+                <div>
+                  <span className="text-slate-500">Birth date:</span>{" "}
+                  {p.birth_date ?? "-"}
+                </div>
+                <div className="mt-1">
+                  <span className="text-slate-500">Address:</span>{" "}
+                  {p.address ?? "-"}
+                </div>
+              </div>
+            </Link>
           ))}
+
           {!loading && filtered.length === 0 ? (
-            <div className="rounded-xl border bg-white p-4 text-slate-600">No patients found.</div>
+            <div className="rounded-xl border bg-white p-4 text-slate-600">
+              No patients found.
+            </div>
           ) : null}
         </div>
       </div>
 
       {/* Add patient modal */}
       {showAdd ? (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -230,7 +262,7 @@ export default function PatientsPage() {
 
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-              <div className="mt-2 flex gap-2 justify-end">
+              <div className="mt-2 flex justify-end gap-2">
                 <button
                   className="rounded-lg border bg-white px-4 py-2 text-sm font-medium"
                   onClick={() => setShowAdd(false)}
