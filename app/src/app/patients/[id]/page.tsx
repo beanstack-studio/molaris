@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ToothChart, { ToothStatus, getStatusTheme } from "@/components/ToothChart";
+import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
 
 /* =========================
@@ -373,8 +374,9 @@ export default function PatientProfilePage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploadType, setUploadType] = useState<AttachmentType | "">("");
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-  const [renameAttachmentId, setRenameAttachmentId] = useState<string | null>(null);
-  const [renameAttachmentValue, setRenameAttachmentValue] = useState("");
+  const [attachmentEdit, setAttachmentEdit] = useState<Attachment | null>(null);
+  const [attachmentEditName, setAttachmentEditName] = useState("");
+  const [attachmentDeleteConfirm, setAttachmentDeleteConfirm] = useState("");
   const [attachmentSort, setAttachmentSort] = useState<"DATE_DESC" | "DATE_ASC" | "NAME_ASC">("DATE_DESC");
 
   // Documents
@@ -383,6 +385,9 @@ export default function PatientProfilePage() {
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDoc[]>([]);
   const [docSort, setDocSort] = useState<"DATE_DESC" | "DATE_ASC" | "TYPE_ASC">("DATE_DESC");
+  const [genDocEdit, setGenDocEdit] = useState<GeneratedDoc | null>(null);
+  const [genDocEditNumber, setGenDocEditNumber] = useState("");
+  const [genDocDeleteConfirm, setGenDocDeleteConfirm] = useState("");
 
   const [docVisitDate, setDocVisitDate] = useState(() => todayLocalISO());
   const [docDentistId, setDocDentistId] = useState<string>(""); // neutral
@@ -422,7 +427,7 @@ export default function PatientProfilePage() {
   const [payAmount, setPayAmount] = useState("");
   const [payMode, setPayMode] = useState("Cash");
   const [payRef, setPayRef] = useState("");
-  const [payNotes, setPayNotes] = useState("");
+  const [paymentView, setPaymentView] = useState<PaymentRow | null>(null);
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === selectedTemplateId) ?? null,
@@ -868,12 +873,13 @@ export default function PatientProfilePage() {
     setInvoices(invRows);
 
    const latest = invRows[0] ?? null;
-  // Only override "Last visit" from invoices if an invoice actually exists.
-  // Otherwise keep the Treatments-derived last visit.
-  if (latest?.invoice_date) {
-    setLastVisitDate(latest.invoice_date ?? "");
-    setLastVisitDentist((latest as any)?.dentist_name ?? "");
-  }
+    // Only override "Last visit" from invoices if an invoice actually exists.
+    // IMPORTANT: do NOT overwrite the Treatments-derived dentist with an empty invoice dentist name.
+    if (latest?.invoice_date) {
+      setLastVisitDate(latest.invoice_date ?? "");
+      const invDentist = String((latest as any)?.dentist_name ?? "").trim();
+      if (invDentist) setLastVisitDentist(invDentist);
+    }
 
     // For now, treat invoice notes as "concern" until appointments/scheduling exists
     setLastVisitConcern((latest as any)?.notes ?? "");
@@ -1179,8 +1185,9 @@ export default function PatientProfilePage() {
     setBusy(false);
     if (res.error) return setErr(res.error.message);
 
-    setRenameAttachmentId(null);
-    setRenameAttachmentValue("");
+    setAttachmentEdit(null);
+    setAttachmentEditName("");
+    setAttachmentDeleteConfirm("");
     await loadAll();
   }
 
@@ -1404,7 +1411,6 @@ export default function PatientProfilePage() {
       amount: amt,
       mode: payMode,
       reference_no: payRef.trim() || null,
-      notes: payNotes.trim() || null,
       created_by: userId,
     });
 
@@ -1413,7 +1419,6 @@ export default function PatientProfilePage() {
 
     setPayAmount("");
     setPayRef("");
-    setPayNotes("");
 
     await loadInvoiceDetails(activeInvoiceId);
     await loadAll();
@@ -1514,7 +1519,41 @@ export default function PatientProfilePage() {
     await loadAll();
   }
 
-  function printHtml(html: string) {
+  
+  async function updateGeneratedDocNumber(docId: string, nextNumber: string) {
+    setBusy(true);
+    setErr(null);
+
+    const res = await supabase
+      .from("generated_documents")
+      .update({ doc_number: nextNumber.trim() || null })
+      .eq("id", docId);
+
+    setBusy(false);
+    if (res.error) return setErr(res.error.message);
+
+    setGenDocEdit(null);
+    setGenDocEditNumber("");
+    setGenDocDeleteConfirm("");
+    await loadAll();
+  }
+
+  async function deleteGeneratedDoc(docId: string) {
+    setBusy(true);
+    setErr(null);
+
+    const res = await supabase.from("generated_documents").delete().eq("id", docId);
+
+    setBusy(false);
+    if (res.error) return setErr(res.error.message);
+
+    setGenDocEdit(null);
+    setGenDocEditNumber("");
+    setGenDocDeleteConfirm("");
+    await loadAll();
+  }
+
+function printHtml(html: string) {
     if (!html) return;
     const w = window.open("", "_blank", "noopener,noreferrer");
     if (!w) return;
@@ -1525,6 +1564,16 @@ export default function PatientProfilePage() {
     w.document.close();
     w.focus();
     w.print();
+  }
+
+
+  function openHtml(html: string) {
+    if (!html) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
   }
 
   function downloadHtml(filename: string, html: string) {
@@ -2419,26 +2468,44 @@ export default function PatientProfilePage() {
                   </div>
                 </div>
 
+                
                 <div className="rounded-2xl border bg-white p-4">
-                  <div className="text-sm font-semibold">Attachments</div>
-                  
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-sm font-semibold">Attachments</div>
+
+                    <select
+                      className="h-9 w-40 rounded-lg border bg-white px-2 text-sm"
+                      value={attachmentSort}
+                      onChange={(e) => setAttachmentSort(e.target.value as any)}
+                    >
+                      <option value="DATE_DESC">Newest</option>
+                      <option value="DATE_ASC">Oldest</option>
+                      <option value="NAME_ASC">Name A–Z</option>
+                    </select>
+                  </div>
+
                   <div className="mt-3 overflow-x-auto">
-                    <table className="min-w-full text-sm">
+                    <table className="min-w-full table-fixed text-sm">
+                      <colgroup>
+                        <col style={{ width: 160 }} />
+                        <col />
+                        <col style={{ width: 180 }} />
+                      </colgroup>
                       <thead>
                         <tr className="text-left text-slate-600">
-                          <th className="py-2 pr-3">Date</th>
                           <th className="py-2 pr-3">Type</th>
-                          <th className="py-2 pr-3">Name</th>
-                          <th className="py-2 pr-3"></th>
+                          <th className="py-2 pr-3">File</th>
+                          <th className="py-2 pr-3 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {displayedAttachments.map((a) => (
-                          <tr key={a.id} className="border-t">
-                            <td className="py-2 pr-3">{formatDateTimePH(a.created_at)}</td>
+                          <tr key={a.id} className="border-t hover:bg-slate-50">
                             <td className="py-2 pr-3">{a.type}</td>
                             <td className="py-2 pr-3">
-                              {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
+                              <div className="truncate">
+                                {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
+                              </div>
                             </td>
                             <td className="py-2 pr-3 text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -2448,62 +2515,23 @@ export default function PatientProfilePage() {
                                 >
                                   Open
                                 </button>
-
-                                {renameAttachmentId === a.id ? (
-                                  <>
-                                    <input
-                                      className="w-56 rounded-lg border px-3 py-1 text-sm"
-                                      value={renameAttachmentValue}
-                                      onChange={(e) => setRenameAttachmentValue(e.target.value)}
-                                      placeholder="New name"
-                                    />
-                                    <button
-                                      className="rounded-lg border bg-white px-3 py-1 text-sm"
-                                      onClick={() =>
-                                        renameAttachment(
-                                          a.id,
-                                          renameAttachmentValue || (a.file_name ?? "")
-                                        )
-                                      }
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      className="rounded-lg border bg-white px-3 py-1 text-sm"
-                                      onClick={() => {
-                                        setRenameAttachmentId(null);
-                                        setRenameAttachmentValue("");
-                                      }}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button
-                                    className="rounded-lg border bg-white px-3 py-1 text-sm"
-                                    onClick={() => {
-                                      setRenameAttachmentId(a.id);
-                                      setRenameAttachmentValue(a.file_name ?? "");
-                                    }}
-                                  >
-                                    Rename
-                                  </button>
-                                )}
-
                                 <button
                                   className="rounded-lg border bg-white px-3 py-1 text-sm"
-                                  onClick={() => deleteAttachment(a.id, a.file_path)}
+                                  onClick={() => {
+                                    setAttachmentEdit(a);
+                                    setAttachmentEditName(a.file_name ?? "");
+                                    setAttachmentDeleteConfirm("");
+                                  }}
                                 >
-                                  Delete
+                                  Edit
                                 </button>
                               </div>
                             </td>
                           </tr>
                         ))}
-
-                        {!attachments.length ? (
+                        {displayedAttachments.length === 0 ? (
                           <tr>
-                            <td className="py-3 text-slate-500" colSpan={4}>
+                            <td className="py-3 text-sm text-slate-500" colSpan={3}>
                               No attachments yet.
                             </td>
                           </tr>
@@ -2511,12 +2539,79 @@ export default function PatientProfilePage() {
                       </tbody>
                     </table>
                   </div>
-                </div>
-              </div>
-            ) : null}
 
+                  {attachmentEdit ? (
+                    <Modal
+                      open={true}
+                      title="Edit attachment"
+                      onClose={() => {
+                        setAttachmentEdit(null);
+                        setAttachmentEditName("");
+                        setAttachmentDeleteConfirm("");
+                      }}
+                    >
+                      <div className="grid gap-3">
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-slate-700">Display name</span>
+                          <input
+                            className="h-10 rounded-lg border px-3 py-2"
+                            value={attachmentEditName}
+                            onChange={(e) => setAttachmentEditName(e.target.value)}
+                            placeholder="Optional"
+                          />
+                        </label>
+
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-slate-700">Type DELETE to confirm delete</span>
+                          <input
+                            className="h-10 rounded-lg border px-3 py-2"
+                            value={attachmentDeleteConfirm}
+                            onChange={(e) => setAttachmentDeleteConfirm(e.target.value)}
+                            placeholder="DELETE"
+                          />
+                        </label>
+
+                        <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                          <button
+                            className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold"
+                            onClick={() => {
+                              setAttachmentEdit(null);
+                              setAttachmentEditName("");
+                              setAttachmentDeleteConfirm("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+
+                          <button
+                            className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold disabled:opacity-60"
+                            disabled={busy}
+                            onClick={() =>
+                              renameAttachment(attachmentEdit.id, attachmentEditName || "")
+                            }
+                          >
+                            Save
+                          </button>
+
+                          <button
+                            className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                            disabled={busy || attachmentDeleteConfirm !== "DELETE"}
+                            onClick={() =>
+                              deleteAttachment(attachmentEdit.id, attachmentEdit.file_path)
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </Modal>
+                  ) : null}
+                </div>
+                </div>
+            ) : null}
             {tab === "Documents" ? (
               <div className="grid gap-4">
+                {/* Generate document */}
                 <div className="rounded-2xl border bg-white p-4">
                   <div className="text-sm font-semibold">Generate document</div>
 
@@ -2707,77 +2802,76 @@ export default function PatientProfilePage() {
                         </div>
                       ) : null}
 
-                      {previewHtml ? (
-                        <div className="rounded-xl border bg-white p-3">
-                          <div className="text-sm font-semibold">Preview</div>
+                      {err ? <div className="text-sm text-rose-600">{err}</div> : null}
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                          disabled={busy}
+                          onClick={generateDocument}
+                        >
+                          Generate
+                        </button>
+
+                        <button
+                          className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold disabled:opacity-60"
+                          disabled={!previewHtml}
+                          onClick={() => {
+                            if (previewHtml) printHtml(previewHtml);
+                          }}
+                        >
+                          Print
+                        </button>
+                      </div>
+
+                      {/* Preview */}
+                      <div className="mt-3 rounded-xl border bg-white p-3">
+                        {previewHtml ? (
                           <div
-                            className="mt-2 rounded-lg border bg-white p-3"
+                            className="prose max-w-none"
                             dangerouslySetInnerHTML={{ __html: previewHtml }}
                           />
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
                     </div>
                   )}
+                </div>
 
-                  <div className="mt-3 flex items-center justify-end gap-2">
-                    <button
-                      disabled={busy || !selectedTemplateId}
-                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      onClick={generateDocument}
+                {/* Generated documents */}
+                <div className="rounded-2xl border bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-sm font-semibold">Generated documents</div>
+
+                    <select
+                      className="h-9 w-40 rounded-lg border bg-white px-2 text-sm"
+                      value={docSort}
+                      onChange={(e) => setDocSort(e.target.value as any)}
                     >
-                      Generate
-                    </button>
+                      <option value="DATE_DESC">Newest</option>
+                      <option value="DATE_ASC">Oldest</option>
+                      <option value="TYPE_ASC">Type A–Z</option>
+                    </select>
                   </div>
-                </div>
-
-                <div className="rounded-2xl border bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold">Preview</div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="rounded-lg border bg-white px-3 py-2 text-sm"
-                        onClick={() => printHtml(previewHtml)}
-                        disabled={!previewHtml}
-                      >
-                        Print
-                      </button>
-                      <button
-                        className="rounded-lg border bg-white px-3 py-2 text-sm"
-                        onClick={() => downloadHtml(`document_${todayLocalISO()}.html`, previewHtml)}
-                        disabled={!previewHtml}
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-xl border bg-white p-3">
-                    {previewHtml ? (
-                      <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                    ) : (
-                      <div className="text-sm text-slate-500">
-                        Select a template and fill fields to see the preview.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border bg-white p-4">
-                  <div className="text-sm font-semibold">Generated documents</div>
 
                   <div className="mt-3 overflow-x-auto">
-                    <table className="min-w-full text-sm">
+                    <table className="min-w-full table-fixed text-sm">
+                      <colgroup>
+                        <col style={{ width: 160 }} />
+                        <col style={{ width: 200 }} />
+                        <col />
+                        <col style={{ width: 180 }} />
+                      </colgroup>
                       <thead>
                         <tr className="text-left text-slate-600">
                           <th className="py-2 pr-3">Date</th>
                           <th className="py-2 pr-3">Type</th>
                           <th className="py-2 pr-3">Number</th>
-                          <th className="py-2 pr-3"></th>
+                          <th className="py-2 pr-3 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {generatedDocs.map((d) => (
-                          <tr key={d.id} className="border-t">
+                        {displayedGeneratedDocs.map((d) => (
+                          <tr key={d.id} className="border-t hover:bg-slate-50">
                             <td className="py-2 pr-3">{formatDateTimePH(d.created_at)}</td>
                             <td className="py-2 pr-3">{d.doc_type}</td>
                             <td className="py-2 pr-3">{d.doc_number ?? "—"}</td>
@@ -2787,27 +2881,29 @@ export default function PatientProfilePage() {
                                   className="rounded-lg border bg-white px-3 py-1 text-sm"
                                   onClick={() => {
                                     const html = d.payload?.rendered_html || d.payload?.renderedHtml || "";
-                                    if (html) printHtml(html);
+                                    if (html) openHtml(html);
                                   }}
                                 >
-                                  Print
+                                  Open
                                 </button>
                                 <button
                                   className="rounded-lg border bg-white px-3 py-1 text-sm"
                                   onClick={() => {
-                                    const html = d.payload?.rendered_html || d.payload?.renderedHtml || "";
-                                    if (html) downloadHtml(`generated_${d.doc_type}_${d.id}.html`, html);
+                                    setGenDocEdit(d);
+                                    setGenDocEditNumber(d.doc_number ?? "");
+                                    setGenDocDeleteConfirm("");
                                   }}
                                 >
-                                  Save
+                                  Edit
                                 </button>
                               </div>
                             </td>
                           </tr>
                         ))}
-                        {!generatedDocs.length ? (
+
+                        {displayedGeneratedDocs.length === 0 ? (
                           <tr>
-                            <td className="py-3 text-slate-500" colSpan={4}>
+                            <td className="py-3 text-sm text-slate-500" colSpan={4}>
                               No generated documents yet.
                             </td>
                           </tr>
@@ -2815,10 +2911,72 @@ export default function PatientProfilePage() {
                       </tbody>
                     </table>
                   </div>
+
+                  {genDocEdit ? (
+                    <Modal
+                      open={true}
+                      title="Edit document"
+                      onClose={() => {
+                        setGenDocEdit(null);
+                        setGenDocEditNumber("");
+                        setGenDocDeleteConfirm("");
+                      }}
+                    >
+                      <div className="grid gap-3">
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-slate-700">Document number</span>
+                          <input
+                            className="h-10 rounded-lg border px-3 py-2"
+                            value={genDocEditNumber}
+                            onChange={(e) => setGenDocEditNumber(e.target.value)}
+                            placeholder="Optional"
+                          />
+                        </label>
+
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-slate-700">Type DELETE to confirm delete</span>
+                          <input
+                            className="h-10 rounded-lg border px-3 py-2"
+                            value={genDocDeleteConfirm}
+                            onChange={(e) => setGenDocDeleteConfirm(e.target.value)}
+                            placeholder="DELETE"
+                          />
+                        </label>
+
+                        <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                          <button
+                            className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold"
+                            onClick={() => {
+                              setGenDocEdit(null);
+                              setGenDocEditNumber("");
+                              setGenDocDeleteConfirm("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+
+                          <button
+                            className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold disabled:opacity-60"
+                            disabled={busy}
+                            onClick={() => updateGeneratedDocNumber(genDocEdit.id, genDocEditNumber || "")}
+                          >
+                            Save
+                          </button>
+
+                          <button
+                            className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                            disabled={busy || genDocDeleteConfirm !== "DELETE"}
+                            onClick={() => deleteGeneratedDoc(genDocEdit.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </Modal>
+                  ) : null}
                 </div>
               </div>
             ) : null}
-
             {tab === "Billing" ? (
               <div className="grid gap-4">
                 <div className="rounded-2xl border bg-white p-4">
@@ -2845,7 +3003,7 @@ export default function PatientProfilePage() {
                     </div>
                   </div>
                 </div>
-
+                
                 <div className="rounded-2xl border bg-white p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-sm font-semibold">Invoice</div>
@@ -2909,6 +3067,7 @@ export default function PatientProfilePage() {
                   </div>
 
                   {/* Invoice table with footer rows */}
+                  
                   <div className="mt-4 overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead>
@@ -3004,30 +3163,22 @@ export default function PatientProfilePage() {
                 <div className="rounded-2xl border bg-white p-4">
                   <div className="text-sm font-semibold">Payments</div>
 
+                  
                   <div className="mt-3 grid gap-3 sm:grid-cols-5 items-end">
                     <label className="grid gap-1 text-sm sm:col-span-1">
                       <span className="text-slate-700">Date</span>
                       <input
                         type="date"
-                        className="rounded-lg border px-3 py-2"
+                        className="h-10 rounded-lg border px-3 py-2"
                         value={payDate}
                         onChange={(e) => setPayDate(e.target.value)}
                       />
                     </label>
 
                     <label className="grid gap-1 text-sm sm:col-span-1">
-                      <span className="text-slate-700">Amount</span>
-                      <input
-                        className="rounded-lg border px-3 py-2"
-                        value={payAmount}
-                        onChange={(e) => setPayAmount(e.target.value)}
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm sm:col-span-1">
                       <span className="text-slate-700">Mode</span>
                       <input
-                        className="rounded-lg border px-3 py-2"
+                        className="h-10 rounded-lg border px-3 py-2"
                         value={payMode}
                         onChange={(e) => setPayMode(e.target.value)}
                       />
@@ -3036,40 +3187,64 @@ export default function PatientProfilePage() {
                     <label className="grid gap-1 text-sm sm:col-span-1">
                       <span className="text-slate-700">Reference</span>
                       <input
-                        className="rounded-lg border px-3 py-2"
+                        className="h-10 rounded-lg border px-3 py-2"
                         value={payRef}
                         onChange={(e) => setPayRef(e.target.value)}
                       />
                     </label>
 
+                    <label className="grid gap-1 text-sm sm:col-span-1">
+                      <span className="text-slate-700">Amount</span>
+                      <input
+                        inputMode="decimal"
+                        className="h-10 rounded-lg border px-3 py-2 text-right"
+                        value={payAmount}
+                        onChange={(e) => setPayAmount(e.target.value)}
+                      />
+                    </label>
+
                     <button
                       disabled={busy || !activeInvoiceId}
-                      className="h-[42px] rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                      className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
                       onClick={addPayment}
                     >
                       Add payment
                     </button>
                   </div>
-
+            
                   <div className="mt-4 overflow-x-auto">
-                    <table className="min-w-full text-sm">
+                    <table className="min-w-full table-fixed text-sm">
+                      <colgroup>
+                        <col style={{ width: 140 }} />
+                        <col style={{ width: 160 }} />
+                        <col />
+                        <col style={{ width: 140 }} />
+                        <col style={{ width: 100 }} />
+                      </colgroup>
                       <thead>
                         <tr className="text-left text-slate-600">
                           <th className="py-2 pr-3">Date</th>
-                          <th className="py-2 pr-3">Amount</th>
                           <th className="py-2 pr-3">Mode</th>
                           <th className="py-2 pr-3">Reference</th>
-                          <th className="py-2 pr-3">Notes</th>
+                          <th className="py-2 pr-3 text-right">Amount</th>
+                          <th className="py-2 pr-3 text-right"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {invoicePayments.map((p) => (
-                          <tr key={p.id} className="border-t">
+                          <tr key={p.id} className="border-t hover:bg-slate-50">
                             <td className="py-2 pr-3">{formatDatePH(p.payment_date)}</td>
-                            <td className="py-2 pr-3">{num(p.amount).toFixed(2)}</td>
                             <td className="py-2 pr-3">{p.mode}</td>
                             <td className="py-2 pr-3">{p.reference_no ?? "—"}</td>
-                            <td className="py-2 pr-3">{p.notes ?? "—"}</td>
+                            <td className="py-2 pr-3 text-right">{num(p.amount).toFixed(2)}</td>
+                            <td className="py-2 pr-3 text-right">
+                              <button
+                                className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                onClick={() => setPaymentView(p)}
+                              >
+                                Open
+                              </button>
+                            </td>
                           </tr>
                         ))}
                         {!invoicePayments.length ? (
@@ -3082,6 +3257,37 @@ export default function PatientProfilePage() {
                       </tbody>
                     </table>
                   </div>
+
+                  {paymentView ? (
+                    <EditModal open={true} title="Payment" onClose={() => setPaymentView(null)}>
+                      <div className="grid gap-2 text-sm">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="text-slate-600">Date</div>
+                          <div>{formatDatePH(paymentView.payment_date)}</div>
+
+                          <div className="text-slate-600">Mode</div>
+                          <div>{paymentView.mode}</div>
+
+                          <div className="text-slate-600">Reference</div>
+                          <div>{paymentView.reference_no ?? "—"}</div>
+
+                          <div className="text-slate-600">Amount</div>
+                          <div>{num(paymentView.amount).toFixed(2)}</div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                          <button
+                            type="button"
+                            className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold"
+                            onClick={() => setPaymentView(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </EditModal>
+                  ) : null}
+
                 </div>
               </div>
             ) : null}
