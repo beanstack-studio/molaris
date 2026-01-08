@@ -5,16 +5,32 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type Patient = {
+type PatientRow = {
   id: string;
-  full_name: string;
+
+  // New columns
+  first_name: string | null;
+  last_name: string | null;
+
+  // Kept for compatibility and search
+  full_name: string | null;
+
   phone: string | null;
   birth_date: string | null;
-  address: string | null;
   created_at: string;
+
+  // From view
+  last_visit_date: string | null; // YYYY-MM-DD
+  balance: number | null; // computed
 };
 
-type PatientSort = "NAME_ASC" | "NAME_DESC";
+type PatientSort =
+  | "LASTNAME_ASC"
+  | "LASTNAME_DESC"
+  | "BALANCE_ASC"
+  | "BALANCE_DESC"
+  | "LASTVISIT_ASC"
+  | "LASTVISIT_DESC";
 
 function onlyDigits(s: string) {
   return (s || "").replace(/\D/g, "");
@@ -55,32 +71,59 @@ function normalizePhonePH(input: string) {
   return { digits: d, formatted };
 }
 
+function safeText(s: any) {
+  return String(s ?? "").trim();
+}
+
+function combineFullName(first: string, last: string) {
+  const f = safeText(first);
+  const l = safeText(last);
+  return [f, l].filter(Boolean).join(" ").trim();
+}
+
+function formatMoney(n: any) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "0.00";
+  return v.toFixed(2);
+}
+
+function toDateKey(iso: string | null | undefined) {
+  // For sorting. Null -> very old.
+  if (!iso) return "0000-00-00";
+  return iso;
+}
+
 export default function PatientsPage() {
   const router = useRouter();
 
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patients, setPatients] = useState<PatientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [patientSort, setPatientSort] = useState<PatientSort>("NAME_ASC");
+  const [patientSort, setPatientSort] = useState<PatientSort>("LASTNAME_ASC");
 
   // Add patient form
   const [showAdd, setShowAdd] = useState(false);
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState<"" | "MALE" | "FEMALE">("");
   const [phone, setPhone] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [address, setAddress] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadPatients() {
     setLoading(true);
+
+    // IMPORTANT:
+    // This expects you created the view: patient_list_view (SQL below)
     const { data, error } = await supabase
-      .from("patients")
-      .select("id, full_name, phone, birth_date, address, created_at")
+      .from("patient_list_view")
+      .select(
+        "id, first_name, last_name, full_name, phone, birth_date, created_at, last_visit_date, balance"
+      )
       .order("created_at", { ascending: false });
 
-    if (!error && data) setPatients(data as Patient[]);
+    if (!error && data) setPatients(data as PatientRow[]);
     setLoading(false);
   }
 
@@ -90,23 +133,65 @@ export default function PatientsPage() {
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
+
     const list = (() => {
       if (!s) return [...patients];
+
       const sDigits = onlyDigits(s);
+
       return patients.filter((p) => {
-        const name = p.full_name?.toLowerCase() ?? "";
+        const first = (p.first_name ?? "").toLowerCase();
+        const last = (p.last_name ?? "").toLowerCase();
+        const full = (p.full_name ?? "").toLowerCase();
+
         const ph = (p.phone ?? "").toLowerCase();
         const phDigits = onlyDigits(p.phone ?? "");
+
+        const matchName = first.includes(s) || last.includes(s) || full.includes(s);
         const matchPhone = sDigits ? phDigits.includes(sDigits) : ph.includes(s);
-        return name.includes(s) || matchPhone;
+
+        return matchName || matchPhone;
       });
     })();
 
-    list.sort((a, b) =>
-      patientSort === "NAME_DESC"
-        ? (b.full_name ?? "").localeCompare(a.full_name ?? "")
-        : (a.full_name ?? "").localeCompare(b.full_name ?? "")
-    );
+    const cmpText = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base" });
+
+    list.sort((a, b) => {
+      const aLast = (a.last_name ?? "").trim();
+      const bLast = (b.last_name ?? "").trim();
+      const aFirst = (a.first_name ?? "").trim();
+      const bFirst = (b.first_name ?? "").trim();
+
+      const aBal = Number(a.balance ?? 0);
+      const bBal = Number(b.balance ?? 0);
+
+      const aLV = toDateKey(a.last_visit_date);
+      const bLV = toDateKey(b.last_visit_date);
+
+      if (patientSort === "LASTNAME_ASC") {
+        return cmpText(aLast, bLast) || cmpText(aFirst, bFirst) || cmpText(a.id, b.id);
+      }
+
+      if (patientSort === "LASTNAME_DESC") {
+        return cmpText(bLast, aLast) || cmpText(bFirst, aFirst) || cmpText(a.id, b.id);
+      }
+
+      if (patientSort === "BALANCE_ASC") {
+        return aBal - bBal || cmpText(aLast, bLast) || cmpText(aFirst, bFirst);
+      }
+
+      if (patientSort === "BALANCE_DESC") {
+        return bBal - aBal || cmpText(aLast, bLast) || cmpText(aFirst, bFirst);
+      }
+
+      if (patientSort === "LASTVISIT_ASC") {
+        // Older -> newer
+        return cmpText(aLV, bLV) || cmpText(aLast, bLast) || cmpText(aFirst, bFirst);
+      }
+
+      // LASTVISIT_DESC (newer -> older)
+      return cmpText(bLV, aLV) || cmpText(aLast, bLast) || cmpText(aFirst, bFirst);
+    });
 
     return list;
   }, [patients, q, patientSort]);
@@ -118,14 +203,25 @@ export default function PatientsPage() {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
 
+    const fn = safeText(firstName);
+    const ln = safeText(lastName);
+    const full = combineFullName(fn, ln);
+
+    if (fn.length < 1 || ln.length < 1) {
+      setSaving(false);
+      setError("Please enter both First name and Last name.");
+      return;
+    }
+
     const normalized = normalizePhonePH(phone);
 
     const { error } = await supabase.from("patients").insert({
-      full_name: fullName.trim(),
-      gender: gender || null, // assumes you have a "gender" column; if not, remove this line
+      first_name: fn,
+      last_name: ln,
+      full_name: full, // keep for compatibility
+      gender: gender || null, // if your column is lowercase in DB, keep your existing normalization elsewhere
       phone: normalized.formatted.trim() || null,
       birth_date: birthDate || null,
-      address: address.trim() || null,
       created_by: userId,
       first_seen_on: new Date().toISOString().slice(0, 10),
     });
@@ -138,11 +234,11 @@ export default function PatientsPage() {
     }
 
     setShowAdd(false);
-    setFullName("");
+    setFirstName("");
+    setLastName("");
     setGender("");
     setPhone("");
     setBirthDate("");
-    setAddress("");
     await loadPatients();
   }
 
@@ -152,9 +248,7 @@ export default function PatientsPage() {
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Patients</h1>
-            <p className="text-sm text-slate-600">
-              Search, add, and manage patient records
-            </p>
+            <p className="text-sm text-slate-600">Search, add, and manage patient records</p>
           </div>
 
           <div className="flex gap-2">
@@ -177,18 +271,20 @@ export default function PatientsPage() {
 
           <div className="flex items-center gap-3">
             <div className="text-sm text-slate-600">
-              {loading
-                ? "Loading..."
-                : `${filtered.length} of ${patients.length} patients`}
+              {loading ? "Loading..." : `${filtered.length} of ${patients.length} patients`}
             </div>
 
             <select
-              className="h-10 w-40 rounded-lg border bg-white px-2 text-sm"
+              className="h-10 w-56 rounded-lg border bg-white px-2 text-sm"
               value={patientSort}
               onChange={(e) => setPatientSort(e.target.value as PatientSort)}
             >
-              <option value="NAME_ASC">Name A–Z</option>
-              <option value="NAME_DESC">Name Z–A</option>
+              <option value="LASTNAME_ASC">Last name A–Z</option>
+              <option value="LASTNAME_DESC">Last name Z–A</option>
+              <option value="BALANCE_ASC">Balance low–high</option>
+              <option value="BALANCE_DESC">Balance high–low</option>
+              <option value="LASTVISIT_ASC">Last visit old–new</option>
+              <option value="LASTVISIT_DESC">Last visit new–old</option>
             </select>
           </div>
         </div>
@@ -198,10 +294,12 @@ export default function PatientsPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-slate-700">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Name</th>
-                <th className="px-4 py-3 text-left font-medium">Phone</th>
+                <th className="px-4 py-3 text-left font-medium">Last name</th>
+                <th className="px-4 py-3 text-left font-medium">First name</th>
                 <th className="px-4 py-3 text-left font-medium">Birth date</th>
-                <th className="px-4 py-3 text-left font-medium">Address</th>
+                <th className="px-4 py-3 text-left font-medium">Phone number</th>
+                <th className="px-4 py-3 text-left font-medium">Last visit date</th>
+                <th className="px-4 py-3 text-right font-medium">Balance</th>
               </tr>
             </thead>
 
@@ -221,17 +319,19 @@ export default function PatientsPage() {
                   role="link"
                 >
                   <td className="px-4 py-3 font-medium underline decoration-slate-300">
-                    {p.full_name}
+                    {p.last_name ?? "-"}
                   </td>
-                  <td className="px-4 py-3">{p.phone ?? "-"}</td>
+                  <td className="px-4 py-3">{p.first_name ?? "-"}</td>
                   <td className="px-4 py-3">{p.birth_date ?? "-"}</td>
-                  <td className="px-4 py-3">{p.address ?? "-"}</td>
+                  <td className="px-4 py-3">{p.phone ?? "-"}</td>
+                  <td className="px-4 py-3">{p.last_visit_date ?? "-"}</td>
+                  <td className="px-4 py-3 text-right">{formatMoney(p.balance ?? 0)}</td>
                 </tr>
               ))}
 
               {!loading && filtered.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-slate-600" colSpan={4}>
+                  <td className="px-4 py-6 text-slate-600" colSpan={6}>
                     No patients found.
                   </td>
                 </tr>
@@ -249,28 +349,30 @@ export default function PatientsPage() {
               className="block rounded-xl border bg-white p-4 hover:bg-slate-50 active:bg-slate-100"
             >
               <div className="font-semibold underline decoration-slate-300">
-                {p.full_name}
+                {(p.last_name ?? "").trim()
+                  ? `${p.last_name}, ${p.first_name ?? ""}`.trim()
+                  : p.full_name ?? "—"}
               </div>
+
               <div className="mt-2 text-sm text-slate-700">
                 <div>
-                  <span className="text-slate-500">Phone:</span> {p.phone ?? "-"}
-                </div>
-                <div>
-                  <span className="text-slate-500">Birth date:</span>{" "}
-                  {p.birth_date ?? "-"}
+                  <span className="text-slate-500">Birth date:</span> {p.birth_date ?? "-"}
                 </div>
                 <div className="mt-1">
-                  <span className="text-slate-500">Address:</span>{" "}
-                  {p.address ?? "-"}
+                  <span className="text-slate-500">Phone:</span> {p.phone ?? "-"}
+                </div>
+                <div className="mt-1">
+                  <span className="text-slate-500">Last visit:</span> {p.last_visit_date ?? "-"}
+                </div>
+                <div className="mt-1">
+                  <span className="text-slate-500">Balance:</span> {formatMoney(p.balance ?? 0)}
                 </div>
               </div>
             </Link>
           ))}
 
           {!loading && filtered.length === 0 ? (
-            <div className="rounded-xl border bg-white p-4 text-slate-600">
-              No patients found.
-            </div>
+            <div className="rounded-xl border bg-white p-4 text-slate-600">No patients found.</div>
           ) : null}
         </div>
       </div>
@@ -299,14 +401,26 @@ export default function PatientsPage() {
             </div>
 
             <div className="mt-4 grid gap-3">
-              <div>
-                <label className="block text-sm font-medium">Full name</label>
-                <input
-                  className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Juan Dela Cruz"
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium">First name</label>
+                  <input
+                    className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Juan"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium">Last name</label>
+                  <input
+                    className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Dela Cruz"
+                  />
+                </div>
               </div>
 
               <div>
@@ -363,16 +477,6 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium">Address</label>
-                <input
-                  className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Kalibo, Aklan"
-                />
-              </div>
-
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
               <div className="mt-2 flex flex-wrap justify-end gap-2">
@@ -386,7 +490,9 @@ export default function PatientsPage() {
                 <button
                   className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:opacity-60"
                   onClick={addPatient}
-                  disabled={saving || fullName.trim().length < 2}
+                  disabled={
+                    saving || firstName.trim().length < 1 || lastName.trim().length < 1
+                  }
                 >
                   {saving ? "Saving..." : "Save patient"}
                 </button>
