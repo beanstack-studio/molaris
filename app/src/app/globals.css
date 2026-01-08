@@ -1,11 +1,9 @@
 @import "tailwindcss";
 
-/* App background */
 :root {
-  --app-bg-image: url("/bg1.jpg");
+  --app-bg-image: url("/bg/bg1.jpg");
 }
 
-/* Full-page background image */
 html,
 body {
   height: 100%;
@@ -18,29 +16,9 @@ body {
   background-attachment: fixed;
 }
 
-/* Wrapper that gives padding and centers content */
-.app-shell {
-  min-height: 100vh;
-  padding: 16px;
-}
-
-/* The "outer most box" you requested: white @ 60% + shadow */
-.app-surface {
-  max-width: 1200px;
-  margin: 0 auto;
-  background: rgba(255, 255, 255, 0.6);
+/* Only apply translucency to the Main box */
+.mds-surface {
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-radius: 24px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-  padding: 16px;
-}
-
-@media (min-width: 640px) {
-  .app-shell {
-    padding: 24px;
-  }
-  .app-surface {
-    padding: 24px;
-  }
 }

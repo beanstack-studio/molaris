@@ -1670,7 +1670,7 @@ export default function PatientProfilePage() {
         ) : null}
 
         {/* Main box */}
-        <div className="mt-4 rounded-2xl border bg-white overflow-hidden">
+        <div className="mt-4 rounded-2xl border overflow-hidden mds-surface">
           {/* Outer tabs only */}
           <div className="flex flex-wrap gap-1 border-b bg-slate-50 px-2 pt-2">
             {tabs.map((t) => {
