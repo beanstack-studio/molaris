@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ToothChart, { ToothStatus, getStatusTheme } from "@/components/ToothChart";
 import { EditModal } from "@/components/EditModal";
@@ -78,6 +78,8 @@ type ServicePriceRow = {
 type InvoiceRow = {
   id: string;
   invoice_date: string;
+  invoice_number?: string | null;
+  dentist_name?: string | null;
   status: string | null;
   subtotal: number | null;
   discount_amount: number | null;
@@ -105,6 +107,7 @@ type PaymentRow = {
   payment_date: string;
   amount: number;
   mode: string;
+  received_by: string | null;
   reference_no: string | null;
   notes: string | null;
   created_at: string | null;
@@ -184,7 +187,7 @@ function todayLocalISO() {
 }
 
 function formatPHPhoneVisible(input: string) {
-  const digits = (input || "").replace(/\D/g, "").slice(0, 11); // max 11 digits
+  const digits = (input || "").replace(/\D/g, "").slice(0, 11);
   if (!digits) return "";
 
   const p1 = digits.slice(0, 4);
@@ -361,7 +364,6 @@ function Field({
 export default function PatientProfilePage() {
   const params = useParams();
   const router = useRouter();
-
   const id = (params?.id as string) || "";
 
   const [tab, setTab] = useState<Tab>("Info");
@@ -371,7 +373,7 @@ export default function PatientProfilePage() {
 
   const [patient, setPatient] = useState<Patient | null>(null);
 
-  // Last visit (concern will later come from appointments integration)
+  // Last visit (based on latest treatment)
   const [lastVisitDate, setLastVisitDate] = useState<string>("");
   const [lastVisitDentist, setLastVisitDentist] = useState<string>("");
   const [lastVisitConcern, setLastVisitConcern] = useState<string>("");
@@ -397,11 +399,8 @@ export default function PatientProfilePage() {
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [serviceMenu, setServiceMenu] = useState<ServicePriceRow[]>([]);
 
-  const dentistNameById = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const d of dentists) m[d.id] = d.full_name;
-    return m;
-  }, [dentists]);
+  // Treatments
+  const [treatments, setTreatments] = useState<Treatment[]>([]);
 
   // Chart
   const [chart, setChart] = useState<ChartEntry[]>([]);
@@ -414,33 +413,7 @@ export default function PatientProfilePage() {
   const [findingDetail, setFindingDetail] = useState("");
   const [pendingStatus, setPendingStatus] = useState<string>("HEALTHY");
 
-  // Treatments
-  const [treatments, setTreatments] = useState<Treatment[]>([]);
-
-  useEffect(() => {
-    if (!treatments || treatments.length === 0) {
-      setLastVisitDate("");
-      setLastVisitDentist("");
-      setLastVisitConcern("");
-      return;
-    }
-
-    const latest = [...treatments].sort((a, b) => {
-      const da = (a.treatment_date ?? "").localeCompare(b.treatment_date ?? "");
-      const dc = (a.created_at ?? "").localeCompare(b.created_at ?? "");
-      if (da !== 0) return da * -1;
-      return dc * -1;
-    })[0];
-
-    setLastVisitDate(latest.treatment_date ?? "");
-
-    const name =
-      (latest.dentist_id ? dentistNameById[latest.dentist_id] : "") || latest.dentist_name || "";
-
-    setLastVisitDentist(name);
-    setLastVisitConcern("");
-  }, [treatments, dentistNameById]);
-
+  // Treatments entry
   const [visitDate, setVisitDate] = useState(() => todayLocalISO());
   const [visitDentistId, setVisitDentistId] = useState<string>(""); // neutral
   const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
@@ -486,7 +459,11 @@ export default function PatientProfilePage() {
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItemRow[]>([]);
   const [invoicePayments, setInvoicePayments] = useState<PaymentRow[]>([]);
-  const [visitSelectInvoiceId, setVisitSelectInvoiceId] = useState<string>("");
+  const [billingVisitDate, setBillingVisitDate] = useState<string>("");
+
+  // Computed totals per invoice (sum of invoice_items.line_total)
+  const [invoiceTotalsById, setInvoiceTotalsById] = useState<Record<string, number>>({});
+  const invoiceTotalsReqRef = useRef(0);
 
   // Discount modal
   const [discountOpen, setDiscountOpen] = useState(false);
@@ -508,11 +485,76 @@ export default function PatientProfilePage() {
   const [payRef, setPayRef] = useState("");
   const [paymentView, setPaymentView] = useState<PaymentRow | null>(null);
 
-  const selectedTemplate = useMemo(
-    () => templates.find((t) => t.id === selectedTemplateId) ?? null,
-    [templates, selectedTemplateId]
+  /* =========================
+     Memo maps
+  ========================= */
+  const dentistNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const d of dentists) m[d.id] = d.full_name;
+    return m;
+  }, [dentists]);
+
+  const servicePriceById = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const s of serviceMenu) m[s.id] = Number(s.default_price ?? 0);
+    return m;
+  }, [serviceMenu]);
+
+  const treatmentsByDate = useMemo(() => {
+    const map = new Map<string, Treatment[]>();
+    for (const t of treatments) {
+      const k = t.treatment_date;
+      map.set(k, [...(map.get(k) ?? []), t]);
+    }
+    return map;
+  }, [treatments]);
+
+  const computeVisitTotalFromTreatments = useCallback(
+    (date: string) => {
+      const rows: Treatment[] = treatmentsByDate.get(date) ?? [];
+      return rows.reduce((sum: number, t: Treatment) => {
+        if (!t.service_price_id) return sum;
+        return sum + (servicePriceById[t.service_price_id] ?? 0);
+      }, 0);
+    },
+    [treatmentsByDate, servicePriceById]
   );
 
+  const invoicesById = useMemo(() => {
+    const m: Record<string, InvoiceRow> = {};
+    for (const i of invoices) m[i.id] = i;
+    return m;
+  }, [invoices]);
+
+  /* =========================
+     Last visit (from treatments)
+  ========================= */
+  useEffect(() => {
+    if (!treatments || treatments.length === 0) {
+      setLastVisitDate("");
+      setLastVisitDentist("");
+      setLastVisitConcern("");
+      return;
+    }
+
+    const latest = [...treatments].sort((a, b) => {
+      const da = (a.treatment_date ?? "").localeCompare(b.treatment_date ?? "");
+      const dc = (a.created_at ?? "").localeCompare(b.created_at ?? "");
+      if (da !== 0) return da * -1;
+      return dc * -1;
+    })[0];
+
+    setLastVisitDate(latest.treatment_date ?? "");
+
+    const name =
+      (latest.dentist_id ? dentistNameById[latest.dentist_id] : "") || latest.dentist_name || "";
+    setLastVisitDentist(name);
+    setLastVisitConcern("");
+  }, [treatments, dentistNameById]);
+
+  /* =========================
+     Attachments + docs display sorting
+  ========================= */
   const displayedAttachments = useMemo(() => {
     const copy = [...attachments];
     if (attachmentSort === "NAME_ASC") {
@@ -548,11 +590,77 @@ export default function PatientProfilePage() {
     return copy;
   }, [generatedDocs, docSort]);
 
-  const invoicesById = useMemo(() => {
-    const m: Record<string, InvoiceRow> = {};
-    for (const i of invoices) m[i.id] = i;
-    return m;
-  }, [invoices]);
+  /* =========================
+     Billing computed (ACTIVE invoice)
+  ========================= */
+  const invoiceTotalComputed = useMemo(() => {
+    return invoiceItems.reduce((sum, it) => sum + num(it.line_total), 0);
+  }, [invoiceItems]);
+
+  const invoiceSubtotalComputed = useMemo(() => {
+    return invoiceItems.reduce((sum, it) => {
+      const isDiscount = (it.service_name ?? "").toLowerCase() === "discount";
+      return sum + (isDiscount ? 0 : num(it.line_total));
+    }, 0);
+  }, [invoiceItems]);
+
+  const invoiceDiscountComputed = useMemo(() => {
+    return invoiceItems.reduce((sum, it) => {
+      const isDiscount = (it.service_name ?? "").toLowerCase() === "discount";
+      return sum + (isDiscount ? num(it.line_total) : 0);
+    }, 0);
+  }, [invoiceItems]);
+
+  const activeInvoice = activeInvoiceId ? invoicesById[activeInvoiceId] : null;
+  const activePaid = invoicePayments.reduce((sum, p) => sum + num(p.amount), 0);
+
+  // For active invoice total: prefer invoice_items sum; else DB total; else treatments computed
+  const activeTotal = useMemo(() => {
+    if (!activeInvoiceId) return 0;
+
+    if (invoiceItems.length > 0) return invoiceTotalComputed;
+
+    const inv = invoicesById[activeInvoiceId];
+    const dbTotal = num(inv?.total);
+    if (dbTotal > 0) return dbTotal;
+
+    if (inv?.invoice_date) return computeVisitTotalFromTreatments(inv.invoice_date);
+    return 0;
+  }, [activeInvoiceId, invoiceItems.length, invoiceTotalComputed, invoicesById, computeVisitTotalFromTreatments]);
+
+  const activeBalance = Math.max(0, activeTotal - activePaid);
+
+  /* =========================
+     Billing overview totals (ALL invoices)
+     - Primary: invoiceTotalsById (sum of invoice_items)
+     - Fallback: invoice.total
+     - Fallback: treatments computed for that date
+  ========================= */
+  const billingSummary = useMemo(() => {
+    const totalAll = invoices.reduce((sum, inv) => {
+      const fromItems = invoiceTotalsById[inv.id]; // may be undefined if not fetched yet
+      if (fromItems !== undefined) return sum + num(fromItems);
+
+      const dbTotal = num(inv.total);
+      if (dbTotal > 0) return sum + dbTotal;
+
+      if (inv.invoice_date) return sum + computeVisitTotalFromTreatments(inv.invoice_date);
+      return sum;
+    }, 0);
+
+    const paidAll = payments.reduce((sum, p) => sum + num(p.amount), 0);
+    const balanceAll = totalAll - paidAll;
+    return { totalAll, paidAll, balanceAll };
+  }, [invoices, invoiceTotalsById, payments, computeVisitTotalFromTreatments]);
+
+  /* =========================
+     Visit dates list
+  ========================= */
+  const visitDates = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of treatments) if (t.treatment_date) set.add(t.treatment_date);
+    return Array.from(set).sort((a, b) => (a < b ? 1 : -1));
+  }, [treatments]);
 
   const groupedTreatmentHistory = useMemo(() => {
     const acc: Record<string, Treatment[]> = {};
@@ -570,34 +678,36 @@ export default function PatientProfilePage() {
     return Object.entries(acc).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [treatments]);
 
-  const visitDates = useMemo(() => {
-    const set = new Set<string>();
-    for (const t of treatments) {
-      if (t.treatment_date) set.add(t.treatment_date);
+  /* =========================
+     Billing totals loader (invoice_items sum per invoice)
+  ========================= */
+  const loadInvoiceTotalsForInvoices = useCallback(async (invoiceIds: string[]) => {
+    const reqId = ++invoiceTotalsReqRef.current;
+
+    if (!invoiceIds.length) {
+      if (reqId === invoiceTotalsReqRef.current) setInvoiceTotalsById({});
+      return;
     }
-    return Array.from(set).sort((a, b) => (a < b ? 1 : -1));
-  }, [treatments]);
 
-  const [billingVisitDate, setBillingVisitDate] = useState<string>("");
+    const totals: Record<string, number> = {};
 
-  const billingSummary = useMemo(() => {
-    const totalAll = invoices.reduce((sum, i) => sum + num(i.total), 0);
-    const paidAll = payments.reduce((sum, p) => sum + num(p.amount), 0);
-    const balanceAll = Math.max(0, totalAll - paidAll);
-    return { totalAll, paidAll, balanceAll };
-  }, [invoices, payments]);
+    for (const invoiceId of invoiceIds) {
+      const res = await supabase.from("invoice_items").select("line_total").eq("invoice_id", invoiceId);
 
-  const activeInvoice = activeInvoiceId ? invoicesById[activeInvoiceId] : null;
-  const activePaid = invoicePayments.reduce((sum, p) => sum + num(p.amount), 0);
-  const activeTotal = num(activeInvoice?.total);
-  const activeBalance = Math.max(0, activeTotal - activePaid);
+      if (reqId !== invoiceTotalsReqRef.current) return;
 
-  const invoiceSubtotalComputed = useMemo(() => {
-    return invoiceItems.reduce((sum, it) => {
-      const isDiscount = (it.service_name ?? "").toLowerCase() === "discount";
-      return sum + (isDiscount ? 0 : num(it.line_total));
-    }, 0);
-  }, [invoiceItems]);
+      if (res.error || !res.data) totals[invoiceId] = 0;
+      else totals[invoiceId] = res.data.reduce((sum, r) => sum + num((r as any).line_total), 0);
+    }
+
+    if (reqId === invoiceTotalsReqRef.current) setInvoiceTotalsById(totals);
+  }, []);
+
+  // IMPORTANT: whenever invoices change, refresh totals map (this is what fixes Billing overview being stuck at 0)
+  useEffect(() => {
+    const ids = invoices.map((x) => x.id);
+    loadInvoiceTotalsForInvoices(ids);
+  }, [invoices, loadInvoiceTotalsForInvoices]);
 
   /* =========================
      Data loading
@@ -605,7 +715,9 @@ export default function PatientProfilePage() {
   async function loadInvoiceDetails(invoiceId: string) {
     const it = await supabase
       .from("invoice_items")
-      .select("id, invoice_id, service_name, description, qty, unit_price, line_total, tooth_number, dentist_name, created_at")
+      .select(
+        "id, invoice_id, service_name, description, qty, unit_price, line_total, tooth_number, dentist_name, created_at"
+      )
       .eq("invoice_id", invoiceId)
       .order("created_at", { ascending: true });
 
@@ -635,7 +747,7 @@ export default function PatientProfilePage() {
 
     const pay = await supabase
       .from("payments")
-      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
+      .select("id, invoice_id, payment_date, amount, mode, received_by, reference_no, notes, created_at")
       .eq("invoice_id", invoiceId)
       .order("payment_date", { ascending: false })
       .order("created_at", { ascending: false });
@@ -691,7 +803,6 @@ export default function PatientProfilePage() {
     }
 
     setActiveInvoiceId(invoiceId);
-    setVisitSelectInvoiceId(invoiceId);
     setBillingVisitDate(date);
 
     const rec = await supabase.rpc("recalc_invoice", { p_invoice_id: invoiceId });
@@ -703,19 +814,23 @@ export default function PatientProfilePage() {
 
     await loadInvoiceDetails(invoiceId);
 
+    // refresh invoice + payment lists so overview updates
     const inv = await supabase
       .from("invoices")
-      .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
+      .select("id, patient_id, invoice_date, invoice_number, status, subtotal, discount_amount, total, notes, created_at")
       .eq("patient_id", id)
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false });
 
-    if (!inv.error && inv.data) setInvoices(inv.data as InvoiceRow[]);
+    if (inv.error) setErr(`Invoices load failed: ${inv.error.message}`);
+    setInvoices(!inv.error && inv.data ? (inv.data as InvoiceRow[]) : []);
 
     const pay = await supabase
       .from("payments")
-      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
-      .eq("patient_id", id);
+      .select("id, invoice_id, payment_date, amount, mode, received_by, reference_no, notes, created_at")
+      .eq("patient_id", id)
+      .order("payment_date", { ascending: false })
+      .order("created_at", { ascending: false });
 
     if (!pay.error && pay.data) setPayments(pay.data as PaymentRow[]);
 
@@ -731,9 +846,7 @@ export default function PatientProfilePage() {
     setBusy(true);
     setErr(null);
 
-    const r = await supabase.rpc("sync_invoice_items_from_treatments", {
-      p_invoice_id: activeInvoiceId,
-    });
+    const r = await supabase.rpc("sync_invoice_items_from_treatments", { p_invoice_id: activeInvoiceId });
     if (r.error) {
       setBusy(false);
       setErr(r.error.message);
@@ -751,24 +864,28 @@ export default function PatientProfilePage() {
 
     const inv = await supabase
       .from("invoices")
-      .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
+      .select("id, patient_id, invoice_date, invoice_number, status, subtotal, discount_amount, total, notes, created_at")
       .eq("patient_id", id)
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false });
 
-    if (!inv.error && inv.data) setInvoices(inv.data as InvoiceRow[]);
+    setInvoices(!inv.error && inv.data ? (inv.data as InvoiceRow[]) : []);
 
     const pay = await supabase
       .from("payments")
-      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
-      .eq("patient_id", id);
+      .select("id, invoice_id, payment_date, amount, mode, received_by, reference_no, notes, created_at")
+      .eq("patient_id", id)
+      .order("payment_date", { ascending: false })
+      .order("created_at", { ascending: false });
 
-    if (!pay.error && pay.data) setPayments(pay.data as PaymentRow[]);
+    setPayments(!pay.error && pay.data ? (pay.data as PaymentRow[]) : []);
 
     setBusy(false);
   }
 
   async function loadAll() {
+    if (!id) return;
+
     setLoading(true);
     setErr(null);
 
@@ -785,15 +902,13 @@ export default function PatientProfilePage() {
     }
 
     const patRaw = p.data as any;
-
-    // Prefer first/last from DB, fallback to full_name split
     const fallback = splitFullName(patRaw.full_name ?? "");
     const dbFirst = String(patRaw.first_name ?? "").trim();
     const dbLast = String(patRaw.last_name ?? "").trim();
     const firstNameFinal = dbFirst || fallback.first;
     const lastNameFinal = dbLast || fallback.last;
-
-    const fullNameFinal = combineFullName(firstNameFinal, lastNameFinal) || String(patRaw.full_name ?? "").trim();
+    const fullNameFinal =
+      combineFullName(firstNameFinal, lastNameFinal) || String(patRaw.full_name ?? "").trim();
 
     const pat: Patient = {
       id: patRaw.id,
@@ -846,7 +961,6 @@ export default function PatientProfilePage() {
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
       .order("full_name", { ascending: true });
-
     setDentists(!d.error && d.data ? (d.data as DentistRow[]) : []);
 
     const sm = await supabase
@@ -855,7 +969,6 @@ export default function PatientProfilePage() {
       .order("item_type", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("service_name", { ascending: true });
-
     setServiceMenu(!sm.error && sm.data ? (sm.data as ServicePriceRow[]) : []);
 
     const c = await supabase
@@ -863,7 +976,6 @@ export default function PatientProfilePage() {
       .select("id, tooth_number, surfaces, finding_code, finding_detail, notes, recorded_at")
       .eq("patient_id", id)
       .order("recorded_at", { ascending: false });
-
     setChart(!c.error && c.data ? (c.data as ChartEntry[]) : []);
 
     const s = await supabase
@@ -892,7 +1004,6 @@ export default function PatientProfilePage() {
       .order("treatment_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);
-
     setTreatments(!t.error && t.data ? (t.data as Treatment[]) : []);
 
     const a = await supabase
@@ -900,7 +1011,6 @@ export default function PatientProfilePage() {
       .select("id, type, file_path, file_name, content_type, file_size_bytes, created_at")
       .eq("patient_id", id)
       .order("created_at", { ascending: false });
-
     setAttachments(!a.error && a.data ? (a.data as Attachment[]) : []);
 
     const tpl = await supabase
@@ -908,7 +1018,6 @@ export default function PatientProfilePage() {
       .select("id, name, doc_type, content_html")
       .eq("is_active", true)
       .order("name", { ascending: true });
-
     setTemplates(!tpl.error && tpl.data ? (tpl.data as DocTemplate[]) : []);
 
     const gd = await supabase
@@ -917,65 +1026,38 @@ export default function PatientProfilePage() {
       .eq("patient_id", id)
       .order("created_at", { ascending: false })
       .limit(50);
-
     setGeneratedDocs(!gd.error && gd.data ? (gd.data as GeneratedDoc[]) : []);
 
     const inv = await supabase
       .from("invoices")
-      .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
+      .select("id, patient_id, invoice_date, invoice_number, status, subtotal, discount_amount, total, notes, created_at")
       .eq("patient_id", id)
       .order("invoice_date", { ascending: false })
       .order("created_at", { ascending: false });
-
-    const invRows = !inv.error && inv.data ? (inv.data as InvoiceRow[]) : [];
-    setInvoices(invRows);
-
-    const latest = invRows[0] ?? null;
-    if (latest?.invoice_date) {
-      setLastVisitDate(latest.invoice_date ?? "");
-      const invDentist = String((latest as any)?.dentist_name ?? "").trim();
-      if (invDentist) setLastVisitDentist(invDentist);
-    }
-    setLastVisitConcern((latest as any)?.notes ?? "");
+    setInvoices(!inv.error && inv.data ? (inv.data as InvoiceRow[]) : []);
 
     const pay = await supabase
       .from("payments")
-      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
-      .eq("patient_id", id);
-
+      .select("id, invoice_id, payment_date, amount, mode, received_by, reference_no, notes, created_at")
+      .eq("patient_id", id)
+      .order("payment_date", { ascending: false })
+      .order("created_at", { ascending: false });
     setPayments(!pay.error && pay.data ? (pay.data as PaymentRow[]) : []);
-
-    if (invRows.length) {
-      const next = activeInvoiceId || visitSelectInvoiceId || invRows[0].id;
-
-      setVisitSelectInvoiceId(next);
-      setActiveInvoiceId(next);
-      await loadInvoiceDetails(next);
-
-      const chosen = invRows.find((x) => x.id === next);
-      if (chosen?.invoice_date) setBillingVisitDate(chosen.invoice_date);
-    } else {
-      setVisitSelectInvoiceId("");
-      setActiveInvoiceId(null);
-      setInvoiceItems([]);
-      setInvoicePayments([]);
-    }
 
     setLoading(false);
   }
 
   useEffect(() => {
-    if (!id) return;
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Keep billingVisitDate synced when user opens invoice
   useEffect(() => {
     if (!activeInvoiceId) return;
     const inv = invoicesById[activeInvoiceId];
     if (inv?.invoice_date) setBillingVisitDate(inv.invoice_date);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeInvoiceId]);
+  }, [activeInvoiceId, invoicesById]);
 
   /* =========================
      Actions
@@ -995,15 +1077,14 @@ export default function PatientProfilePage() {
     setBusy(true);
     setErr(null);
 
-    const genderToSave: GenderDB =
-      editGender === "male" || editGender === "female" ? editGender : null;
+    const genderToSave: GenderDB = editGender === "male" || editGender === "female" ? editGender : null;
 
     const res = await supabase
       .from("patients")
       .update({
         first_name: f || null,
         last_name: l || null,
-        full_name: full || null, // keep compatibility
+        full_name: full || null,
         phone: editPhone.trim() || null,
         birth_date: editBirthDate || null,
         gender: genderToSave,
@@ -1240,10 +1321,7 @@ export default function PatientProfilePage() {
     setBusy(true);
     setErr(null);
 
-    const res = await supabase
-      .from("attachments")
-      .update({ file_name: newFileName.trim() || null })
-      .eq("id", attachmentId);
+    const res = await supabase.from("attachments").update({ file_name: newFileName.trim() || null }).eq("id", attachmentId);
 
     setBusy(false);
     if (res.error) return setErr(res.error.message);
@@ -1314,15 +1392,13 @@ export default function PatientProfilePage() {
 
     setBusy(true);
 
+    // delete existing discount rows
     const existing = invoiceItems.filter((it) => (it.service_name ?? "").toLowerCase() === "discount");
     if (existing.length) {
-      const del = await supabase
-        .from("invoice_items")
-        .delete()
-        .in(
-          "id",
-          existing.map((x) => x.id)
-        );
+      const del = await supabase.from("invoice_items").delete().in(
+        "id",
+        existing.map((x) => x.id)
+      );
 
       if (del.error) {
         setBusy(false);
@@ -1356,25 +1432,9 @@ export default function PatientProfilePage() {
     }
 
     await loadInvoiceDetails(activeInvoiceId);
-
-    const inv = await supabase
-      .from("invoices")
-      .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
-      .eq("patient_id", id)
-      .order("invoice_date", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (!inv.error && inv.data) setInvoices(inv.data as InvoiceRow[]);
-
-    const pay = await supabase
-      .from("payments")
-      .select("id, invoice_id, payment_date, amount, mode, reference_no, notes, created_at")
-      .eq("patient_id", id);
-
-    if (!pay.error && pay.data) setPayments(pay.data as PaymentRow[]);
+    await loadAll();
 
     setBusy(false);
-
     setDiscountOpen(false);
     setDiscountValue("");
   }
@@ -1399,10 +1459,7 @@ export default function PatientProfilePage() {
     const lt = q * u;
 
     setBusy(true);
-    const res = await supabase
-      .from("invoice_items")
-      .update({ qty: q, unit_price: u, line_total: lt })
-      .eq("id", editItem.id);
+    const res = await supabase.from("invoice_items").update({ qty: q, unit_price: u, line_total: lt }).eq("id", editItem.id);
 
     if (res.error) {
       setBusy(false);
@@ -1415,10 +1472,8 @@ export default function PatientProfilePage() {
     setEditItemOpen(false);
     setEditItem(null);
 
-    if (activeInvoiceId) {
-      await loadInvoiceDetails(activeInvoiceId);
-      await loadAll();
-    }
+    if (activeInvoiceId) await loadInvoiceDetails(activeInvoiceId);
+    await loadAll();
   }
 
   async function deleteInvoiceItem() {
@@ -1444,10 +1499,8 @@ export default function PatientProfilePage() {
     setEditItem(null);
     setDeleteItemText("");
 
-    if (activeInvoiceId) {
-      await loadInvoiceDetails(activeInvoiceId);
-      await loadAll();
-    }
+    if (activeInvoiceId) await loadInvoiceDetails(activeInvoiceId);
+    await loadAll();
   }
 
   async function addPayment() {
@@ -1468,6 +1521,7 @@ export default function PatientProfilePage() {
       payment_date: payDate,
       amount: amt,
       mode: payMode,
+      received_by: null,
       reference_no: payRef.trim() || null,
       created_by: userId,
     });
@@ -1515,6 +1569,11 @@ export default function PatientProfilePage() {
     const html = renderTemplate(tpl.content_html ?? "", vars);
     setPreviewHtml(html);
   }
+
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.id === selectedTemplateId) ?? null,
+    [templates, selectedTemplateId]
+  );
 
   useEffect(() => {
     updatePreviewFromTemplate(selectedTemplate);
@@ -1582,10 +1641,7 @@ export default function PatientProfilePage() {
     setBusy(true);
     setErr(null);
 
-    const res = await supabase
-      .from("generated_documents")
-      .update({ doc_number: nextNumber.trim() || null })
-      .eq("id", docId);
+    const res = await supabase.from("generated_documents").update({ doc_number: nextNumber.trim() || null }).eq("id", docId);
 
     setBusy(false);
     if (res.error) return setErr(res.error.message);
@@ -1616,7 +1672,9 @@ export default function PatientProfilePage() {
     const w = window.open("", "_blank", "noopener,noreferrer");
     if (!w) return;
     w.document.open();
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>Print</title></head><body>${html}</body></html>`);
+    w.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"/><title>Print</title></head><body>${html}</body></html>`
+    );
     w.document.close();
     w.focus();
     w.print();
@@ -1665,13 +1723,11 @@ export default function PatientProfilePage() {
           </button>
         </div>
 
-        {err ? (
-          <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div>
-        ) : null}
+        {err ? <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
         {/* Main box */}
         <div className="mt-4 rounded-2xl border overflow-hidden mds-surface">
-          {/* Outer tabs only */}
+          {/* Tabs */}
           <div className="flex flex-wrap gap-1 border-b bg-slate-50 px-2 pt-2">
             {tabs.map((t) => {
               const active = tab === t;
@@ -1693,7 +1749,7 @@ export default function PatientProfilePage() {
 
           {/* Content */}
           <div className="p-4">
-            {/* ================= Modals ================= */}
+            {/* ================= Edit Patient Modal ================= */}
             <Modal
               open={editOpen}
               title="Edit patient"
@@ -1703,7 +1759,7 @@ export default function PatientProfilePage() {
               }}
             >
               <div className="grid gap-4">
-                {/* R1: Last Name, First Name */}
+                {/* R1 */}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-700">Last name</span>
@@ -1726,7 +1782,7 @@ export default function PatientProfilePage() {
                   </label>
                 </div>
 
-                {/* R2: Birth date, Gender */}
+                {/* R2 */}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-700">Birth date</span>
@@ -1754,7 +1810,7 @@ export default function PatientProfilePage() {
                   </div>
                 </div>
 
-                {/* R3: Phone number, Address */}
+                {/* R3 */}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-700">Phone number</span>
@@ -1798,12 +1854,10 @@ export default function PatientProfilePage() {
                   </button>
                 </div>
 
-                {/* Delete section (type to DELETE) */}
+                {/* Delete section */}
                 <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
                   <div className="text-sm font-semibold text-rose-800">Delete patient</div>
-                  <div className="mt-1 text-xs text-rose-700">
-                    This will permanently delete this patient and related data. Type DELETE to confirm.
-                  </div>
+                  <div className="mt-1 text-xs text-rose-700">This will permanently delete this patient and related data. Type DELETE to confirm.</div>
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <input
@@ -1830,35 +1884,22 @@ export default function PatientProfilePage() {
                 <div className="rounded-2xl border bg-white p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-semibold">Patient information</div>
-                    <button
-                      className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold"
-                      onClick={() => setEditOpen(true)}
-                    >
+                    <button className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold" onClick={() => setEditOpen(true)}>
                       Edit
                     </button>
                   </div>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    {/* First + Last */}
                     <label className="grid gap-1 text-sm">
                       <span className="text-slate-700">First name</span>
-                      <input
-                        className="rounded-lg border bg-slate-50 px-3 py-2"
-                        value={patient.first_name ?? ""}
-                        readOnly
-                      />
+                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.first_name ?? ""} readOnly />
                     </label>
 
                     <label className="grid gap-1 text-sm">
                       <span className="text-slate-700">Last name</span>
-                      <input
-                        className="rounded-lg border bg-slate-50 px-3 py-2"
-                        value={patient.last_name ?? ""}
-                        readOnly
-                      />
+                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.last_name ?? ""} readOnly />
                     </label>
 
-                    {/* DOB + Age */}
                     <label className="grid gap-1 text-sm">
                       <span className="text-slate-700">Date of birth</span>
                       <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.birth_date ?? ""} readOnly />
@@ -1866,14 +1907,9 @@ export default function PatientProfilePage() {
 
                     <label className="grid gap-1 text-sm">
                       <span className="text-slate-700">Age</span>
-                      <input
-                        className="rounded-lg border bg-slate-50 px-3 py-2"
-                        value={calcAge(patient.birth_date)?.toString() ?? ""}
-                        readOnly
-                      />
+                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={calcAge(patient.birth_date)?.toString() ?? ""} readOnly />
                     </label>
 
-                    {/* Gender + Phone */}
                     <label className="grid gap-1 text-sm">
                       <span className="text-slate-700">Gender</span>
                       <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formatGenderLabel(patient.gender)} readOnly />
@@ -1884,7 +1920,6 @@ export default function PatientProfilePage() {
                       <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.phone ?? ""} readOnly />
                     </label>
 
-                    {/* Address */}
                     <label className="grid gap-1 text-sm sm:col-span-2">
                       <span className="text-slate-700">Address</span>
                       <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.address ?? ""} readOnly />
@@ -1918,23 +1953,23 @@ export default function PatientProfilePage() {
               </div>
             ) : null}
 
-              {tab === "Medical" ? (
-                  <div className="grid gap-3">
-                    <Field label="Allergies" value={allergies} onChange={setAllergies} />
-                    <Field label="Medications" value={medications} onChange={setMedications} />
-                    <Field label="Blood pressure" value={bp} onChange={setBp} placeholder="e.g., 120/80" />
-                    <Field label="Notes" value={medNotes} onChange={setMedNotes} textarea />
-                    <div className="flex justify-end">
-                      <button
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                        disabled={busy}
-                        onClick={saveMedical}
-                      >
-                        {busy ? "Saving…" : "Save medical history"}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
+            {tab === "Medical" ? (
+              <div className="grid gap-3">
+                <Field label="Allergies" value={allergies} onChange={setAllergies} />
+                <Field label="Medications" value={medications} onChange={setMedications} />
+                <Field label="Blood pressure" value={bp} onChange={setBp} placeholder="e.g., 120/80" />
+                <Field label="Notes" value={medNotes} onChange={setMedNotes} textarea />
+                <div className="flex justify-end">
+                  <button
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    disabled={busy}
+                    onClick={saveMedical}
+                  >
+                    {busy ? "Saving…" : "Save medical history"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {tab === "Chart" ? (
               <div className="rounded-2xl border bg-white p-4">
@@ -1960,7 +1995,6 @@ export default function PatientProfilePage() {
                     Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
                   </div>
 
-                  {/* Status buttons (centered, NO auto-save) */}
                   <div className="mt-4">
                     <div className="mt-2 flex flex-wrap justify-center gap-2">
                       {(
@@ -1992,7 +2026,6 @@ export default function PatientProfilePage() {
                     </div>
                   </div>
 
-                  {/* Surfaces (centered, NO auto-save) */}
                   {pendingStatus === "CARIES" || pendingStatus === "FILLED" ? (
                     <div className="mt-4">
                       <div className="mt-2 flex flex-wrap justify-center gap-2">
@@ -2029,7 +2062,6 @@ export default function PatientProfilePage() {
                     </div>
                   ) : null}
 
-                  {/* Note */}
                   <div className="mt-3 flex justify-center">
                     <label className="grid w-full max-w-xl gap-1 text-sm">
                       <span className="text-slate-700">Note</span>
@@ -2043,7 +2075,6 @@ export default function PatientProfilePage() {
                     </label>
                   </div>
 
-                  {/* Save button below Note */}
                   <div className="mt-3 flex justify-center">
                     <button
                       type="button"
@@ -2127,7 +2158,6 @@ export default function PatientProfilePage() {
                   </div>
 
                   <div className="mt-3 grid gap-3">
-                    {/* Tooth column smaller */}
                     <div className="grid gap-2 grid-cols-1 sm:grid-cols-[72px_minmax(0,2fr)_minmax(0,3fr)_110px] items-end">
                       <label className="grid gap-1 text-sm">
                         <span className="text-slate-700">Tooth</span>
@@ -2139,6 +2169,7 @@ export default function PatientProfilePage() {
                           inputMode="numeric"
                         />
                       </label>
+
                       <label className="grid gap-1 text-sm">
                         <span className="text-slate-700">Procedure/Service</span>
                         <select
@@ -2200,10 +2231,7 @@ export default function PatientProfilePage() {
                                 <td className="py-2 pr-3">{ln.procedure}</td>
                                 <td className="py-2 pr-3">{ln.note || "—"}</td>
                                 <td className="py-2 pr-3 text-right">
-                                  <button
-                                    className="rounded-lg border bg-white px-3 py-1 text-sm"
-                                    onClick={() => removeDraftLine(ln.id)}
-                                  >
+                                  <button className="rounded-lg border bg-white px-3 py-1 text-sm" onClick={() => removeDraftLine(ln.id)}>
                                     Remove
                                   </button>
                                 </td>
@@ -2249,8 +2277,8 @@ export default function PatientProfilePage() {
                             <table className="min-w-full text-sm">
                               <thead>
                                 <tr className="text-left text-slate-600">
-                                  <th className="py-2 pr-3">Tooth</th>
-                                  <th className="py-2 pr-3">Procedure</th>
+                                  <th className="py-2 pr-3 w-[90px]">Tooth</th>
+                                  <th className="py-2 pr-3 w-[320px]">Procedure</th>
                                   <th className="py-2 pr-3">Note</th>
                                 </tr>
                               </thead>
@@ -2268,9 +2296,7 @@ export default function PatientProfilePage() {
                         </div>
                       );
                     })}
-                    {!groupedTreatmentHistory.length ? (
-                      <div className="text-sm text-slate-500">No treatments yet.</div>
-                    ) : null}
+                    {!groupedTreatmentHistory.length ? <div className="text-sm text-slate-500">No treatments yet.</div> : null}
                   </div>
                 </div>
               </div>
@@ -2281,19 +2307,14 @@ export default function PatientProfilePage() {
                 <div className="rounded-2xl border bg-white p-4">
                   <div className="text-sm font-semibold">Upload attachment</div>
 
-                  {/* One-row upload controls */}
                   <div className="mt-3 grid gap-2">
                     <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)_120px] items-end">
-                      {/* Type */}
                       <label className="grid gap-1 text-sm">
                         <span className="text-slate-700">Type</span>
                         <select
                           className="h-[42px] rounded-lg border px-3 text-sm"
                           value={uploadType}
-                          onChange={(e) => {
-                            const v = e.target.value as any;
-                            setUploadType(v);
-                          }}
+                          onChange={(e) => setUploadType(e.target.value as any)}
                         >
                           <option value="">Select</option>
                           {attachmentTypes.map((t) => (
@@ -2304,36 +2325,32 @@ export default function PatientProfilePage() {
                         </select>
                       </label>
 
-                      {/* File */}
-                        <div className="grid gap-1 text-sm min-w-0">
-                          <span className="text-slate-700">File</span>
+                      <div className="grid gap-1 text-sm min-w-0">
+                        <span className="text-slate-700">File</span>
 
-                          {/* Unified file input box */}
-                          <div className="h-[42px] min-w-0 flex items-center rounded-lg border bg-slate-50 overflow-hidden">
-                            {/* Choose file button (embedded) */}
-                            <label className="h-full shrink-0 cursor-pointer px-4 flex items-center justify-center bg-white border-r text-sm font-semibold hover:bg-slate-100">
-                              Choose file
-                              <input
-                                type="file"
-                                className="sr-only"
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0] ?? null;
+                        <div className="h-[42px] min-w-0 flex items-center rounded-lg border bg-slate-50 overflow-hidden">
+                          <label className="h-full shrink-0 cursor-pointer px-4 flex items-center justify-center bg-white border-r text-sm font-semibold hover:bg-slate-100">
+                            Choose file
+                            <input
+                              type="file"
+                              className="sr-only"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0] ?? null;
 
-                                  if (f && f.size > 5 * 1024 * 1024) {
-                                    setErr("File is too large. Please upload a file up to 5 MB.");
-                                    setFileToUpload(null);
-                                    e.currentTarget.value = "";
-                                    return;
-                                  }
+                                if (f && f.size > 5 * 1024 * 1024) {
+                                  setErr("File is too large. Please upload a file up to 5 MB.");
+                                  setFileToUpload(null);
+                                  e.currentTarget.value = "";
+                                  return;
+                                }
 
-                                  setErr(null);
-                                  setFileToUpload(f);
-                                }}
-                                disabled={busy}
-                              />
-                            </label>
-
-                            {/* Filename / placeholder */}
+                                setErr(null);
+                                setFileToUpload(f);
+                              }}
+                              disabled={busy}
+                            />
+                          </label>
+{/* Filename / placeholder */}
                             <div className="flex-1 px-3 text-sm text-slate-700 truncate">
                               {fileToUpload ? fileToUpload.name : "No file selected"}
                             </div>
@@ -2874,6 +2891,7 @@ export default function PatientProfilePage() {
                       <div className="mt-1 text-2xl font-semibold">
                         {billingSummary.totalAll.toFixed(2)}
                       </div>
+                    
                     </div>
                     <div className="rounded-xl border bg-slate-50 p-3 text-center">
                       <div className="text-xs text-slate-600">Paid</div>
@@ -3100,42 +3118,64 @@ export default function PatientProfilePage() {
             
                   <div className="mt-4 overflow-x-auto">
                     <table className="min-w-full table-fixed text-sm">
-                      <colgroup>
-                        <col style={{ width: 140 }} />
-                        <col style={{ width: 160 }} />
-                        <col />
-                        <col style={{ width: 140 }} />
-                        <col style={{ width: 100 }} />
-                      </colgroup>
+                     <colgroup>
+                      <col style={{ width: 140 }} />
+                      <col style={{ width: 140 }} />
+                      <col style={{ width: 140 }} />
+                      <col />
+                      <col style={{ width: 140 }} />
+                      <col style={{ width: 100 }} />
+                    </colgroup>
+
                       <thead>
                         <tr className="text-left text-slate-600">
                           <th className="py-2 pr-3">Date</th>
+                          <th className="py-2 pr-3">Invoice #</th>
                           <th className="py-2 pr-3">Mode</th>
-                          <th className="py-2 pr-3">Reference</th>
+                          <th className="py-2 pr-3">Received by</th>
                           <th className="py-2 pr-3 text-right">Amount</th>
                           <th className="py-2 pr-3 text-right"></th>
                         </tr>
                       </thead>
+
                       <tbody>
-                        {invoicePayments.map((p) => (
-                          <tr key={p.id} className="border-t hover:bg-slate-50">
-                            <td className="py-2 pr-3">{formatDatePH(p.payment_date)}</td>
-                            <td className="py-2 pr-3">{p.mode}</td>
-                            <td className="py-2 pr-3">{p.reference_no ?? "—"}</td>
-                            <td className="py-2 pr-3 text-right">{num(p.amount).toFixed(2)}</td>
-                            <td className="py-2 pr-3 text-right">
-                              <button
-                                className="rounded-lg border bg-white px-3 py-1 text-sm"
-                                onClick={() => setPaymentView(p)}
-                              >
-                                Open
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                        {!invoicePayments.length ? (
+                        {payments
+                          .slice()
+                          .sort((a, b) => {
+                            const da = (a.payment_date ?? "").localeCompare(b.payment_date ?? "");
+                            if (da !== 0) return da * -1; // newest first
+                            const ca = a.created_at ? new Date(a.created_at).getTime() : 0;
+                            const cb = b.created_at ? new Date(b.created_at).getTime() : 0;
+                            return cb - ca;
+                          })
+                          .map((p) => {
+                            const inv = invoicesById[p.invoice_id];
+                            const invoiceNo =
+                              (inv?.invoice_number ?? "").trim() ||
+                              (inv?.id ? `INV-${inv.id.slice(-6).toUpperCase()}` : "—");
+
+                            return (
+                              <tr key={p.id} className="border-t hover:bg-slate-50">
+                                <td className="py-2 pr-3">{formatDatePH(p.payment_date)}</td>
+                                <td className="py-2 pr-3">{invoiceNo}</td>
+                                <td className="py-2 pr-3">{p.mode}</td>
+                                <td className="py-2 pr-3">{p.received_by ?? "—"}</td>
+                                <td className="py-2 pr-3 text-right">{num(p.amount).toFixed(2)}</td>
+                                <td className="py-2 pr-3 text-right">
+                                  <button
+                                    className="rounded-lg border bg-white px-3 py-1 text-sm"
+                                    onClick={() => setPaymentView(p)}
+                                  >
+                                    Open
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+
+                        {!payments.length ? (
                           <tr>
-                            <td className="py-3 text-slate-500" colSpan={5}>
+                            <td className="py-3 text-slate-500" colSpan={6}>
                               No payments yet.
                             </td>
                           </tr>
