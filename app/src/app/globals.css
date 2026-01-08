@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
+/* App background */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --app-bg-image: url("/bg1.jpg");
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Full-page background image */
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-image: var(--app-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* Wrapper that gives padding and centers content */
+.app-shell {
+  min-height: 100vh;
+  padding: 16px;
+}
+
+/* The "outer most box" you requested: white @ 60% + shadow */
+.app-surface {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  padding: 16px;
+}
+
+@media (min-width: 640px) {
+  .app-shell {
+    padding: 24px;
+  }
+  .app-surface {
+    padding: 24px;
+  }
 }
