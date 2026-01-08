@@ -9,14 +9,19 @@ import { supabase } from "@/lib/supabaseClient";
 /* =========================
    Types
 ========================= */
+type GenderDB = "male" | "female" | null;
+
 type Patient = {
   id: string;
-  full_name: string;
+  full_name: string; // kept for compatibility + documents
+  first_name: string | null;
+  last_name: string | null;
   phone: string | null;
   birth_date: string | null;
   address: string | null;
   occupation: string | null;
   email: string | null;
+  gender: GenderDB;
   notes: string | null;
 };
 
@@ -141,14 +146,30 @@ type DraftLine = {
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
 type AttachmentType = (typeof attachmentTypes)[number];
 
-
-
 const tabs = ["Info", "Medical", "Chart", "Treatments", "Attachments", "Documents", "Billing"] as const;
 type Tab = (typeof tabs)[number];
 
 /* =========================
    Helpers
 ========================= */
+function splitFullName(full: string | null | undefined) {
+  const s = (full ?? "").trim().replace(/\s+/g, " ");
+  if (!s) return { first: "", last: "" };
+
+  const parts = s.split(" ");
+  if (parts.length === 1) return { first: parts[0], last: "" };
+
+  const first = parts.slice(0, -1).join(" ");
+  const last = parts[parts.length - 1];
+  return { first, last };
+}
+
+function combineFullName(first: string | null | undefined, last: string | null | undefined) {
+  const f = (first ?? "").trim();
+  const l = (last ?? "").trim();
+  return [f, l].filter(Boolean).join(" ").trim();
+}
+
 function num(n: any) {
   const v = Number(n);
   return Number.isFinite(v) ? v : 0;
@@ -160,6 +181,32 @@ function todayLocalISO() {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatPHPhoneVisible(input: string) {
+  const digits = (input || "").replace(/\D/g, "").slice(0, 11); // max 11 digits
+  if (!digits) return "";
+
+  const p1 = digits.slice(0, 4);
+  const p2 = digits.slice(4, 7);
+  const p3 = digits.slice(7, 11);
+
+  if (digits.length <= 4) return p1;
+  if (digits.length <= 7) return `${p1} ${p2}`;
+  return `${p1} ${p2} ${p3}`;
+}
+
+function formatGenderLabel(g: GenderDB) {
+  if (g === "male") return "Male";
+  if (g === "female") return "Female";
+  return "—";
+}
+
+function normalizeGenderInput(v: string): GenderDB {
+  const s = (v || "").trim().toLowerCase();
+  if (s === "male") return "male";
+  if (s === "female") return "female";
+  return null;
 }
 
 function formatDatePH(isoDate: string | null | undefined) {
@@ -286,16 +333,18 @@ export default function PatientProfilePage() {
 
   const [patient, setPatient] = useState<Patient | null>(null);
 
-// Last visit (concern will later come from appointments integration)
+  // Last visit (concern will later come from appointments integration)
   const [lastVisitDate, setLastVisitDate] = useState<string>("");
   const [lastVisitDentist, setLastVisitDentist] = useState<string>("");
   const [lastVisitConcern, setLastVisitConcern] = useState<string>("");
 
   // Info edit
   const [editOpen, setEditOpen] = useState(false);
-  const [editName, setEditName] = useState("");
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
+  const [editGender, setEditGender] = useState<"" | "male" | "female">("");
   const [editAddress, setEditAddress] = useState("");
   const [deletePatientText, setDeletePatientText] = useState("");
 
@@ -316,15 +365,6 @@ export default function PatientProfilePage() {
     return m;
   }, [dentists]);
 
-  const statusOptions = [
-    { value: "healthy", label: "Healthy", className: "bg-emerald-50 border-emerald-200 text-emerald-800" },
-    { value: "caries", label: "Caries", className: "bg-rose-50 border-rose-200 text-rose-800" },
-    { value: "filled", label: "Filled", className: "bg-sky-50 border-sky-200 text-sky-800" },
-    { value: "extracted", label: "Extracted", className: "bg-slate-100 border-slate-200 text-slate-700" },
-    { value: "missing", label: "Missing", className: "bg-amber-50 border-amber-200 text-amber-800" },
-    { value: "rct", label: "RCT", className: "bg-violet-50 border-violet-200 text-violet-800" },
-  ] as const;
-
   // Chart
   const [chart, setChart] = useState<ChartEntry[]>([]);
   const [toothStatuses, setToothStatuses] = useState<
@@ -335,9 +375,10 @@ export default function PatientProfilePage() {
   const [surfaceSel, setSurfaceSel] = useState<string[]>([]);
   const [findingDetail, setFindingDetail] = useState("");
   const [pendingStatus, setPendingStatus] = useState<string>("HEALTHY");
-  
+
   // Treatments
   const [treatments, setTreatments] = useState<Treatment[]>([]);
+
   useEffect(() => {
     if (!treatments || treatments.length === 0) {
       setLastVisitDate("");
@@ -346,7 +387,6 @@ export default function PatientProfilePage() {
       return;
     }
 
-    // pick the latest treatment_date; tie-breaker by created_at if present
     const latest = [...treatments].sort((a, b) => {
       const da = (a.treatment_date ?? "").localeCompare(b.treatment_date ?? "");
       const dc = (a.created_at ?? "").localeCompare(b.created_at ?? "");
@@ -355,12 +395,13 @@ export default function PatientProfilePage() {
     })[0];
 
     setLastVisitDate(latest.treatment_date ?? "");
-    setLastVisitDentist(latest.dentist_name ?? "");
 
-    // Scheduling integration TODO:
-    // "Concern" should come from Appointments/Visits chief complaint, not from procedure names.
+    const name =
+      (latest.dentist_id ? dentistNameById[latest.dentist_id] : "") || latest.dentist_name || "";
+
+    setLastVisitDentist(name);
     setLastVisitConcern("");
-  }, [treatments]);
+  }, [treatments, dentistNameById]);
 
   const [visitDate, setVisitDate] = useState(() => todayLocalISO());
   const [visitDentistId, setVisitDentistId] = useState<string>(""); // neutral
@@ -435,7 +476,7 @@ export default function PatientProfilePage() {
   );
 
   const displayedAttachments = useMemo(() => {
-  const copy = [...attachments];
+    const copy = [...attachments];
     if (attachmentSort === "NAME_ASC") {
       copy.sort((a, b) => {
         const an = (a.file_name ?? a.file_path.split("/").slice(-1)[0] ?? "").toLowerCase();
@@ -448,7 +489,6 @@ export default function PatientProfilePage() {
       copy.sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
       return copy;
     }
-    // DATE_DESC
     copy.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     return copy;
   }, [attachments, attachmentSort]);
@@ -456,14 +496,16 @@ export default function PatientProfilePage() {
   const displayedGeneratedDocs = useMemo(() => {
     const copy = [...generatedDocs];
     if (docSort === "TYPE_ASC") {
-      copy.sort((a, b) => (a.doc_type ?? "").localeCompare(b.doc_type ?? "") || (a.created_at < b.created_at ? 1 : -1));
+      copy.sort(
+        (a, b) =>
+          (a.doc_type ?? "").localeCompare(b.doc_type ?? "") || (a.created_at < b.created_at ? 1 : -1)
+      );
       return copy;
     }
     if (docSort === "DATE_ASC") {
       copy.sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
       return copy;
     }
-    // DATE_DESC
     copy.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     return copy;
   }, [generatedDocs, docSort]);
@@ -490,16 +532,6 @@ export default function PatientProfilePage() {
     return Object.entries(acc).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [treatments]);
 
-  const treatmentsByDate = useMemo(() => {
-    const map = new Map<string, Treatment[]>();
-    for (const t of treatments) {
-      const k = t.treatment_date;
-      map.set(k, [...(map.get(k) ?? []), t]);
-    }
-    return map;
-  }, [treatments]);
-
-  // Billing: visit dates available (from Treatments)
   const visitDates = useMemo(() => {
     const set = new Set<string>();
     for (const t of treatments) {
@@ -508,22 +540,7 @@ export default function PatientProfilePage() {
     return Array.from(set).sort((a, b) => (a < b ? 1 : -1));
   }, [treatments]);
 
-  // Billing: dropdown value is a visit date (not invoice id)
   const [billingVisitDate, setBillingVisitDate] = useState<string>("");
-
-  const invoiceDentistLabelByInvoiceId = useMemo(() => {
-    const out: Record<string, string> = {};
-    for (const inv of invoices) {
-      const rows = treatmentsByDate.get(inv.invoice_date) ?? [];
-      const did = rows.find((r) => r.dentist_id)?.dentist_id ?? null;
-      const name =
-        (did ? dentistNameById[did] : "") ||
-        rows.find((r) => r.dentist_name)?.dentist_name ||
-        "—";
-      out[inv.id] = name;
-    }
-    return out;
-  }, [invoices, treatmentsByDate, dentistNameById]);
 
   const billingSummary = useMemo(() => {
     const totalAll = invoices.reduce((sum, i) => sum + num(i.total), 0);
@@ -544,29 +561,15 @@ export default function PatientProfilePage() {
     }, 0);
   }, [invoiceItems]);
 
-  const invoiceDiscountComputed = useMemo(() => {
-    // Discount rows should be negative totals (unit_price and line_total negative)
-    return invoiceItems.reduce((sum, it) => {
-      const isDiscount = (it.service_name ?? "").toLowerCase() === "discount";
-      return sum + (isDiscount ? num(it.line_total) : 0);
-    }, 0);
-  }, [invoiceItems]);
-
-  const invoiceTotalComputed = useMemo(() => {
-    return invoiceItems.reduce((sum, it) => sum + num(it.line_total), 0);
-  }, [invoiceItems]);
-
   /* =========================
      Data loading
   ========================= */
   async function loadInvoiceDetails(invoiceId: string) {
     const it = await supabase
       .from("invoice_items")
-      .select(
-        "id, invoice_id, service_name, description, qty, unit_price, line_total, tooth_number, dentist_name, created_at"
-      )
+      .select("id, invoice_id, service_name, description, qty, unit_price, line_total, tooth_number, dentist_name, created_at")
       .eq("invoice_id", invoiceId)
-      .order("created_at", { ascending: true }); // stable base order
+      .order("created_at", { ascending: true });
 
     if (it.error || !it.data) {
       setInvoiceItems([]);
@@ -578,14 +581,12 @@ export default function PatientProfilePage() {
       const sorted = items.slice().sort((a, b) => {
         const ad = isDiscount(a);
         const bd = isDiscount(b);
-        if (ad !== bd) return ad ? 1 : -1; // discount LAST always
+        if (ad !== bd) return ad ? 1 : -1;
 
-        // then tooth number (nulls last)
         const ta = a.tooth_number ?? 9999;
         const tb = b.tooth_number ?? 9999;
         if (ta !== tb) return ta - tb;
 
-        // finally created_at
         const ca = a.created_at ? new Date(a.created_at).getTime() : 0;
         const cb = b.created_at ? new Date(b.created_at).getTime() : 0;
         return ca - cb;
@@ -639,26 +640,22 @@ export default function PatientProfilePage() {
     setBusy(true);
     setErr(null);
 
-    // Ensure invoice exists for this visit date
     const invoiceId = await ensureEncounterInvoice(patient.id, date, undefined);
     if (!invoiceId) {
       setBusy(false);
       return;
     }
 
-    // Rebuild items from Treatments
     const ok = await syncInvoiceFromTreatments(invoiceId);
     if (!ok) {
       setBusy(false);
       return;
     }
 
-    // Set active invoice and keep dropdown synced
     setActiveInvoiceId(invoiceId);
     setVisitSelectInvoiceId(invoiceId);
     setBillingVisitDate(date);
 
-    // Recalc invoice totals after sync (important)
     const rec = await supabase.rpc("recalc_invoice", { p_invoice_id: invoiceId });
     if (rec.error) {
       setBusy(false);
@@ -666,11 +663,8 @@ export default function PatientProfilePage() {
       return;
     }
 
-    // Reload just what Billing needs (avoid loadAll overwrite)
     await loadInvoiceDetails(invoiceId);
 
-    // Still refresh the overall invoice list + payments totals
-    // BUT do it safely: only refresh invoices/payments, not active invoice selection
     const inv = await supabase
       .from("invoices")
       .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
@@ -717,7 +711,6 @@ export default function PatientProfilePage() {
 
     await loadInvoiceDetails(activeInvoiceId);
 
-    // refresh totals lists without overriding active invoice
     const inv = await supabase
       .from("invoices")
       .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
@@ -743,7 +736,7 @@ export default function PatientProfilePage() {
 
     const p = await supabase
       .from("patients")
-      .select("id, full_name, phone, birth_date, address, occupation, email, notes")
+      .select("id, full_name, first_name, last_name, phone, birth_date, address, occupation, email, notes, gender")
       .eq("id", id)
       .single();
 
@@ -753,11 +746,38 @@ export default function PatientProfilePage() {
       return;
     }
 
-    const pat = p.data as Patient;
+    const patRaw = p.data as any;
+
+    // Prefer first/last from DB, fallback to full_name split
+    const fallback = splitFullName(patRaw.full_name ?? "");
+    const dbFirst = String(patRaw.first_name ?? "").trim();
+    const dbLast = String(patRaw.last_name ?? "").trim();
+    const firstNameFinal = dbFirst || fallback.first;
+    const lastNameFinal = dbLast || fallback.last;
+
+    const fullNameFinal = combineFullName(firstNameFinal, lastNameFinal) || String(patRaw.full_name ?? "").trim();
+
+    const pat: Patient = {
+      id: patRaw.id,
+      full_name: fullNameFinal,
+      first_name: firstNameFinal || null,
+      last_name: lastNameFinal || null,
+      phone: patRaw.phone ?? null,
+      birth_date: patRaw.birth_date ?? null,
+      address: patRaw.address ?? null,
+      occupation: patRaw.occupation ?? null,
+      email: patRaw.email ?? null,
+      notes: patRaw.notes ?? null,
+      gender: normalizeGenderInput(String(patRaw.gender ?? "")),
+    };
+
     setPatient(pat);
-    setEditName(pat.full_name ?? "");
+
+    setEditFirstName(pat.first_name ?? "");
+    setEditLastName(pat.last_name ?? "");
     setEditPhone(pat.phone ?? "");
     setEditBirthDate(pat.birth_date ?? "");
+    setEditGender((pat.gender ?? "") as any);
     setEditAddress(pat.address ?? "");
 
     const m = await supabase
@@ -872,16 +892,12 @@ export default function PatientProfilePage() {
     const invRows = !inv.error && inv.data ? (inv.data as InvoiceRow[]) : [];
     setInvoices(invRows);
 
-   const latest = invRows[0] ?? null;
-    // Only override "Last visit" from invoices if an invoice actually exists.
-    // IMPORTANT: do NOT overwrite the Treatments-derived dentist with an empty invoice dentist name.
+    const latest = invRows[0] ?? null;
     if (latest?.invoice_date) {
       setLastVisitDate(latest.invoice_date ?? "");
       const invDentist = String((latest as any)?.dentist_name ?? "").trim();
       if (invDentist) setLastVisitDentist(invDentist);
     }
-
-    // For now, treat invoice notes as "concern" until appointments/scheduling exists
     setLastVisitConcern((latest as any)?.notes ?? "");
 
     const pay = await supabase
@@ -891,17 +907,13 @@ export default function PatientProfilePage() {
 
     setPayments(!pay.error && pay.data ? (pay.data as PaymentRow[]) : []);
 
-    // Default invoice selection
     if (invRows.length) {
-      // IMPORTANT:
-      // Do NOT override activeInvoiceId if one is already set (ex: Billing visit-date selection)
       const next = activeInvoiceId || visitSelectInvoiceId || invRows[0].id;
 
       setVisitSelectInvoiceId(next);
       setActiveInvoiceId(next);
       await loadInvoiceDetails(next);
 
-      // Keep billing dropdown in sync when possible
       const chosen = invRows.find((x) => x.id === next);
       if (chosen?.invoice_date) setBillingVisitDate(chosen.invoice_date);
     } else {
@@ -909,8 +921,6 @@ export default function PatientProfilePage() {
       setActiveInvoiceId(null);
       setInvoiceItems([]);
       setInvoicePayments([]);
-      // Do NOT clear billingVisitDate here; it is the user's UI selection
-      // setBillingVisitDate("");
     }
 
     setLoading(false);
@@ -922,7 +932,6 @@ export default function PatientProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-   // Keep Billing visit dropdown synced to the active invoice
   useEffect(() => {
     if (!activeInvoiceId) return;
     const inv = invoicesById[activeInvoiceId];
@@ -935,15 +944,31 @@ export default function PatientProfilePage() {
   ========================= */
   async function savePatientEdits() {
     if (!patient) return;
+
+    const f = editFirstName.trim();
+    const l = editLastName.trim();
+    const full = combineFullName(f, l);
+
+    if (!f && !l) {
+      setErr("Please enter at least a first name or last name.");
+      return;
+    }
+
     setBusy(true);
     setErr(null);
+
+    const genderToSave: GenderDB =
+      editGender === "male" || editGender === "female" ? editGender : null;
 
     const res = await supabase
       .from("patients")
       .update({
-        full_name: editName.trim(),
+        first_name: f || null,
+        last_name: l || null,
+        full_name: full || null, // keep compatibility
         phone: editPhone.trim() || null,
         birth_date: editBirthDate || null,
+        gender: genderToSave,
         address: editAddress.trim() || null,
         updated_at: new Date().toISOString(),
       })
@@ -1251,7 +1276,6 @@ export default function PatientProfilePage() {
 
     setBusy(true);
 
-    // Remove existing discount lines to avoid duplicates
     const existing = invoiceItems.filter((it) => (it.service_name ?? "").toLowerCase() === "discount");
     if (existing.length) {
       const del = await supabase
@@ -1286,7 +1310,6 @@ export default function PatientProfilePage() {
       return;
     }
 
-    // Recalc totals (RPC)
     const rec = await supabase.rpc("recalc_invoice", { p_invoice_id: activeInvoiceId });
     if (rec.error) {
       setBusy(false);
@@ -1294,10 +1317,8 @@ export default function PatientProfilePage() {
       return;
     }
 
-    // Reload invoice details so the new row shows up immediately
     await loadInvoiceDetails(activeInvoiceId);
 
-    // Refresh invoice + payments totals only (do NOT call loadAll; it resets billing selection)
     const inv = await supabase
       .from("invoices")
       .select("id, invoice_date, dentist_name, status, subtotal, discount_amount, total, notes, created_at")
@@ -1316,7 +1337,6 @@ export default function PatientProfilePage() {
 
     setBusy(false);
 
-    // Close modal + reset
     setDiscountOpen(false);
     setDiscountValue("");
   }
@@ -1427,9 +1447,10 @@ export default function PatientProfilePage() {
   function buildDocVars(): Record<string, string> {
     if (!patient) return {};
     const dentistName = docDentistId ? dentistNameById[docDentistId] ?? "" : "";
+    const full = combineFullName(patient.first_name, patient.last_name) || patient.full_name || "";
 
     return {
-      "patient.full_name": escapeHtml(patient.full_name ?? ""),
+      "patient.full_name": escapeHtml(full),
       "patient.phone": escapeHtml(patient.phone ?? ""),
       "patient.birth_date": escapeHtml(patient.birth_date ?? ""),
       "patient.address": escapeHtml(patient.address ?? ""),
@@ -1519,7 +1540,6 @@ export default function PatientProfilePage() {
     await loadAll();
   }
 
-  
   async function updateGeneratedDocNumber(docId: string, nextNumber: string) {
     setBusy(true);
     setErr(null);
@@ -1553,19 +1573,16 @@ export default function PatientProfilePage() {
     await loadAll();
   }
 
-function printHtml(html: string) {
+  function printHtml(html: string) {
     if (!html) return;
     const w = window.open("", "_blank", "noopener,noreferrer");
     if (!w) return;
     w.document.open();
-    w.document.write(
-      `<!doctype html><html><head><meta charset="utf-8"/><title>Print</title></head><body>${html}</body></html>`
-    );
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>Print</title></head><body>${html}</body></html>`);
     w.document.close();
     w.focus();
     w.print();
   }
-
 
   function openHtml(html: string) {
     if (!html) return;
@@ -1574,22 +1591,6 @@ function printHtml(html: string) {
     w.document.open();
     w.document.write(html);
     w.document.close();
-  }
-
-  function downloadHtml(filename: string, html: string) {
-    if (!html) return;
-    const blob = new Blob(
-      [`<!doctype html><html><head><meta charset="utf-8"/></head><body>${html}</body></html>`],
-      { type: "text/html;charset=utf-8" }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   }
 
   /* =========================
@@ -1607,12 +1608,10 @@ function printHtml(html: string) {
   }
 
   if (!patient) {
-    return (
-      <div className="min-h-screen p-6 text-red-600">
-        Patient not found.
-      </div>
-    );
+    return <div className="min-h-screen p-6 text-red-600">Patient not found.</div>;
   }
+
+  const displayFullName = combineFullName(patient.first_name, patient.last_name) || patient.full_name || "";
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
@@ -1620,21 +1619,16 @@ function printHtml(html: string) {
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">{patient.full_name}</h1>
+            <h1 className="text-2xl font-semibold">{displayFullName}</h1>
           </div>
 
-          <button
-            className="rounded-lg border bg-white px-3 py-2 text-sm"
-            onClick={() => router.push("/patients")}
-          >
+          <button className="rounded-lg border bg-white px-3 py-2 text-sm" onClick={() => router.push("/patients")}>
             Back
           </button>
         </div>
 
         {err ? (
-          <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-red-600">
-            {err}
-          </div>
+          <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div>
         ) : null}
 
         {/* Main box */}
@@ -1650,9 +1644,7 @@ function printHtml(html: string) {
                   onClick={() => setTab(t)}
                   className={[
                     "px-3 py-2 text-sm font-semibold rounded-t-xl border",
-                    active
-                      ? "bg-white border-b-white"
-                      : "bg-slate-50 hover:bg-white",
+                    active ? "bg-white border-b-white" : "bg-slate-50 hover:bg-white",
                   ].join(" ")}
                 >
                   {t}
@@ -1673,21 +1665,37 @@ function printHtml(html: string) {
               }}
             >
               <div className="grid gap-3">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Full name</span>
-                  <input
-                    className="rounded-lg border px-3 py-2"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                  />
-                </label>
+                {/* First + Last name */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">First name</span>
+                    <input
+                      className="rounded-lg border px-3 py-2"
+                      value={editFirstName}
+                      onChange={(e) => setEditFirstName(e.target.value)}
+                      placeholder="First name"
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Last name</span>
+                    <input
+                      className="rounded-lg border px-3 py-2"
+                      value={editLastName}
+                      onChange={(e) => setEditLastName(e.target.value)}
+                      placeholder="Last name"
+                    />
+                  </label>
+                </div>
 
                 <label className="grid gap-1 text-sm">
                   <span className="text-slate-700">Phone</span>
                   <input
                     className="rounded-lg border px-3 py-2"
                     value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="09XX XXX XXXX"
+                    onChange={(e) => setEditPhone(formatPHPhoneVisible(e.target.value))}
                   />
                 </label>
 
@@ -1700,6 +1708,34 @@ function printHtml(html: string) {
                     onChange={(e) => setEditBirthDate(e.target.value)}
                   />
                 </label>
+
+                {/* Gender */}
+                <div className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Gender</span>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="gender"
+                        checked={editGender === "male"}
+                        onChange={() => setEditGender("male")}
+                      />
+                      <span>Male</span>
+                    </label>
+
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="gender"
+                        checked={editGender === "female"}
+                        onChange={() => setEditGender("female")}
+                      />
+                      <span>Female</span>
+                    </label>                  
+                  </div>
+
+                </div>
 
                 <label className="grid gap-1 text-sm">
                   <span className="text-slate-700">Address</span>
@@ -1728,12 +1764,8 @@ function printHtml(html: string) {
 
                 {/* Delete inside edit modal */}
                 <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
-                  <div className="text-sm font-semibold text-red-700">
-                    Danger zone
-                  </div>
-                  <div className="mt-1 text-sm text-red-700">
-                    To delete this patient, type DELETE and click Delete.
-                  </div>
+                  <div className="text-sm font-semibold text-red-700">Danger zone</div>
+                  <div className="mt-1 text-sm text-red-700">To delete this patient, type DELETE and click Delete.</div>
 
                   <div className="mt-2 flex items-center gap-2">
                     <input
@@ -1754,146 +1786,6 @@ function printHtml(html: string) {
               </div>
             </Modal>
 
-            <Modal
-              open={discountOpen}
-              title="Add discount"
-              onClose={() => {
-                setDiscountOpen(false);
-                setDiscountValue("");
-              }}
-            >
-              <div className="grid gap-3">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Type</span>
-                  <select
-                    className="rounded-lg border px-3 py-2"
-                    value={discountMode}
-                    onChange={(e) =>
-                      setDiscountMode(e.target.value as "AMOUNT" | "PERCENT")
-                    }
-                  >
-                    <option value="AMOUNT">Amount</option>
-                    <option value="PERCENT">Percent</option>
-                  </select>
-                </label>
-
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Value</span>
-                  <input
-                    className="rounded-lg border px-3 py-2"
-                    value={discountValue}
-                    onChange={(e) => setDiscountValue(e.target.value)}
-                    placeholder={discountMode === "PERCENT" ? "e.g., 10" : "e.g., 500"}
-                  />
-                </label>
-
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
-                    onClick={() => setDiscountOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    disabled={busy}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                    onClick={applyDiscountAsLine}
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
-            </Modal>
-
-            <Modal
-              open={editItemOpen}
-              title="Edit invoice item"
-              onClose={() => {
-                setEditItemOpen(false);
-                setEditItem(null);
-                setDeleteItemConfirmOpen(false);
-                setDeleteItemText("");
-              }}
-            >
-              {!editItem ? null : (
-                <div className="grid gap-3">
-                  <div className="text-sm font-semibold">{editItem.service_name}</div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Qty</span>
-                      <input
-                        className="rounded-lg border px-3 py-2"
-                        value={editItemQty}
-                        onChange={(e) => setEditItemQty(e.target.value)}
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Unit price</span>
-                      <input
-                        className="rounded-lg border px-3 py-2"
-                        value={editItemUnit}
-                        onChange={(e) => setEditItemUnit(e.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
-                      onClick={() => setDeleteItemConfirmOpen(true)}
-                    >
-                      Delete
-                    </button>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
-                        onClick={() => setEditItemOpen(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        disabled={busy}
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                        onClick={saveEditItem}
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-
-                  {deleteItemConfirmOpen ? (
-                    <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3">
-                      <div className="text-sm font-semibold text-red-700">
-                        Confirm delete
-                      </div>
-                      <div className="mt-1 text-sm text-red-700">
-                        Type DELETE to confirm.
-                      </div>
-
-                      <div className="mt-2 flex items-center gap-2">
-                        <input
-                          className="flex-1 rounded-lg border px-3 py-2 text-sm"
-                          placeholder="Type DELETE"
-                          value={deleteItemText}
-                          onChange={(e) => setDeleteItemText(e.target.value)}
-                        />
-                        <button
-                          disabled={busy}
-                          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                          onClick={deleteInvoiceItem}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </Modal>
-
             {/* ================= Tab content ================= */}
             {tab === "Info" ? (
               <div className="grid gap-4">
@@ -1909,31 +1801,29 @@ function printHtml(html: string) {
                   </div>
 
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {/* First + Last */}
                     <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Full name</span>
+                      <span className="text-slate-700">First name</span>
                       <input
                         className="rounded-lg border bg-slate-50 px-3 py-2"
-                        value={patient.full_name ?? ""}
+                        value={patient.first_name ?? ""}
                         readOnly
                       />
                     </label>
 
                     <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Phone</span>
+                      <span className="text-slate-700">Last name</span>
                       <input
                         className="rounded-lg border bg-slate-50 px-3 py-2"
-                        value={patient.phone ?? ""}
+                        value={patient.last_name ?? ""}
                         readOnly
                       />
                     </label>
 
+                    {/* DOB + Age */}
                     <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Birth date</span>
-                      <input
-                        className="rounded-lg border bg-slate-50 px-3 py-2"
-                        value={patient.birth_date ?? ""}
-                        readOnly
-                      />
+                      <span className="text-slate-700">Date of birth</span>
+                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.birth_date ?? ""} readOnly />
                     </label>
 
                     <label className="grid gap-1 text-sm">
@@ -1945,13 +1835,21 @@ function printHtml(html: string) {
                       />
                     </label>
 
+                    {/* Gender + Phone */}
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Gender</span>
+                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formatGenderLabel(patient.gender)} readOnly />
+                    </label>
+
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700">Phone number</span>
+                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.phone ?? ""} readOnly />
+                    </label>
+
+                    {/* Address */}
                     <label className="grid gap-1 text-sm sm:col-span-2">
                       <span className="text-slate-700">Address</span>
-                      <input
-                        className="rounded-lg border bg-slate-50 px-3 py-2"
-                        value={patient.address ?? ""}
-                        readOnly
-                      />
+                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.address ?? ""} readOnly />
                     </label>
                   </div>
                 </div>
@@ -1961,90 +1859,22 @@ function printHtml(html: string) {
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     <label className="grid gap-1 text-sm">
                       <span className="text-slate-700">Date</span>
-                      <input
-                        className="rounded-lg border bg-white px-3 py-2"
-                        value={lastVisitDate ? formatDatePH(lastVisitDate) : ""}
-                        readOnly
-                      />
+                      <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitDate ? formatDatePH(lastVisitDate) : ""} readOnly />
                     </label>
 
                     <label className="grid gap-1 text-sm">
                       <span className="text-slate-700">Dentist</span>
-                      <input
-                        className="rounded-lg border bg-white px-3 py-2"
-                        value={lastVisitDentist || ""}
-                        readOnly
-                      />
+                      <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitDentist || ""} readOnly />
                     </label>
 
                     <label className="grid gap-1 text-sm">
                       <span className="text-slate-700">Concern</span>
-                      <input
-                        className="rounded-lg border bg-white px-3 py-2"
-                        value={lastVisitConcern || ""}
-                        readOnly
-                      />
+                      <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitConcern || ""} readOnly />
                     </label>
                   </div>
 
                   <div className="mt-2 text-xs text-slate-500">
                     TODO: Replace “Concern” with appointment/visit chief complaint once scheduling/messenger integration is done.
-                  </div>
-                </div>
-
-              </div>
-            ) : null}
-
-            {tab === "Medical" ? (
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="grid gap-3">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Allergies</span>
-                    <textarea
-                      className="rounded-lg border px-3 py-2"
-                      rows={3}
-                      value={allergies}
-                      onChange={(e) => setAllergies(e.target.value)}
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Medications</span>
-                    <textarea
-                      className="rounded-lg border px-3 py-2"
-                      rows={3}
-                      value={medications}
-                      onChange={(e) => setMedications(e.target.value)}
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Blood pressure</span>
-                    <input
-                      className="rounded-lg border px-3 py-2"
-                      value={bp}
-                      onChange={(e) => setBp(e.target.value)}
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Notes</span>
-                    <textarea
-                      className="rounded-lg border px-3 py-2"
-                      rows={3}
-                      value={medNotes}
-                      onChange={(e) => setMedNotes(e.target.value)}
-                    />
-                  </label>
-
-                  <div className="flex items-center justify-end">
-                    <button
-                      disabled={busy}
-                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      onClick={saveMedical}
-                    >
-                      Save
-                    </button>
                   </div>
                 </div>
               </div>
