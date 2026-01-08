@@ -318,6 +318,44 @@ function Modal({
 }
 
 /* =========================
+   Field
+========================= */
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+  textarea,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  textarea?: boolean;
+}) {
+  return (
+    <label className="grid gap-1 text-sm">
+      <span className="text-slate-700">{label}</span>
+      {textarea ? (
+        <textarea
+          className="min-h-[88px] rounded-lg border px-3 py-2"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+      ) : (
+        <input
+          className="h-10 rounded-lg border px-3"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+      )}
+    </label>
+  );
+}
+
+/* =========================
    Page
 ========================= */
 export default function PatientProfilePage() {
@@ -1664,120 +1702,120 @@ export default function PatientProfilePage() {
                 setDeletePatientText("");
               }}
             >
-              <div className="grid gap-3">
-                {/* First + Last name */}
+              <div className="grid gap-4">
+                {/* R1: Last Name, First Name */}
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">First name</span>
-                    <input
-                      className="rounded-lg border px-3 py-2"
-                      value={editFirstName}
-                      onChange={(e) => setEditFirstName(e.target.value)}
-                      placeholder="First name"
-                    />
-                  </label>
-
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-700">Last name</span>
                     <input
-                      className="rounded-lg border px-3 py-2"
+                      className="h-10 rounded-lg border px-3"
                       value={editLastName}
                       onChange={(e) => setEditLastName(e.target.value)}
                       placeholder="Last name"
                     />
                   </label>
+
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">First name</span>
+                    <input
+                      className="h-10 rounded-lg border px-3"
+                      value={editFirstName}
+                      onChange={(e) => setEditFirstName(e.target.value)}
+                      placeholder="First name"
+                    />
+                  </label>
                 </div>
 
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Phone</span>
-                  <input
-                    className="rounded-lg border px-3 py-2"
-                    value={editPhone}
-                    inputMode="numeric"
-                    placeholder="09XX XXX XXXX"
-                    onChange={(e) => setEditPhone(formatPHPhoneVisible(e.target.value))}
-                  />
-                </label>
+                {/* R2: Birth date, Gender */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Birth date</span>
+                    <input
+                      type="date"
+                      className="h-10 rounded-lg border px-3"
+                      value={editBirthDate}
+                      onChange={(e) => setEditBirthDate(e.target.value)}
+                    />
+                  </label>
 
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Birth date</span>
-                  <input
-                    type="date"
-                    className="rounded-lg border px-3 py-2"
-                    value={editBirthDate}
-                    onChange={(e) => setEditBirthDate(e.target.value)}
-                  />
-                </label>
+                  <div className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Gender</span>
+                    <div className="h-10 rounded-lg border bg-white px-3 flex items-center gap-4">
+                      <label className="inline-flex items-center gap-2">
+                        <input type="radio" name="gender" checked={editGender === "male"} onChange={() => setEditGender("male")} />
+                        <span>Male</span>
+                      </label>
 
-                {/* Gender */}
-                <div className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Gender</span>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="gender"
-                        checked={editGender === "male"}
-                        onChange={() => setEditGender("male")}
-                      />
-                      <span>Male</span>
-                    </label>
-
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="gender"
-                        checked={editGender === "female"}
-                        onChange={() => setEditGender("female")}
-                      />
-                      <span>Female</span>
-                    </label>                  
+                      <label className="inline-flex items-center gap-2">
+                        <input type="radio" name="gender" checked={editGender === "female"} onChange={() => setEditGender("female")} />
+                        <span>Female</span>
+                      </label>
+                    </div>
                   </div>
-
                 </div>
 
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Address</span>
-                  <input
-                    className="rounded-lg border px-3 py-2"
-                    value={editAddress}
-                    onChange={(e) => setEditAddress(e.target.value)}
-                  />
-                </label>
+                {/* R3: Phone number, Address */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Phone number</span>
+                    <input
+                      className="h-10 rounded-lg border px-3"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(formatPHPhoneVisible(e.target.value))}
+                      placeholder="09XX XXX XXXX"
+                      inputMode="numeric"
+                    />
+                  </label>
 
-                <div className="mt-2 flex items-center justify-end gap-2">
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Address</span>
+                    <input
+                      className="h-10 rounded-lg border px-3"
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      placeholder="Address"
+                    />
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
                   <button
-                    className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
-                    onClick={() => setEditOpen(false)}
+                    className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold"
+                    onClick={() => {
+                      setEditOpen(false);
+                      setDeletePatientText("");
+                    }}
+                    disabled={busy}
                   >
                     Cancel
                   </button>
                   <button
-                    disabled={busy}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
                     onClick={savePatientEdits}
+                    disabled={busy}
                   >
                     Save
                   </button>
                 </div>
 
-                {/* Delete inside edit modal */}
-                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
-                  <div className="text-sm font-semibold text-red-700">Danger zone</div>
-                  <div className="mt-1 text-sm text-red-700">To delete this patient, type DELETE and click Delete.</div>
+                {/* Delete section (type to DELETE) */}
+                <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                  <div className="text-sm font-semibold text-rose-800">Delete patient</div>
+                  <div className="mt-1 text-xs text-rose-700">
+                    This will permanently delete this patient and related data. Type DELETE to confirm.
+                  </div>
 
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <input
-                      className="flex-1 rounded-lg border px-3 py-2 text-sm"
-                      placeholder="Type DELETE"
+                      className="h-10 rounded-lg border border-rose-200 bg-white px-3"
                       value={deletePatientText}
                       onChange={(e) => setDeletePatientText(e.target.value)}
+                      placeholder="Type DELETE"
                     />
                     <button
-                      disabled={busy}
-                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      className="h-10 rounded-lg bg-rose-600 px-3 text-sm font-semibold text-white disabled:opacity-60"
                       onClick={deletePatient}
+                      disabled={busy}
                     >
                       Delete
                     </button>
@@ -1879,6 +1917,24 @@ export default function PatientProfilePage() {
                 </div>
               </div>
             ) : null}
+
+              {tab === "Medical" ? (
+                  <div className="grid gap-3">
+                    <Field label="Allergies" value={allergies} onChange={setAllergies} />
+                    <Field label="Medications" value={medications} onChange={setMedications} />
+                    <Field label="Blood pressure" value={bp} onChange={setBp} placeholder="e.g., 120/80" />
+                    <Field label="Notes" value={medNotes} onChange={setMedNotes} textarea />
+                    <div className="flex justify-end">
+                      <button
+                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                        disabled={busy}
+                        onClick={saveMedical}
+                      >
+                        {busy ? "Saving…" : "Save medical history"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
 
             {tab === "Chart" ? (
               <div className="rounded-2xl border bg-white p-4">

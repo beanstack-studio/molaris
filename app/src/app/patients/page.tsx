@@ -105,8 +105,9 @@ export default function PatientsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [gender, setGender] = useState<"" | "MALE" | "FEMALE">("");
+  const [gender, setGender] = useState<"" | "male" | "female">("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -219,9 +220,10 @@ export default function PatientsPage() {
       first_name: fn,
       last_name: ln,
       full_name: full, // keep for compatibility
-      gender: gender || null, // if your column is lowercase in DB, keep your existing normalization elsewhere
+      gender: gender || null,
       phone: normalized.formatted.trim() || null,
       birth_date: birthDate || null,
+      address: safeText(address) || null,
       created_by: userId,
       first_seen_on: new Date().toISOString().slice(0, 10),
     });
@@ -238,6 +240,7 @@ export default function PatientsPage() {
     setLastName("");
     setGender("");
     setPhone("");
+    setAddress("");
     setBirthDate("");
     await loadPatients();
   }
@@ -297,45 +300,26 @@ export default function PatientsPage() {
                 <th className="px-4 py-3 text-left font-medium">Last name</th>
                 <th className="px-4 py-3 text-left font-medium">First name</th>
                 <th className="px-4 py-3 text-left font-medium">Birth date</th>
-                <th className="px-4 py-3 text-left font-medium">Phone number</th>
-                <th className="px-4 py-3 text-left font-medium">Last visit date</th>
+                <th className="px-4 py-3 text-left font-medium">Phone</th>
+                <th className="px-4 py-3 text-left font-medium">Last visit</th>
                 <th className="px-4 py-3 text-right font-medium">Balance</th>
               </tr>
             </thead>
-
             <tbody>
               {filtered.map((p) => (
                 <tr
                   key={p.id}
                   className="cursor-pointer border-t hover:bg-slate-50"
                   onClick={() => router.push(`/patients/${p.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      router.push(`/patients/${p.id}`);
-                    }
-                  }}
-                  tabIndex={0}
-                  role="link"
                 >
-                  <td className="px-4 py-3 font-medium underline decoration-slate-300">
-                    {p.last_name ?? "-"}
-                  </td>
-                  <td className="px-4 py-3">{p.first_name ?? "-"}</td>
-                  <td className="px-4 py-3">{p.birth_date ?? "-"}</td>
-                  <td className="px-4 py-3">{p.phone ?? "-"}</td>
-                  <td className="px-4 py-3">{p.last_visit_date ?? "-"}</td>
-                  <td className="px-4 py-3 text-right">{formatMoney(p.balance ?? 0)}</td>
+                  <td className="px-4 py-3">{p.last_name ?? ""}</td>
+                  <td className="px-4 py-3">{p.first_name ?? ""}</td>
+                  <td className="px-4 py-3">{p.birth_date ?? ""}</td>
+                  <td className="px-4 py-3">{p.phone ?? ""}</td>
+                  <td className="px-4 py-3">{p.last_visit_date ?? ""}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatMoney(p.balance ?? 0)}</td>
                 </tr>
               ))}
-
-              {!loading && filtered.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-6 text-slate-600" colSpan={6}>
-                    No patients found.
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
@@ -346,161 +330,155 @@ export default function PatientsPage() {
             <Link
               key={p.id}
               href={`/patients/${p.id}`}
-              className="block rounded-xl border bg-white p-4 hover:bg-slate-50 active:bg-slate-100"
+              className="rounded-xl border bg-white p-4 shadow-sm hover:bg-slate-50"
             >
-              <div className="font-semibold underline decoration-slate-300">
-                {(p.last_name ?? "").trim()
-                  ? `${p.last_name}, ${p.first_name ?? ""}`.trim()
-                  : p.full_name ?? "—"}
-              </div>
-
-              <div className="mt-2 text-sm text-slate-700">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <span className="text-slate-500">Birth date:</span> {p.birth_date ?? "-"}
+                  <div className="text-base font-semibold">
+                    {(p.last_name ?? "").trim()}, {(p.first_name ?? "").trim()}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-600">
+                    {p.phone ?? "—"} • Last visit: {p.last_visit_date ?? "—"}
+                  </div>
                 </div>
-                <div className="mt-1">
-                  <span className="text-slate-500">Phone:</span> {p.phone ?? "-"}
-                </div>
-                <div className="mt-1">
-                  <span className="text-slate-500">Last visit:</span> {p.last_visit_date ?? "-"}
-                </div>
-                <div className="mt-1">
-                  <span className="text-slate-500">Balance:</span> {formatMoney(p.balance ?? 0)}
+                <div className="text-right">
+                  <div className="text-xs text-slate-600">Balance</div>
+                  <div className="text-sm font-semibold tabular-nums">{formatMoney(p.balance ?? 0)}</div>
                 </div>
               </div>
             </Link>
           ))}
-
-          {!loading && filtered.length === 0 ? (
-            <div className="rounded-xl border bg-white p-4 text-slate-600">No patients found.</div>
-          ) : null}
         </div>
-      </div>
 
-      {/* Add patient modal */}
-      {showAdd ? (
-        <div
-          className="fixed inset-0 flex items-center justify-center bg-black/40 p-4"
-          onDoubleClick={() => setShowAdd(false)}
-        >
+        {showAdd ? (
           <div
-            className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg"
-            onDoubleClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 flex items-center justify-center bg-black/40 p-4"
+            onDoubleClick={() => setShowAdd(false)}
           >
-            <div className="flex items-start justify-between gap-4">
+            <div
+              className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg"
+              onDoubleClick={(e) => e.stopPropagation()}
+            >
               <div>
                 <h2 className="text-lg font-semibold">Add patient</h2>
                 <p className="text-sm text-slate-600">Basic info now, details later</p>
               </div>
-              <button
-                className="rounded-lg border bg-white px-3 py-1 text-sm"
-                onClick={() => setShowAdd(false)}
-              >
-                Close
-              </button>
-            </div>
 
-            <div className="mt-4 grid gap-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium">First name</label>
-                  <input
-                    className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Juan"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium">Last name</label>
-                  <input
-                    className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Dela Cruz"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm font-medium">Gender</div>
-                <div className="mt-2 flex items-center gap-6 text-sm">
-                  <label className="flex items-center gap-2">
+              <div className="mt-4 grid gap-3">
+                {/* R1: Last name, First name */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium">Last name</label>
                     <input
-                      type="radio"
-                      name="gender"
-                      value="MALE"
-                      checked={gender === "MALE"}
-                      onChange={() => setGender("MALE")}
+                      className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Dela Cruz"
                     />
-                    Male
-                  </label>
+                  </div>
 
-                  <label className="flex items-center gap-2">
+                  <div>
+                    <label className="block text-sm font-medium">First name</label>
                     <input
-                      type="radio"
-                      name="gender"
-                      value="FEMALE"
-                      checked={gender === "FEMALE"}
-                      onChange={() => setGender("FEMALE")}
+                      className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Juan"
                     />
-                    Female
-                  </label>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium">Phone</label>
-                  <input
-                    className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                    value={phone}
-                    onChange={(e) => {
-                      const next = normalizePhonePH(e.target.value);
-                      setPhone(next.formatted);
-                    }}
-                    placeholder="09XX XXX XXXX"
-                    inputMode="numeric"
-                  />
-                  <div className="mt-1 text-xs text-slate-500">Format: 09XX XXX XXXX</div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium">Birth date</label>
-                  <input
-                    className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                    type="date"
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
-                  />
+                {/* R2: Birth date, Gender */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium">Birth date</label>
+                    <input
+                      className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                      type="date"
+                      value={birthDate}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-medium">Gender</div>
+                    <div className="mt-2 flex items-center gap-6 text-sm">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="gender"
+                          value="male"
+                          checked={gender === "male"}
+                          onChange={() => setGender("male")}
+                        />
+                        Male
+                      </label>
+
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="gender"
+                          value="female"
+                          checked={gender === "female"}
+                          onChange={() => setGender("female")}
+                        />
+                        Female
+                      </label>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                {/* R3: Phone number, Address */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium">Phone</label>
+                    <input
+                      className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                      value={phone}
+                      onChange={(e) => {
+                        const next = normalizePhonePH(e.target.value);
+                        setPhone(next.formatted);
+                      }}
+                      placeholder="09XX XXX XXXX"
+                      inputMode="numeric"
+                    />
+                    <div className="mt-1 text-xs text-slate-500">Format: 09XX XXX XXXX</div>
+                  </div>
 
-              <div className="mt-2 flex flex-wrap justify-end gap-2">
-                <button
-                  className="h-10 rounded-lg border bg-white px-4 text-sm font-medium"
-                  onClick={() => setShowAdd(false)}
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:opacity-60"
-                  onClick={addPatient}
-                  disabled={
-                    saving || firstName.trim().length < 1 || lastName.trim().length < 1
-                  }
-                >
-                  {saving ? "Saving..." : "Save patient"}
-                </button>
+                  <div>
+                    <label className="block text-sm font-medium">Address</label>
+                    <input
+                      className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Barangay / City"
+                    />
+                  </div>
+                </div>
+
+                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+                <div className="mt-2 flex flex-wrap justify-end gap-2">
+                  <button
+                    className="h-10 rounded-lg border bg-white px-4 text-sm font-medium"
+                    onClick={() => setShowAdd(false)}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:opacity-60"
+                    onClick={addPatient}
+                    disabled={saving || firstName.trim().length < 1 || lastName.trim().length < 1}
+                  >
+                    {saving ? "Saving..." : "Save patient"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </main>
   );
 }
