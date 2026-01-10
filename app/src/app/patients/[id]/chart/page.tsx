@@ -366,11 +366,11 @@ export default function ChartPage() {
               <div className="mt-3 overflow-x-auto">
                 <table className="data-table">
                   <colgroup>
-                    <col style={{ width: 80 }} />
-                    <col style={{ width: 120 }} />
-                    <col style={{ width: 100 }} />
-                    <col />
-                    <col style={{ width: 120 }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "15%" }} />
+                    <col style={{ width: "35%" }} />
+                    <col style={{ width: "20%" }} />
                   </colgroup>
                   <thead className="data-table-head">
                     <tr>

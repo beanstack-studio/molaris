@@ -416,10 +416,10 @@ export default function DocumentsPage() {
                 <div className="mt-3 overflow-x-auto">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: 160 }} />
-                      <col style={{ width: 200 }} />
-                      <col />
-                      <col style={{ width: 120 }} />
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "30%" }} />
+                      <col style={{ width: "30%" }} />
+                      <col style={{ width: "20%" }} />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>

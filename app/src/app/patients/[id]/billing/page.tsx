@@ -477,13 +477,13 @@ export default function BillingPage() {
                 <div className="mt-3">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: 120 }} />
-                      <col style={{ width: 100 }} />
-                      <col style={{ width: 130 }} />
-                      <col style={{ width: 110 }} />
-                      <col style={{ width: 110 }} />
-                      <col style={{ width: 90 }} />
-                      <col style={{ width: 80 }} />
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "10%" }} />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
