@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { initializePaymentModes } from "@/lib/initPaymentModes";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,6 +11,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Initialize payment modes on page load
+    initializePaymentModes();
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +75,17 @@ export default function LoginPage() {
           >
             {busy ? "Signing in..." : "Sign in"}
           </button>
+
+          {/* Dev only: Skip login - REMOVE BEFORE PUSH */}
+          {/*
+          <button
+            className="w-full rounded-lg bg-slate-500 text-white py-2 font-medium mt-2"
+            onClick={() => router.push("/patients")}
+            type="button"
+          >
+            Skip Login (Dev)
+          </button>
+          */}
         </form>
       </div>
     </main>

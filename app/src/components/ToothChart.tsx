@@ -17,10 +17,10 @@ export type ToothStatus =
   | "FILLED"
   | "MISSING"
   | "EXTRACTED"
-  | "RCT"
+  | "ROOT_CANAL"
   | "CROWN"
-  | "IMPLANT"
-  | "DENTURE";
+  | "BRIDGE"
+  | "IMPLANT";
 
 const upperRight = [18, 17, 16, 15, 14, 13, 12, 11];
 const upperLeft = [21, 22, 23, 24, 25, 26, 27, 28];
@@ -29,29 +29,6 @@ const upperLeft = [21, 22, 23, 24, 25, 26, 27, 28];
 // left side of the screen is patient's RIGHT (quadrant 4), then patient's LEFT (quadrant 3)
 const lowerRight = [48, 47, 46, 45, 44, 43, 42, 41];
 const lowerLeft = [31, 32, 33, 34, 35, 36, 37, 38];
-
-function statusLabel(s: ToothStatus) {
-  switch (s) {
-    case "HEALTHY":
-      return "Healthy";
-    case "CARIES":
-      return "Caries";
-    case "FILLED":
-      return "Filled";
-    case "MISSING":
-      return "Missing";
-    case "EXTRACTED":
-      return "Extracted";
-    case "RCT":
-      return "RCT";
-    case "CROWN":
-      return "Crown";
-    case "IMPLANT":
-      return "Implant";
-    case "DENTURE":
-      return "Denture";
-  }
-}
 
 function statusTheme(s: ToothStatus) {
   // More prominent tile themes.
@@ -97,7 +74,7 @@ function statusTheme(s: ToothStatus) {
         halo: "bg-orange-200/70",
       };
 
-    case "RCT":
+    case "ROOT_CANAL":
       return {
         wrap: "bg-indigo-200/80",
         border: "border-indigo-400",
@@ -113,6 +90,14 @@ function statusTheme(s: ToothStatus) {
         halo: "bg-amber-200/70",
       };
 
+    case "BRIDGE":
+      return {
+        wrap: "bg-purple-200/80",
+        border: "border-purple-400",
+        chip: "bg-purple-200 text-purple-950 border-purple-300",
+        halo: "bg-purple-200/70",
+      };
+
     case "IMPLANT":
       return {
         wrap: "bg-cyan-200/80",
@@ -121,12 +106,12 @@ function statusTheme(s: ToothStatus) {
         halo: "bg-cyan-200/70",
       };
 
-    case "DENTURE":
+    default:
       return {
-        wrap: "bg-purple-200/80",
-        border: "border-purple-400",
-        chip: "bg-purple-200 text-purple-950 border-purple-300",
-        halo: "bg-purple-200/70",
+        wrap: "bg-slate-100/80",
+        border: "border-slate-300",
+        chip: "bg-slate-100 text-slate-800 border-slate-200",
+        halo: "bg-slate-100/70",
       };
   }
 }
@@ -145,14 +130,16 @@ function iconTintClass(status: ToothStatus) {
       return "text-slate-500";
     case "EXTRACTED":
       return "text-orange-600";
-    case "RCT":
+    case "ROOT_CANAL":
       return "text-indigo-600";
     case "CROWN":
       return "text-amber-600";
+    case "BRIDGE":
+      return "text-purple-600";
     case "IMPLANT":
       return "text-cyan-600";
-    case "DENTURE":
-      return "text-purple-600";
+    default:
+      return "text-slate-600";
   }
 }
 
@@ -196,10 +183,10 @@ function ToothOcclusalIcon({
       {/* Status marks */}
       {status === "CARIES" ? <circle cx="42" cy="30" r="4" className="fill-rose-500" opacity={0.9} /> : null}
       {status === "FILLED" ? <rect x="28" y="28" width="10" height="10" rx="2" className="fill-emerald-500" opacity={0.9} /> : null}
-      {status === "RCT" ? <path d="M32 22v22" className="stroke-indigo-500" strokeWidth="3.2" /> : null}
+      {status === "ROOT_CANAL" ? <path d="M32 22v22" className="stroke-indigo-500" strokeWidth="3.2" /> : null}
       {status === "CROWN" ? <path d="M22 20h20" className="stroke-amber-500" strokeWidth="4" /> : null}
+      {status === "BRIDGE" ? <path d="M22 32c5-6 15-6 20 0" className="stroke-purple-500" strokeWidth="3.2" /> : null}
       {status === "IMPLANT" ? <path d="M32 24v18m-6 0h12" className="stroke-cyan-600" strokeWidth="3" /> : null}
-      {status === "DENTURE" ? <path d="M22 42c5 6 15 6 20 0" className="stroke-purple-600" strokeWidth="3" /> : null}
       {extracted ? <path d="M22 22l20 20M42 22L22 42" className="stroke-orange-500" strokeWidth="3.2" /> : null}
     </svg>
   );
@@ -327,27 +314,8 @@ export default function ToothChart({
   );
 }
 
-  const legendStatuses: ToothStatus[] = ["HEALTHY","CARIES","FILLED","MISSING","EXTRACTED","RCT","CROWN","IMPLANT","DENTURE"];
-
   return (
     <div className="grid gap-4">
-      <div className="rounded-xl border bg-white p-4">
-        <div className="text-sm font-semibold text-center">Legend</div>
-        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-700 justify-center">
-          {legendStatuses.map((s) => {
-            const theme = statusTheme(s);
-            return (
-              <span key={s} className={["inline-flex items-center rounded-full border px-3 py-1", theme.chip].join(" ")}>
-                {statusLabel(s)}
-              </span>
-            );
-          })}
-          <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 bg-white text-slate-800 border-slate-200">
-            <span className="inline-block h-2 w-2 rounded-full bg-slate-700" /> Has note
-          </span>
-        </div>
-      </div>
-
       {/* Upper: single line */}
       <div className="rounded-xl border bg-slate-50 p-4">
         <div className="text-sm font-semibold text-slate-700">Upper</div>
