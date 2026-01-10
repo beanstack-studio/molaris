@@ -186,6 +186,58 @@
 }
 
 /* =========================
+   Data Tables (Unified new pattern)
+========================= */
+
+.data-table {
+  @apply w-full table-fixed text-sm;
+}
+
+.data-table-head {
+  @apply bg-slate-100 text-slate-700 font-medium;
+}
+
+.data-table-head-cell {
+  @apply px-3 py-3 text-left font-medium;
+}
+
+.data-table-head-cell-right {
+  @apply px-3 py-3 text-right font-medium;
+}
+
+.data-table-row {
+  @apply border-t border-slate-200 hover:bg-slate-50;
+}
+
+.data-table-row-even {
+  @apply bg-white/60;
+}
+
+.data-table-row-odd {
+  @apply bg-slate-50/60;
+}
+
+.data-table-cell {
+  @apply px-3 py-3;
+}
+
+.data-table-cell-right {
+  @apply px-3 py-3 text-right;
+}
+
+.data-table-cell-truncate {
+  @apply px-3 py-3 truncate;
+}
+
+.data-table-empty {
+  @apply px-3 py-6 text-center text-slate-600;
+}
+
+.data-table-btn {
+  @apply text-sm font-medium text-slate-700 hover:text-slate-900 hover:underline cursor-pointer;
+}
+
+/* =========================
    Cards (Global)
 ========================= */
 
