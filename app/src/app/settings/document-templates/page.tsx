@@ -1,15 +1,17 @@
+"use client";
+
 export default function DocumentTemplatesSettingsPage() {
   return (
-    <div className="mx-auto max-w-5xl">
-      <div>
-        <h1 className="text-xl font-semibold">Document Templates</h1>
-        <p className="text-sm text-slate-600">Certificate and receipt templates (with logo).</p>
-      </div>
-
-      <div className="mt-4 rounded-xl border bg-white p-4">
-        <div className="text-sm font-semibold">Coming soon</div>
-        <div className="mt-1 text-sm text-slate-600">
-          We’ll connect this to your document_templates table and add logo support.
+    <div className="space-y-6">
+      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Document Templates</h2>
+        <p className="text-slate-600 mb-6">
+          Manage your certificate and receipt templates, including logo support.
+        </p>
+        
+        <div className="rounded-lg bg-slate-50 border border-slate-200 p-8 text-center">
+          <p className="text-slate-600 font-medium">Coming Soon</p>
+          <p className="text-sm text-slate-500 mt-2">We’ll connect this to your document_templates table and add logo support.</p>
         </div>
       </div>
     </div>

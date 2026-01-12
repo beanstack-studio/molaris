@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Initialize payment modes on page load
-    initializePaymentModes();
+    initializePaymentModes().catch(err => console.error("Payment modes initialization error:", err));
   }, []);
 
   async function onSubmit(e: React.FormEvent) {

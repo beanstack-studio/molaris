@@ -15,10 +15,7 @@ function TogglePill({
 }) {
   return (
     <button
-      onClick={() => {
-        console.log('TogglePill clicked, checked:', checked, 'sending:', !checked);
-        onChange(!checked);
-      }}
+      onClick={() => onChange(!checked)}
       disabled={disabled}
       className={`inline-flex h-6 w-11 items-center rounded-full transition ${
         checked ? "bg-emerald-500" : "bg-slate-300"
@@ -63,7 +60,6 @@ export default function PaymentModesSettingsPage() {
   }
 
   async function toggleActive(id: string, newValue: boolean) {
-    console.log('toggleActive called with id:', id, 'newValue:', newValue);
     setErr(null);
     
     // Optimistically update UI immediately
@@ -76,16 +72,12 @@ export default function PaymentModesSettingsPage() {
       .update({ is_active: newValue })
       .eq("id", id);
 
-    console.log('Supabase update error:', error);
     if (error) {
-      console.error('Update failed:', error.message);
       setErr(error.message);
       // Revert on error
       await loadPaymentModes();
       return;
     }
-
-    console.log('Update successful');
   }
 
   async function startEdit(mode: PaymentMode) {
@@ -137,20 +129,14 @@ export default function PaymentModesSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">Payment Modes</div>
+    <>
+      {err && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {err}
         </div>
-
-        {err && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {err}
-          </div>
-        )}
-
-        <div className="app-section-body">
-          <div className="grid gap-4">
+      )}
+      <div className="p-4">
+        <div className="grid gap-4">
             {/* Payment modes table */}
             <div className="rounded-2xl border bg-white p-4">
               <table className="data-table">
@@ -166,11 +152,21 @@ export default function PaymentModesSettingsPage() {
                 <thead className="data-table-head">
                   <tr>
                     <th className="data-table-head-cell">Name</th>
-                    <th className="data-table-head-cell text-center">Proof</th>
-                    <th className="data-table-head-cell text-center">Reference</th>
-                    <th className="data-table-head-cell text-center">Staff</th>
-                    <th className="data-table-head-cell text-center">Auto-Verify</th>
-                    <th className="data-table-head-cell text-center">Activate</th>
+                    <th className="data-table-head-cell">
+                      <div className="flex items-center justify-center">Proof</div>
+                    </th>
+                    <th className="data-table-head-cell">
+                      <div className="flex items-center justify-center">Reference</div>
+                    </th>
+                    <th className="data-table-head-cell">
+                      <div className="flex items-center justify-center">Staff</div>
+                    </th>
+                    <th className="data-table-head-cell">
+                      <div className="flex items-center justify-center">Auto-Verify</div>
+                    </th>
+                    <th className="data-table-head-cell">
+                      <div className="flex items-center justify-center">Activate</div>
+                    </th>
                     <th className="data-table-head-cell-right">Actions</th>
                   </tr>
                 </thead>
@@ -190,55 +186,65 @@ export default function PaymentModesSettingsPage() {
                         {editingId === mode.id && editData ? (
                           <>
                             <td className="data-table-cell font-semibold">{mode.name}</td>
-                            <td className="data-table-cell text-center">
-                              <input
-                                type="checkbox"
-                                checked={editData.requires_proof || false}
-                                onChange={(e) =>
-                                  setEditData({ ...editData, requires_proof: e.target.checked })
-                                }
-                                disabled={busy}
-                                className="h-4 w-4 rounded"
-                              />
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  checked={editData.requires_proof || false}
+                                  onChange={(e) =>
+                                    setEditData({ ...editData, requires_proof: e.target.checked })
+                                  }
+                                  disabled={busy}
+                                  className="h-4 w-4 rounded"
+                                />
+                              </div>
                             </td>
-                            <td className="data-table-cell text-center">
-                              <input
-                                type="checkbox"
-                                checked={editData.requires_reference || false}
-                                onChange={(e) =>
-                                  setEditData({ ...editData, requires_reference: e.target.checked })
-                                }
-                                disabled={busy}
-                                className="h-4 w-4 rounded"
-                              />
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  checked={editData.requires_reference || false}
+                                  onChange={(e) =>
+                                    setEditData({ ...editData, requires_reference: e.target.checked })
+                                  }
+                                  disabled={busy}
+                                  className="h-4 w-4 rounded"
+                                />
+                              </div>
                             </td>
-                            <td className="data-table-cell text-center">
-                              <input
-                                type="checkbox"
-                                checked={editData.requires_received_by || false}
-                                onChange={(e) =>
-                                  setEditData({ ...editData, requires_received_by: e.target.checked })
-                                }
-                                disabled={busy}
-                                className="h-4 w-4 rounded"
-                              />
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  checked={editData.requires_received_by || false}
+                                  onChange={(e) =>
+                                    setEditData({ ...editData, requires_received_by: e.target.checked })
+                                  }
+                                  disabled={busy}
+                                  className="h-4 w-4 rounded"
+                                />
+                              </div>
                             </td>
-                            <td className="data-table-cell text-center">
-                              <input
-                                type="checkbox"
-                                checked={editData.auto_verifies || false}
-                                onChange={(e) =>
-                                  setEditData({ ...editData, auto_verifies: e.target.checked })
-                                }
-                                disabled={busy}
-                                className="h-4 w-4 rounded"
-                              />
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  checked={editData.auto_verifies || false}
+                                  onChange={(e) =>
+                                    setEditData({ ...editData, auto_verifies: e.target.checked })
+                                  }
+                                  disabled={busy}
+                                  className="h-4 w-4 rounded"
+                                />
+                              </div>
                             </td>
-                            <td className="data-table-cell text-center">
-                              <TogglePill
-                                checked={mode.is_active}
-                                onChange={(newValue) => toggleActive(mode.id, newValue)}
-                              />
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <TogglePill
+                                  checked={mode.is_active}
+                                  onChange={(newValue) => toggleActive(mode.id, newValue)}
+                                />
+                              </div>
                             </td>
                             <td className="data-table-cell-right">
                               <div className="flex gap-2 justify-end">
@@ -262,39 +268,49 @@ export default function PaymentModesSettingsPage() {
                         ) : (
                           <>
                             <td className="data-table-cell font-semibold">{mode.name}</td>
-                            <td className="data-table-cell text-center">
-                              <span
-                                className={`inline-block w-4 h-4 rounded ${
-                                  mode.requires_proof ? "bg-blue-500" : "bg-slate-200"
-                                }`}
-                              ></span>
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <span
+                                  className={`inline-block w-4 h-4 rounded ${
+                                    mode.requires_proof ? "bg-blue-500" : "bg-slate-200"
+                                  }`}
+                                ></span>
+                              </div>
                             </td>
-                            <td className="data-table-cell text-center">
-                              <span
-                                className={`inline-block w-4 h-4 rounded ${
-                                  mode.requires_reference ? "bg-blue-500" : "bg-slate-200"
-                                }`}
-                              ></span>
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <span
+                                  className={`inline-block w-4 h-4 rounded ${
+                                    mode.requires_reference ? "bg-blue-500" : "bg-slate-200"
+                                  }`}
+                                ></span>
+                              </div>
                             </td>
-                            <td className="data-table-cell text-center">
-                              <span
-                                className={`inline-block w-4 h-4 rounded ${
-                                  mode.requires_received_by ? "bg-blue-500" : "bg-slate-200"
-                                }`}
-                              ></span>
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <span
+                                  className={`inline-block w-4 h-4 rounded ${
+                                    mode.requires_received_by ? "bg-blue-500" : "bg-slate-200"
+                                  }`}
+                                ></span>
+                              </div>
                             </td>
-                            <td className="data-table-cell text-center">
-                              <span
-                                className={`inline-block w-4 h-4 rounded ${
-                                  mode.auto_verifies ? "bg-green-500" : "bg-slate-200"
-                                }`}
-                              ></span>
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <span
+                                  className={`inline-block w-4 h-4 rounded ${
+                                    mode.auto_verifies ? "bg-green-500" : "bg-slate-200"
+                                  }`}
+                                ></span>
+                              </div>
                             </td>
-                            <td className="data-table-cell text-center">
-                              <TogglePill
-                                checked={mode.is_active}
-                                onChange={(newValue) => toggleActive(mode.id, newValue)}
-                              />
+                            <td className="data-table-cell">
+                              <div className="flex items-center justify-center">
+                                <TogglePill
+                                  checked={mode.is_active}
+                                  onChange={(newValue) => toggleActive(mode.id, newValue)}
+                                />
+                              </div>
                             </td>
                             <td className="data-table-cell-right">
                               <button
@@ -344,9 +360,8 @@ export default function PaymentModesSettingsPage() {
                 </div>
               </div>
             </div>
-          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

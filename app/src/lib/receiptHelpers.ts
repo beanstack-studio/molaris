@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { getNextReceiptNumber } from "./numberGenerationHelpers";
 
 /**
  * Generate a receipt for a verified payment
@@ -36,22 +37,8 @@ export async function generateReceipt(
     throw new Error("Payment must be verified before issuing receipt");
   }
 
-  // Generate unique receipt number (e.g., RCP-2026-000001)
-  const { data: lastReceipt } = await supabase
-    .from("receipts")
-    .select("receipt_number")
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  let nextNumber = 1;
-  if (lastReceipt && lastReceipt.length > 0) {
-    const lastNum = lastReceipt[0].receipt_number.split("-").pop();
-    nextNumber = (parseInt(lastNum) || 0) + 1;
-  }
-
-  const receiptNumber = `RCP-${new Date().getFullYear()}-${nextNumber
-    .toString()
-    .padStart(6, "0")}`;
+  // Generate sequential receipt number (R26-0001, R26-0002, etc.)
+  const receiptNumber = await getNextReceiptNumber();
 
   // Create immutable snapshot of payment data
   const snapshot = {

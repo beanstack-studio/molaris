@@ -410,20 +410,14 @@ export default function TeamSettingsPage() {
   if (loading) return <LoadingBlock />;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">Team</div>
+    <>
+      {err && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {err}
         </div>
-        
-        {err && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {err}
-          </div>
-        )}
-
-        <div className="app-section-body">
-          <div className="grid gap-4">
+      )}
+      <div className="p-4">
+        <div className="grid gap-4">
             {/* DENTISTS SECTION */}
             <div className="rounded-2xl border bg-white p-4">
               <div className="mb-4 flex items-center justify-between">
@@ -598,7 +592,6 @@ export default function TeamSettingsPage() {
                 </tbody>
               </table>
             </div>
-          </div>
         </div>
       </div>
 
@@ -784,6 +777,6 @@ export default function TeamSettingsPage() {
           </div>
         </div>
       </EditModal>
-    </div>
+    </>
   );
 }

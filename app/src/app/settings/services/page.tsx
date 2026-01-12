@@ -127,23 +127,23 @@ export default function ServicesSettingsPage() {
     if (!name.trim()) return;
 
     setBusy(true);
-    await supabase.from("service_prices").insert({
+    const { error } = await supabase.from("service_prices").insert({
       service_name: name.trim(),
       default_price: Number(price) || 0,
       item_type: itemType,
       is_active: true,
     });
 
+    if (error) {
+      console.error("Add item error:", error);
+      setBusy(false);
+      alert("Failed to add item: " + error.message);
+      return;
+    }
+
     setName("");
     setPrice("");
     await load();
-    setBusy(false);
-  }
-
-  async function toggleActive(id: string, next: boolean) {
-    setBusy(true);
-    await supabase.from("service_prices").update({ is_active: next }).eq("id", id);
-    setRows((p) => p.map((r) => (r.id === id ? { ...r, is_active: next } : r)));
     setBusy(false);
   }
 
@@ -161,18 +161,33 @@ export default function ServicesSettingsPage() {
     setDeleteText("");
   }
 
+  async function toggleActive(id: string, current: boolean) {
+    const next = !current;
+    setBusy(true);
+    await supabase.from("service_prices").update({ is_active: next }).eq("id", id);
+    setRows((p) => p.map((r) => (r.id === id ? { ...r, is_active: next } : r)));
+    setBusy(false);
+  }
+
   async function saveEdit() {
     if (!editRow) return;
     if (!editName.trim()) return;
 
     setBusy(true);
-    await supabase
+    const { error } = await supabase
       .from("service_prices")
       .update({
         service_name: editName.trim(),
         default_price: Number(editPrice) || 0,
       })
       .eq("id", editRow.id);
+
+    if (error) {
+      console.error("Save error:", error);
+      setBusy(false);
+      alert("Failed to save: " + error.message);
+      return;
+    }
 
     await load();
     setBusy(false);
@@ -184,7 +199,23 @@ export default function ServicesSettingsPage() {
     if (deleteText !== "DELETE") return;
 
     setBusy(true);
-    await supabase.from("service_prices").delete().eq("id", editRow.id);
+    console.log("Attempting to delete service with id:", editRow.id);
+    
+    const { error, data } = await supabase
+      .from("service_prices")
+      .delete()
+      .eq("id", editRow.id);
+    
+    console.log("Delete response - error:", error, "data:", data);
+    
+    if (error) {
+      console.error("Delete error:", error);
+      setBusy(false);
+      alert("Failed to delete: " + (error.message || JSON.stringify(error)));
+      return;
+    }
+
+    console.log("Delete successful, reloading list");
     await load();
     setBusy(false);
     closeEdit();
@@ -229,7 +260,7 @@ export default function ServicesSettingsPage() {
             <tr>
               <th className="data-table-head-cell">Name</th>
               <th className="data-table-head-cell-right">Fee</th>
-              <th className="data-table-head-cell">Activate</th>
+              <th className="data-table-head-cell-right">Activate</th>
               <th className="data-table-head-cell-right">Actions</th>
             </tr>
           </thead>
@@ -238,22 +269,26 @@ export default function ServicesSettingsPage() {
               <tr key={r.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                 <td className="data-table-cell">{r.service_name}</td>
                 <td className="data-table-cell-right font-semibold">PHP {Number(r.default_price || 0).toLocaleString()}</td>
-                <td className="data-table-cell">
-                  <TogglePill
-                    checked={r.is_active}
-                    disabled={busy}
-                    onChange={(v) => toggleActive(r.id, v)}
-                  />
+                <td className="data-table-cell-right">
+                  <div className="flex items-center justify-end">
+                    <TogglePill
+                      checked={r.is_active}
+                      disabled={busy}
+                      onChange={(v) => toggleActive(r.id, r.is_active)}
+                    />
+                  </div>
                 </td>
                 <td className="data-table-cell-right">
-                  <button
-                    type="button"
-                    className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    onClick={() => openEdit(r)}
-                    disabled={busy}
-                  >
-                    Edit
-                  </button>
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      onClick={() => openEdit(r)}
+                      disabled={busy}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -271,14 +306,9 @@ export default function ServicesSettingsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">Services</div>
-        </div>
-
-        <div className="app-section-body">
-          <div className="grid gap-4">
+    <>
+      <div className="p-4">
+        <div className="grid gap-4">
             {/* ADD BOX */}
             <div className="rounded-2xl border bg-white p-4">
               <div className="mb-3 text-sm font-semibold text-slate-700">Add a service / add-on</div>
@@ -324,7 +354,8 @@ export default function ServicesSettingsPage() {
 
             <Table title="Services" data={services} />
             <Table title="Add-ons" data={addOns} />
-          </div>
+        </div>
+      </div>
 
       <EditModal
         open={editOpen}
@@ -419,8 +450,6 @@ export default function ServicesSettingsPage() {
           </div>
         )}
       </EditModal>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }

@@ -13,9 +13,10 @@ import type {
   Patient,
   PaymentMode,
 } from "@/lib/types";
-import { formatMoney, formatDatePH, todayLocalISO, combineFullName, splitFullName } from "@/lib/helpers";
+import { formatMoney, formatDatePH, todayLocalISO, combineFullName, splitFullName, generateInvoiceNumber, generateReceiptNumber } from "@/lib/helpers";
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
 import { generateReceipt, voidPayment } from "@/lib/receiptHelpers";
+import { getNextTransactionNumber, getNextInvoiceNumber } from "@/lib/numberGenerationHelpers";
 
 /* Helpers */
 function num(n: unknown) {
@@ -201,7 +202,7 @@ export default function BillingPage() {
     if (invoiceIds.length > 0) {
       const pay = await supabase
         .from("payments")
-        .select("id, invoice_id, patient_id, amount, payment_date, status, reference_number, details, voided_at, voided_by, created_at, invoices(invoice_number)")
+        .select("id, invoice_id, patient_id, transaction_id, amount, payment_date, status, reference_number, details, voided_at, voided_by, created_at, invoices(invoice_number)")
         .in("invoice_id", invoiceIds)
         .order("created_at", { ascending: false });
       
@@ -334,8 +335,11 @@ export default function BillingPage() {
 
     setBusy(true);
 
+    const invoiceNumber = await getNextInvoiceNumber();
+
     const ins = await supabase.from("invoices").insert({
       patient_id: id,
+      invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       total: invoiceTotal,
       status: "unpaid",
@@ -532,9 +536,11 @@ export default function BillingPage() {
         const invoicePaymentAmount = Math.min(balance, remainingAmount);
 
         if (invoicePaymentAmount > 0) {
+          const transactionId = await getNextTransactionNumber();
           paymentRecords.push({
             patient_id: id,
             invoice_id: invoiceId,
+            transaction_id: transactionId,
             amount: invoicePaymentAmount,
             payment_date: paymentDate,
             status,
@@ -585,23 +591,11 @@ export default function BillingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">
-            {patient ? combineFullName(patient.first_name, patient.last_name) || patient.full_name || "" : "Patient Billing"}
-          </div>
-          <button className="btn btn-secondary" onClick={() => window.history.back()}>
-            Back
-          </button>
-        </div>
+    <>
+      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
-        {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
-
-        <div className="app-section-body">
-          <PatientTabs activeTab="Billing" />
-
-          <div className="grid gap-4">
+      <div className="p-4">
+        <div className="grid gap-4">
             {/* Billing Overview (MUST COME FIRST) */}
             <div className="rounded-2xl border bg-white p-4">
                 <div className="text-sm font-semibold">Billing Overview</div>
@@ -741,22 +735,22 @@ export default function BillingPage() {
                 <div className="mt-3">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "13%" }} />
                       <col style={{ width: "12%" }} />
                       <col style={{ width: "14%" }} />
                       <col style={{ width: "16%" }} />
                       <col style={{ width: "11%" }} />
                       <col style={{ width: "16%" }} />
-                      <col style={{ width: "16%" }} />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
+                        <th className="data-table-head-cell">Transaction ID</th>
                         <th className="data-table-head-cell">Invoice #</th>
                         <th className="data-table-head-cell">Date</th>
                         <th className="data-table-head-cell-right">Amount</th>
                         <th className="data-table-head-cell">Mode</th>
                         <th className="data-table-head-cell">Status</th>
-                        <th className="data-table-head-cell">Reference</th>
                         <th className="data-table-head-cell-right">Actions</th>
                       </tr>
                     </thead>
@@ -770,6 +764,7 @@ export default function BillingPage() {
                         
                         return (
                           <tr key={pay.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                            <td className="data-table-cell">{pay.transaction_id || "—"}</td>
                             <td className="data-table-cell">{(pay as any).invoices?.invoice_number ?? "—"}</td>
                             <td className="data-table-cell">{formatDatePH(pay.payment_date)}</td>
                             <td className="data-table-cell-right text-green-700 font-semibold">{formatMoney(pay.amount)}</td>
@@ -780,9 +775,6 @@ export default function BillingPage() {
                               <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statusBadgeColor} ${isVoided ? 'line-through opacity-60' : ''}`}>
                                 {isVoided ? 'voided' : pay.status || 'pending'}
                               </span>
-                            </td>
-                            <td className="data-table-cell">
-                              {pay.details?.reference_number || "—"}
                             </td>
                             <td className="data-table-cell-right">
                               <div className="flex gap-1 justify-end">
@@ -953,7 +945,6 @@ export default function BillingPage() {
             </div>
           </div>
         ) : null}
-        </div>
 
         {/* Add payment modal */}
         {showAddPayment ? (
@@ -1291,6 +1282,6 @@ export default function BillingPage() {
           </div>
         </div>
       ) : null}
-    </main>
+    </>
   );
 }

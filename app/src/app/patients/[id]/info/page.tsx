@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import PatientTabs from "@/components/PatientTabs";
 import { EditModal } from "@/components/EditModal";
 import type { Patient } from "@/lib/types";
 import {
@@ -215,100 +214,73 @@ export default function Page() {
 
   return (
     <>
-    <main className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">{displayFullName}</div>
-          <button className="btn btn-secondary" onClick={() => router.push("/patients")}>
-            Back
-          </button>
-        </div>
+      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
-        {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
-
-        <div className="app-section-body">
-          <PatientTabs activeTab="Info" />
-
-            {/* Content */}
-            <div className="p-4">
-              <div className="grid gap-4">
-                <div className="rounded-xl border bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-slate-800">Patient Information</div>
-                    <button
-                      className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
-                      onClick={() => setEditOpen(true)}
-                    >
-                      Edit
-                    </button>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">First name</span>
-                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.first_name ?? ""} readOnly />
-                    </label>
-
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Last name</span>
-                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.last_name ?? ""} readOnly />
-                    </label>
-
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Phone number</span>
-                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.phone ?? ""} readOnly />
-                    </label>
-
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Date of birth</span>
-                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.birth_date ?? ""} readOnly />
-                    </label>
-
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Age</span>
-                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={calcAge(patient.birth_date)?.toString() ?? ""} readOnly />
-                    </label>
-
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Gender</span>
-                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formatGenderLabel(patient.gender)} readOnly />
-                    </label>
-
-                    <label className="grid gap-1 text-sm sm:col-span-2">
-                      <span className="text-slate-700">Address</span>
-                      <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.address ?? ""} readOnly />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border bg-slate-50 p-4">
-                  <div className="text-sm font-semibold text-slate-800">Last visit</div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Date</span>
-                      <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitDate ? formatDatePH(lastVisitDate) : ""} readOnly />
-                    </label>
-
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Dentist</span>
-                      <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitDentist || ""} readOnly />
-                    </label>
-
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700">Concern</span>
-                      <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitConcern || ""} readOnly />
-                    </label>
-                  </div>
-
-                  <div className="mt-2 text-xs text-slate-500">
-                    TODO: Replace "Concern" with appointment/visit chief complaint once scheduling/messenger integration is done.
-                  </div>
-                </div>
-              </div>
+      <div className="p-4">
+        <div className="grid gap-4">
+          {/* Patient Information Box */}
+          <div className="rounded-xl border bg-white p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-800">Patient Information</div>
+              <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => setEditOpen(true)}>
+                Edit
+              </button>
             </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">First name</span>
+                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.first_name ?? ""} readOnly />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Last name</span>
+                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.last_name ?? ""} readOnly />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Phone number</span>
+                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.phone ?? ""} readOnly />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Date of birth</span>
+                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.birth_date ?? ""} readOnly />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Age</span>
+                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={calcAge(patient.birth_date)?.toString() ?? ""} readOnly />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Gender</span>
+                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formatGenderLabel(patient.gender)} readOnly />
+              </label>
+              <label className="grid gap-1 text-sm sm:col-span-2">
+                <span className="text-slate-700">Address</span>
+                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.address ?? ""} readOnly />
+              </label>
+            </div>
+          </div>
+
+          {/* Last Visit Box */}
+          <div className="rounded-xl border bg-slate-50 p-4">
+            <div className="text-sm font-semibold text-slate-800">Last visit</div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Date</span>
+                <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitDate ? formatDatePH(lastVisitDate) : ""} readOnly />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Dentist</span>
+                <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitDentist || ""} readOnly />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Concern</span>
+                <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitConcern || ""} readOnly />
+              </label>
+            </div>
+            <div className="mt-2 text-xs text-slate-500">
+              TODO: Replace "Concern" with appointment/visit chief complaint once scheduling/messenger integration is done.
+            </div>
+          </div>
         </div>
       </div>
-    </main>
 
       {/* Edit Modal */}
       <EditModal open={editOpen} title="Edit patient" onClose={() => setEditOpen(false)}>

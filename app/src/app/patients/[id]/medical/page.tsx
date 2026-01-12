@@ -130,63 +130,45 @@ export default function Page() {
   const displayFullName = combineFullName(patient.first_name, patient.last_name) || patient.full_name || "";
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">{displayFullName}</div>
-          <button className="btn btn-secondary" onClick={() => router.push("/patients")}>
-            Back
-          </button>
-        </div>
+    <>
+      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
-        {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
-
-        <div className="app-section-body">
-          <PatientTabs activeTab="Medical" />
-
-          {/* Content */}
-          <div className="p-4">
-            <div className="rounded-xl border bg-white p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-800">Medical Information</div>
-                {medHist && (
-                  <button
-                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
-                    onClick={openEdit}
-                  >
-                    Edit
-                  </button>
-                )}
-              </div>
-
-              {!medHist ? (
-                <div className="mt-4 text-sm text-slate-500">No medical history recorded.</div>
-              ) : (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Allergies</span>
-                    <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.allergies ?? ""} readOnly />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Medications</span>
-                    <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.medications ?? ""} readOnly />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Blood Pressure</span>
-                    <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.blood_pressure ?? ""} readOnly />
-                  </label>
-
-                  {medHist.notes && (
-                    <label className="grid gap-1 text-sm sm:col-span-2">
-                      <span className="text-slate-700">Notes</span>
-                      <textarea className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.notes} readOnly />
-                    </label>
-                  )}
-                </div>
+      {/* Content */}
+      <div className="p-4">
+        <div className="grid gap-4">
+          <div className="rounded-xl border bg-white p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-800">Medical Information</div>
+              {medHist && (
+                <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={openEdit}>
+                  Edit
+                </button>
               )}
             </div>
+            {!medHist ? (
+              <div className="mt-4 text-sm text-slate-500">No medical history recorded.</div>
+            ) : (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Allergies</span>
+                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.allergies ?? ""} readOnly />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Medications</span>
+                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.medications ?? ""} readOnly />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Blood Pressure</span>
+                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.blood_pressure ?? ""} readOnly />
+                </label>
+                {medHist.notes && (
+                  <label className="grid gap-1 text-sm sm:col-span-2">
+                    <span className="text-slate-700">Notes</span>
+                    <textarea className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.notes} readOnly />
+                  </label>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -292,6 +274,6 @@ export default function Page() {
           </div>
         </div>
       </EditModal>
-    </main>
+    </>
   );
 }

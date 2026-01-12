@@ -99,14 +99,13 @@ export default function TreatmentsPage() {
     const d = await supabase
       .from("dentists")
       .select("id, full_name")
-      .eq("is_active", true)
       .order("sort_order", { ascending: true })
       .order("full_name", { ascending: true });
     setDentists(!d.error && d.data ? (d.data as DentistRow[]) : []);
 
     const sm = await supabase
       .from("service_prices")
-      .select("id, service_name, default_price, item_type, is_active, sort_order, created_at")
+      .select("id, service_name, default_price, item_type, sort_order, created_at")
       .order("item_type", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("service_name", { ascending: true });
@@ -151,6 +150,10 @@ export default function TreatmentsPage() {
     setTxServiceId("");
     setTxServiceName("");
     setLineNote("");
+  }
+
+  function removeDraftLine(id: string) {
+    setDraftLines((prev) => prev.filter((ln) => ln.id !== id));
   }
 
   async function saveVisit() {
@@ -211,24 +214,11 @@ export default function TreatmentsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">
-            {patient ? combineFullName(patient.first_name, patient.last_name) || patient.full_name || "" : "Patient Treatments"}
-          </div>
-          <button className="btn btn-secondary" onClick={() => window.history.back()}>
-            Back
-          </button>
-        </div>
+    <>
+      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
-        {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
-
-        <div className="app-section-body">
-          <PatientTabs activeTab="Treatments" />
-
-          <div>
-            <div className="grid gap-4">
+      <div className="p-4">
+        <div className="grid gap-4">
               <div className="rounded-2xl border bg-white p-4">
                 <div className="text-sm font-semibold">Add treatment</div>
 
@@ -385,8 +375,6 @@ export default function TreatmentsPage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
       {/* Edit Visit Modal */}
       <EditModal
@@ -546,12 +534,8 @@ export default function TreatmentsPage() {
               </div>
             </div>
           );
-        })()}
+        })()} 
       </EditModal>
-    </main>
+    </>
   );
-
-  function removeDraftLine(lineId: string) {
-    setDraftLines((prev) => prev.filter((x) => x.id !== lineId));
-  }
 }

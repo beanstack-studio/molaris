@@ -1,17 +1,20 @@
+"use client";
+
 export default function ClinicProfileSettingsPage() {
   return (
-    <div className="mx-auto max-w-5xl">
-      <div>
-        <h1 className="text-xl font-semibold">Clinic Profile</h1>
-        <p className="text-sm text-slate-600">Name, address, contact details, logo, and defaults.</p>
-      </div>
-
-      <div className="mt-4 rounded-xl border bg-white p-4">
-        <div className="text-sm font-semibold">Coming soon</div>
-        <div className="mt-1 text-sm text-slate-600">
-          We’ll wire this up to your clinic settings table and use it for templates and receipts.
+    <div className="space-y-6">
+      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Clinic Profile</h2>
+        <p className="text-slate-600 mb-6">
+          Manage your clinic's name, address, contact details, logo, and default settings.
+        </p>
+        
+        <div className="rounded-lg bg-slate-50 border border-slate-200 p-8 text-center">
+          <p className="text-slate-600 font-medium">Coming Soon</p>
+          <p className="text-sm text-slate-500 mt-2">We'll wire this up to your clinic settings table and use it for templates and receipts.</p>
         </div>
       </div>
     </div>
   );
 }
+

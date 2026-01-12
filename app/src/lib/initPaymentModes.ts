@@ -39,7 +39,7 @@ export async function initializePaymentModes() {
         })));
 
       if (insertError) {
-        console.error("Failed to seed payment modes:", insertError);
+        console.error("Failed to seed payment modes:", insertError?.message || JSON.stringify(insertError));
       } else {
         console.log("Payment modes initialized with defaults");
       }

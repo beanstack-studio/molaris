@@ -92,6 +92,7 @@ ALTER TABLE payments ADD COLUMN IF NOT EXISTS details jsonb not null default '{}
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS voided_at timestamptz;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS voided_by uuid;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS void_reason text;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS transaction_id text;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_by uuid default auth.uid();
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at timestamptz default now();
 
@@ -225,6 +226,58 @@ CREATE TRIGGER update_receipts_updated_at
 BEFORE UPDATE ON receipts
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- E) CREATE SEQUENCES FOR SEQUENTIAL NUMBER GENERATION
+-- ============================================================================
+
+-- Create sequences for invoice, transaction, and receipt numbers (start from 1)
+CREATE SEQUENCE IF NOT EXISTS invoice_number_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS transaction_number_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS receipt_number_seq START 1;
+
+-- ============================================================================
+-- E2) CREATE RPC FUNCTIONS FOR SEQUENTIAL NUMBER GENERATION
+-- ============================================================================
+
+-- Function to get next invoice number (I260001, I260002, etc.)
+CREATE OR REPLACE FUNCTION get_next_invoice_number()
+RETURNS text AS $$
+DECLARE
+  seq_val bigint;
+  year_suffix text;
+BEGIN
+  seq_val := nextval('invoice_number_seq');
+  year_suffix := to_char(now(), 'YY'); -- "26" for 2026
+  RETURN 'I' || year_suffix || lpad(seq_val::text, 5, '0');
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get next transaction number (T260001, T260002, etc.)
+CREATE OR REPLACE FUNCTION get_next_transaction_number()
+RETURNS text AS $$
+DECLARE
+  seq_val bigint;
+  year_suffix text;
+BEGIN
+  seq_val := nextval('transaction_number_seq');
+  year_suffix := to_char(now(), 'YY'); -- "26" for 2026
+  RETURN 'T' || year_suffix || lpad(seq_val::text, 5, '0');
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get next receipt number (R260001, R260002, etc.)
+CREATE OR REPLACE FUNCTION get_next_receipt_number()
+RETURNS text AS $$
+DECLARE
+  seq_val bigint;
+  year_suffix text;
+BEGIN
+  seq_val := nextval('receipt_number_seq');
+  year_suffix := to_char(now(), 'YY'); -- "26" for 2026
+  RETURN 'R' || year_suffix || lpad(seq_val::text, 5, '0');
+END;
+$$ LANGUAGE plpgsql;
 
 -- ============================================================================
 -- F) ENABLE RLS ON EXISTING TABLES & ADD POLICIES

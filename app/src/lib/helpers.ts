@@ -106,6 +106,90 @@ export function formatMoney(amount: number) {
   return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(amount);
 }
 
+/**
+ * Generate formatted invoice number: I26-0001, I26-0002, etc.
+ * Note: For proper sequential numbers, call getNextInvoiceNumber() from the page
+ * This fallback generates a deterministic number based on timestamp
+ */
+export function generateInvoiceNumber(): string {
+  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
+  const timestamp = Date.now();
+  const sequence = (timestamp % 10000).toString().padStart(4, "0");
+  return `I${year}-${sequence}`;
+}
+
+/**
+ * Generate formatted transaction number: T26-0001, T26-0002, etc.
+ * Note: For proper sequential numbers, call getNextTransactionNumber() from the page
+ * This fallback generates a deterministic number based on timestamp
+ */
+export function generateTransactionNumber(): string {
+  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
+  const timestamp = Date.now();
+  const sequence = (timestamp % 10000).toString().padStart(4, "0");
+  return `T${year}-${sequence}`;
+}
+
+/**
+ * Generate formatted receipt number: R26-0001, R26-0002, etc.
+ * Note: For proper sequential numbers, call getNextReceiptNumber() from the page
+ * This fallback generates a deterministic number based on timestamp
+ */
+export function generateReceiptNumber(): string {
+  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
+  const timestamp = Date.now();
+  const sequence = (timestamp % 10000).toString().padStart(4, "0");
+  return `R${year}-${sequence}`;
+}
+
+/**
+ * Get next sequential invoice number from database: I26-0001, I26-0002, etc.
+ * Queries the invoices table to get count and generates next number
+ */
+export async function getNextInvoiceNumber(supabaseClient: any): Promise<string> {
+  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
+  
+  const { data, error } = await supabaseClient
+    .from("invoices")
+    .select("id", { count: "exact" });
+  
+  const count = (data?.length || 0) + 1;
+  const sequence = count.toString().padStart(4, "0");
+  return `I${year}-${sequence}`;
+}
+
+/**
+ * Get next sequential transaction number from database: T26-0001, T26-0002, etc.
+ * Queries the payments table to get count and generates next number
+ */
+export async function getNextTransactionNumber(supabaseClient: any): Promise<string> {
+  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
+  
+  const { data, error } = await supabaseClient
+    .from("payments")
+    .select("id", { count: "exact" });
+  
+  const count = (data?.length || 0) + 1;
+  const sequence = count.toString().padStart(4, "0");
+  return `T${year}-${sequence}`;
+}
+
+/**
+ * Get next sequential receipt number from database: R26-0001, R26-0002, etc.
+ * Queries the receipts table to get count and generates next number
+ */
+export async function getNextReceiptNumber(supabaseClient: any): Promise<string> {
+  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
+  
+  const { data, error } = await supabaseClient
+    .from("receipts")
+    .select("id", { count: "exact" });
+  
+  const count = (data?.length || 0) + 1;
+  const sequence = count.toString().padStart(4, "0");
+  return `R${year}-${sequence}`;
+}
+
 export function renderTemplate(template: string, data: Record<string, any>) {
   let html = template;
   for (const [key, value] of Object.entries(data)) {

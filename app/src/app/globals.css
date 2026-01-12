@@ -25,7 +25,7 @@
 }
 
 .app-section-body {
-  @apply bg-white rounded-xl border border-slate-200 p-4;
+  @apply bg-white rounded-xl border border-slate-200;
 }
 
 /* =========================

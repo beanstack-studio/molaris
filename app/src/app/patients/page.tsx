@@ -328,37 +328,38 @@ export default function PatientsPage() {
       </div>
 
       <div className="app-section-body">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <input
-            className="form-input w-full sm:max-w-md bg-white"
-            placeholder="Search by name or phone"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+        <div className="p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <input
+              className="form-input w-full sm:max-w-md bg-white"
+              placeholder="Search by name or phone"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
 
-          <div className="flex items-center gap-3">
-            <div className="text-sm text-slate-600">
-              {loading ? "Loading..." : `${filtered.length} of ${patients.length} patients`}
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-slate-600">
+                {loading ? "Loading..." : `${filtered.length} of ${patients.length} patients`}
+              </div>
+
+              <select
+                className="form-select w-56 bg-white"
+                value={patientSort}
+                onChange={(e) => setPatientSort(e.target.value as PatientSort)}
+              >
+                <option value="LASTNAME_ASC">Last name A–Z</option>
+                <option value="LASTNAME_DESC">Last name Z–A</option>
+                <option value="BALANCE_ASC">Balance low–high</option>
+                <option value="BALANCE_DESC">Balance high–low</option>
+                <option value="LASTVISIT_ASC">Last visit old–new</option>
+                <option value="LASTVISIT_DESC">Last visit new–old</option>
+              </select>
             </div>
-
-            <select
-              className="form-select w-56 bg-white"
-              value={patientSort}
-              onChange={(e) => setPatientSort(e.target.value as PatientSort)}
-            >
-              <option value="LASTNAME_ASC">Last name A–Z</option>
-              <option value="LASTNAME_DESC">Last name Z–A</option>
-              <option value="BALANCE_ASC">Balance low–high</option>
-              <option value="BALANCE_DESC">Balance high–low</option>
-              <option value="LASTVISIT_ASC">Last visit old–new</option>
-              <option value="LASTVISIT_DESC">Last visit new–old</option>
-            </select>
           </div>
-        </div>
 
-        {/* TABLE (desktop) */}
-        {/* TABLE (desktop) */}
-        <div className="mt-4 hidden md:block table-shell">
+          {/* TABLE (desktop) */}
+          {/* TABLE (desktop) */}
+          <div className="mt-4 hidden md:block table-shell">
           <table className="table">
             <thead className="table-head">
               <tr>
@@ -472,6 +473,7 @@ export default function PatientsPage() {
               Next
             </button>
           </div>
+        </div>
         </div>
       </div>
 

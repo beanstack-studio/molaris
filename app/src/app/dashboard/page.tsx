@@ -85,7 +85,9 @@ export default function DashboardPage() {
           voided_at,
           invoice_id,
           patient_id,
-          reference_number
+          transaction_id,
+          reference_number,
+          details
         `)
         .order("payment_date", { ascending: false })
         .limit(100);
@@ -143,8 +145,7 @@ export default function DashboardPage() {
       // Load payment modes with stats
       const { data: paymentModes, error: modesError } = await supabase
         .from("payment_modes")
-        .select("id, code, name, is_active")
-        .eq("is_active", true)
+        .select("id, code, name")
         .order("sort_order", { ascending: true });
 
       if (modesError) throw modesError;
@@ -206,7 +207,10 @@ export default function DashboardPage() {
         invoices: (invoices || []).slice(0, 5),
         payments: (payments || []).slice(0, 5).map((p: any) => ({
           ...p,
-          payment_modes: { name: "Payment", code: "UNKNOWN" },
+          payment_modes: { 
+            name: p.details?.payment_mode_name || "—", 
+            code: p.details?.payment_mode_code || "UNKNOWN" 
+          },
           invoices: { invoice_number: "INV-" + Math.random().toString(36).slice(7).toUpperCase() },
         })),
         patients: (patients || []).slice(0, 5),
@@ -393,14 +397,16 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600">Today's Payments</p>
-                    <p className="text-3xl font-bold text-blue-700">{todayPayments.length}</p>
+                    <p className="text-3xl font-bold text-blue-700">
+                      {formatMoney(
+                        todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+                      )}
+                    </p>
                   </div>
                   <div className="text-4xl">💳</div>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  {formatMoney(
-                    todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
-                  )}
+                  {todayPayments.length} payment{todayPayments.length !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
@@ -473,7 +479,7 @@ export default function DashboardPage() {
                         <thead>
                           <tr className="border-b border-slate-200">
                             <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                              Invoice
+                              Transaction ID
                             </th>
                             <th className="px-4 py-2 text-right font-semibold text-slate-700">
                               Amount
@@ -490,7 +496,7 @@ export default function DashboardPage() {
                           {recent.payments.map((payment) => (
                             <tr key={payment.id} className="hover:bg-slate-50">
                               <td className="px-4 py-2">
-                                {(payment as any).invoices?.invoice_number || "—"}
+                                {payment.transaction_id || "—"}
                               </td>
                               <td className="px-4 py-2 text-right font-semibold">
                                 {formatMoney(payment.amount)}
