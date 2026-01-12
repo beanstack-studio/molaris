@@ -24,14 +24,26 @@ export default function TopNav({
   const [busy, setBusy] = useState(false);
 
   async function signOut() {
+    setBusy(true);
+    console.log("Sign out started");
     try {
-      setBusy(true);
-      await supabase.auth.signOut();
-    } finally {
-      setBusy(false);
-      router.push("/login");
-      router.refresh();
+      console.log("Calling supabase.auth.signOut()");
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Sign out timeout")), 2000)
+      );
+      
+      // Race: whichever completes first
+      await Promise.race([supabase.auth.signOut(), timeoutPromise]);
+      
+      console.log("Supabase signOut successful");
+    } catch (err) {
+      console.error("Sign out error (continuing anyway):", err);
     }
+    console.log("About to redirect to /login");
+    // Use hard redirect to ensure navigation happens
+    window.location.href = "/login";
   }
 
   useEffect(() => {

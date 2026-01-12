@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import TopNav from "@/components/TopNav";
+import TopNavWrapper from "@/components/TopNavWrapper";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <TopNav title="Matira Dental Studio" />
+        <TopNavWrapper />
         {children}
       </body>
     </html>
