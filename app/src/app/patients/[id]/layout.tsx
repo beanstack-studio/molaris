@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import PatientTabs from "@/components/PatientTabs";
 import { combineFullName } from "@/lib/helpers";
@@ -10,8 +10,11 @@ import type { Tab } from "@/lib/types";
 export default function Layout({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const pathname = usePathname();
+  const router = useRouter();
   const patientId = params?.id as string;
   const [patientName, setPatientName] = useState<string>("");
+  const [patientAge, setPatientAge] = useState<number | null>(null);
+  const [patientGender, setPatientGender] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   // Determine active tab from pathname
@@ -36,9 +39,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       if (!patientId) return;
 
       setLoading(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("patients")
-        .select("first_name, last_name, full_name")
+        .select("*")
         .eq("id", patientId)
         .single();
 
@@ -48,6 +51,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           data.full_name ||
           "";
         setPatientName(name);
+        
+        // Calculate age from birth_date
+        if (data.birth_date) {
+          try {
+            const birthDate = new Date(data.birth_date);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+              age--;
+            }
+            setPatientAge(age);
+          } catch (e) {
+            console.error("Error calculating age:", e);
+          }
+        }
+        
+        // Set gender if it exists
+        if (data.gender) {
+          setPatientGender(data.gender);
+        }
+      } else if (error) {
+        console.error("Error loading patient:", error);
       }
 
       setLoading(false);
@@ -62,10 +88,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-50">
       <main className="app-section">
         <div className="app-section-header">
-          <div className="app-section-title">{displayName}</div>
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="app-section-title">{displayName}</div>
+              {(patientAge !== null || patientGender) && (
+                <div className="text-sm text-slate-600">
+                  {patientAge !== null && `${patientAge}`}
+                  {patientAge !== null && patientGender && " "}
+                  {patientGender && patientGender.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+          </div>
           <button
             className="btn btn-secondary"
-            onClick={() => window.history.back()}
+            onClick={() => router.push("/patients")}
           >
             Back
           </button>

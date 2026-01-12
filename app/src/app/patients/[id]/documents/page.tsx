@@ -94,7 +94,7 @@ export default function DocumentsPage() {
 
     const tm = await supabase
       .from("document_templates")
-      .select("id, name, doc_type, content_html")
+      .select("*")
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
     setTemplates(!tm.error && tm.data ? (tm.data as DocTemplate[]) : []);

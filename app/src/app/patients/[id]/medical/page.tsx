@@ -139,9 +139,20 @@ export default function Page() {
           <div className="rounded-xl border bg-white p-4">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-800">Medical Information</div>
-              {medHist && (
+              {medHist ? (
                 <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={openEdit}>
                   Edit
+                </button>
+              ) : (
+                <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => {
+                  setEditAllergies("");
+                  setEditMedications("");
+                  setEditBp("");
+                  setEditNotes("");
+                  setDeleteConfirmationText("");
+                  setEditOpen(true);
+                }}>
+                  Add Medical History
                 </button>
               )}
             </div>

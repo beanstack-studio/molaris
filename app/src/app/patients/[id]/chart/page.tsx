@@ -107,21 +107,26 @@ export default function ChartPage() {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
 
-    const up = await supabase.from("tooth_statuses").upsert(
-      {
-        patient_id: id,
-        tooth_number: selectedTooth,
-        status,
-        note: toothNote.trim() || null,
-        updated_by: userId,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "patient_id,tooth_number" }
-    );
+    const payload = {
+      patient_id: id,
+      tooth_number: selectedTooth,
+      status: status as any,
+      note: toothNote.trim() || null,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    };
+
+    // First, try to delete any existing record
+    await supabase.from("tooth_statuses").delete().eq("patient_id", id).eq("tooth_number", selectedTooth);
+
+    // Then insert the new record
+    const up = await supabase.from("tooth_statuses").insert(payload);
 
     if (up.error) {
+      console.error("Insert error:", up.error);
       setBusy(false);
-      return setErr(up.error.message);
+      setErr(`Error saving status: ${up.error?.message || JSON.stringify(up.error)}`);
+      return;
     }
 
     const surfacesToSave =
@@ -141,7 +146,10 @@ export default function ChartPage() {
     });
 
     setBusy(false);
-    if (hist.error) return setErr(hist.error.message);
+    if (hist.error) {
+      setErr(`Error saving history: ${hist.error?.message || JSON.stringify(hist.error)}`);
+      return;
+    }
 
     if (status !== "CARIES" && status !== "FILLED") setSurfaceSel([]);
     await loadData();
@@ -274,6 +282,7 @@ export default function ChartPage() {
                 entries={chart ?? []}
                 statuses={toothStatuses}
                 selectedTooth={selectedTooth}
+                previewStatus={selectedTooth ? pendingStatus : null}
                 onSelectTooth={(n) => {
                   setSelectedTooth(n);
                   setToothNote(toothStatuses[n]?.note ?? "");
@@ -308,36 +317,36 @@ export default function ChartPage() {
                         "MISSING",
                         "IMPLANT",
                         "CROWN",
-                        "BRIDGE",
-                        "ROOT_CANAL",
+                        "DENTURE",
+                        "RCT",
                         "EXTRACTED",
                       ] as const
                     ).map((status) => {
                       const theme = getStatusTheme(status);
                       const isSelected = pendingStatus === status;
                       const primaryClass = (() => {
-                        if (status === "HEALTHY") return "bg-slate-100 border-slate-200 text-slate-800";
-                        if (status === "CARIES") return "bg-rose-100 border-rose-200 text-rose-800";
-                        if (status === "FILLED") return "bg-emerald-100 border-emerald-200 text-emerald-800";
-                        if (status === "MISSING") return "bg-slate-200 border-slate-300 text-slate-900";
-                        if (status === "EXTRACTED") return "bg-orange-100 border-orange-200 text-orange-800";
-                        if (status === "ROOT_CANAL") return "bg-indigo-100 border-indigo-200 text-indigo-800";
-                        if (status === "CROWN") return "bg-amber-100 border-amber-200 text-amber-800";
-                        if (status === "BRIDGE") return "bg-purple-100 border-purple-200 text-purple-800";
-                        if (status === "IMPLANT") return "bg-cyan-100 border-cyan-200 text-cyan-800";
-                        return "bg-slate-100 border-slate-200 text-slate-800";
+                        if (status === "HEALTHY") return "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200 hover:border-slate-400 hover:shadow-sm";
+                        if (status === "CARIES") return "bg-rose-100 border-rose-300 text-rose-800 hover:bg-rose-200 hover:border-rose-400 hover:shadow-sm";
+                        if (status === "FILLED") return "bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200 hover:border-emerald-400 hover:shadow-sm";
+                        if (status === "MISSING") return "bg-slate-200 border-slate-400 text-slate-800 hover:bg-slate-300 hover:border-slate-500 hover:shadow-sm";
+                        if (status === "EXTRACTED") return "bg-orange-100 border-orange-300 text-orange-800 hover:bg-orange-200 hover:border-orange-400 hover:shadow-sm";
+                        if (status === "RCT") return "bg-indigo-100 border-indigo-300 text-indigo-800 hover:bg-indigo-200 hover:border-indigo-400 hover:shadow-sm";
+                        if (status === "CROWN") return "bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200 hover:border-amber-400 hover:shadow-sm";
+                        if (status === "DENTURE") return "bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-200 hover:border-purple-400 hover:shadow-sm";
+                        if (status === "IMPLANT") return "bg-cyan-100 border-cyan-300 text-cyan-800 hover:bg-cyan-200 hover:border-cyan-400 hover:shadow-sm";
+                        return "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200 hover:border-slate-400 hover:shadow-sm";
                       })();
-                      const hoverClass = (() => {
-                        if (status === "HEALTHY") return "hover:bg-slate-150 hover:border-slate-300";
-                        if (status === "CARIES") return "hover:bg-rose-150 hover:border-rose-300";
-                        if (status === "FILLED") return "hover:bg-emerald-150 hover:border-emerald-300";
-                        if (status === "MISSING") return "hover:bg-slate-250 hover:border-slate-350";
-                        if (status === "EXTRACTED") return "hover:bg-orange-150 hover:border-orange-300";
-                        if (status === "ROOT_CANAL") return "hover:bg-indigo-150 hover:border-indigo-300";
-                        if (status === "CROWN") return "hover:bg-amber-150 hover:border-amber-300";
-                        if (status === "BRIDGE") return "hover:bg-purple-150 hover:border-purple-300";
-                        if (status === "IMPLANT") return "hover:bg-cyan-150 hover:border-cyan-300";
-                        return "hover:bg-slate-150 hover:border-slate-300";
+                      const selectedClass = (() => {
+                        if (status === "HEALTHY") return "bg-slate-800 border-slate-900 text-white shadow-lg ring-2 ring-slate-300";
+                        if (status === "CARIES") return "bg-rose-600 border-rose-700 text-white shadow-lg ring-2 ring-rose-200";
+                        if (status === "FILLED") return "bg-emerald-600 border-emerald-700 text-white shadow-lg ring-2 ring-emerald-200";
+                        if (status === "MISSING") return "bg-slate-700 border-slate-800 text-white shadow-lg ring-2 ring-slate-200";
+                        if (status === "EXTRACTED") return "bg-orange-600 border-orange-700 text-white shadow-lg ring-2 ring-orange-200";
+                        if (status === "RCT") return "bg-indigo-600 border-indigo-700 text-white shadow-lg ring-2 ring-indigo-200";
+                        if (status === "CROWN") return "bg-amber-600 border-amber-700 text-white shadow-lg ring-2 ring-amber-200";
+                        if (status === "DENTURE") return "bg-purple-600 border-purple-700 text-white shadow-lg ring-2 ring-purple-200";
+                        if (status === "IMPLANT") return "bg-cyan-600 border-cyan-700 text-white shadow-lg ring-2 ring-cyan-200";
+                        return "bg-slate-800 border-slate-900 text-white shadow-lg ring-2 ring-slate-300";
                       })();
                       return (
                         <button
@@ -345,8 +354,8 @@ export default function ChartPage() {
                           type="button"
                           onClick={() => setPendingStatus(status)}
                           className={[
-                            "rounded-lg border px-2 py-1 text-xs font-semibold transition-colors",
-                            isSelected ? theme.chip : [primaryClass, hoverClass].join(" "),
+                            "rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200",
+                            isSelected ? selectedClass : primaryClass,
                           ].join(" ")}
                         >
                           {status.replace("_", " ")}

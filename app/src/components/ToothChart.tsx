@@ -17,10 +17,10 @@ export type ToothStatus =
   | "FILLED"
   | "MISSING"
   | "EXTRACTED"
-  | "ROOT_CANAL"
+  | "RCT"
   | "CROWN"
-  | "BRIDGE"
-  | "IMPLANT";
+  | "IMPLANT"
+  | "DENTURE";
 
 // Permanent dentition (PDA/ISO 3950)
 const permUpperRight = [18, 17, 16, 15, 14, 13, 12, 11];
@@ -42,11 +42,11 @@ function statusBackgroundColor(s: ToothStatus): string {
       return "#86efac"; // emerald-300
     case "EXTRACTED":
       return "#fed7aa"; // orange-300
-    case "ROOT_CANAL":
+    case "RCT":
       return "#c4b5fd"; // indigo-300
     case "CROWN":
       return "#fcd34d"; // amber-300
-    case "BRIDGE":
+    case "DENTURE":
       return "#d8b4fe"; // purple-300
     case "IMPLANT":
       return "#a5f3fc"; // cyan-300
@@ -99,7 +99,7 @@ function statusTheme(s: ToothStatus) {
         halo: "bg-orange-200/70",
       };
 
-    case "ROOT_CANAL":
+    case "RCT":
       return {
         wrap: "bg-indigo-200/80",
         border: "border-indigo-400",
@@ -115,7 +115,7 @@ function statusTheme(s: ToothStatus) {
         halo: "bg-amber-200/70",
       };
 
-    case "BRIDGE":
+    case "DENTURE":
       return {
         wrap: "bg-purple-200/80",
         border: "border-purple-400",
@@ -155,11 +155,11 @@ function iconTintClass(status: ToothStatus) {
       return "text-slate-500";
     case "EXTRACTED":
       return "text-orange-600";
-    case "ROOT_CANAL":
+    case "RCT":
       return "text-indigo-600";
     case "CROWN":
       return "text-amber-600";
-    case "BRIDGE":
+    case "DENTURE":
       return "text-purple-600";
     case "IMPLANT":
       return "text-cyan-600";
@@ -185,7 +185,7 @@ function ToothOcclusalIcon({
     <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
       {/* Status background - visible for non-healthy teeth */}
       {showBackground && status !== "HEALTHY" && status !== "MISSING" ? (
-        <rect x="10" y="10" width="44" height="44" rx="4" fill={statusBackgroundColor(status)} opacity="0.6" />
+        <rect x="10" y="10" width="44" height="44" rx="4" fill={statusBackgroundColor(status)} opacity="0.65" />
       ) : null}
       {/* Surface outline square */}
       <rect
@@ -207,10 +207,10 @@ function ToothOcclusalIcon({
       {/* Corner pits */}
       <circle cx="18" cy="18" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.3} />\n      <circle cx="46" cy="18" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.3} />\n      <circle cx="18" cy="46" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.3} />\n      <circle cx="46" cy="46" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.3} />\n      {/* Status marks */}
       {status === "CARIES" ? <circle cx="32" cy="32" r="6" className="fill-rose-500" opacity={0.9} /> : null}
-      {status === "FILLED" ? <rect x="22" y="22" width="20" height="20" rx="2" className="fill-emerald-500" opacity={0.9} /> : null}
-      {status === "ROOT_CANAL" ? <path d="M32 12v40" className="stroke-indigo-500" strokeWidth="3" /> : null}
-      {status === "CROWN" ? <path d="M12 18h40" className="stroke-amber-500" strokeWidth="3" /> : null}
-      {status === "BRIDGE" ? <path d="M12 32h40" className="stroke-purple-500" strokeWidth="3" /> : null}
+      {status === "FILLED" ? <rect x="18" y="18" width="28" height="28" rx="3" className="fill-emerald-500" opacity={0.9} /> : null}
+      {status === "RCT" ? <path d="M32 12v40" className="stroke-indigo-500" strokeWidth="3" /> : null}
+      {status === "CROWN" ? <path d="M12 16h40" className="stroke-amber-500" strokeWidth="3" /> : null}
+      {status === "DENTURE" ? <path d="M12 32h40" className="stroke-purple-500" strokeWidth="3" /> : null}
       {status === "IMPLANT" ? <path d="M32 12v40m-8-20h16" className="stroke-cyan-600" strokeWidth="2.5" /> : null}
     </svg>
   );
@@ -248,7 +248,7 @@ function ToothOcclusalIconPrimary({
               Z
             "
             fill={statusBackgroundColor(status)}
-            opacity="0.5"
+            opacity="0.65"
           />
         </g>
       ) : null}
@@ -293,10 +293,10 @@ function ToothOcclusalIconPrimary({
 
       {/* Status marks */}
       {status === "CARIES" ? <circle cx="50" cy="50" r="10" className="fill-rose-500" opacity={0.9} /> : null}
-      {status === "FILLED" ? <circle cx="50" cy="50" r="12" className="fill-emerald-500" opacity={0.9} /> : null}
-      {status === "ROOT_CANAL" ? <path d="M50 15v70" className="stroke-indigo-500" strokeWidth="5" /> : null}
-      {status === "CROWN" ? <path d="M15 30h70" className="stroke-amber-500" strokeWidth="5" /> : null}
-      {status === "BRIDGE" ? <path d="M15 50h70" className="stroke-purple-500" strokeWidth="5" /> : null}
+      {status === "FILLED" ? <rect x="30" y="30" width="40" height="40" rx="4" className="fill-emerald-500" opacity={0.9} /> : null}
+      {status === "RCT" ? <path d="M50 15v70" className="stroke-indigo-500" strokeWidth="5" /> : null}
+      {status === "CROWN" ? <path d="M15 25h70" className="stroke-amber-500" strokeWidth="5" /> : null}
+      {status === "DENTURE" ? <path d="M15 50h70" className="stroke-purple-500" strokeWidth="5" /> : null}
       {status === "IMPLANT" ? <path d="M50 15v70m-12-35h24" className="stroke-cyan-600" strokeWidth="4" /> : null}
     </svg>
   );
@@ -334,7 +334,7 @@ function ToothOcclusalIconSecondary({
               Z
             "
             fill={statusBackgroundColor(status)}
-            opacity="0.5"
+            opacity="0.65"
           />
         </g>
       ) : null}
@@ -381,10 +381,10 @@ function ToothOcclusalIconSecondary({
 
       {/* Status marks */}
       {status === "CARIES" ? <circle cx="50" cy="50" r="10" className="fill-rose-500" opacity={0.9} /> : null}
-      {status === "FILLED" ? <rect x="35" y="35" width="30" height="30" rx="3" className="fill-emerald-500" opacity={0.9} /> : null}
-      {status === "ROOT_CANAL" ? <path d="M50 15v70" className="stroke-indigo-500" strokeWidth="5" /> : null}
-      {status === "CROWN" ? <path d="M15 30h70" className="stroke-amber-500" strokeWidth="5" /> : null}
-      {status === "BRIDGE" ? <path d="M15 50h70" className="stroke-purple-500" strokeWidth="5" /> : null}
+      {status === "FILLED" ? <rect x="30" y="30" width="40" height="40" rx="4" className="fill-emerald-500" opacity={0.9} /> : null}
+      {status === "RCT" ? <path d="M50 15v70" className="stroke-indigo-500" strokeWidth="5" /> : null}
+      {status === "CROWN" ? <path d="M15 25h70" className="stroke-amber-500" strokeWidth="5" /> : null}
+      {status === "DENTURE" ? <path d="M15 50h70" className="stroke-purple-500" strokeWidth="5" /> : null}
       {status === "IMPLANT" ? <path d="M50 15v70m-12-35h24" className="stroke-cyan-600" strokeWidth="4" /> : null}
     </svg>
   );
@@ -462,11 +462,13 @@ export default function ToothChart({
   entries,
   statuses,
   selectedTooth,
+  previewStatus,
   onSelectTooth,
 }: {
   entries: ChartEntryLite[];
   statuses: Record<number | string, { status: ToothStatus; note: string | null; updated_at?: string }>;
   selectedTooth: number | string | null;
+  previewStatus?: ToothStatus | null;
   onSelectTooth: (tooth: number | string) => void;
 }) {
   const counts = useMemo(() => {
@@ -479,7 +481,11 @@ export default function ToothChart({
     // Check if this tooth has any entries in history
     const hasEntries = counts.get(t) ?? 0 > 0;
     // If no entries, force HEALTHY status; otherwise use stored status
-    const s = hasEntries ? (statuses[t]?.status ?? "HEALTHY") : "HEALTHY";
+    let s = hasEntries ? (statuses[t]?.status ?? "HEALTHY") : "HEALTHY";
+    // Override with preview status if this tooth is selected
+    if (selectedTooth === t && previewStatus) {
+      s = previewStatus;
+    }
     const note = statuses[t]?.note ?? null;
     const jaw: "upper" | "lower" = 
       typeof t === "number" 

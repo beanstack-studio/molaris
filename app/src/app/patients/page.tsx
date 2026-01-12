@@ -93,6 +93,11 @@ export default function PatientsPage() {
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
 
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
+
   // Add patient form
   const [showAdd, setShowAdd] = useState(false);
   const [firstName, setFirstName] = useState("");
