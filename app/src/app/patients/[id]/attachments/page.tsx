@@ -202,140 +202,123 @@ export default function AttachmentsPage() {
 
   return (
     <>
-    <main className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">
-            {patient ? combineFullName(patient.first_name, patient.last_name) || patient.full_name || "" : "Patient Attachments"}
+      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+
+      <div className="p-4">
+        <div className="grid gap-4">
+          <div className="rounded-xl border bg-white p-4">
+            <div className="text-sm font-semibold">Upload attachment</div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Type</span>
+                <select
+                  className="h-10 rounded-lg border bg-white px-3"
+                  value={uploadType}
+                  onChange={(e) => setUploadType(e.target.value as AttachmentType)}
+                >
+                  <option value="">Select type</option>
+                  {attachmentTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">File</span>
+                <input
+                  type="file"
+                  className="h-10 rounded-lg border bg-white px-3 py-2 text-sm"
+                  onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
+                />
+              </label>
+
+              <div className="flex items-end">
+                <button
+                  className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                  disabled={busy || !uploadType || !fileToUpload}
+                  onClick={uploadAttachment}
+                >
+                  {busy ? "Uploading…" : "Upload"}
+                </button>
+              </div>
+            </div>
           </div>
-          <button className="btn btn-secondary" onClick={() => window.history.back()}>
-            Back
-          </button>
-        </div>
 
-        {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+          <div className="rounded-xl border bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm font-semibold">Attachments</div>
 
-        <div className="app-section-body">
-          <PatientTabs activeTab="Attachments" />
+              <select
+                className="h-9 w-40 rounded-lg border bg-white px-2 text-sm"
+                value={attachmentSort}
+                onChange={(e) => setAttachmentSort(e.target.value as any)}
+              >
+                <option value="DATE_DESC">Newest</option>
+                <option value="DATE_ASC">Oldest</option>
+                <option value="NAME_ASC">Name A–Z</option>
+              </select>
+            </div>
 
-          <div>
-            <div className="grid gap-4">
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="text-sm font-semibold">Upload attachment</div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Type</span>
-                    <select
-                      className="h-10 rounded-lg border bg-white px-3"
-                      value={uploadType}
-                      onChange={(e) => setUploadType(e.target.value as AttachmentType)}
-                    >
-                      <option value="">Select type</option>
-                      {attachmentTypes.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">File</span>
-                    <input
-                      type="file"
-                      className="h-10 rounded-lg border bg-white px-3 py-2 text-sm"
-                      onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
-
-                  <div className="flex items-end">
-                    <button
-                      className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                      disabled={busy || !uploadType || !fileToUpload}
-                      onClick={uploadAttachment}
-                    >
-                      {busy ? "Uploading…" : "Upload"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-sm font-semibold">Attachments</div>
-
-                  <select
-                    className="h-9 w-40 rounded-lg border bg-white px-2 text-sm"
-                    value={attachmentSort}
-                    onChange={(e) => setAttachmentSort(e.target.value as any)}
-                  >
-                    <option value="DATE_DESC">Newest</option>
-                    <option value="DATE_ASC">Oldest</option>
-                    <option value="NAME_ASC">Name A–Z</option>
-                  </select>
-                </div>
-
-                <div className="mt-3 overflow-x-auto">
-                  <table className="data-table">
-                    <colgroup>
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "50%" }} />
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "20%" }} />
-                    </colgroup>
-                    <thead className="data-table-head">
-                      <tr>
-                        <th className="data-table-head-cell">Type</th>
-                        <th className="data-table-head-cell">File</th>
-                        <th className="data-table-head-cell">Date</th>
-                        <th className="data-table-head-cell-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayedAttachments.map((a, index) => (
-                        <tr key={a.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                          <td className="data-table-cell">{a.type}</td>
-                          <td className="data-table-cell">
-                            <div className="truncate">
-                              {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
-                            </div>
-                          </td>
-                          <td className="data-table-cell">{formatDatePH(a.created_at)}</td>
-                          <td className="data-table-cell-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                className="data-table-btn"
-                                onClick={() => openAttachment(a)}
-                              >
-                                Open
-                              </button>
-                              <button
-                                className="data-table-btn"
-                                onClick={() => openEditModal(a)}
-                              >
-                                Edit
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {displayedAttachments.length === 0 ? (
-                        <tr>
-                          <td className="data-table-empty" colSpan={4}>
-                            No attachments yet.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            <div className="mt-3 overflow-x-auto">
+              <table className="data-table">
+                <colgroup>
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "50%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "20%" }} />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Type</th>
+                    <th className="data-table-head-cell">File</th>
+                    <th className="data-table-head-cell">Date</th>
+                    <th className="data-table-head-cell-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedAttachments.map((a, index) => (
+                    <tr key={a.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                      <td className="data-table-cell">{a.type}</td>
+                      <td className="data-table-cell">
+                        <div className="truncate">
+                          {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
+                        </div>
+                      </td>
+                      <td className="data-table-cell">{formatDatePH(a.created_at)}</td>
+                      <td className="data-table-cell-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            className="data-table-btn"
+                            onClick={() => openAttachment(a)}
+                          >
+                            Open
+                          </button>
+                          <button
+                            className="data-table-btn"
+                            onClick={() => openEditModal(a)}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {displayedAttachments.length === 0 ? (
+                    <tr>
+                      <td className="data-table-empty" colSpan={4}>
+                        No attachments yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       </div>
-    </main>
 
       {showEditModal && editingAttachment ? (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50" onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}>

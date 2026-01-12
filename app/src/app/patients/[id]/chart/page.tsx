@@ -261,44 +261,38 @@ export default function ChartPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">
-            {patient ? combineFullName(patient.first_name, patient.last_name) || patient.full_name || "" : "Patient Chart"}
-          </div>
-          <button className="btn btn-secondary" onClick={() => window.history.back()}>
-            Back
-          </button>
-        </div>
+    <>
+      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
-        {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+      <div className="p-4">
+        <div className="grid gap-4">
+          <div className="rounded-xl border bg-white p-4">
+            <div className="text-sm font-semibold">Tooth chart</div>
 
-        <div className="app-section-body">
-          <PatientTabs activeTab="Chart" />
+            <div className="mt-4">
+              <ToothChart
+                entries={chart ?? []}
+                statuses={toothStatuses}
+                selectedTooth={selectedTooth}
+                onSelectTooth={(n) => {
+                  setSelectedTooth(n);
+                  setToothNote(toothStatuses[n]?.note ?? "");
+                  setPendingStatus(toothStatuses[n]?.status ?? "HEALTHY");
+                  setSurfaceSel([]);
+                  setFindingDetail("");
+                }}
+              />
+            </div>
 
-          <div>
-            <ToothChart
-              entries={chart ?? []}
-              statuses={toothStatuses}
-              selectedTooth={selectedTooth}
-              onSelectTooth={(n) => {
-                setSelectedTooth(n);
-                setToothNote(toothStatuses[n]?.note ?? "");
-                setPendingStatus(toothStatuses[n]?.status ?? "HEALTHY");
-                setSurfaceSel([]);
-                setFindingDetail("");
-              }}
-            />
 
-            <div className="mt-4 rounded-xl border bg-slate-50 p-3">
-              <div className="flex items-center justify-center">
-                <div className="text-sm font-semibold">Tooth tools</div>
-              </div>
+          <div className="mt-4 rounded-xl border bg-white p-4">
+            <div className="flex items-center justify-start">
+              <div className="text-sm font-semibold">Tooth tools</div>
+            </div>
 
-              <div className="mt-2 text-center text-sm text-slate-700">
-                Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
-              </div>
+            <div className="mt-2 text-left text-sm text-slate-700">
+              Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
+            </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4">
                 {/* LEFT COLUMN - Add/Update Status */}
@@ -468,7 +462,7 @@ export default function ChartPage() {
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border bg-white p-4">
+            <div className="mt-4 rounded-xl border bg-white p-4">
               <div className="text-sm font-semibold">Chart history</div>
 
               <div className="mt-3 overflow-x-auto">
@@ -611,6 +605,6 @@ export default function ChartPage() {
           </div>
         </div>
       ) : null}
-    </main>
+    </>
   );
 }

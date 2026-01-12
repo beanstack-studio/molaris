@@ -203,274 +203,259 @@ export default function DocumentsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">
-            {patient ? combineFullName(patient.first_name, patient.last_name) || patient.full_name || "" : "Patient Documents"}
+    <>
+      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+
+      <div className="p-4">
+        <div className="grid gap-4">
+          <div className="rounded-xl border bg-white p-4">
+            <div className="text-sm font-semibold">Generate document</div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Template</span>
+                <select
+                  className="h-10 rounded-lg border bg-white px-3"
+                  value={selectedTemplateId}
+                  onChange={(e) => {
+                    const tmpl = templates.find((t) => t.id === e.target.value);
+                    setSelectedTemplateId(e.target.value);
+                    if (tmpl) setPreviewHtml(renderTemplate(tmpl.content_html, {}));
+                  }}
+                >
+                  <option value="">Select template</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Visit date</span>
+                <input
+                  type="date"
+                  className="h-10 rounded-lg border px-3"
+                  value={docVisitDate}
+                  onChange={(e) => setDocVisitDate(e.target.value)}
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Dentist</span>
+                <select
+                  className="h-10 rounded-lg border bg-white px-3"
+                  value={docDentistId}
+                  onChange={(e) => setDocDentistId(e.target.value)}
+                >
+                  <option value="">Select dentist</option>
+                  {dentists.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.full_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Receipt #</span>
+                <input
+                  className="h-10 rounded-lg border px-3"
+                  value={docReceiptNo}
+                  onChange={(e) => setDocReceiptNo(e.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Payment method</span>
+                <input
+                  className="h-10 rounded-lg border px-3"
+                  value={docPaymentMethod}
+                  onChange={(e) => setDocPaymentMethod(e.target.value)}
+                  placeholder="e.g., Cash"
+                />
+              </label>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Items</span>
+                <input
+                  className="h-10 rounded-lg border px-3"
+                  value={docItems}
+                  onChange={(e) => setDocItems(e.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Amount paid</span>
+                <input
+                  className="h-10 rounded-lg border px-3"
+                  value={docAmountPaid}
+                  onChange={(e) => setDocAmountPaid(e.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Balance</span>
+                <input
+                  className="h-10 rounded-lg border px-3"
+                  value={docBalance}
+                  onChange={(e) => setDocBalance(e.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Findings</span>
+                <textarea
+                  className="min-h-[88px] rounded-lg border px-3 py-2"
+                  value={docFindings}
+                  onChange={(e) => setDocFindings(e.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Treatment done</span>
+                <textarea
+                  className="min-h-[88px] rounded-lg border px-3 py-2"
+                  value={docTreatmentDone}
+                  onChange={(e) => setDocTreatmentDone(e.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Remarks</span>
+                <textarea
+                  className="min-h-[88px] rounded-lg border px-3 py-2"
+                  value={docRemarks}
+                  onChange={(e) => setDocRemarks(e.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Issued by</span>
+                <input
+                  className="h-10 rounded-lg border px-3"
+                  value={docIssuedBy}
+                  onChange={(e) => setDocIssuedBy(e.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                disabled={busy}
+                onClick={generateDocument}
+              >
+                Generate
+              </button>
+
+              <button
+                className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold disabled:opacity-60"
+                disabled={!previewHtml}
+                onClick={() => {
+                  if (previewHtml) printHtml(previewHtml);
+                }}
+              >
+                Print
+              </button>
+            </div>
+
+            {/* Preview */}
+            <div className="mt-3 rounded-xl border bg-white p-3">
+              {previewHtml ? (
+                <div
+                  className="prose max-w-none"
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              ) : null}
+            </div>
           </div>
-          <button className="btn btn-secondary" onClick={() => window.history.back()}>
-            Back
-          </button>
-        </div>
 
-        {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+          {/* Generated documents */}
+          <div className="rounded-xl border bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm font-semibold">Generated documents</div>
 
-        <div className="app-section-body">
-          <PatientTabs activeTab="Documents" />
+              <select
+                className="h-9 w-40 rounded-lg border bg-white px-2 text-sm"
+                value={docSort}
+                onChange={(e) => setDocSort(e.target.value as any)}
+              >
+                <option value="DATE_DESC">Newest</option>
+                <option value="DATE_ASC">Oldest</option>
+                <option value="TYPE_ASC">Type A–Z</option>
+              </select>
+            </div>
 
-          <div>
-            <div className="grid gap-4">
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="text-sm font-semibold">Generate document</div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Template</span>
-                    <select
-                      className="h-10 rounded-lg border bg-white px-3"
-                      value={selectedTemplateId}
-                      onChange={(e) => {
-                        const tmpl = templates.find((t) => t.id === e.target.value);
-                        setSelectedTemplateId(e.target.value);
-                        if (tmpl) setPreviewHtml(renderTemplate(tmpl.content_html, {}));
-                      }}
-                    >
-                      <option value="">Select template</option>
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Visit date</span>
-                    <input
-                      type="date"
-                      className="h-10 rounded-lg border px-3"
-                      value={docVisitDate}
-                      onChange={(e) => setDocVisitDate(e.target.value)}
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Dentist</span>
-                    <select
-                      className="h-10 rounded-lg border bg-white px-3"
-                      value={docDentistId}
-                      onChange={(e) => setDocDentistId(e.target.value)}
-                    >
-                      <option value="">Select dentist</option>
-                      {dentists.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Receipt #</span>
-                    <input
-                      className="h-10 rounded-lg border px-3"
-                      value={docReceiptNo}
-                      onChange={(e) => setDocReceiptNo(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Payment method</span>
-                    <input
-                      className="h-10 rounded-lg border px-3"
-                      value={docPaymentMethod}
-                      onChange={(e) => setDocPaymentMethod(e.target.value)}
-                      placeholder="e.g., Cash"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Items</span>
-                    <input
-                      className="h-10 rounded-lg border px-3"
-                      value={docItems}
-                      onChange={(e) => setDocItems(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Amount paid</span>
-                    <input
-                      className="h-10 rounded-lg border px-3"
-                      value={docAmountPaid}
-                      onChange={(e) => setDocAmountPaid(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Balance</span>
-                    <input
-                      className="h-10 rounded-lg border px-3"
-                      value={docBalance}
-                      onChange={(e) => setDocBalance(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Findings</span>
-                    <textarea
-                      className="min-h-[88px] rounded-lg border px-3 py-2"
-                      value={docFindings}
-                      onChange={(e) => setDocFindings(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Treatment done</span>
-                    <textarea
-                      className="min-h-[88px] rounded-lg border px-3 py-2"
-                      value={docTreatmentDone}
-                      onChange={(e) => setDocTreatmentDone(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Remarks</span>
-                    <textarea
-                      className="min-h-[88px] rounded-lg border px-3 py-2"
-                      value={docRemarks}
-                      onChange={(e) => setDocRemarks(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Issued by</span>
-                    <input
-                      className="h-10 rounded-lg border px-3"
-                      value={docIssuedBy}
-                      onChange={(e) => setDocIssuedBy(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                    disabled={busy}
-                    onClick={generateDocument}
-                  >
-                    Generate
-                  </button>
-
-                  <button
-                    className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold disabled:opacity-60"
-                    disabled={!previewHtml}
-                    onClick={() => {
-                      if (previewHtml) printHtml(previewHtml);
-                    }}
-                  >
-                    Print
-                  </button>
-                </div>
-
-                {/* Preview */}
-                <div className="mt-3 rounded-xl border bg-white p-3">
-                  {previewHtml ? (
-                    <div
-                      className="prose max-w-none"
-                      dangerouslySetInnerHTML={{ __html: previewHtml }}
-                    />
+            <div className="mt-3 overflow-x-auto">
+              <table className="data-table">
+                <colgroup>
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "30%" }} />
+                  <col style={{ width: "30%" }} />
+                  <col style={{ width: "20%" }} />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Date</th>
+                    <th className="data-table-head-cell">Type</th>
+                    <th className="data-table-head-cell">Number</th>
+                    <th className="data-table-head-cell-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedGeneratedDocs.map((d, index) => (
+                    <tr key={d.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                      <td className="data-table-cell">{formatDateTimePH(d.created_at)}</td>
+                      <td className="data-table-cell">{d.doc_type}</td>
+                      <td className="data-table-cell">{d.doc_number ?? "—"}</td>
+                      <td className="data-table-cell-right">
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            className="data-table-btn text-xs"
+                            onClick={() => {
+                              const html = d.payload?.rendered_html || d.payload?.renderedHtml || "";
+                              if (html) openHtml(html);
+                            }}
+                          >
+                            Open
+                          </button>
+                          <button
+                            className="data-table-btn text-xs"
+                            onClick={() => setEditingDocId(d.id)}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {displayedGeneratedDocs.length === 0 ? (
+                    <tr>
+                      <td className="data-table-empty" colSpan={4}>
+                        No documents yet.
+                      </td>
+                    </tr>
                   ) : null}
-                </div>
-              </div>
-
-              {/* Generated documents */}
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-sm font-semibold">Generated documents</div>
-
-                  <select
-                    className="h-9 w-40 rounded-lg border bg-white px-2 text-sm"
-                    value={docSort}
-                    onChange={(e) => setDocSort(e.target.value as any)}
-                  >
-                    <option value="DATE_DESC">Newest</option>
-                    <option value="DATE_ASC">Oldest</option>
-                    <option value="TYPE_ASC">Type A–Z</option>
-                  </select>
-                </div>
-
-                <div className="mt-3 overflow-x-auto">
-                  <table className="data-table">
-                    <colgroup>
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "30%" }} />
-                      <col style={{ width: "30%" }} />
-                      <col style={{ width: "20%" }} />
-                    </colgroup>
-                    <thead className="data-table-head">
-                      <tr>
-                        <th className="data-table-head-cell">Date</th>
-                        <th className="data-table-head-cell">Type</th>
-                        <th className="data-table-head-cell">Number</th>
-                        <th className="data-table-head-cell-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayedGeneratedDocs.map((d, index) => (
-                        <tr key={d.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                          <td className="data-table-cell">{formatDateTimePH(d.created_at)}</td>
-                          <td className="data-table-cell">{d.doc_type}</td>
-                          <td className="data-table-cell">{d.doc_number ?? "—"}</td>
-                          <td className="data-table-cell-right">
-                            <div className="flex gap-2 justify-end">                              
-                              <button
-                                className="data-table-btn text-xs"
-                                onClick={() => {
-                                  const html = d.payload?.rendered_html || d.payload?.renderedHtml || "";
-                                  if (html) openHtml(html);
-                                }}
-                              >
-                                Open
-                              </button>
-                              <button
-                                className="data-table-btn text-xs"
-                                onClick={() => setEditingDocId(d.id)}
-                              >
-                                Edit
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {displayedGeneratedDocs.length === 0 ? (
-                        <tr>
-                          <td className="data-table-empty" colSpan={4}>
-                            No documents yet.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -586,6 +571,6 @@ export default function DocumentsPage() {
           </div>
         ) : null}
       </EditModal>
-    </main>
+    </>
   );
 }
