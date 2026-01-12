@@ -98,6 +98,28 @@ export type InvoiceItemRow = {
   created_at: string | null;
 };
 
+/**
+ * Payment mode configuration from payment_modes table
+ * Use with getPaymentModeConfig() and getActivePaymentModes()
+ */
+export type PaymentMode = {
+  id: string;
+  code: string;
+  name: string;
+  requires_proof: boolean;
+  requires_reference: boolean;
+  requires_received_by: boolean;
+  auto_verifies: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Legacy/simple payment structure (keep for backward compatibility)
+ * Prefer PaymentRowExtended for new code
+ */
 export type PaymentRow = {
   id: string;
   invoice_id: string;
@@ -108,6 +130,76 @@ export type PaymentRow = {
   reference_no: string | null;
   notes: string | null;
   created_at: string | null;
+};
+
+/**
+ * Extended payment with all new fields from payment system
+ * Used with getActivePayments(), getVerifiedPayments()
+ */
+export type PaymentRowExtended = {
+  id: string;
+  invoice_id: string;
+  patient_id: string;
+  payment_date: string;
+  amount: number;
+  status: "pending" | "verified" | "failed";
+  reference_number: string | null;
+  received_by: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  proof_file_id: string | null;
+  proof_storage_path: string | null;
+  details: Record<string, any> | null;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Staff member (e.g., dentists, office staff)
+ * Used for payment verification and receipt tracking
+ */
+export type StaffRow = {
+  id: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Receipt with immutable payment snapshot
+ * Use generateReceipt() to create
+ */
+export type ReceiptRow = {
+  id: string;
+  receipt_number: string;
+  payment_id: string;
+  invoice_id: string;
+  patient_id: string;
+  issued_by: string;
+  issued_at: string;
+  status: "issued" | "voided";
+  snapshot: {
+    amount: number;
+    payment_mode_code: string;
+    payment_mode_name: string;
+    reference_number: string | null;
+    paid_by: string;
+    payment_date: string;
+    received_by_staff: string | null;
+  };
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Attachment = {

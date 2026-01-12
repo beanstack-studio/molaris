@@ -1,12 +1,12 @@
 import { supabase } from "./supabaseClient";
 
 const DEFAULT_PAYMENT_MODES = [
-  { name: "Cash", sort_order: 1 },
-  { name: "GCash", sort_order: 2 },
-  { name: "Maya", sort_order: 3 },
-  { name: "Bank Transfer", sort_order: 4 },
-  { name: "Check", sort_order: 5 },
-  { name: "Credit Card", sort_order: 6 },
+  { code: "CASH", name: "Cash", requires_proof: false, requires_reference: false, requires_received_by: true, auto_verifies: true, sort_order: 1 },
+  { code: "GCASH", name: "GCash", requires_proof: true, requires_reference: true, requires_received_by: false, auto_verifies: false, sort_order: 2 },
+  { code: "MAYA", name: "Maya", requires_proof: true, requires_reference: true, requires_received_by: false, auto_verifies: false, sort_order: 3 },
+  { code: "BANK_TRANSFER", name: "Bank Transfer", requires_proof: true, requires_reference: true, requires_received_by: false, auto_verifies: false, sort_order: 4 },
+  { code: "CHEQUE", name: "Check", requires_proof: false, requires_reference: true, requires_received_by: false, auto_verifies: false, sort_order: 5 },
+  { code: "CREDIT_CARD", name: "Credit Card", requires_proof: false, requires_reference: false, requires_received_by: false, auto_verifies: false, sort_order: 6 },
 ];
 
 /**
@@ -15,25 +15,25 @@ const DEFAULT_PAYMENT_MODES = [
  */
 export async function initializePaymentModes() {
   try {
-    // Try to check if table exists and has data
     const { data: existing, error: checkError } = await supabase
       .from("payment_modes")
       .select("id")
       .limit(1);
 
-    // If we got an error, likely table doesn't exist - that's a schema issue
     if (checkError) {
-      // Suppress error if payment_modes table doesn't exist yet - it's expected during initial setup
-      // console.error("Payment modes table does not exist. Please create it in Supabase with: id (uuid), name (text), is_active (boolean), sort_order (integer)");
       return;
     }
 
-    // If table exists but is empty, seed it with defaults
     if (!existing || existing.length === 0) {
       const { error: insertError } = await supabase
         .from("payment_modes")
         .insert(DEFAULT_PAYMENT_MODES.map(mode => ({
+          code: mode.code,
           name: mode.name,
+          requires_proof: mode.requires_proof,
+          requires_reference: mode.requires_reference,
+          requires_received_by: mode.requires_received_by,
+          auto_verifies: mode.auto_verifies,
           is_active: true,
           sort_order: mode.sort_order,
         })));
