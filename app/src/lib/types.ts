@@ -235,8 +235,5 @@ export type DraftLine = {
   note: string;
 };
 
-export const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
-export type AttachmentType = (typeof attachmentTypes)[number];
-
 export const tabs = ["Info", "Medical", "Chart", "Treatments", "Attachments", "Documents", "Billing"] as const;
 export type Tab = (typeof tabs)[number];

@@ -21,30 +21,12 @@ export function combineFullName(first: string | null | undefined, last: string |
   return [f, l].filter(Boolean).join(" ").trim();
 }
 
-export function num(n: any) {
-  const v = Number(n);
-  return Number.isFinite(v) ? v : 0;
-}
-
 export function todayLocalISO() {
   const d = new Date();
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
-}
-
-export function formatPHPhoneVisible(input: string) {
-  const digits = (input || "").replace(/\D/g, "").slice(0, 11);
-  if (!digits) return "";
-
-  const p1 = digits.slice(0, 4);
-  const p2 = digits.slice(4, 7);
-  const p3 = digits.slice(7, 11);
-
-  if (digits.length <= 4) return p1;
-  if (digits.length <= 7) return `${p1} ${p2}`;
-  return `${p1} ${p2} ${p3}`;
 }
 
 export function formatGenderShort(g: GenderDB) {
@@ -107,22 +89,8 @@ export function calcAge(isoDate: string | null | undefined) {
   return age;
 }
 
-export function generateReceiptNo() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `RCPT-${y}${m}${d}-${rand}`;
-}
-
 export function safeFileName(name: string) {
   return name.replace(/[^\w.\-() ]+/g, "_").slice(0, 120);
-}
-
-export function parseToothOrNull(v: string) {
-  const n = v.trim() ? Number(v) : NaN;
-  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 export function escapeHtml(s: string) {
