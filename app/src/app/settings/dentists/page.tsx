@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 
@@ -11,7 +11,14 @@ type DentistRow = {
   is_active: boolean;
 };
 
-type DentistSort = "NAME_ASC" | "NAME_DESC";
+type StaffRow = {
+  id: string;
+  full_name: string;
+  role: string;
+  date_of_birth: string | null;
+  gender: "M" | "F" | null;
+  is_active: boolean;
+};
 
 function LoadingBlock() {
   return (
@@ -21,306 +28,541 @@ function LoadingBlock() {
   );
 }
 
-function TogglePill({
-  checked,
-  onChange,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={[
-        "relative inline-flex h-6 w-11 items-center rounded-full transition",
-        checked ? "bg-emerald-500" : "bg-slate-300",
-        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
-      ].join(" ")}
-      aria-label={checked ? "Active" : "Inactive"}
-    >
-      <span
-        className={[
-          "inline-block h-5 w-5 transform rounded-full bg-white transition",
-          checked ? "translate-x-5" : "translate-x-1",
-        ].join(" ")}
-      />
-    </button>
-  );
-}
-
-export default function DentistsSettingsPage() {
-  const [rows, setRows] = useState<DentistRow[]>([]);
+export default function TeamSettingsPage() {
+  const [dentists, setDentists] = useState<DentistRow[]>([]);
+  const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [sort, setSort] = useState<DentistSort>("NAME_ASC");
+  const [err, setErr] = useState<string | null>(null);
 
-  // Add form
-  const [name, setName] = useState("");
-  const [prc, setPrc] = useState("");
+  // Dentist form
+  const [dentistName, setDentistName] = useState("");
+  const [dentistPrc, setDentistPrc] = useState("");
+  const [editingDentist, setEditingDentist] = useState<DentistRow | null>(null);
 
-  // Edit modal
-  const [editOpen, setEditOpen] = useState(false);
-  const [editRow, setEditRow] = useState<DentistRow | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editPrc, setEditPrc] = useState("");
-  const [deleteText, setDeleteText] = useState("");
+  // Staff form
+  const [staffName, setStaffName] = useState("");
+  const [staffRole, setStaffRole] = useState("");
+  const [staffDob, setStaffDob] = useState("");
+  const [staffGender, setStaffGender] = useState<"M" | "F" | "">("");
+  const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null);
 
-  async function load() {
+  const loadData = useCallback(async () => {
     setLoading(true);
-    const r = await supabase
-      .from("dentists")
-      .select("id, full_name, prc_number, is_active")
-      .order("full_name", { ascending: true });
-    setRows((r.data ?? []) as DentistRow[]);
-    setLoading(false);
-  }
+    setErr(null);
 
-  useEffect(() => {
-    load();
+    try {
+      const [dentistRes, staffRes] = await Promise.all([
+        supabase
+          .from("dentists")
+          .select("id, full_name, prc_number, is_active")
+          .order("full_name", { ascending: true }),
+        supabase
+          .from("staff")
+          .select("id, full_name, role, date_of_birth, gender, is_active")
+          .order("full_name", { ascending: true }),
+      ]);
+
+      if (dentistRes.error) throw dentistRes.error;
+      if (staffRes.error) throw staffRes.error;
+
+      setDentists((dentistRes.data || []) as DentistRow[]);
+      setStaff((staffRes.data || []) as StaffRow[]);
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const sorted = useMemo(() => {
-    const out = [...rows];
-    out.sort((a, b) =>
-      sort === "NAME_DESC"
-        ? (b.full_name ?? "").localeCompare(a.full_name ?? "")
-        : (a.full_name ?? "").localeCompare(b.full_name ?? "")
-    );
-    return out;
-  }, [rows, sort]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
+  // DENTIST OPERATIONS
   async function addDentist() {
-    if (!name.trim()) return;
+    if (!dentistName.trim()) {
+      setErr("Please enter dentist name");
+      return;
+    }
 
     setBusy(true);
-    await supabase.from("dentists").insert({
-      full_name: name.trim(),
-      prc_number: prc.trim() || null,
-      is_active: true,
-    });
+    setErr(null);
 
-    setName("");
-    setPrc("");
-    await load();
-    setBusy(false);
+    try {
+      const { error } = await supabase.from("dentists").insert({
+        full_name: dentistName.trim(),
+        prc_number: dentistPrc.trim() || null,
+        is_active: true,
+      });
+
+      if (error) throw error;
+
+      setDentistName("");
+      setDentistPrc("");
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to add dentist");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function toggleActive(id: string, next: boolean) {
-    setBusy(true);
-    await supabase.from("dentists").update({ is_active: next }).eq("id", id);
-    setRows((p) => p.map((r) => (r.id === id ? { ...r, is_active: next } : r)));
-    setBusy(false);
-  }
-
-  function openEdit(r: DentistRow) {
-    setEditRow(r);
-    setEditName(r.full_name ?? "");
-    setEditPrc(r.prc_number ?? "");
-    setDeleteText("");
-    setEditOpen(true);
-  }
-
-  function closeEdit() {
-    setEditOpen(false);
-    setEditRow(null);
-    setDeleteText("");
-  }
-
-  async function saveEdit() {
-    if (!editRow) return;
-    if (!editName.trim()) return;
+  async function updateDentist() {
+    if (!editingDentist) return;
+    if (!dentistName.trim()) {
+      setErr("Please enter dentist name");
+      return;
+    }
 
     setBusy(true);
-    await supabase
-      .from("dentists")
-      .update({
-        full_name: editName.trim(),
-        prc_number: editPrc.trim() || null,
-      })
-      .eq("id", editRow.id);
+    setErr(null);
 
-    await load();
-    setBusy(false);
-    closeEdit();
+    try {
+      const { error } = await supabase
+        .from("dentists")
+        .update({
+          full_name: dentistName.trim(),
+          prc_number: dentistPrc.trim() || null,
+        })
+        .eq("id", editingDentist.id);
+
+      if (error) throw error;
+
+      setEditingDentist(null);
+      setDentistName("");
+      setDentistPrc("");
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to update dentist");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function deleteDentist() {
-    if (!editRow) return;
-    if (deleteText !== "DELETE") return;
+  async function deleteDentist(id: string) {
+    if (!confirm("Delete this dentist?")) return;
 
     setBusy(true);
-    await supabase.from("dentists").delete().eq("id", editRow.id);
-    await load();
-    setBusy(false);
-    closeEdit();
+    setErr(null);
+
+    try {
+      const { error } = await supabase.from("dentists").delete().eq("id", id);
+
+      if (error) throw error;
+      setEditingDentist(null);
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to delete dentist");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleDentistActive(id: string, isActive: boolean) {
+    setBusy(true);
+    setErr(null);
+
+    try {
+      const { error } = await supabase
+        .from("dentists")
+        .update({ is_active: isActive })
+        .eq("id", id);
+
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to update dentist");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // STAFF OPERATIONS
+  async function addStaff() {
+    if (!staffName.trim()) {
+      setErr("Please enter staff name");
+      return;
+    }
+    if (!staffRole.trim()) {
+      setErr("Please select staff role");
+      return;
+    }
+
+    setBusy(true);
+    setErr(null);
+
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      if (!userId) throw new Error("User not authenticated");
+
+      const { error } = await supabase.from("staff").insert({
+        full_name: staffName.trim(),
+        role: staffRole.trim(),
+        date_of_birth: staffDob || null,
+        gender: (staffGender as "M" | "F" | null) || null,
+        is_active: true,
+        created_by: userId,
+      });
+
+      if (error) throw error;
+
+      setStaffName("");
+      setStaffRole("");
+      setStaffDob("");
+      setStaffGender("");
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to add staff");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateStaff() {
+    if (!editingStaff) return;
+    if (!staffName.trim()) {
+      setErr("Please enter staff name");
+      return;
+    }
+    if (!staffRole.trim()) {
+      setErr("Please select staff role");
+      return;
+    }
+
+    setBusy(true);
+    setErr(null);
+
+    try {
+      const { error } = await supabase
+        .from("staff")
+        .update({
+          full_name: staffName.trim(),
+          role: staffRole.trim(),
+          date_of_birth: staffDob || null,
+          gender: (staffGender as "M" | "F" | null) || null,
+        })
+        .eq("id", editingStaff.id);
+
+      if (error) throw error;
+
+      setEditingStaff(null);
+      setStaffName("");
+      setStaffRole("");
+      setStaffDob("");
+      setStaffGender("");
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to update staff");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteStaff(id: string) {
+    if (!confirm("Delete this staff member?")) return;
+
+    setBusy(true);
+    setErr(null);
+
+    try {
+      const { error } = await supabase.from("staff").delete().eq("id", id);
+
+      if (error) throw error;
+      setEditingStaff(null);
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to delete staff");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleStaffActive(id: string, isActive: boolean) {
+    setBusy(true);
+    setErr(null);
+
+    try {
+      const { error } = await supabase
+        .from("staff")
+        .update({ is_active: isActive })
+        .eq("id", id);
+
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to update staff");
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (loading) return <LoadingBlock />;
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="text-xl font-semibold">Dentists</h1>
+    <div className="mx-auto max-w-6xl">
+      <h1 className="text-3xl font-bold text-slate-900">Team Management</h1>
 
-      {/* ADD BOX */}
-      <div className="mt-4 rounded-xl border bg-white p-3">
-        <div className="mb-2 text-sm font-semibold text-slate-700">Add dentist</div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <input
-            className="h-10 w-full rounded-lg border px-3 text-sm sm:flex-1"
-            placeholder="Dentist name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={busy}
-          />
-
-          <input
-            className="h-10 w-full rounded-lg border px-3 text-sm sm:w-[200px]"
-            placeholder="PRC number"
-            value={prc}
-            onChange={(e) => setPrc(e.target.value)}
-            disabled={busy}
-          />
-
-          <button
-            type="button"
-            className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-            onClick={addDentist}
-            disabled={busy}
-          >
-            Add
-          </button>
+      {err && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {err}
         </div>
-      </div>
+      )}
 
-      {/* TABLE */}
-      <div className="mt-4 rounded-xl border bg-white overflow-hidden">
-        <div className="flex items-center bg-slate-100 px-4 py-2 text-sm font-semibold">
-          <div>Dentists</div>
+      {/* ============================================================
+          DENTISTS SECTION
+          ============================================================ */}
+      <div className="mt-6">
+        <h2 className="text-xl font-semibold text-slate-900">Dentists</h2>
 
-          <select
-            className="ml-auto h-8 w-40 rounded-lg border bg-white px-2 text-sm"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as DentistSort)}
-            disabled={busy}
-          >
-            <option value="NAME_ASC">Name A–Z</option>
-            <option value="NAME_DESC">Name Z–A</option>
-          </select>
-        </div>
-
-        <div className="overflow-x-auto">
-          <div className="min-w-[640px] divide-y">
-            {sorted.map((d) => (
-              <div
-                key={d.id}
-                className={[
-                  "grid grid-cols-[240px_160px_1fr_120px_80px] items-center px-4 py-2.5 text-sm transition",
-                  "hover:bg-slate-50",
-                  d.is_active ? "" : "opacity-50",
-                ].join(" ")}
-              >
-                <div className="truncate">{d.full_name}</div>
-
-                <div className="text-right">PRC {d.prc_number ?? "—"}</div>
-
-                <div />
-
-                <div className="flex justify-center">
-                  <TogglePill
-                    checked={d.is_active}
-                    disabled={busy}
-                    onChange={(v) => toggleActive(d.id, v)}
-                  />
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-white disabled:opacity-60"
-                    onClick={() => openEdit(d)}
-                    disabled={busy}
-                  >
-                    Edit
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {sorted.length === 0 ? (
-              <div className="px-4 py-6 text-sm text-slate-600">No dentists yet.</div>
-            ) : null}
+        {/* Add Dentist Box */}
+        <div className="mt-4 rounded-xl border bg-white p-4">
+          <div className="mb-3 text-sm font-semibold text-slate-700">Add dentist</div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <input
+              className="h-10 flex-1 rounded-lg border px-3 text-sm"
+              placeholder="Dentist name"
+              value={dentistName}
+              onChange={(e) => setDentistName(e.target.value)}
+              disabled={busy}
+            />
+            <input
+              className="h-10 w-full rounded-lg border px-3 text-sm sm:w-[160px]"
+              placeholder="PRC number"
+              value={dentistPrc}
+              onChange={(e) => setDentistPrc(e.target.value)}
+              disabled={busy}
+            />
+            <button
+              className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+              onClick={addDentist}
+              disabled={busy}
+            >
+              Add
+            </button>
           </div>
         </div>
+
+        {/* Dentists Table */}
+        <div className="mt-4 rounded-xl border bg-white overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-slate-50">
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">PRC Number</th>
+                <th className="px-4 py-3 text-center font-semibold text-slate-700">Active</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dentists.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                    No dentists yet.
+                  </td>
+                </tr>
+              ) : (
+                dentists.map((d, index) => (
+                  <tr
+                    key={d.id}
+                    className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-900">{d.full_name}</td>
+                    <td className="px-4 py-3 text-slate-600">{d.prc_number || "—"}</td>
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={d.is_active}
+                        onChange={(e) => toggleDentistActive(d.id, e.target.checked)}
+                        disabled={busy}
+                        className="h-4 w-4 rounded"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-60"
+                        onClick={() => {
+                          setEditingDentist(d);
+                          setDentistName(d.full_name);
+                          setDentistPrc(d.prc_number || "");
+                        }}
+                        disabled={busy}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <EditModal open={editOpen} title="Edit dentist" onClose={closeEdit}>
-        {!editRow ? null : (
+      {/* ============================================================
+          STAFF SECTION
+          ============================================================ */}
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold text-slate-900">Staff Members</h2>
+
+        {/* Add Staff Box */}
+        <div className="mt-4 rounded-xl border bg-white p-4">
+          <div className="mb-3 text-sm font-semibold text-slate-700">Add staff member</div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_140px_100px_100px]">
+            <input
+              className="h-10 rounded-lg border px-3 text-sm"
+              placeholder="Full name"
+              value={staffName}
+              onChange={(e) => setStaffName(e.target.value)}
+              disabled={busy}
+            />
+            <select
+              className="h-10 rounded-lg border bg-white px-3 text-sm"
+              value={staffRole}
+              onChange={(e) => setStaffRole(e.target.value)}
+              disabled={busy}
+            >
+              <option value="">Select role</option>
+              <option value="Dental Hygienist">Dental Hygienist</option>
+              <option value="Dental Assistant">Dental Assistant</option>
+              <option value="Secretary">Secretary</option>
+              <option value="Receptionist">Receptionist</option>
+              <option value="Nurse">Nurse</option>
+              <option value="Admin">Admin</option>
+              <option value="Other">Other</option>
+            </select>
+            <input
+              type="date"
+              className="h-10 rounded-lg border px-3 text-sm"
+              value={staffDob}
+              onChange={(e) => setStaffDob(e.target.value)}
+              disabled={busy}
+            />
+            <select
+              className="h-10 rounded-lg border bg-white px-3 text-sm"
+              value={staffGender}
+              onChange={(e) => setStaffGender(e.target.value as "M" | "F" | "")}
+              disabled={busy}
+            >
+              <option value="">Gender</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+            <button
+              className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+              onClick={addStaff}
+              disabled={busy}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        {/* Staff Table */}
+        <div className="mt-4 rounded-xl border bg-white overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-slate-50">
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Role</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Date of Birth</th>
+                <th className="px-4 py-3 text-center font-semibold text-slate-700">Gender</th>
+                <th className="px-4 py-3 text-center font-semibold text-slate-700">Active</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {staff.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                    No staff members yet.
+                  </td>
+                </tr>
+              ) : (
+                staff.map((s, index) => (
+                  <tr
+                    key={s.id}
+                    className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-900">{s.full_name}</td>
+                    <td className="px-4 py-3 text-slate-600">{s.role}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {s.date_of_birth
+                        ? new Date(s.date_of_birth).toLocaleDateString("en-PH")
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center text-slate-600">
+                      {s.gender === "M" ? "M" : s.gender === "F" ? "F" : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={s.is_active}
+                        onChange={(e) => toggleStaffActive(s.id, e.target.checked)}
+                        disabled={busy}
+                        className="h-4 w-4 rounded"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-60"
+                        onClick={() => {
+                          setEditingStaff(s);
+                          setStaffName(s.full_name);
+                          setStaffRole(s.role);
+                          setStaffDob(s.date_of_birth || "");
+                          setStaffGender(s.gender || "");
+                        }}
+                        disabled={busy}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* EDIT DENTIST MODAL */}
+      <EditModal
+        open={!!editingDentist}
+        title="Edit dentist"
+        onClose={() => {
+          setEditingDentist(null);
+          setDentistName("");
+          setDentistPrc("");
+        }}
+      >
+        {editingDentist && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700">Full name</label>
               <input
                 className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
+                value={dentistName}
+                onChange={(e) => setDentistName(e.target.value)}
                 disabled={busy}
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-slate-700">PRC number</label>
               <input
                 className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                value={editPrc}
-                onChange={(e) => setEditPrc(e.target.value)}
+                value={dentistPrc}
+                onChange={(e) => setDentistPrc(e.target.value)}
                 disabled={busy}
               />
             </div>
-
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
-                onClick={closeEdit}
-                disabled={busy}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                onClick={saveEdit}
-                disabled={busy || !editName.trim()}
-              >
-                Save
-              </button>
-            </div>
-
-            <div className="delete-confirmation">
-              <div className="delete-confirmation-title text-red-700">Delete dentist?</div>
-              <div className="delete-confirmation-hint">
-                Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
-              </div>
-              <input
-                className="delete-confirmation-input"
-                value={deleteText}
-                onChange={(e) => setDeleteText(e.target.value)}
-                placeholder="DELETE"
-                disabled={busy}
-              />
-            </div>
-
             <div className="modal-actions">
               <button
                 type="button"
                 className="delete-btn"
-                onClick={deleteDentist}
-                disabled={busy || deleteText !== "DELETE"}
+                onClick={() => deleteDentist(editingDentist.id)}
+                disabled={busy}
               >
                 Delete
               </button>
@@ -328,16 +570,122 @@ export default function DentistsSettingsPage() {
                 <button
                   type="button"
                   className="cancel-btn"
-                  onClick={closeEdit}
+                  onClick={() => {
+                    setEditingDentist(null);
+                    setDentistName("");
+                    setDentistPrc("");
+                  }}
                   disabled={busy}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60 transition-colors"
-                  onClick={saveEdit}
+                  className="save-btn"
+                  onClick={updateDentist}
+                  disabled={busy || !dentistName.trim()}
+                >
+                  {busy ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </EditModal>
+
+      {/* EDIT STAFF MODAL */}
+      <EditModal
+        open={!!editingStaff}
+        title="Edit staff member"
+        onClose={() => {
+          setEditingStaff(null);
+          setStaffName("");
+          setStaffRole("");
+          setStaffDob("");
+          setStaffGender("");
+        }}
+      >
+        {editingStaff && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Full name</label>
+              <input
+                className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                value={staffName}
+                onChange={(e) => setStaffName(e.target.value)}
+                disabled={busy}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Role</label>
+              <select
+                className="mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm"
+                value={staffRole}
+                onChange={(e) => setStaffRole(e.target.value)}
+                disabled={busy}
+              >
+                <option value="">Select role</option>
+                <option value="Dental Hygienist">Dental Hygienist</option>
+                <option value="Dental Assistant">Dental Assistant</option>
+                <option value="Secretary">Secretary</option>
+                <option value="Receptionist">Receptionist</option>
+                <option value="Nurse">Nurse</option>
+                <option value="Admin">Admin</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Date of Birth</label>
+              <input
+                type="date"
+                className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                value={staffDob}
+                onChange={(e) => setStaffDob(e.target.value)}
+                disabled={busy}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Gender</label>
+              <select
+                className="mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm"
+                value={staffGender}
+                onChange={(e) => setStaffGender(e.target.value as "M" | "F" | "")}
+                disabled={busy}
+              >
+                <option value="">Select gender</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+              </select>
+            </div>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="delete-btn"
+                onClick={() => deleteStaff(editingStaff.id)}
+                disabled={busy}
+              >
+                Delete
+              </button>
+              <div className="modal-actions-right">
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={() => {
+                    setEditingStaff(null);
+                    setStaffName("");
+                    setStaffRole("");
+                    setStaffDob("");
+                    setStaffGender("");
+                  }}
                   disabled={busy}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="save-btn"
+                  onClick={updateStaff}
+                  disabled={busy || !staffName.trim() || !staffRole.trim()}
                 >
                   {busy ? "Saving…" : "Save"}
                 </button>
@@ -349,3 +697,4 @@ export default function DentistsSettingsPage() {
     </div>
   );
 }
+
