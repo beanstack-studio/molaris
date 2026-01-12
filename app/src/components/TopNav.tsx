@@ -101,34 +101,58 @@ export default function TopNav({
   }, [router, pathname]);
 
   return (
-    <div className="sticky top-0 z-50 border-b bg-white">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
-        <Link href="/dashboard" className="text-sm font-semibold text-slate-900 hover:underline">
-          {title}
-        </Link>
+    <div className="sticky top-0 z-50 border-b bg-white shadow-sm">
+      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+        <div className="flex items-center justify-between gap-4">
+          {/* Logo/Home */}
+          <Link href="/dashboard" className="text-sm font-bold text-slate-900 hover:text-slate-700 transition-colors">
+            🦷 {title}
+          </Link>
 
-        <div className="flex items-center gap-2">
-          <Link href="/dashboard" className="btn btn-secondary">
+          {/* Main Navigation */}
+          <div className="hidden sm:flex items-center gap-1">
+            <Link href="/dashboard" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+              Dashboard
+            </Link>
+            <Link href="/patients" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+              Patients
+            </Link>
+            <Link href="/reports/payments" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+              Reports
+            </Link>
+            <Link href="/settings" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+              Settings
+            </Link>
+          </div>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="px-3 py-2 text-sm font-medium rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-60"
+              onClick={signOut}
+              disabled={busy}
+              title="Sign out"
+            >
+              {busy ? "..." : "Sign out"}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation */}
+        <div className="sm:hidden flex items-center gap-1 mt-2 pt-2 border-t">
+          <Link href="/dashboard" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
             Dashboard
           </Link>
-
-          <Link href="/patients" className="btn btn-secondary">
+          <Link href="/patients" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
             Patients
           </Link>
-
-          <Link href="/settings/clinic-profile" className="btn btn-secondary">
+          <Link href="/reports/payments" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
+            Reports
+          </Link>
+          <Link href="/settings" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
             Settings
           </Link>
-
-          <button
-            type="button"
-            className="btn btn-secondary disabled:opacity-60"
-            onClick={signOut}
-            disabled={busy}
-            title="Sign out"
-          >
-            {busy ? "Signing out…" : "Sign out"}
-          </button>
         </div>
       </div>
     </div>
