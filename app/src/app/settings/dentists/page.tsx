@@ -8,6 +8,8 @@ type DentistRow = {
   id: string;
   full_name: string;
   prc_number: string | null;
+  ptr_number: string | null;
+  date_of_birth: string | null;
   is_active: boolean;
 };
 
@@ -16,7 +18,6 @@ type StaffRow = {
   full_name: string;
   role: string;
   date_of_birth: string | null;
-  gender: "M" | "F" | null;
   is_active: boolean;
 };
 
@@ -28,23 +29,26 @@ function LoadingBlock() {
   );
 }
 
-export default function TeamSettingsPage() {
+export default function DentistsSettingsPage() {
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Dentist form
+  // Dentist form & modal
+  const [showAddDentistModal, setShowAddDentistModal] = useState(false);
   const [dentistName, setDentistName] = useState("");
+  const [dentistDob, setDentistDob] = useState("");
   const [dentistPrc, setDentistPrc] = useState("");
+  const [dentistPtr, setDentistPtr] = useState("");
   const [editingDentist, setEditingDentist] = useState<DentistRow | null>(null);
 
-  // Staff form
+  // Staff form & modal
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState("");
   const [staffDob, setStaffDob] = useState("");
-  const [staffGender, setStaffGender] = useState<"M" | "F" | "">("");
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null);
 
   const loadData = useCallback(async () => {
@@ -52,23 +56,49 @@ export default function TeamSettingsPage() {
     setErr(null);
 
     try {
-      const [dentistRes, staffRes] = await Promise.all([
-        supabase
-          .from("dentists")
-          .select("id, full_name, prc_number, is_active")
-          .order("full_name", { ascending: true }),
-        supabase
-          .from("staff")
-          .select("id, full_name, role, date_of_birth, gender, is_active")
-          .order("full_name", { ascending: true }),
-      ]);
+      // Try to load dentists - handle missing columns gracefully
+      const dentistRes = await supabase
+        .from("dentists")
+        .select("*")
+        .order("full_name", { ascending: true });
 
       if (dentistRes.error) throw dentistRes.error;
-      if (staffRes.error) throw staffRes.error;
 
-      setDentists((dentistRes.data || []) as DentistRow[]);
-      setStaff((staffRes.data || []) as StaffRow[]);
+      // Filter and map dentist data, handling missing optional columns
+      const dentistData = (dentistRes.data || []).map((d: any) => ({
+        id: d.id,
+        full_name: d.full_name,
+        prc_number: d.prc_number || null,
+        ptr_number: d.ptr_number || null,
+        date_of_birth: d.date_of_birth || null,
+        is_active: d.is_active ?? true,
+      })) as DentistRow[];
+
+      setDentists(dentistData);
+
+      // Try to load staff - handle if table doesn't exist
+      try {
+        const staffRes = await supabase
+          .from("staff")
+          .select("*")
+          .order("full_name", { ascending: true });
+
+        if (!staffRes.error) {
+          const staffData = (staffRes.data || []).map((s: any) => ({
+            id: s.id,
+            full_name: s.full_name,
+            role: s.role,
+            date_of_birth: s.date_of_birth || null,
+            is_active: s.is_active ?? true,
+          })) as StaffRow[];
+          setStaff(staffData);
+        }
+      } catch {
+        // Staff table might not exist yet, just continue with empty staff
+        setStaff([]);
+      }
     } catch (error) {
+      console.error("Load error:", error);
       setErr(error instanceof Error ? error.message : "Failed to load data");
     } finally {
       setLoading(false);
@@ -92,14 +122,19 @@ export default function TeamSettingsPage() {
     try {
       const { error } = await supabase.from("dentists").insert({
         full_name: dentistName.trim(),
+        date_of_birth: dentistDob || null,
         prc_number: dentistPrc.trim() || null,
+        ptr_number: dentistPtr.trim() || null,
         is_active: true,
       });
 
       if (error) throw error;
 
       setDentistName("");
+      setDentistDob("");
       setDentistPrc("");
+      setDentistPtr("");
+      setShowAddDentistModal(false);
       await loadData();
     } catch (error) {
       setErr(error instanceof Error ? error.message : "Failed to add dentist");
@@ -123,7 +158,9 @@ export default function TeamSettingsPage() {
         .from("dentists")
         .update({
           full_name: dentistName.trim(),
+          date_of_birth: dentistDob || null,
           prc_number: dentistPrc.trim() || null,
+          ptr_number: dentistPtr.trim() || null,
         })
         .eq("id", editingDentist.id);
 
@@ -131,7 +168,9 @@ export default function TeamSettingsPage() {
 
       setEditingDentist(null);
       setDentistName("");
+      setDentistDob("");
       setDentistPrc("");
+      setDentistPtr("");
       await loadData();
     } catch (error) {
       setErr(error instanceof Error ? error.message : "Failed to update dentist");
@@ -201,7 +240,6 @@ export default function TeamSettingsPage() {
         full_name: staffName.trim(),
         role: staffRole.trim(),
         date_of_birth: staffDob || null,
-        gender: (staffGender as "M" | "F" | null) || null,
         is_active: true,
         created_by: userId,
       });
@@ -211,7 +249,7 @@ export default function TeamSettingsPage() {
       setStaffName("");
       setStaffRole("");
       setStaffDob("");
-      setStaffGender("");
+      setShowAddStaffModal(false);
       await loadData();
     } catch (error) {
       setErr(error instanceof Error ? error.message : "Failed to add staff");
@@ -241,7 +279,6 @@ export default function TeamSettingsPage() {
           full_name: staffName.trim(),
           role: staffRole.trim(),
           date_of_birth: staffDob || null,
-          gender: (staffGender as "M" | "F" | null) || null,
         })
         .eq("id", editingStaff.id);
 
@@ -251,7 +288,6 @@ export default function TeamSettingsPage() {
       setStaffName("");
       setStaffRole("");
       setStaffDob("");
-      setStaffGender("");
       await loadData();
     } catch (error) {
       setErr(error instanceof Error ? error.message : "Failed to update staff");
@@ -302,7 +338,7 @@ export default function TeamSettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h1 className="text-3xl font-bold text-slate-900">Team Management</h1>
+      <h1 className="text-3xl font-bold text-slate-900">Dentists</h1>
 
       {err && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -314,43 +350,33 @@ export default function TeamSettingsPage() {
           DENTISTS SECTION
           ============================================================ */}
       <div className="mt-6">
-        <h2 className="text-xl font-semibold text-slate-900">Dentists</h2>
-
-        {/* Add Dentist Box */}
-        <div className="mt-4 rounded-xl border bg-white p-4">
-          <div className="mb-3 text-sm font-semibold text-slate-700">Add dentist</div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <input
-              className="h-10 flex-1 rounded-lg border px-3 text-sm"
-              placeholder="Dentist name"
-              value={dentistName}
-              onChange={(e) => setDentistName(e.target.value)}
-              disabled={busy}
-            />
-            <input
-              className="h-10 w-full rounded-lg border px-3 text-sm sm:w-[160px]"
-              placeholder="PRC number"
-              value={dentistPrc}
-              onChange={(e) => setDentistPrc(e.target.value)}
-              disabled={busy}
-            />
-            <button
-              className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-              onClick={addDentist}
-              disabled={busy}
-            >
-              Add
-            </button>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-900">Dentists</h2>
+          <button
+            className="px-4 py-2 rounded-lg bg-slate-900 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            onClick={() => {
+              setDentistName("");
+              setDentistDob("");
+              setDentistPrc("");
+              setDentistPtr("");
+              setEditingDentist(null);
+              setShowAddDentistModal(true);
+            }}
+            disabled={busy}
+          >
+            Add Dentist
+          </button>
         </div>
 
         {/* Dentists Table */}
-        <div className="mt-4 rounded-xl border bg-white overflow-hidden">
+        <div className="rounded-xl border bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-slate-50">
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Date of Birth</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">PRC Number</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">PTR Number</th>
                 <th className="px-4 py-3 text-center font-semibold text-slate-700">Active</th>
                 <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
               </tr>
@@ -358,7 +384,7 @@ export default function TeamSettingsPage() {
             <tbody>
               {dentists.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                  <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                     No dentists yet.
                   </td>
                 </tr>
@@ -369,7 +395,13 @@ export default function TeamSettingsPage() {
                     className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
                   >
                     <td className="px-4 py-3 font-medium text-slate-900">{d.full_name}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {d.date_of_birth
+                        ? new Date(d.date_of_birth).toLocaleDateString("en-PH")
+                        : "—"}
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{d.prc_number || "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{d.ptr_number || "—"}</td>
                     <td className="px-4 py-3 text-center">
                       <input
                         type="checkbox"
@@ -385,7 +417,10 @@ export default function TeamSettingsPage() {
                         onClick={() => {
                           setEditingDentist(d);
                           setDentistName(d.full_name);
+                          setDentistDob(d.date_of_birth || "");
                           setDentistPrc(d.prc_number || "");
+                          setDentistPtr(d.ptr_number || "");
+                          setShowAddDentistModal(true);
                         }}
                         disabled={busy}
                       >
@@ -404,70 +439,31 @@ export default function TeamSettingsPage() {
           STAFF SECTION
           ============================================================ */}
       <div className="mt-8">
-        <h2 className="text-xl font-semibold text-slate-900">Staff Members</h2>
-
-        {/* Add Staff Box */}
-        <div className="mt-4 rounded-xl border bg-white p-4">
-          <div className="mb-3 text-sm font-semibold text-slate-700">Add staff member</div>
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_140px_100px_100px]">
-            <input
-              className="h-10 rounded-lg border px-3 text-sm"
-              placeholder="Full name"
-              value={staffName}
-              onChange={(e) => setStaffName(e.target.value)}
-              disabled={busy}
-            />
-            <select
-              className="h-10 rounded-lg border bg-white px-3 text-sm"
-              value={staffRole}
-              onChange={(e) => setStaffRole(e.target.value)}
-              disabled={busy}
-            >
-              <option value="">Select role</option>
-              <option value="Dental Hygienist">Dental Hygienist</option>
-              <option value="Dental Assistant">Dental Assistant</option>
-              <option value="Secretary">Secretary</option>
-              <option value="Receptionist">Receptionist</option>
-              <option value="Nurse">Nurse</option>
-              <option value="Admin">Admin</option>
-              <option value="Other">Other</option>
-            </select>
-            <input
-              type="date"
-              className="h-10 rounded-lg border px-3 text-sm"
-              value={staffDob}
-              onChange={(e) => setStaffDob(e.target.value)}
-              disabled={busy}
-            />
-            <select
-              className="h-10 rounded-lg border bg-white px-3 text-sm"
-              value={staffGender}
-              onChange={(e) => setStaffGender(e.target.value as "M" | "F" | "")}
-              disabled={busy}
-            >
-              <option value="">Gender</option>
-              <option value="M">Male</option>
-              <option value="F">Female</option>
-            </select>
-            <button
-              className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-              onClick={addStaff}
-              disabled={busy}
-            >
-              Add
-            </button>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-900">Staff Members</h2>
+          <button
+            className="px-4 py-2 rounded-lg bg-slate-900 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            onClick={() => {
+              setStaffName("");
+              setStaffRole("");
+              setStaffDob("");
+              setEditingStaff(null);
+              setShowAddStaffModal(true);
+            }}
+            disabled={busy}
+          >
+            Add Staff
+          </button>
         </div>
 
         {/* Staff Table */}
-        <div className="mt-4 rounded-xl border bg-white overflow-hidden">
+        <div className="rounded-xl border bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-slate-50">
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Role</th>
                 <th className="px-4 py-3 text-left font-semibold text-slate-700">Date of Birth</th>
-                <th className="px-4 py-3 text-center font-semibold text-slate-700">Gender</th>
                 <th className="px-4 py-3 text-center font-semibold text-slate-700">Active</th>
                 <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
               </tr>
@@ -475,7 +471,7 @@ export default function TeamSettingsPage() {
             <tbody>
               {staff.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                  <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
                     No staff members yet.
                   </td>
                 </tr>
@@ -491,9 +487,6 @@ export default function TeamSettingsPage() {
                       {s.date_of_birth
                         ? new Date(s.date_of_birth).toLocaleDateString("en-PH")
                         : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-center text-slate-600">
-                      {s.gender === "M" ? "M" : s.gender === "F" ? "F" : "—"}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <input
@@ -512,7 +505,7 @@ export default function TeamSettingsPage() {
                           setStaffName(s.full_name);
                           setStaffRole(s.role);
                           setStaffDob(s.date_of_birth || "");
-                          setStaffGender(s.gender || "");
+                          setShowAddStaffModal(true);
                         }}
                         disabled={busy}
                       >
@@ -527,37 +520,61 @@ export default function TeamSettingsPage() {
         </div>
       </div>
 
-      {/* EDIT DENTIST MODAL */}
+      {/* ADD/EDIT DENTIST MODAL */}
       <EditModal
-        open={!!editingDentist}
-        title="Edit dentist"
+        open={showAddDentistModal}
+        title={editingDentist ? "Edit dentist" : "Add dentist"}
         onClose={() => {
+          setShowAddDentistModal(false);
           setEditingDentist(null);
           setDentistName("");
+          setDentistDob("");
           setDentistPrc("");
+          setDentistPtr("");
         }}
       >
-        {editingDentist && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Full name</label>
-              <input
-                className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                value={dentistName}
-                onChange={(e) => setDentistName(e.target.value)}
-                disabled={busy}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">PRC number</label>
-              <input
-                className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                value={dentistPrc}
-                onChange={(e) => setDentistPrc(e.target.value)}
-                disabled={busy}
-              />
-            </div>
-            <div className="modal-actions">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Full name</label>
+            <input
+              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              value={dentistName}
+              onChange={(e) => setDentistName(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Date of Birth</label>
+            <input
+              type="date"
+              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              value={dentistDob}
+              onChange={(e) => setDentistDob(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">PRC Number</label>
+            <input
+              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              placeholder="PRC number (permanent)"
+              value={dentistPrc}
+              onChange={(e) => setDentistPrc(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">PTR Number</label>
+            <input
+              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              placeholder="PTR number (annual)"
+              value={dentistPtr}
+              onChange={(e) => setDentistPtr(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div className="modal-actions">
+            {editingDentist && (
               <button
                 type="button"
                 className="delete-btn"
@@ -566,98 +583,88 @@ export default function TeamSettingsPage() {
               >
                 Delete
               </button>
-              <div className="modal-actions-right">
-                <button
-                  type="button"
-                  className="cancel-btn"
-                  onClick={() => {
-                    setEditingDentist(null);
-                    setDentistName("");
-                    setDentistPrc("");
-                  }}
-                  disabled={busy}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="save-btn"
-                  onClick={updateDentist}
-                  disabled={busy || !dentistName.trim()}
-                >
-                  {busy ? "Saving…" : "Save"}
-                </button>
-              </div>
+            )}
+            <div className="modal-actions-right">
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={() => {
+                  setShowAddDentistModal(false);
+                  setEditingDentist(null);
+                  setDentistName("");
+                  setDentistDob("");
+                  setDentistPrc("");
+                  setDentistPtr("");
+                }}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="save-btn"
+                onClick={editingDentist ? updateDentist : addDentist}
+                disabled={busy || !dentistName.trim()}
+              >
+                {busy ? "Saving…" : editingDentist ? "Update" : "Add"}
+              </button>
             </div>
           </div>
-        )}
+        </div>
       </EditModal>
 
-      {/* EDIT STAFF MODAL */}
+      {/* ADD/EDIT STAFF MODAL */}
       <EditModal
-        open={!!editingStaff}
-        title="Edit staff member"
+        open={showAddStaffModal}
+        title={editingStaff ? "Edit staff member" : "Add staff member"}
         onClose={() => {
+          setShowAddStaffModal(false);
           setEditingStaff(null);
           setStaffName("");
           setStaffRole("");
           setStaffDob("");
-          setStaffGender("");
         }}
       >
-        {editingStaff && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Full name</label>
-              <input
-                className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                value={staffName}
-                onChange={(e) => setStaffName(e.target.value)}
-                disabled={busy}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Role</label>
-              <select
-                className="mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm"
-                value={staffRole}
-                onChange={(e) => setStaffRole(e.target.value)}
-                disabled={busy}
-              >
-                <option value="">Select role</option>
-                <option value="Dental Hygienist">Dental Hygienist</option>
-                <option value="Dental Assistant">Dental Assistant</option>
-                <option value="Secretary">Secretary</option>
-                <option value="Receptionist">Receptionist</option>
-                <option value="Nurse">Nurse</option>
-                <option value="Admin">Admin</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Date of Birth</label>
-              <input
-                type="date"
-                className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
-                value={staffDob}
-                onChange={(e) => setStaffDob(e.target.value)}
-                disabled={busy}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Gender</label>
-              <select
-                className="mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm"
-                value={staffGender}
-                onChange={(e) => setStaffGender(e.target.value as "M" | "F" | "")}
-                disabled={busy}
-              >
-                <option value="">Select gender</option>
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-              </select>
-            </div>
-            <div className="modal-actions">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Full name</label>
+            <input
+              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              value={staffName}
+              onChange={(e) => setStaffName(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Role</label>
+            <select
+              className="mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm"
+              value={staffRole}
+              onChange={(e) => setStaffRole(e.target.value)}
+              disabled={busy}
+            >
+              <option value="">Select role</option>
+              <option value="Dental Hygienist">Dental Hygienist</option>
+              <option value="Dental Assistant">Dental Assistant</option>
+              <option value="Secretary">Secretary</option>
+              <option value="Receptionist">Receptionist</option>
+              <option value="Nurse">Nurse</option>
+              <option value="Admin">Admin</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Date of Birth</label>
+            <input
+              type="date"
+              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              value={staffDob}
+              onChange={(e) => setStaffDob(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div className="modal-actions">
+            {editingStaff && (
               <button
                 type="button"
                 className="delete-btn"
@@ -666,35 +673,34 @@ export default function TeamSettingsPage() {
               >
                 Delete
               </button>
-              <div className="modal-actions-right">
-                <button
-                  type="button"
-                  className="cancel-btn"
-                  onClick={() => {
-                    setEditingStaff(null);
-                    setStaffName("");
-                    setStaffRole("");
-                    setStaffDob("");
-                    setStaffGender("");
-                  }}
-                  disabled={busy}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="save-btn"
-                  onClick={updateStaff}
-                  disabled={busy || !staffName.trim() || !staffRole.trim()}
-                >
-                  {busy ? "Saving…" : "Save"}
-                </button>
-              </div>
+            )}
+            <div className="modal-actions-right">
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={() => {
+                  setShowAddStaffModal(false);
+                  setEditingStaff(null);
+                  setStaffName("");
+                  setStaffRole("");
+                  setStaffDob("");
+                }}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="save-btn"
+                onClick={editingStaff ? updateStaff : addStaff}
+                disabled={busy || !staffName.trim() || !staffRole.trim()}
+              >
+                {busy ? "Saving…" : editingStaff ? "Update" : "Add"}
+              </button>
             </div>
           </div>
-        )}
+        </div>
       </EditModal>
     </div>
   );
 }
-
