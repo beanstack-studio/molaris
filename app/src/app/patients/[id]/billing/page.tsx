@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type {
   Invoice,
   PaymentRow,
+  PaymentRowExtended,
   Treatment,
   ServicePriceRow,
   Patient,
@@ -32,7 +33,7 @@ export default function BillingPage() {
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [payments, setPayments] = useState<PaymentRowExtended[]>([]);
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<PaymentMode | null>(null);
 
@@ -41,7 +42,7 @@ export default function BillingPage() {
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
 
   const [showAddPayment, setShowAddPayment] = useState(false);
-  const [paymentInvoiceId, setPaymentInvoiceId] = useState<string>("");
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => todayLocalISO());
   const [paymentReference, setPaymentReference] = useState<string>("");
@@ -58,6 +59,7 @@ export default function BillingPage() {
   const [visitTreatments, setVisitTreatments] = useState<Treatment[]>([]);
   const [servicePrices, setServicePrices] = useState<ServicePriceRow[]>([]);
   const [discountAmount, setDiscountAmount] = useState("");
+  const [discountDescription, setDiscountDescription] = useState("");
   const [showDiscount, setShowDiscount] = useState(false);
 
   // Invoice totals calculated from invoice_items
@@ -237,16 +239,16 @@ export default function BillingPage() {
         const uniqueDates = [...new Set(treatments.map((t: any) => t.treatment_date))];
         
         // Get dates that already have invoices to exclude them
-        const { data: invoiceData, error: invoiceError } = await supabase
-          .from("invoice_items")
-          .select("invoices(invoice_date)")
-          .eq("invoices.patient_id", id);
+        const { data: invoices, error: invoiceError } = await supabase
+          .from("invoices")
+          .select("invoice_date")
+          .eq("patient_id", id);
         
         let invoicedDates = new Set<string>();
-        if (invoiceError === null && invoiceData) {
+        if (invoiceError === null && invoices) {
           invoicedDates = new Set(
-            invoiceData
-              .map((item: any) => item.invoices?.invoice_date)
+            invoices
+              .map((inv: any) => inv.invoice_date)
               .filter((d: string | null) => d !== null)
           );
         }
@@ -378,6 +380,7 @@ export default function BillingPage() {
     setSelectedVisitDate("");
     setVisitTreatments([]);
     setDiscountAmount("");
+    setDiscountDescription("");
     setShowDiscount(false);
     await loadData();
   }
@@ -459,7 +462,7 @@ export default function BillingPage() {
     if (!id) return;
     setErr(null);
 
-    if (!paymentInvoiceId) return setErr("Select an invoice.");
+    if (selectedInvoiceIds.length === 0) return setErr("Select at least one invoice.");
     if (!paymentAmount) return setErr("Enter payment amount.");
     if (!selectedPaymentMode) return setErr("Select payment mode.");
 
@@ -469,6 +472,21 @@ export default function BillingPage() {
     }
     if (selectedPaymentMode.requires_proof && !paymentProofFile) {
       return setErr(`${selectedPaymentMode.name} requires a proof file.`);
+    }
+
+    // Calculate total balance of selected invoices
+    const totalAvailableBalance = selectedInvoiceIds.reduce((sum, invoiceId) => {
+      const inv = invoices.find((i: any) => i.id === invoiceId);
+      if (!inv) return sum;
+      const invoicePayments = payments.filter((p) => p.invoice_id === invoiceId && !p.voided_at);
+      const totalPaid = invoicePayments.reduce((s, p) => s + num(p.amount), 0);
+      const balance = num(inv.total) - totalPaid;
+      return sum + balance;
+    }, 0);
+
+    const paymentAmountNum = parseFloat(paymentAmount);
+    if (paymentAmountNum > totalAvailableBalance) {
+      return setErr(`Payment amount (${formatMoney(paymentAmountNum)}) exceeds total balance (${formatMoney(totalAvailableBalance)}) of selected invoices.`);
     }
 
     setBusy(true);
@@ -486,25 +504,64 @@ export default function BillingPage() {
 
       // Set status based on mode auto-verify
       const status = selectedPaymentMode.auto_verifies ? "verified" : "pending";
+      const userId = (await supabase.auth.getSession()).data?.session?.user?.id || null;
 
-      const ins = await supabase.from("payments").insert({
-        patient_id: id,
-        invoice_id: paymentInvoiceId,
-        amount: parseFloat(paymentAmount),
-        payment_date: paymentDate,
-        status,
-        details: paymentDetails,
-        created_by: (await supabase.auth.getSession()).data?.session?.user?.id || null,
-      });
+      // Create a payment record for each selected invoice
+      // Distribute payment sequentially by invoice number (pay first invoice completely, then next, etc.)
+      const paymentRecords = [];
+      let remainingAmount = paymentAmountNum;
+
+      // Sort selected invoice IDs by their invoice numbers for sequential payment
+      const sortedInvoiceIds = selectedInvoiceIds
+        .map(invoiceId => invoices.find((i: any) => i.id === invoiceId))
+        .filter(inv => inv !== undefined)
+        .sort((a: any, b: any) => (a.invoice_number || "").localeCompare(b.invoice_number || ""))
+        .map((inv: any) => inv.id);
+
+      for (const invoiceId of sortedInvoiceIds) {
+        if (remainingAmount <= 0) break;
+
+        const inv = invoices.find((i: any) => i.id === invoiceId);
+        if (!inv) continue;
+
+        const invoicePayments = payments.filter((p) => p.invoice_id === invoiceId && !p.voided_at);
+        const totalPaid = invoicePayments.reduce((s, p) => s + num(p.amount), 0);
+        const balance = num(inv.total) - totalPaid;
+
+        // Pay this invoice: min of balance and remaining payment amount
+        const invoicePaymentAmount = Math.min(balance, remainingAmount);
+
+        if (invoicePaymentAmount > 0) {
+          paymentRecords.push({
+            patient_id: id,
+            invoice_id: invoiceId,
+            amount: invoicePaymentAmount,
+            payment_date: paymentDate,
+            status,
+            details: paymentDetails,
+            created_by: userId,
+          });
+          remainingAmount -= invoicePaymentAmount;
+        }
+      }
+
+      if (paymentRecords.length === 0) {
+        throw new Error("No valid invoices to apply payment to.");
+      }
+
+      const ins = await supabase.from("payments").insert(paymentRecords);
 
       if (ins.error) {
         throw ins.error;
       }
 
-      await supabase.rpc("recalc_invoice", { invoice_id: paymentInvoiceId });
+      // Recalculate all affected invoices
+      for (const invoiceId of selectedInvoiceIds) {
+        await supabase.rpc("recalc_invoice", { invoice_id: invoiceId });
+      }
 
       setShowAddPayment(false);
-      setPaymentInvoiceId("");
+      setSelectedInvoiceIds([]);
       setPaymentAmount("");
       setPaymentReference("");
       setPaymentProofFile(null);
@@ -626,14 +683,16 @@ export default function BillingPage() {
                           <td className="data-table-cell">
                             <span
                               className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
-                                inv.status === "paid"
+                                balance === 0
+                                  ? "bg-green-100 text-green-800"
+                                  : inv.status === "paid"
                                   ? "bg-green-100 text-green-800"
                                   : inv.status === "overdue"
                                   ? "bg-red-100 text-red-800"
                                   : "bg-yellow-100 text-yellow-800"
                               }`}
                             >
-                              {inv.status}
+                              {balance === 0 ? "paid" : inv.status || "pending"}
                             </span>
                           </td>
                           <td className="data-table-cell-right">
@@ -670,98 +729,107 @@ export default function BillingPage() {
 
               {/* Payments */}
               <div className="rounded-2xl border bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                  <div className="text-sm font-semibold">Payments</div>
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <div className="text-sm font-semibold">Payments</div>
+                  </div>
                   <button className="h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white" onClick={() => setShowAddPayment(true)}>
                     Add payment
                   </button>
                 </div>
 
                 <div className="mt-3">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-slate-600 border-b bg-slate-50">
-                          <th className="py-3 px-3 font-semibold">Invoice #</th>
-                          <th className="py-3 px-3 font-semibold">Date</th>
-                          <th className="py-3 px-3 font-semibold text-right">Amount</th>
-                          <th className="py-3 px-3 font-semibold">Mode</th>
-                          <th className="py-3 px-3 font-semibold">Status</th>
-                          <th className="py-3 px-3 font-semibold">Reference</th>
-                          <th className="py-3 px-3 font-semibold">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {payments.map((pay: any, index: number) => {
-                          const modeData = paymentModes.find(m => m.code === pay.details?.payment_mode_code);
-                          const statusBadgeColor = pay.status === 'verified' ? 'bg-green-100 text-green-800' 
-                            : pay.status === 'pending' ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800';
-                          const isVoided = !!pay.voided_at;
-                          
-                          return (
-                            <tr key={pay.id} className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-slate-50"} hover:bg-slate-100`}>
-                              <td className="py-3 px-3">{(pay as any).invoices?.invoice_number ?? "—"}</td>
-                              <td className="py-3 px-3">{formatDatePH(pay.payment_date)}</td>
-                              <td className="py-3 px-3 text-right font-semibold">{formatMoney(pay.amount)}</td>
-                              <td className="py-3 px-3 text-sm">
-                                {modeData?.name || pay.details?.payment_mode_name || "—"}
-                              </td>
-                              <td className="py-3 px-3">
-                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statusBadgeColor} ${isVoided ? 'line-through opacity-60' : ''}`}>
-                                  {isVoided ? 'voided' : pay.status || 'pending'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3 text-sm">
-                                {pay.details?.reference_number || "—"}
-                              </td>
-                              <td className="py-3 px-3">
-                                <div className="flex gap-1">
-                                  {pay.status === 'verified' && !isVoided && (
-                                    <button 
-                                      className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                      title="Issue receipt for verified payment"
-                                      onClick={() => handleGenerateReceipt(pay.id)}
-                                      disabled={busy}
-                                    >
-                                      Receipt
-                                    </button>
-                                  )}
-                                  {pay.status === 'pending' && !isVoided && (
-                                    <button 
-                                      className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                                      title="Verify this pending payment"
-                                      onClick={() => setVerifyingPaymentId(pay.id)}
-                                      disabled={busy}
-                                    >
-                                      Verify
-                                    </button>
-                                  )}
-                                  {!isVoided && (
-                                    <button 
-                                      className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
-                                      title="Void this payment"
-                                      onClick={() => setVoidingPaymentId(pay.id)}
-                                      disabled={busy}
-                                    >
-                                      Void
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {payments.length === 0 ? (
-                          <tr>
-                            <td className="py-3 px-3 text-slate-500 text-center" colSpan={7}>
-                              No payments yet.
+                  <table className="data-table">
+                    <colgroup>
+                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "16%" }} />
+                    </colgroup>
+                    <thead className="data-table-head">
+                      <tr>
+                        <th className="data-table-head-cell">Invoice #</th>
+                        <th className="data-table-head-cell">Date</th>
+                        <th className="data-table-head-cell-right">Amount</th>
+                        <th className="data-table-head-cell">Mode</th>
+                        <th className="data-table-head-cell">Status</th>
+                        <th className="data-table-head-cell">Reference</th>
+                        <th className="data-table-head-cell-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((pay: any, index: number) => {
+                        const modeData = paymentModes.find(m => m.code === pay.details?.payment_mode_code);
+                        const statusBadgeColor = pay.status === 'verified' ? 'bg-green-100 text-green-800' 
+                          : pay.status === 'pending' ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800';
+                        const isVoided = !!pay.voided_at;
+                        
+                        return (
+                          <tr key={pay.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                            <td className="data-table-cell">{(pay as any).invoices?.invoice_number ?? "—"}</td>
+                            <td className="data-table-cell">{formatDatePH(pay.payment_date)}</td>
+                            <td className="data-table-cell-right text-green-700 font-semibold">{formatMoney(pay.amount)}</td>
+                            <td className="data-table-cell">
+                              {modeData?.name || pay.details?.payment_mode_name || "—"}
+                            </td>
+                            <td className="data-table-cell">
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statusBadgeColor} ${isVoided ? 'line-through opacity-60' : ''}`}>
+                                {isVoided ? 'voided' : pay.status || 'pending'}
+                              </span>
+                            </td>
+                            <td className="data-table-cell">
+                              {pay.details?.reference_number || "—"}
+                            </td>
+                            <td className="data-table-cell-right">
+                              <div className="flex gap-1 justify-end">
+                                {pay.status === 'verified' && !isVoided && (
+                                  <button 
+                                    className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                    title="Issue receipt for verified payment"
+                                    onClick={() => handleGenerateReceipt(pay.id)}
+                                    disabled={busy}
+                                  >
+                                    Receipt
+                                  </button>
+                                )}
+                                {pay.status === 'pending' && !isVoided && (
+                                  <button 
+                                    className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                                    title="Verify this pending payment"
+                                    onClick={() => setVerifyingPaymentId(pay.id)}
+                                    disabled={busy}
+                                  >
+                                    Verify
+                                  </button>
+                                )}
+                                {!isVoided && (
+                                  <button 
+                                    className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                    title="Void this payment"
+                                    onClick={() => setVoidingPaymentId(pay.id)}
+                                    disabled={busy}
+                                  >
+                                    Void
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
-                  </div>
+                        );
+                      })}
+                      {payments.length === 0 ? (
+                        <tr>
+                          <td className="data-table-empty" colSpan={7}>
+                            No payments yet.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -838,29 +906,25 @@ export default function BillingPage() {
                         <span className="font-semibold">{formatMoney(subtotal)}</span>
                       </div>
                       {showDiscount && (
-                        <div className="flex items-center justify-between gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                          <div className="flex-1 grid gap-2 sm:grid-cols-1">
+                        <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="Discount code/description"
+                              className="h-9 rounded-lg border bg-white px-2 text-sm flex-1"
+                              value={discountDescription}
+                              onChange={(e) => setDiscountDescription(e.target.value)}
+                            />
+                            <span className="text-sm font-semibold text-red-600">−</span>
                             <input
                               type="number"
-                              placeholder="Discount amount"
-                              className="h-9 rounded-lg border bg-white px-2 text-sm"
+                              placeholder="0.00"
+                              className="h-9 rounded-lg border bg-white px-2 text-sm w-24"
                               value={discountAmount}
                               onChange={(e) => setDiscountAmount(e.target.value)}
                               step="0.01"
                             />
                           </div>
-                          <div className="text-sm font-semibold text-red-600">
-                            -{formatMoney(Math.abs(discountValue))}
-                          </div>
-                          <button
-                            className="h-8 w-8 rounded-lg border bg-white text-red-600 hover:bg-red-100"
-                            onClick={() => {
-                              setShowDiscount(false);
-                              setDiscountAmount("");
-                            }}
-                          >
-                            ✕
-                          </button>
                         </div>
                       )}
                       <div className="flex justify-between items-center pt-2 text-base font-bold">
@@ -898,21 +962,60 @@ export default function BillingPage() {
               <h2 className="text-lg font-semibold">Add payment</h2>
 
               <div className="mt-4 grid gap-4">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Invoice</span>
-                  <select
-                    className="h-10 rounded-lg border bg-white px-3"
-                    value={paymentInvoiceId}
-                    onChange={(e) => setPaymentInvoiceId(e.target.value)}
-                  >
-                    <option value="">Select invoice</option>
-                    {invoices.map((inv: any) => (
-                      <option key={inv.id} value={inv.id}>
-                        {inv.invoice_number} ({formatMoney(inv.total ?? 0)})
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="grid gap-2 text-sm">
+                  <label className="text-slate-700 font-medium">Invoices</label>
+                  
+                  {/* Individual checkboxes */}
+                  <div className="space-y-2 border rounded-lg bg-slate-50 p-3">
+                    {invoices
+                      .map((inv: any) => {
+                        const invoicePayments = payments.filter((p) => p.invoice_id === inv.id && !p.voided_at);
+                        const totalPaid = invoicePayments.reduce((sum, p) => sum + num(p.amount), 0);
+                        const balance = num(inv.total) - totalPaid;
+                        return { inv, balance };
+                      })
+                      .filter(({ balance }) => balance > 0)
+                      .map(({ inv, balance }) => {
+                        const isSelected = selectedInvoiceIds.includes(inv.id);
+                        return (
+                          <label key={inv.id} className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer transition">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedInvoiceIds([...selectedInvoiceIds, inv.id]);
+                                } else {
+                                  setSelectedInvoiceIds(selectedInvoiceIds.filter(id => id !== inv.id));
+                                }
+                              }}
+                              className="w-4 h-4 rounded"
+                            />
+                            <span className="text-sm">
+                              <span className="font-bold">{inv.invoice_number}</span>
+                              {' '}— {formatDatePH(inv.invoice_date)} — Bal: {formatMoney(balance)}
+                            </span>
+                          </label>
+                        );
+                      })}
+                  </div>
+
+                  {/* Total balance display */}
+                  {selectedInvoiceIds.length > 0 && (
+                    <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
+                      <div className="font-semibold text-blue-700">Total balance: {formatMoney(
+                        selectedInvoiceIds.reduce((sum, invoiceId) => {
+                          const inv = invoices.find((i: any) => i.id === invoiceId);
+                          if (!inv) return sum;
+                          const invoicePayments = payments.filter((p) => p.invoice_id === invoiceId && !p.voided_at);
+                          const totalPaid = invoicePayments.reduce((s, p) => s + num(p.amount), 0);
+                          const balance = num(inv.total) - totalPaid;
+                          return sum + balance;
+                        }, 0)
+                      )}</div>
+                    </div>
+                  )}
+                </div>
 
                 <label className="grid gap-1 text-sm">
                   <span className="text-slate-700">Amount</span>
@@ -925,6 +1028,27 @@ export default function BillingPage() {
                     placeholder="0.00"
                   />
                 </label>
+
+                {/* Validation message for amount exceeding balance */}
+                {selectedInvoiceIds.length > 0 && paymentAmount && (() => {
+                  const totalAvailableBalance = selectedInvoiceIds.reduce((sum, invoiceId) => {
+                    const inv = invoices.find((i: any) => i.id === invoiceId);
+                    if (!inv) return sum;
+                    const invoicePayments = payments.filter((p) => p.invoice_id === invoiceId && !p.voided_at);
+                    const totalPaid = invoicePayments.reduce((s, p) => s + num(p.amount), 0);
+                    const balance = num(inv.total) - totalPaid;
+                    return sum + balance;
+                  }, 0);
+                  const paymentAmountNum = parseFloat(paymentAmount);
+                  if (paymentAmountNum > totalAvailableBalance) {
+                    return (
+                      <div className="rounded-lg bg-red-50 border border-red-200 p-2 text-xs text-red-700">
+                        Payment amount ({formatMoney(paymentAmountNum)}) exceeds total balance ({formatMoney(totalAvailableBalance)})
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 <label className="grid gap-1 text-sm">
                   <span className="text-slate-700">Payment date</span>
@@ -979,7 +1103,7 @@ export default function BillingPage() {
                 <div className="flex justify-end gap-2">
                   <button className="cancel-btn" onClick={() => {
                     setShowAddPayment(false);
-                    setPaymentInvoiceId("");
+                    setSelectedInvoiceIds([]);
                     setPaymentAmount("");
                     setPaymentReference("");
                     setPaymentProofFile(null);

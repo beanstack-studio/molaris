@@ -131,7 +131,7 @@ export default function DashboardPage() {
         const { data: orthoData, error: orthoError } = await supabase
           .from("treatments")
           .select("patient_id")
-          .ilike("treatment_type", "%ortho%");
+          .ilike("procedure", "%ortho%");
         
         if (!orthoError && orthoData) {
           orthoPatientIds = new Set(orthoData.map((t: any) => t.patient_id));

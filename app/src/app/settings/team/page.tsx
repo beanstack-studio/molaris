@@ -4,6 +4,37 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 
+function TogglePill({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={[
+        "relative inline-flex h-6 w-11 items-center rounded-full transition",
+        checked ? "bg-emerald-500" : "bg-slate-300",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+      ].join(" ")}
+      aria-label={checked ? "Active" : "Inactive"}
+    >
+      <span
+        className={[
+          "inline-block h-5 w-5 transform rounded-full bg-white transition",
+          checked ? "translate-x-5" : "translate-x-1",
+        ].join(" ")}
+      />
+    </button>
+  );
+}
+
 type DentistRow = {
   id: string;
   full_name: string;
@@ -54,6 +85,7 @@ export default function TeamSettingsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     setErr(null);
+    console.log("loadData called");
 
     try {
       const dentistRes = await supabase
@@ -72,6 +104,7 @@ export default function TeamSettingsPage() {
         is_active: d.is_active ?? true,
       })) as DentistRow[];
 
+      console.log("Loaded dentists:", dentistData);
       setDentists(dentistData);
 
       try {
@@ -116,11 +149,18 @@ export default function TeamSettingsPage() {
     setErr(null);
 
     try {
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      
+      if (!userId) {
+        throw new Error("User not authenticated");
+      }
+
       const { error } = await supabase.from("dentists").insert({
         full_name: dentistName.trim(),
         date_of_birth: dentistDob || null,
         prc_number: dentistPrc.trim() || null,
-        ptr_number: dentistPtr.trim() || null,
+        ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
         is_active: true,
       });
 
@@ -150,25 +190,49 @@ export default function TeamSettingsPage() {
     setErr(null);
 
     try {
-      const { error } = await supabase
+      console.log("Updating dentist:", {
+        id: editingDentist.id,
+        full_name: dentistName.trim(),
+        date_of_birth: dentistDob || null,
+        prc_number: dentistPrc.trim() || null,
+        ptr_number: dentistPtr.trim() || null,
+      });
+
+      const { data, error } = await supabase
         .from("dentists")
         .update({
           full_name: dentistName.trim(),
           date_of_birth: dentistDob || null,
           prc_number: dentistPrc.trim() || null,
-          ptr_number: dentistPtr.trim() || null,
+          ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
         })
-        .eq("id", editingDentist.id);
+        .eq("id", editingDentist.id)
+        .select();
 
-      if (error) throw error;
+      console.log("Update response - data:", data, "error:", error);
 
+      if (error) {
+        console.error("Supabase update error:", error);
+        console.error("Error details:", JSON.stringify(error, null, 2));
+        throw error;
+      }
+
+      console.log("Update successful, calling loadData");
       setEditingDentist(null);
       setDentistName("");
       setDentistDob("");
       setDentistPrc("");
       setDentistPtr("");
+      setShowAddDentistModal(false);
+      setErr(null);
+      
+      // Small delay to ensure database is updated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       await loadData();
+      console.log("LoadData completed");
     } catch (error) {
+      console.error("Update dentist error:", error);
       setErr(error instanceof Error ? error.message : "Failed to update dentist");
     } finally {
       setBusy(false);
@@ -182,6 +246,13 @@ export default function TeamSettingsPage() {
     setErr(null);
 
     try {
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      
+      if (!userId) {
+        throw new Error("User not authenticated");
+      }
+
       const { error } = await supabase.from("dentists").delete().eq("id", id);
 
       if (error) throw error;
@@ -240,7 +311,11 @@ export default function TeamSettingsPage() {
         created_by: userId,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Add staff error:", error);
+        console.error("Error details:", JSON.stringify(error, null, 2));
+        throw error;
+      }
 
       setStaffName("");
       setStaffRole("");
@@ -284,6 +359,8 @@ export default function TeamSettingsPage() {
       setStaffName("");
       setStaffRole("");
       setStaffDob("");
+      setShowAddStaffModal(false);
+      setErr(null);
       await loadData();
     } catch (error) {
       setErr(error instanceof Error ? error.message : "Failed to update staff");
@@ -333,180 +410,195 @@ export default function TeamSettingsPage() {
   if (loading) return <LoadingBlock />;
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <h1 className="text-3xl font-bold text-slate-900">Team</h1>
-
-      {err && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {err}
+    <div className="min-h-screen bg-slate-50">
+      <div className="app-section">
+        <div className="app-section-header">
+          <div className="app-section-title">Team</div>
         </div>
-      )}
+        
+        {err && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {err}
+          </div>
+        )}
 
-      {/* DENTISTS SECTION */}
-      <div className="mt-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">Dentists</h2>
-          <button
-            className="px-4 py-2 rounded-lg bg-slate-900 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-            onClick={() => {
-              setDentistName("");
-              setDentistDob("");
-              setDentistPrc("");
-              setDentistPtr("");
-              setEditingDentist(null);
-              setShowAddDentistModal(true);
-            }}
-            disabled={busy}
-          >
-            Add Dentist
-          </button>
-        </div>
+        <div className="app-section-body">
+          <div className="grid gap-4">
+            {/* DENTISTS SECTION */}
+            <div className="rounded-2xl border bg-white p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">Dentists</h2>
+                <button
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                  onClick={() => {
+                    setDentistName("");
+                    setDentistDob("");
+                    setDentistPrc("");
+                    setDentistPtr("");
+                    setEditingDentist(null);
+                    setShowAddDentistModal(true);
+                  }}
+                  disabled={busy}
+                >
+                  Add Dentist
+                </button>
+              </div>
 
-        <div className="rounded-xl border bg-white overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">Date of Birth</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">PRC Number</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">PTR Number</th>
-                <th className="px-4 py-3 text-center font-semibold text-slate-700">Active</th>
-                <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dentists.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
-                    No dentists yet.
-                  </td>
-                </tr>
-              ) : (
-                dentists.map((d, index) => (
-                  <tr
-                    key={d.id}
-                    className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
-                  >
-                    <td className="px-4 py-3 font-medium text-slate-900">{d.full_name}</td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {d.date_of_birth
-                        ? new Date(d.date_of_birth).toLocaleDateString("en-PH")
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{d.prc_number || "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{d.ptr_number || "—"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <input
-                        type="checkbox"
-                        checked={d.is_active}
-                        onChange={(e) => toggleDentistActive(d.id, e.target.checked)}
-                        disabled={busy}
-                        className="h-4 w-4 rounded"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-60"
-                        onClick={() => {
-                          setEditingDentist(d);
-                          setDentistName(d.full_name);
-                          setDentistDob(d.date_of_birth || "");
-                          setDentistPrc(d.prc_number || "");
-                          setDentistPtr(d.ptr_number || "");
-                          setShowAddDentistModal(true);
-                        }}
-                        disabled={busy}
-                      >
-                        Edit
-                      </button>
-                    </td>
+              <table className="data-table">
+                <colgroup>
+                  <col style={{ width: "25%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "17%" }} />
+                  <col style={{ width: "17%" }} />
+                  <col style={{ width: "11%" }} />
+                  <col style={{ width: "10%" }} />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Name</th>
+                    <th className="data-table-head-cell">Date of Birth</th>
+                    <th className="data-table-head-cell">PRC Number</th>
+                    <th className="data-table-head-cell">PTR Number</th>
+                    <th className="data-table-head-cell">Activate</th>
+                    <th className="data-table-head-cell-right">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* STAFF SECTION */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">Staff Members</h2>
-          <button
-            className="px-4 py-2 rounded-lg bg-slate-900 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-            onClick={() => {
-              setStaffName("");
-              setStaffRole("");
-              setStaffDob("");
-              setEditingStaff(null);
-              setShowAddStaffModal(true);
-            }}
-            disabled={busy}
-          >
-            Add Staff
-          </button>
-        </div>
-
-        <div className="rounded-xl border bg-white overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">Role</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-700">Date of Birth</th>
-                <th className="px-4 py-3 text-center font-semibold text-slate-700">Active</th>
-                <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {staff.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                    No staff members yet.
-                  </td>
-                </tr>
-              ) : (
-                staff.map((s, index) => (
-                  <tr
-                    key={s.id}
-                    className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
-                  >
-                    <td className="px-4 py-3 font-medium text-slate-900">{s.full_name}</td>
-                    <td className="px-4 py-3 text-slate-600">{s.role}</td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {s.date_of_birth
-                        ? new Date(s.date_of_birth).toLocaleDateString("en-PH")
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <input
-                        type="checkbox"
-                        checked={s.is_active}
-                        onChange={(e) => toggleStaffActive(s.id, e.target.checked)}
-                        disabled={busy}
-                        className="h-4 w-4 rounded"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        className="px-3 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-60"
-                        onClick={() => {
-                          setEditingStaff(s);
-                          setStaffName(s.full_name);
-                          setStaffRole(s.role);
-                          setStaffDob(s.date_of_birth || "");
-                          setShowAddStaffModal(true);
-                        }}
-                        disabled={busy}
+                </thead>
+                <tbody>
+                  {dentists.length === 0 ? (
+                    <tr className="data-table-row">
+                      <td colSpan={6} className="data-table-empty">
+                        No dentists yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    dentists.map((d, index) => (
+                      <tr
+                        key={d.id}
+                        className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
                       >
-                        Edit
-                      </button>
-                    </td>
+                        <td className="data-table-cell font-medium">{d.full_name}</td>
+                        <td className="data-table-cell">
+                          {d.date_of_birth
+                            ? new Date(d.date_of_birth).toLocaleDateString("en-PH")
+                            : "—"}
+                        </td>
+                        <td className="data-table-cell">{d.prc_number || "—"}</td>
+                        <td className="data-table-cell">{d.ptr_number || "—"}</td>
+                        <td className="data-table-cell">
+                          <TogglePill
+                            checked={d.is_active}
+                            onChange={(v) => toggleDentistActive(d.id, v)}
+                            disabled={busy}
+                          />
+                        </td>
+                        <td className="data-table-cell-right">
+                          <button
+                            className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                            onClick={() => {
+                              setEditingDentist(d);
+                              setDentistName(d.full_name);
+                              setDentistDob(d.date_of_birth || "");
+                              setDentistPrc(d.prc_number || "");
+                              setDentistPtr(d.ptr_number || "");
+                              setShowAddDentistModal(true);
+                            }}
+                            disabled={busy}
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* STAFF SECTION */}
+            <div className="rounded-2xl border bg-white p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">Staff Members</h2>
+                <button
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                  onClick={() => {
+                    setStaffName("");
+                    setStaffRole("");
+                    setStaffDob("");
+                    setEditingStaff(null);
+                    setShowAddStaffModal(true);
+                  }}
+                  disabled={busy}
+                >
+                  Add Staff
+                </button>
+              </div>
+
+              <table className="data-table">
+                <colgroup>
+                  <col style={{ width: "30%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "25%" }} />
+                  <col style={{ width: "15%" }} />
+                  <col style={{ width: "10%" }} />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Name</th>
+                    <th className="data-table-head-cell">Role</th>
+                    <th className="data-table-head-cell">Date of Birth</th>
+                    <th className="data-table-head-cell">Activate</th>
+                    <th className="data-table-head-cell-right">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {staff.length === 0 ? (
+                    <tr className="data-table-row">
+                      <td colSpan={5} className="data-table-empty">
+                        No staff members yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    staff.map((s, index) => (
+                      <tr
+                        key={s.id}
+                        className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                      >
+                        <td className="data-table-cell font-medium">{s.full_name}</td>
+                        <td className="data-table-cell">{s.role}</td>
+                        <td className="data-table-cell">
+                          {s.date_of_birth
+                            ? new Date(s.date_of_birth).toLocaleDateString("en-PH")
+                            : "—"}
+                        </td>
+                        <td className="data-table-cell">
+                          <TogglePill
+                            checked={s.is_active}
+                            onChange={(v) => toggleStaffActive(s.id, v)}
+                            disabled={busy}
+                          />
+                        </td>
+                        <td className="data-table-cell-right">
+                          <button
+                            className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                            onClick={() => {
+                              setEditingStaff(s);
+                              setStaffName(s.full_name);
+                              setStaffRole(s.role);
+                              setStaffDob(s.date_of_birth || "");
+                              setShowAddStaffModal(true);
+                            }}
+                            disabled={busy}
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -556,6 +648,7 @@ export default function TeamSettingsPage() {
           <div>
             <label className="block text-sm font-medium text-slate-700">PTR Number</label>
             <input
+              type="number"
               className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
               placeholder="PTR number (annual)"
               value={dentistPtr}

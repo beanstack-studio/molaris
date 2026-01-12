@@ -199,11 +199,13 @@ export default function ServicesSettingsPage() {
     title: string;
     data: ServicePriceRow[];
   }) => (
-    <div className="mt-4 rounded-xl border bg-white overflow-hidden">
-      <div className="flex items-center bg-slate-100 px-4 py-2 text-sm font-semibold">
-        <div>{title}</div>
+    <div className="rounded-2xl border bg-white p-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <div className="text-sm font-semibold">{title}</div>
+        </div>
         <select
-          className="ml-auto h-8 w-40 rounded-lg border bg-white px-2 text-sm"
+          className="h-10 rounded-lg border bg-white px-3"
           value={sort}
           onChange={(e) => setSort(e.target.value as ServiceSort)}
           disabled={busy}
@@ -215,102 +217,114 @@ export default function ServicesSettingsPage() {
         </select>
       </div>
 
-      {/* Mobile/tablet: allow horizontal scroll */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[640px] divide-y">
-          {data.map((r) => (
-            <div
-              key={r.id}
-              className={[
-                "grid grid-cols-[240px_140px_1fr_120px_80px] items-center px-4 py-2.5 text-sm transition",
-                "hover:bg-slate-50",
-                r.is_active ? "" : "opacity-50",
-              ].join(" ")}
-            >
-              <div className="truncate">{r.service_name}</div>
-
-              <div className="text-right">PHP {Number(r.default_price || 0).toLocaleString()}</div>
-
-              <div />
-
-              <div className="flex justify-center">
-                <TogglePill
-                  checked={r.is_active}
-                  disabled={busy}
-                  onChange={(v) => toggleActive(r.id, v)}
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-white"
-                  onClick={() => openEdit(r)}
-                  disabled={busy}
-                >
-                  Edit
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {data.length === 0 ? (
-            <div className="px-4 py-6 text-sm text-slate-600">No items yet.</div>
-          ) : null}
-        </div>
+      <div className="mt-3">
+        <table className="data-table">
+          <colgroup>
+            <col style={{ width: "40%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "20%" }} />
+          </colgroup>
+          <thead className="data-table-head">
+            <tr>
+              <th className="data-table-head-cell">Name</th>
+              <th className="data-table-head-cell-right">Fee</th>
+              <th className="data-table-head-cell">Activate</th>
+              <th className="data-table-head-cell-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((r, index) => (
+              <tr key={r.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                <td className="data-table-cell">{r.service_name}</td>
+                <td className="data-table-cell-right font-semibold">PHP {Number(r.default_price || 0).toLocaleString()}</td>
+                <td className="data-table-cell">
+                  <TogglePill
+                    checked={r.is_active}
+                    disabled={busy}
+                    onChange={(v) => toggleActive(r.id, v)}
+                  />
+                </td>
+                <td className="data-table-cell-right">
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    onClick={() => openEdit(r)}
+                    disabled={busy}
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {data.length === 0 ? (
+              <tr>
+                <td className="data-table-empty" colSpan={4}>
+                  No items yet.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="text-xl font-semibold">Services</h1>
-
-      {/* ADD BOX */}
-      <div className="mt-4 rounded-xl border bg-white p-3">
-        <div className="mb-2 text-sm font-semibold text-slate-700">Add a service / add-on</div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <select
-            className="h-10 rounded-lg border px-2 text-sm"
-            value={itemType}
-            onChange={(e) => setItemType(e.target.value as any)}
-            disabled={busy}
-          >
-            <option value="SERVICE">Service</option>
-            <option value="ADD_ON">Add-on</option>
-          </select>
-
-          <input
-            className="h-10 w-full rounded-lg border px-3 text-sm sm:flex-1"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={busy}
-          />
-
-          <input
-            className="h-10 w-full rounded-lg border px-3 text-sm sm:w-[160px]"
-            placeholder="Fee"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            disabled={busy}
-            inputMode="decimal"
-          />
-
-          <button
-            type="button"
-            className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-            onClick={addItem}
-            disabled={busy}
-          >
-            Add
-          </button>
+    <div className="min-h-screen bg-slate-50">
+      <div className="app-section">
+        <div className="app-section-header">
+          <div className="app-section-title">Services</div>
         </div>
-      </div>
 
-      <Table title="Services" data={services} />
-      <Table title="Add-ons" data={addOns} />
+        <div className="app-section-body">
+          <div className="grid gap-4">
+            {/* ADD BOX */}
+            <div className="rounded-2xl border bg-white p-4">
+              <div className="mb-3 text-sm font-semibold text-slate-700">Add a service / add-on</div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <select
+                  className="h-10 rounded-lg border px-2 text-sm"
+                  value={itemType}
+                  onChange={(e) => setItemType(e.target.value as any)}
+                  disabled={busy}
+                >
+                  <option value="SERVICE">Service</option>
+                  <option value="ADD_ON">Add-on</option>
+                </select>
+
+                <input
+                  className="h-10 w-full rounded-lg border px-3 text-sm sm:flex-1"
+                  placeholder="Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={busy}
+                />
+
+                <input
+                  className="h-10 w-full rounded-lg border px-3 text-sm sm:w-[160px]"
+                  placeholder="Fee"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  disabled={busy}
+                  inputMode="decimal"
+                />
+
+                <button
+                  type="button"
+                  className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                  onClick={addItem}
+                  disabled={busy}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            <Table title="Services" data={services} />
+            <Table title="Add-ons" data={addOns} />
+          </div>
 
       <EditModal
         open={editOpen}
@@ -405,6 +419,8 @@ export default function ServicesSettingsPage() {
           </div>
         )}
       </EditModal>
+        </div>
+      </div>
     </div>
   );
 }

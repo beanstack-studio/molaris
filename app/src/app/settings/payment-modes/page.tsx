@@ -4,6 +4,35 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { PaymentMode } from "@/lib/types";
 
+function TogglePill({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={() => {
+        console.log('TogglePill clicked, checked:', checked, 'sending:', !checked);
+        onChange(!checked);
+      }}
+      disabled={disabled}
+      className={`inline-flex h-6 w-11 items-center rounded-full transition ${
+        checked ? "bg-emerald-500" : "bg-slate-300"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+          checked ? "translate-x-5" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function PaymentModesSettingsPage() {
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,21 +62,30 @@ export default function PaymentModesSettingsPage() {
     }
   }
 
-  async function toggleActive(id: string, isActive: boolean) {
+  async function toggleActive(id: string, newValue: boolean) {
+    console.log('toggleActive called with id:', id, 'newValue:', newValue);
     setErr(null);
-    setBusy(true);
+    
+    // Optimistically update UI immediately
+    setPaymentModes((prev) =>
+      prev.map((mode) => (mode.id === id ? { ...mode, is_active: newValue } : mode))
+    );
 
     const { error } = await supabase
       .from("payment_modes")
-      .update({ is_active: !isActive })
+      .update({ is_active: newValue })
       .eq("id", id);
 
-    setBusy(false);
+    console.log('Supabase update error:', error);
     if (error) {
-      return setErr(error.message);
+      console.error('Update failed:', error.message);
+      setErr(error.message);
+      // Revert on error
+      await loadPaymentModes();
+      return;
     }
 
-    await loadPaymentModes();
+    console.log('Update successful');
   }
 
   async function startEdit(mode: PaymentMode) {
@@ -99,156 +137,213 @@ export default function PaymentModesSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <div>
-        <h1 className="text-xl font-semibold">Payment Modes</h1>
-        <p className="text-sm text-slate-600">Configure payment method requirements and verification.</p>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="app-section">
+        <div className="app-section-header">
+          <div className="app-section-title">Payment Modes</div>
+        </div>
 
-      {err && <div className="mt-4 rounded-lg border bg-yellow-50 p-3 text-sm text-yellow-700">{err}</div>}
-
-      {/* Payment modes table */}
-      <div className="mt-6 rounded-lg border bg-white overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-slate-50 text-left">
-              <th className="py-3 px-4 font-semibold">Name</th>
-              <th className="py-3 px-4 font-semibold text-center">Proof</th>
-              <th className="py-3 px-4 font-semibold text-center">Reference</th>
-              <th className="py-3 px-4 font-semibold text-center">Staff</th>
-              <th className="py-3 px-4 font-semibold text-center">Auto-Verify</th>
-              <th className="py-3 px-4 font-semibold text-center">Status</th>
-              <th className="py-3 px-4 font-semibold text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paymentModes.map((mode, i) => (
-              <tr key={mode.id} className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}>
-                {editingId === mode.id && editData ? (
-                  <>
-                    <td className="py-3 px-4 font-semibold">{mode.name}</td>
-                    <td className="py-3 px-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={editData.requires_proof || false}
-                        onChange={(e) => setEditData({ ...editData, requires_proof: e.target.checked })}
-                        disabled={busy}
-                      />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={editData.requires_reference || false}
-                        onChange={(e) => setEditData({ ...editData, requires_reference: e.target.checked })}
-                        disabled={busy}
-                      />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={editData.requires_received_by || false}
-                        onChange={(e) => setEditData({ ...editData, requires_received_by: e.target.checked })}
-                        disabled={busy}
-                      />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={editData.auto_verifies || false}
-                        onChange={(e) => setEditData({ ...editData, auto_verifies: e.target.checked })}
-                        disabled={busy}
-                      />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${mode.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-                        {mode.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right space-x-2">
-                      <button
-                        className="h-8 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                        onClick={saveEdit}
-                        disabled={busy}
-                      >
-                        Save
-                      </button>
-                      <button
-                        className="h-8 rounded-lg border bg-white px-3 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50"
-                        onClick={cancelEdit}
-                        disabled={busy}
-                      >
-                        Cancel
-                      </button>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="py-3 px-4 font-semibold">{mode.name}</td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block w-5 h-5 rounded ${mode.requires_proof ? "bg-blue-500" : "bg-gray-200"}`}></span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block w-5 h-5 rounded ${mode.requires_reference ? "bg-blue-500" : "bg-gray-200"}`}></span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block w-5 h-5 rounded ${mode.requires_received_by ? "bg-blue-500" : "bg-gray-200"}`}></span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block w-5 h-5 rounded ${mode.auto_verifies ? "bg-green-500" : "bg-gray-200"}`}></span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${mode.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-                        {mode.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right space-x-2">
-                      <button
-                        className="h-8 rounded-lg border bg-white px-3 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50"
-                        onClick={() => startEdit(mode)}
-                        disabled={busy}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="h-8 rounded-lg border bg-white px-3 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50"
-                        onClick={() => toggleActive(mode.id, mode.is_active)}
-                        disabled={busy}
-                      >
-                        {mode.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {paymentModes.length === 0 && (
-          <div className="py-8 text-center text-slate-500 text-sm">
-            No payment modes configured.
+        {err && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {err}
           </div>
         )}
-      </div>
 
-      {/* Requirements legend */}
-      <div className="mt-6 rounded-lg border bg-slate-50 p-4">
-        <div className="text-sm font-semibold mb-3">Requirements Legend</div>
-        <div className="grid grid-cols-2 gap-4 text-xs text-slate-700">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
-            <span><strong>Proof</strong> - Requires proof upload</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
-            <span><strong>Reference</strong> - Requires reference number</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
-            <span><strong>Staff</strong> - Requires staff member</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 rounded bg-green-500"></span>
-            <span><strong>Auto-Verify</strong> - Verifies automatically</span>
+        <div className="app-section-body">
+          <div className="grid gap-4">
+            {/* Payment modes table */}
+            <div className="rounded-2xl border bg-white p-4">
+              <table className="data-table">
+                <colgroup>
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "17%" }} />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Name</th>
+                    <th className="data-table-head-cell text-center">Proof</th>
+                    <th className="data-table-head-cell text-center">Reference</th>
+                    <th className="data-table-head-cell text-center">Staff</th>
+                    <th className="data-table-head-cell text-center">Auto-Verify</th>
+                    <th className="data-table-head-cell text-center">Activate</th>
+                    <th className="data-table-head-cell-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentModes.length === 0 ? (
+                    <tr className="data-table-row">
+                      <td className="data-table-empty" colSpan={7}>
+                        No payment modes configured.
+                      </td>
+                    </tr>
+                  ) : (
+                    paymentModes.map((mode, i) => (
+                      <tr
+                        key={mode.id}
+                        className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                      >
+                        {editingId === mode.id && editData ? (
+                          <>
+                            <td className="data-table-cell font-semibold">{mode.name}</td>
+                            <td className="data-table-cell text-center">
+                              <input
+                                type="checkbox"
+                                checked={editData.requires_proof || false}
+                                onChange={(e) =>
+                                  setEditData({ ...editData, requires_proof: e.target.checked })
+                                }
+                                disabled={busy}
+                                className="h-4 w-4 rounded"
+                              />
+                            </td>
+                            <td className="data-table-cell text-center">
+                              <input
+                                type="checkbox"
+                                checked={editData.requires_reference || false}
+                                onChange={(e) =>
+                                  setEditData({ ...editData, requires_reference: e.target.checked })
+                                }
+                                disabled={busy}
+                                className="h-4 w-4 rounded"
+                              />
+                            </td>
+                            <td className="data-table-cell text-center">
+                              <input
+                                type="checkbox"
+                                checked={editData.requires_received_by || false}
+                                onChange={(e) =>
+                                  setEditData({ ...editData, requires_received_by: e.target.checked })
+                                }
+                                disabled={busy}
+                                className="h-4 w-4 rounded"
+                              />
+                            </td>
+                            <td className="data-table-cell text-center">
+                              <input
+                                type="checkbox"
+                                checked={editData.auto_verifies || false}
+                                onChange={(e) =>
+                                  setEditData({ ...editData, auto_verifies: e.target.checked })
+                                }
+                                disabled={busy}
+                                className="h-4 w-4 rounded"
+                              />
+                            </td>
+                            <td className="data-table-cell text-center">
+                              <TogglePill
+                                checked={mode.is_active}
+                                onChange={(newValue) => toggleActive(mode.id, newValue)}
+                              />
+                            </td>
+                            <td className="data-table-cell-right">
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  className="rounded bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                                  onClick={saveEdit}
+                                  disabled={busy}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                                  onClick={cancelEdit}
+                                  disabled={busy}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="data-table-cell font-semibold">{mode.name}</td>
+                            <td className="data-table-cell text-center">
+                              <span
+                                className={`inline-block w-4 h-4 rounded ${
+                                  mode.requires_proof ? "bg-blue-500" : "bg-slate-200"
+                                }`}
+                              ></span>
+                            </td>
+                            <td className="data-table-cell text-center">
+                              <span
+                                className={`inline-block w-4 h-4 rounded ${
+                                  mode.requires_reference ? "bg-blue-500" : "bg-slate-200"
+                                }`}
+                              ></span>
+                            </td>
+                            <td className="data-table-cell text-center">
+                              <span
+                                className={`inline-block w-4 h-4 rounded ${
+                                  mode.requires_received_by ? "bg-blue-500" : "bg-slate-200"
+                                }`}
+                              ></span>
+                            </td>
+                            <td className="data-table-cell text-center">
+                              <span
+                                className={`inline-block w-4 h-4 rounded ${
+                                  mode.auto_verifies ? "bg-green-500" : "bg-slate-200"
+                                }`}
+                              ></span>
+                            </td>
+                            <td className="data-table-cell text-center">
+                              <TogglePill
+                                checked={mode.is_active}
+                                onChange={(newValue) => toggleActive(mode.id, newValue)}
+                              />
+                            </td>
+                            <td className="data-table-cell-right">
+                              <button
+                                className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                                onClick={() => startEdit(mode)}
+                                disabled={busy}
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Requirements legend */}
+            <div className="rounded-2xl border bg-white p-4">
+              <div className="text-sm font-semibold mb-3">Requirements Legend</div>
+              <div className="grid grid-cols-2 gap-4 text-xs text-slate-700">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
+                  <span>
+                    <strong>Proof</strong> - Requires proof upload
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
+                  <span>
+                    <strong>Reference</strong> - Requires reference number
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
+                  <span>
+                    <strong>Staff</strong> - Requires staff member
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-4 h-4 rounded bg-green-500"></span>
+                  <span>
+                    <strong>Auto-Verify</strong> - Verifies automatically
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
