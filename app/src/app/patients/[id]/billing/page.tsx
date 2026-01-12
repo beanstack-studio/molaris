@@ -10,8 +10,10 @@ import type {
   Treatment,
   ServicePriceRow,
   Patient,
+  PaymentMode,
 } from "@/lib/types";
 import { formatMoney, formatDatePH, todayLocalISO, combineFullName, splitFullName } from "@/lib/helpers";
+import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
 
 /* Helpers */
 function num(n: unknown) {
@@ -30,7 +32,8 @@ export default function BillingPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [paymentModes, setPaymentModes] = useState<Array<{ id: string; name: string }>>([]);
+  const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState<PaymentMode | null>(null);
 
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [invoiceDate, setInvoiceDate] = useState(() => todayLocalISO());
@@ -40,8 +43,8 @@ export default function BillingPage() {
   const [paymentInvoiceId, setPaymentInvoiceId] = useState<string>("");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => todayLocalISO());
-  const [paymentMode, setPaymentMode] = useState<string>("");
-  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentReference, setPaymentReference] = useState<string>("");
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
 
   // Visit date selection and treatments
   const [visitDates, setVisitDates] = useState<string[]>([]);
@@ -263,14 +266,11 @@ export default function BillingPage() {
   // Load payment modes
   useEffect(() => {
     async function loadModes() {
-      const { data, error } = await supabase
-        .from("payment_modes")
-        .select("id, name")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (error === null && data) {
-        setPaymentModes(data);
+      try {
+        const modes = await getActivePaymentModes();
+        setPaymentModes(modes || []);
+      } catch (err) {
+        console.error("Failed to load payment modes:", err);
       }
     }
     loadModes();
@@ -380,30 +380,60 @@ export default function BillingPage() {
 
     if (!paymentInvoiceId) return setErr("Select an invoice.");
     if (!paymentAmount) return setErr("Enter payment amount.");
-    if (!paymentMode) return setErr("Select payment mode.");
+    if (!selectedPaymentMode) return setErr("Select payment mode.");
+
+    // Validate mode-specific requirements
+    if (selectedPaymentMode.requires_reference && !paymentReference) {
+      return setErr(`${selectedPaymentMode.name} requires a reference number.`);
+    }
+    if (selectedPaymentMode.requires_proof && !paymentProofFile) {
+      return setErr(`${selectedPaymentMode.name} requires a proof file.`);
+    }
 
     setBusy(true);
 
-    const ins = await supabase.from("payments").insert({
-      patient_id: id,
-      invoice_id: paymentInvoiceId,
-      amount: parseFloat(paymentAmount),
-      payment_date: paymentDate,
-      mode: paymentMode,
-      notes: paymentNotes.trim() || null,
-    });
+    try {
+      // Prepare payment details (flexible JSONB field)
+      const paymentDetails: Record<string, any> = {
+        payment_mode_code: selectedPaymentMode.code,
+        payment_mode_name: selectedPaymentMode.name,
+      };
 
-    setBusy(false);
-    if (ins.error) return setErr(ins.error.message);
+      if (paymentReference) {
+        paymentDetails.reference_number = paymentReference;
+      }
 
-    await supabase.rpc("recalc_invoice", { invoice_id: paymentInvoiceId });
+      // Set status based on mode auto-verify
+      const status = selectedPaymentMode.auto_verifies ? "verified" : "pending";
 
-    setShowAddPayment(false);
-    setPaymentInvoiceId("");
-    setPaymentAmount("");
-    setPaymentMode("");
-    setPaymentNotes("");
-    await loadData();
+      const ins = await supabase.from("payments").insert({
+        patient_id: id,
+        invoice_id: paymentInvoiceId,
+        amount: parseFloat(paymentAmount),
+        payment_date: paymentDate,
+        status,
+        details: paymentDetails,
+        created_by: (await supabase.auth.getSession()).data?.session?.user?.id || null,
+      });
+
+      if (ins.error) {
+        throw ins.error;
+      }
+
+      await supabase.rpc("recalc_invoice", { invoice_id: paymentInvoiceId });
+
+      setShowAddPayment(false);
+      setPaymentInvoiceId("");
+      setPaymentAmount("");
+      setPaymentReference("");
+      setPaymentProofFile(null);
+      setSelectedPaymentMode(null);
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to add payment");
+    } finally {
+      setBusy(false);
+    }
   }
   if (loading) {
     return (
@@ -776,30 +806,56 @@ export default function BillingPage() {
                   <span className="text-slate-700">Payment mode</span>
                   <select
                     className="h-10 rounded-lg border bg-white px-3"
-                    value={paymentMode}
-                    onChange={(e) => setPaymentMode(e.target.value)}
+                    value={selectedPaymentMode?.code || ""}
+                    onChange={(e) => {
+                      const mode = paymentModes.find(m => m.code === e.target.value) || null;
+                      setSelectedPaymentMode(mode);
+                    }}
                   >
                     <option value="">Select mode</option>
-                    {paymentModes.map((mode: any) => (
-                      <option key={mode.id} value={mode.name}>
+                    {paymentModes.map((mode: PaymentMode) => (
+                      <option key={mode.id} value={mode.code}>
                         {mode.name}
+                        {!mode.auto_verifies && " (needs verification)"}
                       </option>
                     ))}
                   </select>
                 </label>
 
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Notes</span>
-                  <textarea
-                    className="min-h-[88px] rounded-lg border px-3 py-2"
-                    value={paymentNotes}
-                    onChange={(e) => setPaymentNotes(e.target.value)}
-                    placeholder="Optional"
-                  />
-                </label>
+                {selectedPaymentMode?.requires_reference && (
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Reference number *</span>
+                    <input
+                      type="text"
+                      className="h-10 rounded-lg border px-3"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      placeholder={`Required for ${selectedPaymentMode.name}`}
+                    />
+                  </label>
+                )}
+
+                {selectedPaymentMode?.requires_proof && (
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Proof file *</span>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="h-10 rounded-lg border px-3"
+                      onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                )}
 
                 <div className="flex justify-end gap-2">
-                  <button className="cancel-btn" onClick={() => setShowAddPayment(false)}>
+                  <button className="cancel-btn" onClick={() => {
+                    setShowAddPayment(false);
+                    setPaymentInvoiceId("");
+                    setPaymentAmount("");
+                    setPaymentReference("");
+                    setPaymentProofFile(null);
+                    setSelectedPaymentMode(null);
+                  }}>
                     Cancel
                   </button>
                   <button className="save-btn" disabled={busy} onClick={addPayment}>
