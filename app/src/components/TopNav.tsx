@@ -100,6 +100,10 @@ export default function TopNav({
     };
   }, [router, pathname]);
 
+  const isPatients = pathname?.startsWith("/patients");
+  const isReports = pathname?.startsWith("/reports");
+  const isSettings = pathname?.startsWith("/settings");
+
   return (
     <div className="sticky top-0 z-50 border-b bg-white shadow-sm">
       <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
@@ -109,24 +113,41 @@ export default function TopNav({
             🦷 {title}
           </Link>
 
-          {/* Main Navigation */}
-          <div className="hidden sm:flex items-center gap-1">
-            <Link href="/patients" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+          {/* Right Navigation & Actions */}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/patients"
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isPatients
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
               Patients
             </Link>
-            <Link href="/reports/payments" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+            <Link
+              href="/reports/payments"
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isReports
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
               Reports
             </Link>
-            <Link href="/settings/clinic-profile" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+            <Link
+              href="/settings/clinic-profile"
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isSettings
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
               Settings
             </Link>
-          </div>
-
-          {/* Right Actions */}
-          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="px-3 py-2 text-sm font-medium rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-60"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 transition-colors disabled:opacity-60"
               onClick={signOut}
               disabled={busy}
               title="Sign out"
@@ -134,19 +155,6 @@ export default function TopNav({
               {busy ? "..." : "Sign out"}
             </button>
           </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        <div className="sm:hidden flex items-center gap-1 mt-2 pt-2 border-t">
-          <Link href="/patients" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
-            Patients
-          </Link>
-          <Link href="/reports/payments" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
-            Reports
-          </Link>
-          <Link href="/settings/clinic-profile" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
-            Settings
-          </Link>
         </div>
       </div>
     </div>
