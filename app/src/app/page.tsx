@@ -20,12 +20,15 @@ export default function Home() {
         
         if (session) {
           router.push("/dashboard");
+          router.refresh();
         } else {
           router.push("/login");
+          router.refresh();
         }
       } catch (error) {
         console.error("Auth check error:", error);
         router.push("/login");
+        router.refresh();
       } finally {
         setChecked(true);
       }

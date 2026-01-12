@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { initializePaymentModes } from "@/lib/initPaymentModes";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,11 +10,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Initialize payment modes on page load
-    initializePaymentModes().catch(err => console.error("Payment modes initialization error:", err));
-  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
