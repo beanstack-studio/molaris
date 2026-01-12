@@ -14,6 +14,7 @@ import type {
 } from "@/lib/types";
 import { formatMoney, formatDatePH, todayLocalISO, combineFullName, splitFullName } from "@/lib/helpers";
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
+import { generateReceipt, voidPayment } from "@/lib/receiptHelpers";
 
 /* Helpers */
 function num(n: unknown) {
@@ -45,6 +46,11 @@ export default function BillingPage() {
   const [paymentDate, setPaymentDate] = useState(() => todayLocalISO());
   const [paymentReference, setPaymentReference] = useState<string>("");
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+
+  const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
+  const [voidingPaymentId, setVoidingPaymentId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   // Visit date selection and treatments
   const [visitDates, setVisitDates] = useState<string[]>([]);
@@ -139,7 +145,9 @@ export default function BillingPage() {
       return sum;
     }, 0);
 
-    const paidAll = payments.reduce((sum, p) => sum + num(p.amount), 0);
+    const paidAll = payments
+      .filter((p: any) => !p.voided_at) // Exclude voided payments
+      .reduce((sum, p) => sum + num(p.amount), 0);
     const balanceAll = totalAll - paidAll;
 
     return { totalInvoiced: totalAll, totalPaid: paidAll, balance: balanceAll };
@@ -186,12 +194,12 @@ export default function BillingPage() {
 
     // Get payments for all invoices of this patient
     const invoiceIds = (inv.data as any[])?.map((i: any) => i.id) || [];
-    let allPayments: PaymentRow[] = [];
+    let allPayments: any[] = [];
     
     if (invoiceIds.length > 0) {
       const pay = await supabase
         .from("payments")
-        .select("id, invoice_id, amount, payment_date, mode, received_by, reference_no, notes, created_at, invoices(invoice_number)")
+        .select("id, invoice_id, patient_id, amount, payment_date, status, reference_number, details, voided_at, voided_by, created_at, invoices(invoice_number)")
         .in("invoice_id", invoiceIds)
         .order("created_at", { ascending: false });
       
@@ -374,6 +382,79 @@ export default function BillingPage() {
     await loadData();
   }
 
+  async function verifyPayment() {
+    if (!verifyingPaymentId) return;
+    setErr(null);
+    setBusy(true);
+
+    try {
+      // Update payment status to verified
+      const { error } = await supabase
+        .from("payments")
+        .update({ 
+          status: "verified",
+          verified_at: new Date().toISOString(),
+          verified_by: (await supabase.auth.getSession()).data?.session?.user?.id || null,
+        })
+        .eq("id", verifyingPaymentId);
+
+      if (error) throw error;
+
+      setVerifyingPaymentId(null);
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to verify payment");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVoidPayment() {
+    if (!voidingPaymentId || !voidReason.trim()) {
+      setErr("Please provide a reason for voiding");
+      return;
+    }
+
+    setErr(null);
+    setBusy(true);
+
+    try {
+      const userId = (await supabase.auth.getSession()).data?.session?.user?.id;
+      if (!userId) throw new Error("User not authenticated");
+
+      // Use voidPayment helper which handles receipt voiding too
+      await voidPayment(voidingPaymentId, userId, voidReason.trim());
+
+      setVoidingPaymentId(null);
+      setVoidReason("");
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to void payment");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleGenerateReceipt(paymentId: string) {
+    setErr(null);
+    setBusy(true);
+
+    try {
+      const userId = (await supabase.auth.getSession()).data?.session?.user?.id;
+      if (!userId) throw new Error("User not authenticated");
+
+      // For now, use current user as both staff and issuer
+      const receipt = await generateReceipt(paymentId, userId, userId);
+
+      alert(`Receipt ${receipt[0].receipt_number} generated successfully!`);
+      await loadData();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to generate receipt");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function addPayment() {
     if (!id) return;
     setErr(null);
@@ -530,7 +611,7 @@ export default function BillingPage() {
                       {invoices.map((inv: any, index: number) => {
                         const invoiceAmount = inv.total ?? 0;
                         const paidAmount = payments
-                          .filter((p: any) => p.invoice_id === inv.id)
+                          .filter((p: any) => p.invoice_id === inv.id && !p.voided_at)
                           .reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0);
                         const balance = invoiceAmount - paidAmount;
                         return (
@@ -597,42 +678,90 @@ export default function BillingPage() {
                 </div>
 
                 <div className="mt-3">
-                  <table className="w-full table-fixed text-sm">
-                    <colgroup>
-                      <col style={{ width: 110 }} />
-                      <col style={{ width: 100 }} />
-                      <col style={{ width: 100 }} />
-                      <col style={{ width: 90 }} />
-                      <col />
-                    </colgroup>
-                    <thead>
-                      <tr className="text-left text-slate-600 border-b bg-slate-50">
-                        <th className="py-3 px-3 font-semibold">Invoice #</th>
-                        <th className="py-3 px-3 font-semibold">Date</th>
-                        <th className="py-3 px-3 font-semibold text-right">Amount</th>
-                        <th className="py-3 px-3 font-semibold">Mode</th>
-                        <th className="py-3 px-3 font-semibold">Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payments.map((pay: any, index: number) => (
-                        <tr key={pay.id} className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-slate-50"} hover:bg-slate-100`}>
-                          <td className="py-3 px-3">{(pay as any).invoices?.invoice_number ?? "—"}</td>
-                          <td className="py-3 px-3">{formatDatePH(pay.payment_date)}</td>
-                          <td className="py-3 px-3 text-right">{formatMoney(pay.amount)}</td>
-                          <td className="py-3 px-3">{pay.mode ?? "—"}</td>
-                          <td className="py-3 px-3">{pay.notes ?? "—"}</td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-slate-600 border-b bg-slate-50">
+                          <th className="py-3 px-3 font-semibold">Invoice #</th>
+                          <th className="py-3 px-3 font-semibold">Date</th>
+                          <th className="py-3 px-3 font-semibold text-right">Amount</th>
+                          <th className="py-3 px-3 font-semibold">Mode</th>
+                          <th className="py-3 px-3 font-semibold">Status</th>
+                          <th className="py-3 px-3 font-semibold">Reference</th>
+                          <th className="py-3 px-3 font-semibold">Actions</th>
                         </tr>
-                      ))}
-                      {payments.length === 0 ? (
-                        <tr>
-                          <td className="py-3 px-3 text-slate-500 text-center" colSpan={5}>
-                            No payments yet.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {payments.map((pay: any, index: number) => {
+                          const modeData = paymentModes.find(m => m.code === pay.details?.payment_mode_code);
+                          const statusBadgeColor = pay.status === 'verified' ? 'bg-green-100 text-green-800' 
+                            : pay.status === 'pending' ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800';
+                          const isVoided = !!pay.voided_at;
+                          
+                          return (
+                            <tr key={pay.id} className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-slate-50"} hover:bg-slate-100`}>
+                              <td className="py-3 px-3">{(pay as any).invoices?.invoice_number ?? "—"}</td>
+                              <td className="py-3 px-3">{formatDatePH(pay.payment_date)}</td>
+                              <td className="py-3 px-3 text-right font-semibold">{formatMoney(pay.amount)}</td>
+                              <td className="py-3 px-3 text-sm">
+                                {modeData?.name || pay.details?.payment_mode_name || "—"}
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statusBadgeColor} ${isVoided ? 'line-through opacity-60' : ''}`}>
+                                  {isVoided ? 'voided' : pay.status || 'pending'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-sm">
+                                {pay.details?.reference_number || "—"}
+                              </td>
+                              <td className="py-3 px-3">
+                                <div className="flex gap-1">
+                                  {pay.status === 'verified' && !isVoided && (
+                                    <button 
+                                      className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                      title="Issue receipt for verified payment"
+                                      onClick={() => handleGenerateReceipt(pay.id)}
+                                      disabled={busy}
+                                    >
+                                      Receipt
+                                    </button>
+                                  )}
+                                  {pay.status === 'pending' && !isVoided && (
+                                    <button 
+                                      className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                                      title="Verify this pending payment"
+                                      onClick={() => setVerifyingPaymentId(pay.id)}
+                                      disabled={busy}
+                                    >
+                                      Verify
+                                    </button>
+                                  )}
+                                  {!isVoided && (
+                                    <button 
+                                      className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                      title="Void this payment"
+                                      onClick={() => setVoidingPaymentId(pay.id)}
+                                      disabled={busy}
+                                    >
+                                      Void
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {payments.length === 0 ? (
+                          <tr>
+                            <td className="py-3 px-3 text-slate-500 text-center" colSpan={7}>
+                              No payments yet.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
@@ -860,6 +989,60 @@ export default function BillingPage() {
                   </button>
                   <button className="save-btn" disabled={busy} onClick={addPayment}>
                     Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Verify payment modal */}
+        {verifyingPaymentId ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setVerifyingPaymentId(null)} onDoubleClick={(e) => e.target === e.currentTarget && setVerifyingPaymentId(null)}>
+            <div className="w-full max-w-md rounded-2xl border bg-white p-6">
+              <h2 className="text-lg font-semibold">Verify Payment</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Are you sure you want to mark this payment as verified?
+              </p>
+
+              <div className="mt-6 flex justify-end gap-2">
+                <button className="cancel-btn" onClick={() => setVerifyingPaymentId(null)} disabled={busy}>
+                  Cancel
+                </button>
+                <button className="save-btn" disabled={busy} onClick={verifyPayment}>
+                  {busy ? "Verifying..." : "Verify"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Void payment modal */}
+        {voidingPaymentId ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setVoidingPaymentId(null)} onDoubleClick={(e) => e.target === e.currentTarget && setVoidingPaymentId(null)}>
+            <div className="w-full max-w-md rounded-2xl border bg-white p-6">
+              <h2 className="text-lg font-semibold">Void Payment</h2>
+
+              <div className="mt-4 grid gap-4">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">Reason for voiding *</span>
+                  <textarea
+                    className="min-h-[80px] rounded-lg border px-3 py-2"
+                    value={voidReason}
+                    onChange={(e) => setVoidReason(e.target.value)}
+                    placeholder="E.g., Duplicate payment, customer request, etc."
+                  />
+                </label>
+
+                <div className="flex justify-end gap-2">
+                  <button className="cancel-btn" onClick={() => {
+                    setVoidingPaymentId(null);
+                    setVoidReason("");
+                  }} disabled={busy}>
+                    Cancel
+                  </button>
+                  <button className="save-btn" disabled={busy || !voidReason.trim()} onClick={handleVoidPayment}>
+                    {busy ? "Voiding..." : "Void Payment"}
                   </button>
                 </div>
               </div>
