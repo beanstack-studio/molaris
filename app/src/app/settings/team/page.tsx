@@ -29,7 +29,7 @@ function LoadingBlock() {
   );
 }
 
-export default function DentistsSettingsPage() {
+export default function TeamSettingsPage() {
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +56,6 @@ export default function DentistsSettingsPage() {
     setErr(null);
 
     try {
-      // Try to load dentists - handle missing columns gracefully
       const dentistRes = await supabase
         .from("dentists")
         .select("*")
@@ -64,7 +63,6 @@ export default function DentistsSettingsPage() {
 
       if (dentistRes.error) throw dentistRes.error;
 
-      // Filter and map dentist data, handling missing optional columns
       const dentistData = (dentistRes.data || []).map((d: any) => ({
         id: d.id,
         full_name: d.full_name,
@@ -76,7 +74,6 @@ export default function DentistsSettingsPage() {
 
       setDentists(dentistData);
 
-      // Try to load staff - handle if table doesn't exist
       try {
         const staffRes = await supabase
           .from("staff")
@@ -94,7 +91,6 @@ export default function DentistsSettingsPage() {
           setStaff(staffData);
         }
       } catch {
-        // Staff table might not exist yet, just continue with empty staff
         setStaff([]);
       }
     } catch (error) {
@@ -338,7 +334,7 @@ export default function DentistsSettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h1 className="text-3xl font-bold text-slate-900">Dentists</h1>
+      <h1 className="text-3xl font-bold text-slate-900">Team</h1>
 
       {err && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -346,9 +342,7 @@ export default function DentistsSettingsPage() {
         </div>
       )}
 
-      {/* ============================================================
-          DENTISTS SECTION
-          ============================================================ */}
+      {/* DENTISTS SECTION */}
       <div className="mt-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-slate-900">Dentists</h2>
@@ -368,7 +362,6 @@ export default function DentistsSettingsPage() {
           </button>
         </div>
 
-        {/* Dentists Table */}
         <div className="rounded-xl border bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -435,9 +428,7 @@ export default function DentistsSettingsPage() {
         </div>
       </div>
 
-      {/* ============================================================
-          STAFF SECTION
-          ============================================================ */}
+      {/* STAFF SECTION */}
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-slate-900">Staff Members</h2>
@@ -456,7 +447,6 @@ export default function DentistsSettingsPage() {
           </button>
         </div>
 
-        {/* Staff Table */}
         <div className="rounded-xl border bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>

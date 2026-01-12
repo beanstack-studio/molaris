@@ -8,7 +8,7 @@ import TopNav from "@/components/TopNav";
 const tabs = [
   { label: "Clinic Profile", href: "/settings/clinic-profile" },
   { label: "Services", href: "/settings/services" },
-  { label: "Dentists", href: "/settings/dentists" },
+  { label: "Team", href: "/settings/team" },
   { label: "Payment Modes", href: "/settings/payment-modes" },
   { label: "Document Templates", href: "/settings/document-templates" },
 ];
