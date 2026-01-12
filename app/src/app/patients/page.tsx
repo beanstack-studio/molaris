@@ -454,8 +454,8 @@ export default function PatientsPage() {
 
       {/* Add Patient Modal */}
       {showAdd ? (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 p-4" onDoubleClick={() => setShowAdd(false)}>
-          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg" onDoubleClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 p-4" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
+          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg">
             <div>
               <h2 className="text-lg font-semibold">Add patient</h2>
               <p className="text-sm text-slate-600">Basic info now, details later</p>

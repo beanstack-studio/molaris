@@ -20,6 +20,10 @@
   @apply text-sm text-slate-500;
 }
 
+.dentition-section-title {
+  @apply text-lg font-semibold text-slate-900;
+}
+
 .app-section-body {
   @apply bg-white rounded-xl border border-slate-200 p-4;
 }
@@ -67,6 +71,16 @@
 /* prevent wrapping/shrinking */
 .tabs-scroll .tab-item {
   @apply whitespace-nowrap flex-none;
+}
+
+/* hide scrollbars while keeping scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
 }
 
 /* =========================
@@ -122,9 +136,96 @@
 }
 
 /* =========================
-   Tables (Global)
+   Tables (Unified data-table pattern)
 ========================= */
 
+/* Base table */
+.data-table {
+  @apply w-full table-fixed text-sm border-collapse;
+}
+
+/* Compact variant for invoices detail tables */
+.data-table-compact {
+  @apply w-full text-sm border-collapse;
+}
+
+/* Header row */
+.data-table-head {
+  @apply bg-slate-100 text-slate-700 font-medium;
+}
+
+/* Header cell */
+.data-table-head-cell {
+  @apply px-3 py-3 text-left font-semibold text-slate-800 border-b border-slate-200;
+}
+
+/* Header cell right-aligned */
+.data-table-head-cell-right {
+  @apply px-3 py-3 text-right font-semibold text-slate-800 border-b border-slate-200;
+}
+
+/* Body row */
+.data-table-row {
+  @apply border-b border-slate-200 hover:bg-slate-100 transition-colors;
+}
+
+.data-table-row-even {
+  @apply bg-white;
+}
+
+.data-table-row-odd {
+  @apply bg-slate-50;
+}
+
+/* Compact row for smaller tables */
+.data-table-row-compact {
+  @apply border-b border-slate-200 hover:bg-slate-100 transition-colors;
+}
+
+.data-table-row-compact-even {
+  @apply bg-white;
+}
+
+.data-table-row-compact-odd {
+  @apply bg-slate-50;
+}
+
+/* Body cell */
+.data-table-cell {
+  @apply px-3 py-3 text-slate-900;
+}
+
+/* Body cell right-aligned */
+.data-table-cell-right {
+  @apply px-3 py-3 text-right text-slate-900;
+}
+
+/* Truncated cell for long text */
+.data-table-cell-truncate {
+  @apply px-3 py-3 truncate text-slate-900;
+}
+
+/* Compact cell (smaller padding for detail tables) */
+.data-table-cell-compact {
+  @apply px-3 py-2 text-slate-900;
+}
+
+/* Compact cell right-aligned */
+.data-table-cell-compact-right {
+  @apply px-3 py-2 text-right text-slate-900;
+}
+
+/* Empty state in table */
+.data-table-empty {
+  @apply px-3 py-6 text-center text-slate-600;
+}
+
+/* Button in table row */
+.data-table-btn {
+  @apply inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors cursor-pointer whitespace-nowrap;
+}
+
+/* Old table classes (deprecated - map to data-table for backwards compatibility) */
 .table-shell {
   @apply overflow-hidden rounded-xl border border-slate-200 bg-white;
 }
@@ -145,7 +246,6 @@
   @apply px-4 py-3 text-right font-medium;
 }
 
-/* Use this for money columns so header + cells align */
 .table-col-money {
   @apply w-44;
 }
@@ -186,55 +286,53 @@
 }
 
 /* =========================
-   Data Tables (Unified new pattern)
+   Modal & Delete Confirmation (Unified)
 ========================= */
 
-.data-table {
-  @apply w-full table-fixed text-sm border-collapse;
+/* Delete confirmation section */
+.delete-confirmation {
+  @apply border-t pt-3 mt-4;
 }
 
-.data-table-head {
-  @apply bg-slate-100 text-slate-700 font-medium;
+.delete-confirmation-title {
+  @apply text-sm font-semibold text-slate-700 mb-2;
 }
 
-.data-table-head-cell {
-  @apply px-3 py-3 text-left font-semibold text-slate-800 border-b border-slate-200;
+.delete-confirmation-hint {
+  @apply text-xs text-slate-600 mb-2;
 }
 
-.data-table-head-cell-right {
-  @apply px-3 py-3 text-right font-semibold text-slate-800 border-b border-slate-200;
+.delete-confirmation-code {
+  @apply font-mono bg-slate-100 px-1 rounded;
 }
 
-.data-table-row {
-  @apply border-b border-slate-200 hover:bg-slate-100 transition-colors;
+.delete-confirmation-input {
+  @apply w-full h-10 rounded-lg border bg-white px-3 py-2 text-sm font-mono;
 }
 
-.data-table-row-even {
-  @apply bg-white;
+.delete-btn {
+  @apply rounded-lg bg-red-600 text-white hover:bg-red-700 px-4 py-2 text-sm font-semibold disabled:opacity-60 transition-colors;
 }
 
-.data-table-row-odd {
-  @apply bg-slate-50;
+.cancel-btn {
+  @apply rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 text-sm font-medium disabled:opacity-60 transition-colors;
 }
 
-.data-table-cell {
-  @apply px-3 py-3 text-slate-900;
+.save-btn {
+  @apply rounded-lg bg-slate-900 text-white hover:bg-slate-800 px-4 py-2 text-sm font-semibold disabled:opacity-60 transition-colors;
 }
 
-.data-table-cell-right {
-  @apply px-3 py-3 text-right text-slate-900;
+/* Modal button layout */
+.modal-actions {
+  @apply flex items-center justify-between gap-3 mt-5;
 }
 
-.data-table-cell-truncate {
-  @apply px-3 py-3 truncate text-slate-900;
+.modal-actions-left {
+  @apply flex-1;
 }
 
-.data-table-empty {
-  @apply px-3 py-6 text-center text-slate-600;
-}
-
-.data-table-btn {
-  @apply inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors cursor-pointer whitespace-nowrap;
+.modal-actions-right {
+  @apply flex gap-2 justify-end;
 }
 
 /* =========================

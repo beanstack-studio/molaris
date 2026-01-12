@@ -611,7 +611,7 @@ export default function BillingPage() {
 
         {/* Create invoice modal */}
         {showCreateInvoice ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateInvoice(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowCreateInvoice(false)}>
             <div className="w-full max-w-2xl rounded-2xl border bg-white p-6">
               <h2 className="text-lg font-semibold">Create invoice</h2>
 
@@ -715,11 +715,11 @@ export default function BillingPage() {
                 )}
 
                 <div className="flex justify-end gap-2">
-                  <button className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold" onClick={() => setShowCreateInvoice(false)}>
+                  <button className="cancel-btn" onClick={() => setShowCreateInvoice(false)}>
                     Cancel
                   </button>
                   <button
-                    className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                    className="save-btn"
                     disabled={busy || !selectedVisitDate}
                     onClick={createInvoice}
                   >
@@ -734,14 +734,9 @@ export default function BillingPage() {
 
         {/* Add payment modal */}
         {showAddPayment ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setShowAddPayment(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowAddPayment(false)}>
             <div className="w-full max-w-md rounded-2xl border bg-white p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Add payment</h2>
-                <button className="h-8 w-8 rounded-lg border bg-white" onClick={() => setShowAddPayment(false)}>
-                  ✕
-                </button>
-              </div>
+              <h2 className="text-lg font-semibold">Add payment</h2>
 
               <div className="mt-4 grid gap-4">
                 <label className="grid gap-1 text-sm">
@@ -804,10 +799,10 @@ export default function BillingPage() {
                 </label>
 
                 <div className="flex justify-end gap-2">
-                  <button className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold" onClick={() => setShowAddPayment(false)}>
+                  <button className="cancel-btn" onClick={() => setShowAddPayment(false)}>
                     Cancel
                   </button>
-                  <button className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60" disabled={busy} onClick={addPayment}>
+                  <button className="save-btn" disabled={busy} onClick={addPayment}>
                     Add
                   </button>
                 </div>
@@ -817,16 +812,10 @@ export default function BillingPage() {
         ) : null}
 
       {viewingInvoice ? (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50" onClick={(e) => e.target === e.currentTarget && setViewingInvoice(null)} onDoubleClick={(e) => e.target === e.currentTarget && setViewingInvoice(null)}>
           <div className="max-h-screen overflow-y-auto rounded-2xl border bg-white w-full max-w-2xl">
-            <div className="sticky top-0 border-b bg-white p-4 flex items-center justify-between">
+            <div className="sticky top-0 border-b bg-white p-4">
               <div className="text-lg font-semibold">Invoice {viewingInvoice.invoice_number}</div>
-              <button
-                className="rounded-lg border bg-white px-2 py-1 text-sm"
-                onClick={() => setViewingInvoice(null)}
-              >
-                Close
-              </button>
             </div>
 
             <div className="p-4">

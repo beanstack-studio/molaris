@@ -77,7 +77,7 @@ export default function LoginPage() {
           </button>
 
           {/* Dev only: Skip login - REMOVE BEFORE PUSH */}
-          {/*
+          
           <button
             className="w-full rounded-lg bg-slate-500 text-white py-2 font-medium mt-2"
             onClick={() => router.push("/patients")}
@@ -85,7 +85,7 @@ export default function LoginPage() {
           >
             Skip Login (Dev)
           </button>
-          */}
+          
         </form>
       </div>
     </main>

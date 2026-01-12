@@ -344,26 +344,45 @@ export default function ServicesSettingsPage() {
               </button>
             </div>
 
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
-              <div className="text-sm font-semibold text-rose-800">Delete</div>
-              <div className="mt-1 text-sm text-rose-700">
-                Type <span className="font-semibold">DELETE</span> to confirm.
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title text-red-700">Delete service?</div>
+              <div className="delete-confirmation-hint">
+                Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
               </div>
               <input
-                className="mt-2 h-10 w-full rounded-lg border bg-white px-3 text-sm"
+                className="delete-confirmation-input"
                 value={deleteText}
                 onChange={(e) => setDeleteText(e.target.value)}
                 placeholder="DELETE"
                 disabled={busy}
               />
-              <div className="mt-3 flex justify-end">
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="delete-btn"
+                onClick={deleteItem}
+                disabled={busy || deleteText !== "DELETE"}
+              >
+                Delete
+              </button>
+              <div className="modal-actions-right">
                 <button
                   type="button"
-                  className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  onClick={deleteItem}
-                  disabled={busy || deleteText !== "DELETE"}
+                  className="cancel-btn"
+                  onClick={closeEdit}
+                  disabled={busy}
                 >
-                  Delete
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60 transition-colors"
+                  onClick={saveEdit}
+                  disabled={busy}
+                >
+                  {busy ? "Saving…" : "Save"}
                 </button>
               </div>
             </div>

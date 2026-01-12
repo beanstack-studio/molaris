@@ -19,9 +19,9 @@ export default function ChartPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [chart, setChart] = useState<ChartEntry[]>([]);
   const [toothStatuses, setToothStatuses] = useState<
-    Record<number, { status: ToothStatus; note: string | null; updated_at?: string }>
+    Record<number | string, { status: ToothStatus; note: string | null; updated_at?: string }>
   >({});
-  const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
+  const [selectedTooth, setSelectedTooth] = useState<number | string | null>(null);
   const [toothNote, setToothNote] = useState("");
   const [surfaceSel, setSurfaceSel] = useState<string[]>([]);
   const [findingDetail, setFindingDetail] = useState("");
@@ -78,7 +78,7 @@ export default function ChartPage() {
       .eq("patient_id", id);
 
     if (!s.error && s.data) {
-      const map: Record<number, { status: ToothStatus; note: string | null; updated_at?: string }> = {};
+      const map: Record<number | string, { status: ToothStatus; note: string | null; updated_at?: string }> = {};
       for (const row of s.data as ToothStatusRow[]) {
         map[row.tooth_number] = {
           status: row.status as ToothStatus,
@@ -179,15 +179,73 @@ export default function ChartPage() {
     setBusy(true);
     setErr(null);
 
+    // First, check how many entries exist for this tooth BEFORE deletion
+    const countBefore = await supabase
+      .from("dental_chart_entries")
+      .select("id", { count: "exact" })
+      .eq("patient_id", id)
+      .eq("tooth_number", editingEntry.tooth_number);
+
+    const totalEntries = countBefore.count ?? 0;
+
+    // Delete the chart entry
     const res = await supabase
       .from("dental_chart_entries")
       .delete()
       .eq("id", editingEntry.id);
 
-    setBusy(false);
-    if (res.error) return setErr(res.error.message);
+    if (res.error) {
+      setBusy(false);
+      return setErr(res.error.message);
+    }
 
+    // If this was the ONLY entry for this tooth, delete the status record
+    if (totalEntries === 1) {
+      const statusRes = await supabase
+        .from("tooth_statuses")
+        .delete()
+        .eq("patient_id", id)
+        .eq("tooth_number", editingEntry.tooth_number);
+
+      if (statusRes.error) {
+        setBusy(false);
+        return setErr(statusRes.error.message);
+      }
+    } else if (totalEntries > 1) {
+      // There are remaining entries - get the latest one and update status
+      const remaining = await supabase
+        .from("dental_chart_entries")
+        .select("finding_code")
+        .eq("patient_id", id)
+        .eq("tooth_number", editingEntry.tooth_number)
+        .order("recorded_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (remaining.data && !remaining.error) {
+        const latestStatus = remaining.data.finding_code as ToothStatus;
+        const statusRes = await supabase
+          .from("tooth_statuses")
+          .update({ status: latestStatus, updated_at: new Date().toISOString() })
+          .eq("patient_id", id)
+          .eq("tooth_number", editingEntry.tooth_number);
+
+        if (statusRes.error) {
+          setBusy(false);
+          return setErr(statusRes.error.message);
+        }
+      }
+    }
+
+    setBusy(false);
     setEditingEntry(null);
+    setDeleteConfirmation("");
+    // Reset selected tooth if it was the deleted one
+    if (selectedTooth === editingEntry.tooth_number) {
+      setSelectedTooth(null);
+      setToothNote("");
+      setPendingStatus("HEALTHY");
+    }
     await loadData();
   }
 
@@ -242,120 +300,170 @@ export default function ChartPage() {
                 Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
               </div>
 
-              <div className="mt-4">
-                <div className="mt-2 flex flex-wrap justify-center gap-2">
-                  {(
-                    [
-                      "HEALTHY",
-                      "CARIES",
-                      "FILLED",
-                      "MISSING",
-                      "IMPLANT",
-                      "CROWN",
-                      "BRIDGE",
-                      "ROOT_CANAL",
-                      "EXTRACTED",
-                    ] as const
-                  ).map((status) => {
-                    const theme = getStatusTheme(status);
-                    const isSelected = pendingStatus === status;
-                    const primaryClass = (() => {
-                      if (status === "HEALTHY") return "bg-slate-100 border-slate-200 text-slate-800";
-                      if (status === "CARIES") return "bg-rose-100 border-rose-200 text-rose-800";
-                      if (status === "FILLED") return "bg-emerald-100 border-emerald-200 text-emerald-800";
-                      if (status === "MISSING") return "bg-slate-200 border-slate-300 text-slate-900";
-                      if (status === "EXTRACTED") return "bg-orange-100 border-orange-200 text-orange-800";
-                      if (status === "ROOT_CANAL") return "bg-indigo-100 border-indigo-200 text-indigo-800";
-                      if (status === "CROWN") return "bg-amber-100 border-amber-200 text-amber-800";
-                      if (status === "BRIDGE") return "bg-purple-100 border-purple-200 text-purple-800";
-                      if (status === "IMPLANT") return "bg-cyan-100 border-cyan-200 text-cyan-800";
-                      return "bg-slate-100 border-slate-200 text-slate-800";
-                    })();
-                    const hoverClass = (() => {
-                      if (status === "HEALTHY") return "hover:bg-slate-150 hover:border-slate-300";
-                      if (status === "CARIES") return "hover:bg-rose-150 hover:border-rose-300";
-                      if (status === "FILLED") return "hover:bg-emerald-150 hover:border-emerald-300";
-                      if (status === "MISSING") return "hover:bg-slate-250 hover:border-slate-350";
-                      if (status === "EXTRACTED") return "hover:bg-orange-150 hover:border-orange-300";
-                      if (status === "ROOT_CANAL") return "hover:bg-indigo-150 hover:border-indigo-300";
-                      if (status === "CROWN") return "hover:bg-amber-150 hover:border-amber-300";
-                      if (status === "BRIDGE") return "hover:bg-purple-150 hover:border-purple-300";
-                      if (status === "IMPLANT") return "hover:bg-cyan-150 hover:border-cyan-300";
-                      return "hover:bg-slate-150 hover:border-slate-300";
-                    })();
-                    return (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => setPendingStatus(status)}
-                        className={[
-                          "rounded-lg border px-3 py-2 text-sm font-semibold transition-colors",
-                          isSelected ? theme.chip : [primaryClass, hoverClass].join(" "),
-                        ].join(" ")}
-                      >
-                        {status.replace("_", " ")}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {(pendingStatus === "CARIES" || pendingStatus === "FILLED") && (
-                  <div className="mt-3">
-                    <div className="text-sm font-semibold text-slate-700">Surfaces</div>
-                    <div className="mt-2 flex flex-wrap justify-center gap-2">
-                      {["O", "M", "D", "B", "L", "F"].map((surf) => (
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                {/* LEFT COLUMN - Add/Update Status */}
+                <div>
+                  <div className="text-xs font-semibold text-slate-600 uppercase mb-2">Set Status</div>
+                  
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(
+                      [
+                        "HEALTHY",
+                        "CARIES",
+                        "FILLED",
+                        "MISSING",
+                        "IMPLANT",
+                        "CROWN",
+                        "BRIDGE",
+                        "ROOT_CANAL",
+                        "EXTRACTED",
+                      ] as const
+                    ).map((status) => {
+                      const theme = getStatusTheme(status);
+                      const isSelected = pendingStatus === status;
+                      const primaryClass = (() => {
+                        if (status === "HEALTHY") return "bg-slate-100 border-slate-200 text-slate-800";
+                        if (status === "CARIES") return "bg-rose-100 border-rose-200 text-rose-800";
+                        if (status === "FILLED") return "bg-emerald-100 border-emerald-200 text-emerald-800";
+                        if (status === "MISSING") return "bg-slate-200 border-slate-300 text-slate-900";
+                        if (status === "EXTRACTED") return "bg-orange-100 border-orange-200 text-orange-800";
+                        if (status === "ROOT_CANAL") return "bg-indigo-100 border-indigo-200 text-indigo-800";
+                        if (status === "CROWN") return "bg-amber-100 border-amber-200 text-amber-800";
+                        if (status === "BRIDGE") return "bg-purple-100 border-purple-200 text-purple-800";
+                        if (status === "IMPLANT") return "bg-cyan-100 border-cyan-200 text-cyan-800";
+                        return "bg-slate-100 border-slate-200 text-slate-800";
+                      })();
+                      const hoverClass = (() => {
+                        if (status === "HEALTHY") return "hover:bg-slate-150 hover:border-slate-300";
+                        if (status === "CARIES") return "hover:bg-rose-150 hover:border-rose-300";
+                        if (status === "FILLED") return "hover:bg-emerald-150 hover:border-emerald-300";
+                        if (status === "MISSING") return "hover:bg-slate-250 hover:border-slate-350";
+                        if (status === "EXTRACTED") return "hover:bg-orange-150 hover:border-orange-300";
+                        if (status === "ROOT_CANAL") return "hover:bg-indigo-150 hover:border-indigo-300";
+                        if (status === "CROWN") return "hover:bg-amber-150 hover:border-amber-300";
+                        if (status === "BRIDGE") return "hover:bg-purple-150 hover:border-purple-300";
+                        if (status === "IMPLANT") return "hover:bg-cyan-150 hover:border-cyan-300";
+                        return "hover:bg-slate-150 hover:border-slate-300";
+                      })();
+                      return (
                         <button
-                          key={surf}
+                          key={status}
                           type="button"
-                          onClick={() => {
-                            setSurfaceSel((prev) =>
-                              prev.includes(surf) ? prev.filter((x) => x !== surf) : [...prev, surf]
-                            );
-                          }}
+                          onClick={() => setPendingStatus(status)}
                           className={[
-                            "h-8 w-8 rounded border text-sm font-semibold transition-colors",
-                            surfaceSel.includes(surf)
-                              ? "bg-slate-900 text-white border-slate-900"
-                              : "bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400",
+                            "rounded-lg border px-2 py-1 text-xs font-semibold transition-colors",
+                            isSelected ? theme.chip : [primaryClass, hoverClass].join(" "),
                           ].join(" ")}
                         >
-                          {surf}
+                          {status.replace("_", " ")}
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
 
-                <div className="mt-3">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Finding detail</span>
-                    <input
-                      className="h-10 rounded-lg border px-3"
-                      value={findingDetail}
-                      onChange={(e) => setFindingDetail(e.target.value)}
-                    />
-                  </label>
+                  {(pendingStatus === "CARIES" || pendingStatus === "FILLED") && (
+                    <div className="mt-3">
+                      <div className="text-xs font-semibold text-slate-700">Surfaces</div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {["O", "M", "D", "B", "L", "F"].map((surf) => (
+                          <button
+                            key={surf}
+                            type="button"
+                            onClick={() => {
+                              setSurfaceSel((prev) =>
+                                prev.includes(surf) ? prev.filter((x) => x !== surf) : [...prev, surf]
+                              );
+                            }}
+                            className={[
+                              "h-7 w-7 rounded border text-xs font-semibold transition-colors",
+                              surfaceSel.includes(surf)
+                                ? "bg-slate-900 text-white border-slate-900"
+                                : "bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400",
+                            ].join(" ")}
+                          >
+                            {surf}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-3">
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700 text-xs font-semibold">Finding detail</span>
+                      <input
+                        className="h-8 rounded-lg border px-2 text-sm"
+                        value={findingDetail}
+                        onChange={(e) => setFindingDetail(e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3">
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-slate-700 text-xs font-semibold">Notes</span>
+                      <textarea
+                        className="min-h-[72px] rounded-lg border px-2 py-1 text-sm"
+                        value={toothNote}
+                        onChange={(e) => setToothNote(e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      disabled={busy || selectedTooth === null}
+                      onClick={() => saveToothStatus(pendingStatus)}
+                    >
+                      {busy ? "Saving…" : "Save status"}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="mt-3">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Notes</span>
-                    <textarea
-                      className="min-h-[88px] rounded-lg border px-3 py-2"
-                      value={toothNote}
-                      onChange={(e) => setToothNote(e.target.value)}
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-3 flex justify-center">
-                  <button
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                    disabled={busy || selectedTooth === null}
-                    onClick={() => saveToothStatus(pendingStatus)}
-                  >
-                    {busy ? "Saving…" : "Save status"}
-                  </button>
+                {/* RIGHT COLUMN - Tooth History */}
+                <div>
+                  <div className="text-xs font-semibold text-slate-600 uppercase mb-2">Tooth History</div>
+                  
+                  <div className="overflow-y-auto max-h-96 rounded-lg border bg-white">
+                    {selectedTooth ? (
+                      chart.filter((e) => e.tooth_number === selectedTooth).length > 0 ? (
+                        <table className="data-table w-full">
+                          <thead className="data-table-head">
+                            <tr>
+                              <th className="data-table-head-cell text-left">Finding</th>
+                              <th className="data-table-head-cell text-left">Date</th>
+                              <th className="data-table-head-cell-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {chart
+                              .filter((e) => e.tooth_number === selectedTooth)
+                              .map((entry, idx) => (
+                                <tr key={entry.id} className={`data-table-row ${idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                                  <td className="data-table-cell">{entry.finding_code}</td>
+                                  <td className="data-table-cell text-xs">
+                                    {entry.recorded_at ? new Date(entry.recorded_at).toLocaleDateString() : "—"}
+                                  </td>
+                                  <td className="data-table-cell-right">
+                                    <button
+                                      onClick={() => editChartEntry(entry)}
+                                      className="data-table-btn"
+                                    >
+                                      Edit
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="p-3 text-center text-sm text-slate-500">No history for this tooth</div>
+                      )
+                    ) : (
+                      <div className="p-3 text-center text-sm text-slate-500">Select a tooth</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -414,7 +522,7 @@ export default function ChartPage() {
       </div>
 
       {editingEntry ? (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50" onDoubleClick={() => setEditingEntry(null)}>
           <div className="bg-white rounded-xl shadow-lg w-full max-w-md mx-4 p-6">
             <div className="text-lg font-semibold mb-4">
               Edit Entry — Tooth #{editingEntry.tooth_number}
@@ -459,43 +567,45 @@ export default function ChartPage() {
                 </label>
               </div>
 
-              <div className="border-t pt-3 mt-4">
-                <div className="text-sm font-medium text-slate-700 mb-2">Delete this entry?</div>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-600 text-xs">Type "DELETE" to confirm</span>
-                  <input
-                    className="h-10 rounded-lg border px-3 font-mono text-sm"
-                    placeholder="Type DELETE"
-                    value={deleteConfirmation}
-                    onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  />
-                </label>
+              <div className="mt-4 border-t pt-3">
+                <div className="text-xs font-semibold text-slate-700 mb-2">Delete Entry</div>
+                <div className="text-xs text-slate-600 mb-2">Type <span className="font-mono font-semibold">DELETE</span> to confirm:</div>
+                <input
+                  type="text"
+                  className="w-full h-8 rounded-lg border px-3 text-sm mb-2"
+                  placeholder="DELETE"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                />
               </div>
 
-              <div className="flex gap-2 mt-5">
-                <button
-                  onClick={() => {
-                    setEditingEntry(null);
-                    setErr(null);
-                  }}
-                  className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => saveChartEntryEdit()}
-                  disabled={busy}
-                  className="flex-1 px-3 py-2 rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {busy ? "Saving…" : "Save"}
-                </button>
+              <div className="flex items-center justify-between gap-2 mt-4">
                 <button
                   onClick={() => deleteChartEntry()}
                   disabled={busy || deleteConfirmation.trim().toUpperCase() !== "DELETE"}
-                  className="px-3 py-2 rounded-lg bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                  className="rounded-lg bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 px-3 py-2 transition-colors"
                 >
-                  {busy ? "…" : "Delete"}
+                  {busy ? "Deleting…" : "Delete"}
                 </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingEntry(null);
+                      setErr(null);
+                      setDeleteConfirmation("");
+                    }}
+                    className="rounded-lg bg-slate-200 text-sm font-medium text-slate-800 hover:bg-slate-300 px-4 py-2 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => saveChartEntryEdit()}
+                    disabled={busy}
+                    className="rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 px-4 py-2 transition-colors"
+                  >
+                    {busy ? "Saving…" : "Save"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

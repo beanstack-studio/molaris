@@ -22,13 +22,38 @@ export type ToothStatus =
   | "BRIDGE"
   | "IMPLANT";
 
-const upperRight = [18, 17, 16, 15, 14, 13, 12, 11];
-const upperLeft = [21, 22, 23, 24, 25, 26, 27, 28];
+// Permanent dentition (PDA/ISO 3950)
+const permUpperRight = [18, 17, 16, 15, 14, 13, 12, 11];
+const permUpperLeft = [21, 22, 23, 24, 25, 26, 27, 28];
+const permLowerRight = [48, 47, 46, 45, 44, 43, 42, 41];
+const permLowerLeft = [31, 32, 33, 34, 35, 36, 37, 38];
 
-// Lower should mirror the upper layout:
-// left side of the screen is patient's RIGHT (quadrant 4), then patient's LEFT (quadrant 3)
-const lowerRight = [48, 47, 46, 45, 44, 43, 42, 41];
-const lowerLeft = [31, 32, 33, 34, 35, 36, 37, 38];
+// Primary dentition (PDA/ISO 3950: 5x = upper right, 6x = upper left, 7x = lower left, 8x = lower right)
+const primaryUpperRight = [55, 54, 53, 52, 51];
+const primaryUpperLeft = [61, 62, 63, 64, 65];
+const primaryLowerRight = [85, 84, 83, 82, 81];
+const primaryLowerLeft = [71, 72, 73, 74, 75];
+
+function statusBackgroundColor(s: ToothStatus): string {
+  switch (s) {
+    case "CARIES":
+      return "#fca5a5"; // rose-300
+    case "FILLED":
+      return "#86efac"; // emerald-300
+    case "EXTRACTED":
+      return "#fed7aa"; // orange-300
+    case "ROOT_CANAL":
+      return "#c4b5fd"; // indigo-300
+    case "CROWN":
+      return "#fcd34d"; // amber-300
+    case "BRIDGE":
+      return "#d8b4fe"; // purple-300
+    case "IMPLANT":
+      return "#a5f3fc"; // cyan-300
+    default:
+      return "#e2e8f0"; // slate-200
+  }
+}
 
 function statusTheme(s: ToothStatus) {
   // More prominent tile themes.
@@ -147,47 +172,220 @@ function ToothOcclusalIcon({
   status,
   jaw,
   className,
+  showBackground = true,
 }: {
   status: ToothStatus;
   jaw: "upper" | "lower";
   className?: string;
+  showBackground?: boolean;
 }) {
-  // Flip upper teeth so the icon orientation matches a real chart
   const missing = status === "MISSING";
-  const extracted = status === "EXTRACTED";
 
   return (
-    <svg
-      viewBox="12 10 40 44"
-      className={["h-12 w-12", jaw === "upper" ? "rotate-180" : ""].join(" ")}
-      aria-hidden="true"
-    >
-      {/* Tooth outline */}
-      <path
-        d="M20 18c4-4 9-6 12-6s8 2 12 6c4 4 6 9 6 14 0 9-4 16-10 18-3 1-6-1-8-4-2 3-5 5-8 4-6-2-10-9-10-18 0-5 2-10 6-14Z"
+    <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
+      {/* Status background - visible for non-healthy teeth */}
+      {showBackground && status !== "HEALTHY" && status !== "MISSING" ? (
+        <rect x="10" y="10" width="44" height="44" rx="4" fill={statusBackgroundColor(status)} opacity="0.6" />
+      ) : null}
+      {/* Surface outline square */}
+      <rect
+        x="12"
+        y="12"
+        width="40"
+        height="40"
+        rx="4"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="2"
         opacity={missing ? 0.35 : 1}
       />
+      {/* Cross pattern - dividing lines */}
+      <path d="M32 12 L32 52" fill="none" stroke="currentColor" strokeWidth="2" opacity={missing ? 0.2 : 0.5} />
+      <path d="M12 32 L52 32" fill="none" stroke="currentColor" strokeWidth="2" opacity={missing ? 0.2 : 0.5} />
+      {/* Center circle */}
+      <circle cx="32" cy="32" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={missing ? 0.2 : 0.5} />
+      {/* Corner pits */}
+      <circle cx="18" cy="18" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.3} />\n      <circle cx="46" cy="18" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.3} />\n      <circle cx="18" cy="46" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.3} />\n      <circle cx="46" cy="46" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.3} />\n      {/* Status marks */}
+      {status === "CARIES" ? <circle cx="32" cy="32" r="6" className="fill-rose-500" opacity={0.9} /> : null}
+      {status === "FILLED" ? <rect x="22" y="22" width="20" height="20" rx="2" className="fill-emerald-500" opacity={0.9} /> : null}
+      {status === "ROOT_CANAL" ? <path d="M32 12v40" className="stroke-indigo-500" strokeWidth="3" /> : null}
+      {status === "CROWN" ? <path d="M12 18h40" className="stroke-amber-500" strokeWidth="3" /> : null}
+      {status === "BRIDGE" ? <path d="M12 32h40" className="stroke-purple-500" strokeWidth="3" /> : null}
+      {status === "IMPLANT" ? <path d="M32 12v40m-8-20h16" className="stroke-cyan-600" strokeWidth="2.5" /> : null}
+    </svg>
+  );
+}
 
-      {/* Occlusal grooves */}
-      <path d="M24 28c4-4 12-4 16 0" fill="none" stroke="currentColor" strokeWidth="2" opacity={missing ? 0.2 : 0.55} />
-      <path d="M32 26c0 3-2 4-2 6s2 3 2 6" fill="none" stroke="currentColor" strokeWidth="2" opacity={missing ? 0.2 : 0.55} />
+function ToothOcclusalIconPrimary({
+  status,
+  jaw,
+  className,
+  showBackground = true,
+}: {
+  status: ToothStatus;
+  jaw: "upper" | "lower";
+  className?: string;
+  showBackground?: boolean;
+}) {
+  const missing = status === "MISSING";
 
-      {/* Cusps */}
-      <circle cx="26" cy="34" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.25} />
-      <circle cx="38" cy="34" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.25} />
-      <circle cx="32" cy="38" r="2" fill="currentColor" opacity={missing ? 0.15 : 0.22} />
+  return (
+    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+      {/* Status background - visible for non-healthy teeth */}
+      {showBackground && status !== "HEALTHY" && status !== "MISSING" ? (
+        <g transform="rotate(45 50 50)">
+          <path
+            d="
+              M50 10
+              C60 10, 70 20, 70 30
+              C80 30, 90 40, 90 50
+              C90 60, 80 70, 70 70
+              C70 80, 60 90, 50 90
+              C40 90, 30 80, 30 70
+              C20 70, 10 60, 10 50
+              C10 40, 20 30, 30 30
+              C30 20, 40 10, 50 10
+              Z
+            "
+            fill={statusBackgroundColor(status)}
+            opacity="0.5"
+          />
+        </g>
+      ) : null}
+      {/* Rotated, softened four-lobe outline */}
+      <g transform="rotate(45 50 50)" opacity={missing ? 0.35 : 1}>
+        <path
+          d="
+            M50 10
+            C60 10, 70 20, 70 30
+            C80 30, 90 40, 90 50
+            C90 60, 80 70, 70 70
+            C70 80, 60 90, 50 90
+            C40 90, 30 80, 30 70
+            C20 70, 10 60, 10 50
+            C10 40, 20 30, 30 30
+            C30 20, 40 10, 50 10
+            Z
+          "
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinejoin="round"
+        />
+      </g>
+
+      {/* Center (Occlusal / Incisal) */}
+      <circle
+        cx="50"
+        cy="50"
+        r="14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        opacity={missing ? 0.2 : 1}
+      />
+
+      {/* Diagonal separators (do not cross center) */}
+      <line x1="26" y1="26" x2="39" y2="39" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity={missing ? 0.2 : 0.6} />
+      <line x1="74" y1="26" x2="61" y2="39" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity={missing ? 0.2 : 0.6} />
+      <line x1="74" y1="74" x2="61" y2="61" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity={missing ? 0.2 : 0.6} />
+      <line x1="26" y1="74" x2="39" y2="61" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity={missing ? 0.2 : 0.6} />
 
       {/* Status marks */}
-      {status === "CARIES" ? <circle cx="42" cy="30" r="4" className="fill-rose-500" opacity={0.9} /> : null}
-      {status === "FILLED" ? <rect x="28" y="28" width="10" height="10" rx="2" className="fill-emerald-500" opacity={0.9} /> : null}
-      {status === "ROOT_CANAL" ? <path d="M32 22v22" className="stroke-indigo-500" strokeWidth="3.2" /> : null}
-      {status === "CROWN" ? <path d="M22 20h20" className="stroke-amber-500" strokeWidth="4" /> : null}
-      {status === "BRIDGE" ? <path d="M22 32c5-6 15-6 20 0" className="stroke-purple-500" strokeWidth="3.2" /> : null}
-      {status === "IMPLANT" ? <path d="M32 24v18m-6 0h12" className="stroke-cyan-600" strokeWidth="3" /> : null}
-      {extracted ? <path d="M22 22l20 20M42 22L22 42" className="stroke-orange-500" strokeWidth="3.2" /> : null}
+      {status === "CARIES" ? <circle cx="50" cy="50" r="10" className="fill-rose-500" opacity={0.9} /> : null}
+      {status === "FILLED" ? <circle cx="50" cy="50" r="12" className="fill-emerald-500" opacity={0.9} /> : null}
+      {status === "ROOT_CANAL" ? <path d="M50 15v70" className="stroke-indigo-500" strokeWidth="5" /> : null}
+      {status === "CROWN" ? <path d="M15 30h70" className="stroke-amber-500" strokeWidth="5" /> : null}
+      {status === "BRIDGE" ? <path d="M15 50h70" className="stroke-purple-500" strokeWidth="5" /> : null}
+      {status === "IMPLANT" ? <path d="M50 15v70m-12-35h24" className="stroke-cyan-600" strokeWidth="4" /> : null}
+    </svg>
+  );
+}
+
+function ToothOcclusalIconSecondary({
+  status,
+  jaw,
+  className,
+  showBackground = true,
+}: {
+  status: ToothStatus;
+  jaw: "upper" | "lower";
+  className?: string;
+  showBackground?: boolean;
+}) {
+  const missing = status === "MISSING";
+
+  return (
+    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+      {/* Status background - visible for non-healthy teeth */}
+      {showBackground && status !== "HEALTHY" && status !== "MISSING" ? (
+        <g transform="rotate(45 50 50)">
+          <path
+            d="
+              M50 10
+              C60 10, 70 20, 70 30
+              C80 30, 90 40, 90 50
+              C90 60, 80 70, 70 70
+              C70 80, 60 90, 50 90
+              C40 90, 30 80, 30 70
+              C20 70, 10 60, 10 50
+              C10 40, 20 30, 30 30
+              C30 20, 40 10, 50 10
+              Z
+            "
+            fill={statusBackgroundColor(status)}
+            opacity="0.5"
+          />
+        </g>
+      ) : null}
+      {/* Rotated, softened four-lobe outline */}
+      <g transform="rotate(45 50 50)" opacity={missing ? 0.35 : 1}>
+        <path
+          d="
+            M50 10
+            C60 10, 70 20, 70 30
+            C80 30, 90 40, 90 50
+            C90 60, 80 70, 70 70
+            C70 80, 60 90, 50 90
+            C40 90, 30 80, 30 70
+            C20 70, 10 60, 10 50
+            C10 40, 20 30, 30 30
+            C30 20, 40 10, 50 10
+            Z
+          "
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinejoin="round"
+        />
+      </g>
+
+      {/* Center square (Occlusal / Incisal) */}
+      <rect
+        x="38"
+        y="38"
+        width="26"
+        height="26"
+        rx="3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        opacity={missing ? 0.2 : 1}
+      />
+
+      {/* Diagonal separators (stop before center square) */}
+      <line x1="26" y1="26" x2="37" y2="37" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity={missing ? 0.2 : 0.6} />
+      <line x1="74" y1="26" x2="63" y2="37" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity={missing ? 0.2 : 0.6} />
+      <line x1="74" y1="74" x2="63" y2="63" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity={missing ? 0.2 : 0.6} />
+      <line x1="26" y1="74" x2="37" y2="63" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity={missing ? 0.2 : 0.6} />
+
+      {/* Status marks */}
+      {status === "CARIES" ? <circle cx="50" cy="50" r="10" className="fill-rose-500" opacity={0.9} /> : null}
+      {status === "FILLED" ? <rect x="35" y="35" width="30" height="30" rx="3" className="fill-emerald-500" opacity={0.9} /> : null}
+      {status === "ROOT_CANAL" ? <path d="M50 15v70" className="stroke-indigo-500" strokeWidth="5" /> : null}
+      {status === "CROWN" ? <path d="M15 30h70" className="stroke-amber-500" strokeWidth="5" /> : null}
+      {status === "BRIDGE" ? <path d="M15 50h70" className="stroke-purple-500" strokeWidth="5" /> : null}
+      {status === "IMPLANT" ? <path d="M50 15v70m-12-35h24" className="stroke-cyan-600" strokeWidth="4" /> : null}
     </svg>
   );
 }
@@ -201,7 +399,7 @@ function ToothTile({
   selected,
   onClick,
 }: {
-  tooth: number;
+  tooth: number | string;
   status: ToothStatus;
   jaw: "upper" | "lower";
   hasNote: boolean;
@@ -210,71 +408,52 @@ function ToothTile({
   onClick: () => void;
 }) {
   const theme = statusTheme(status);
+  
+  // Primary icon (lobed with circle center) for primary molars and posterior permanent teeth
+  const primaryIconTeeth = [55, 54, 64, 65, 85, 84, 74, 75];
+  const permanentPrimaryIconTeeth = [18, 17, 16, 15, 14, 24, 25, 26, 27, 28, 38, 37, 36, 35, 34, 48, 47, 46, 45, 44];
+  
+  // Secondary icon (lobed with square center) for anterior and canine teeth (permanent + primary anteriors)
+  const permanentSecondaryIconTeeth = [13, 12, 11, 21, 22, 23, 33, 32, 31, 41, 42, 43];
+  const primarySecondaryIconTeeth = [53, 52, 51, 61, 62, 63, 83, 82, 81, 71, 72, 73];
+  
+  const usePrimaryIcon = primaryIconTeeth.includes(tooth as number) || permanentPrimaryIconTeeth.includes(tooth as number);
+  const useSecondaryIcon = permanentSecondaryIconTeeth.includes(tooth as number) || primarySecondaryIconTeeth.includes(tooth as number);
+  
+  // Label position: above for upper teeth, below for lower teeth
+  const labelAbove = jaw === "upper";
+  
+  // Show background colors for non-healthy teeth
+  const showBg = status !== "HEALTHY" && status !== "MISSING";
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        // No square tile background at all
-        "relative flex w-[52px] flex-col items-center justify-center select-none",
+        "relative flex flex-col items-center justify-center select-none -mx-3",
         "transition-transform",
-        selected ? "scale-[1.30]" : "hover:scale-[1.05]",
+        selected ? "scale-[1.25]" : "hover:scale-[1.10]",
       ].join(" ")}
     >
-      {/* ICON WRAP */}
-      <div className="relative flex h-[44px] w-[44px] items-center justify-center">
-        {/* Selected highlight (behind icon only) */}
-        {selected ? (
-          <span className="absolute inset-0 rounded-[14px] bg-white/60 shadow-md" />
-        ) : null}
+      {/* Label - tooth number above for upper, below for lower */}
+      {labelAbove && <div className="text-xs font-semibold text-slate-800 leading-none">{tooth}</div>}
 
-        {/* Status highlight (behind icon only, and only when status is not HEALTHY)
-            - for selected: it sits BEHIND the icon but still within the icon wrap
-            - does NOT create a big rounded square tile
-        */}
-        {status !== "HEALTHY" ? (
-          <span
-            className={[
-              "absolute inset-1 rounded-[12px] opacity-90",
-              // stronger + more prominent color chip behind the icon
-              // reuse your statusTheme().wrap if you like, but it must be a bg-* class
-              statusTheme(status).wrap,
-            ].join(" ")}
-          />
-        ) : null}
-
-        {/* The icon itself (tinted by status) */}
-        <div className={["relative", iconTintClass(status)].join(" ")}>
-          <ToothOcclusalIcon status={status} jaw={jaw} className="h-8 w-8" />
+      {/* ICON WRAP - single surface/occlusal icon, 3x larger */}
+      <div className={["relative flex h-14 w-20 justify-center", jaw === "lower" ? "items-start" : "items-center"].join(" ")}>
+        <div className={["relative h-12 w-16", iconTintClass(status)].join(" ")}>
+          {usePrimaryIcon ? (
+            <ToothOcclusalIconPrimary status={status} jaw={jaw} showBackground={showBg} />
+          ) : useSecondaryIcon ? (
+            <ToothOcclusalIconSecondary status={status} jaw={jaw} showBackground={showBg} />
+          ) : (
+            <ToothOcclusalIcon status={status} jaw={jaw} showBackground={showBg} />
+          )}
         </div>
       </div>
 
-      {/* Label */}
-      <div className="mt-1 text-xs font-semibold text-slate-800">{tooth}</div>
-
-      {/* Count badge */}
-      {count > 0 ? (
-        <span
-          className={[
-            "absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full text-[11px] flex items-center justify-center border",
-            statusTheme(status).chip,
-          ].join(" ")}
-        >
-          {count}
-        </span>
-      ) : null}
-
-      {/* Note dot */}
-      {hasNote ? (
-        <span
-          className={[
-            "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full",
-            selected ? "bg-slate-900" : "bg-slate-700",
-          ].join(" ")}
-          title="Has note"
-        />
-      ) : null}
+      {/* Label - tooth number below for lower teeth */}
+      {!labelAbove && <div className="text-xs font-semibold text-slate-800 leading-none mt-1.5">{tooth}</div>}
     </button>
   );
 }
@@ -286,56 +465,94 @@ export default function ToothChart({
   onSelectTooth,
 }: {
   entries: ChartEntryLite[];
-  statuses: Record<number, { status: ToothStatus; note: string | null; updated_at?: string }>;
-  selectedTooth: number | null;
-  onSelectTooth: (tooth: number) => void;
+  statuses: Record<number | string, { status: ToothStatus; note: string | null; updated_at?: string }>;
+  selectedTooth: number | string | null;
+  onSelectTooth: (tooth: number | string) => void;
 }) {
   const counts = useMemo(() => {
-    const m = new Map<number, number>();
+    const m = new Map<number | string, number>();
     for (const e of entries) m.set(e.tooth_number, (m.get(e.tooth_number) ?? 0) + 1);
     return m;
   }, [entries]);
 
-  function renderTooth(t: number) {
-  const s = statuses[t]?.status ?? "HEALTHY";
-  const note = statuses[t]?.note ?? null;
-  const jaw: "upper" | "lower" = t >= 11 && t <= 28 ? "upper" : "lower";
-  return (
-    <ToothTile
-      key={t}
-      tooth={t}
-      status={s}
-      jaw={jaw}
-      hasNote={!!note && note.trim().length > 0}
-      count={counts.get(t) ?? 0}
-      selected={selectedTooth === t}
-      onClick={() => onSelectTooth(t)}
-    />
-  );
-}
+  function renderTooth(t: number | string) {
+    // Check if this tooth has any entries in history
+    const hasEntries = counts.get(t) ?? 0 > 0;
+    // If no entries, force HEALTHY status; otherwise use stored status
+    const s = hasEntries ? (statuses[t]?.status ?? "HEALTHY") : "HEALTHY";
+    const note = statuses[t]?.note ?? null;
+    const jaw: "upper" | "lower" = 
+      typeof t === "number" 
+        ? ((t >= 11 && t <= 28) || (t >= 51 && t <= 65) ? "upper" : "lower")
+        : (["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(t as string) ? "upper" : "lower");
+    
+    return (
+      <ToothTile
+        key={t}
+        tooth={t}
+        status={s}
+        jaw={jaw}
+        hasNote={!!note && note.trim().length > 0}
+        count={counts.get(t) ?? 0}
+        selected={selectedTooth === t}
+        onClick={() => onSelectTooth(t)}
+      />
+    );
+  }
 
   return (
-    <div className="grid gap-4">
-      {/* Upper: single line */}
-      <div className="rounded-xl border bg-slate-50 p-4">
-        <div className="text-sm font-semibold text-slate-700">Upper</div>
-        <div className="mt-3 flex flex-nowrap gap-0.5 justify-center overflow-x-auto min-h-[100px] items-center py-3">
-          {upperRight.map(renderTooth)}
-          <div className="w-6 shrink-0" />
-          {upperLeft.map(renderTooth)}
+    <div className="grid gap-3 w-full">
+      {/* UPPER DENTITION - Combined Primary & Permanent */}
+      <div className="rounded-lg border bg-slate-50 p-3">
+        <div className="text-s font-semibold text-slate-600 uppercase text-center mb-2 py-2">Upper Dentition</div>
+        
+        {/* Primary Upper */}
+        <div>
+          <div className="text-xs text-slate-500 text-center mt-0.5">Primary</div>
+          <div className="flex gap-0 justify-center overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] items-center py-1 -mx-3">
+            {primaryUpperRight.map(renderTooth)}
+            <div className="w-3 shrink-0 border-l-2 border-slate-300" />
+            {primaryUpperLeft.map(renderTooth)}
+          </div>
+        </div>
+
+        {/* Permanent Upper */}
+        <div className="mt-0.5">
+          <div className="text-xs text-slate-500 text-center mt-0.5">Permanent</div>
+          <div className="flex gap-0 justify-center overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] items-center py-1 -mx-3">
+            {permUpperRight.map(renderTooth)}
+            <div className="w-3 shrink-0 border-l-2 border-slate-300" />
+            {permUpperLeft.map(renderTooth)}
+          </div>          
         </div>
       </div>
 
-      {/* Lower: single line */}
-      <div className="rounded-xl border bg-slate-50 p-4">
-        <div className="text-sm font-semibold text-slate-700">Lower</div>
-        <div className="mt-3 flex flex-nowrap gap-0.5 justify-center overflow-x-auto min-h-[100px] items-center py-3">
-          {lowerRight.map(renderTooth)}
-          <div className="w-6 shrink-0" />
-          {lowerLeft.map(renderTooth)}
+      {/* LOWER DENTITION - Permanent first, then Primary */}
+      <div className="rounded-lg border bg-slate-50 p-3">
+        
+        {/* Permanent Lower - FIRST */}
+        <div>
+          <div className="flex gap-0 justify-center overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] items-center py-1 -mx-3">
+            {permLowerRight.map(renderTooth)}
+            <div className="w-3 shrink-0 border-l-2 border-slate-300" />
+            {permLowerLeft.map(renderTooth)}
+          </div>
+          <div className="text-xs text-slate-500 text-center mt-0.5">Permanent</div>
         </div>
-      </div>
 
+        {/* Primary Lower - SECOND */}
+        <div className="mt-0.5">
+          <div className="flex gap-0 justify-center overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] items-center py-1 -mx-3">
+            {primaryLowerRight.map(renderTooth)}
+            <div className="w-3 shrink-0 border-l-2 border-slate-300" />
+            {primaryLowerLeft.map(renderTooth)}
+          </div>
+          <div className="text-xs text-slate-500 text-center mt-0.5">Primary</div>
+        </div>
+
+        {/* Lower Dentition Title - Below Primary */}
+        <div className="text-s font-semibold text-slate-600 uppercase text-center mt-1 py-2">Lower Dentition</div>
+      </div>
     </div>
   );
 }

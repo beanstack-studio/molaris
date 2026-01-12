@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import PatientTabs from "@/components/PatientTabs";
+import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
 import type { DocTemplate, GeneratedDoc, DentistRow, Patient } from "@/lib/types";
 import { todayLocalISO, formatDateTimePH, renderTemplate, combineFullName, splitFullName } from "@/lib/helpers";
@@ -34,6 +35,10 @@ export default function DocumentsPage() {
   const [docTreatmentDone, setDocTreatmentDone] = useState("");
   const [docRemarks, setDocRemarks] = useState("");
   const [docIssuedBy, setDocIssuedBy] = useState("");
+
+  // Edit/delete states
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
   const dentistNameById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -436,15 +441,23 @@ export default function DocumentsPage() {
                           <td className="data-table-cell">{d.doc_type}</td>
                           <td className="data-table-cell">{d.doc_number ?? "—"}</td>
                           <td className="data-table-cell-right">
-                            <button
-                              className="data-table-btn"
-                              onClick={() => {
-                                const html = d.payload?.rendered_html || d.payload?.renderedHtml || "";
-                                if (html) openHtml(html);
-                              }}
-                            >
-                              Open
-                            </button>
+                            <div className="flex gap-2 justify-end">                              
+                              <button
+                                className="data-table-btn text-xs"
+                                onClick={() => {
+                                  const html = d.payload?.rendered_html || d.payload?.renderedHtml || "";
+                                  if (html) openHtml(html);
+                                }}
+                              >
+                                Open
+                              </button>
+                              <button
+                                className="data-table-btn text-xs"
+                                onClick={() => setEditingDocId(d.id)}
+                              >
+                                Edit
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -463,6 +476,117 @@ export default function DocumentsPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Document Modal */}
+      <EditModal
+        open={editingDocId !== null}
+        title="Edit Document"
+        onClose={() => {
+          setEditingDocId(null);
+          setDeleteConfirmationText("");
+          setErr(null);
+        }}
+      >
+        {editingDocId && generatedDocs.find((d) => d.id === editingDocId) ? (
+          <div className="space-y-4">
+            {(() => {
+              const doc = generatedDocs.find((d) => d.id === editingDocId);
+              if (!doc) return null;
+              return (
+                <div className="grid gap-3 text-sm">
+                  <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3">
+                    <div>
+                      <div className="text-xs text-slate-600">Type</div>
+                      <div className="font-medium">{doc.doc_type}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-600">Number</div>
+                      <div className="font-medium">{doc.doc_number || "—"}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-slate-600">Created</div>
+                      <div className="font-medium">{formatDateTimePH(doc.created_at)}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title text-red-700">Delete document?</div>
+              <div className="delete-confirmation-hint">
+                Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
+              </div>
+              <input
+                type="text"
+                className="delete-confirmation-input"
+                placeholder="DELETE"
+                value={deleteConfirmationText}
+                onChange={(e) => setDeleteConfirmationText(e.target.value)}
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="delete-btn"
+                disabled={busy || deleteConfirmationText !== "DELETE" || !editingDocId}
+                onClick={async () => {
+                  if (!editingDocId) return;
+                  setBusy(true);
+                  setErr(null);
+                  const { error } = await supabase
+                    .from("generated_documents")
+                    .delete()
+                    .eq("id", editingDocId);
+                  setBusy(false);
+                  if (error) return setErr(error.message);
+                  setEditingDocId(null);
+                  setDeleteConfirmationText("");
+                  await loadData();
+                }}
+              >
+                {busy ? "Deleting…" : "Delete"}
+              </button>
+              <div className="modal-actions-right">
+                <button
+                  className="cancel-btn"
+                  onClick={() => {
+                    setEditingDocId(null);
+                    setDeleteConfirmationText("");
+                    setErr(null);
+                  }}
+                  disabled={busy}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="save-btn"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!editingDocId) return;
+                    setBusy(true);
+                    setErr(null);
+                    const doc = generatedDocs.find((d) => d.id === editingDocId);
+                    if (doc?.payload) {
+                      const { error } = await supabase
+                        .from("generated_documents")
+                        .update({ payload: doc.payload })
+                        .eq("id", editingDocId);
+                      setBusy(false);
+                      if (error) return setErr(error.message);
+                    }
+                    setEditingDocId(null);
+                    setDeleteConfirmationText("");
+                    await loadData();
+                  }}
+                >
+                  {busy ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </EditModal>
     </main>
   );
 }

@@ -338,21 +338,10 @@ export default function AttachmentsPage() {
     </main>
 
       {showEditModal && editingAttachment ? (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50" onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}>
           <div className="max-h-screen overflow-y-auto rounded-2xl border bg-white w-full max-w-md">
-            <div className="sticky top-0 border-b bg-white p-4 flex items-center justify-between">
+            <div className="sticky top-0 border-b bg-white p-4">
               <div className="text-lg font-semibold">Edit attachment</div>
-              <button
-                className="rounded-lg border bg-white px-2 py-1 text-sm"
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingAttachment(null);
-                  setEditFileName("");
-                  setDeleteConfirmation("");
-                }}
-              >
-                Close
-              </button>
             </div>
 
             <div className="p-4">
@@ -375,33 +364,44 @@ export default function AttachmentsPage() {
                   />
                 </label>
 
-                <div className="pt-4 border-t">
-                  <div className="text-sm font-semibold mb-3 text-slate-700">Delete attachment</div>
-                  <p className="text-xs text-slate-600 mb-3">Type <span className="font-mono bg-slate-100 px-1 rounded">DELETE</span> to confirm deletion:</p>
+                <div className="delete-confirmation">
+                  <div className="delete-confirmation-title">Delete attachment?</div>
+                  <div className="delete-confirmation-hint">
+                    Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
+                  </div>
                   <input
                     type="text"
-                    placeholder="Type DELETE to confirm"
-                    className="w-full h-10 rounded-lg border bg-white px-3 py-2 text-sm mb-3"
+                    placeholder="DELETE"
+                    className="delete-confirmation-input"
                     value={deleteConfirmation}
                     onChange={(e) => setDeleteConfirmation(e.target.value)}
                   />
                 </div>
 
-                <div className="flex items-center justify-between gap-3 pt-4">
+                <div className="modal-actions pt-4">
                   <button
-                    className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    className="delete-btn"
                     disabled={busy || deleteConfirmation !== "DELETE"}
                     onClick={deleteAttachment}
                   >
                     {busy ? "Deleting…" : "Delete"}
                   </button>
-                  <button
-                    className="flex-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                    disabled={busy}
-                    onClick={updateAttachmentFileName}
-                  >
-                    {busy ? "Saving…" : "Save"}
-                  </button>
+                  <div className="modal-actions-right">
+                    <button
+                      className="cancel-btn"
+                      disabled={busy}
+                      onClick={() => setShowEditModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="save-btn"
+                      disabled={busy}
+                      onClick={updateAttachmentFileName}
+                    >
+                      {busy ? "Saving…" : "Save"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

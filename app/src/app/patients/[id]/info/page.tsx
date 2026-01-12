@@ -352,40 +352,43 @@ export default function Page() {
           <Field label="Phone number" value={editPhone} onChange={setEditPhone} placeholder="e.g., 09123456789" />
           <Field label="Address" value={editAddress} onChange={setEditAddress} textarea />
 
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-            <button
-              className="h-10 rounded-lg border bg-white px-4 text-sm font-semibold"
-              onClick={() => setEditOpen(false)}
-            >
-              Cancel
-            </button>
-
-            <button
-              className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-              disabled={busy}
-              onClick={savePatient}
-            >
-              {busy ? "Saving…" : "Save"}
-            </button>
+          <div className="delete-confirmation">
+            <div className="delete-confirmation-title text-red-700">Delete Patient?</div>
+            <div className="delete-confirmation-hint">
+              Type <span className="delete-confirmation-code">DELETE</span> to confirm permanent deletion
+            </div>
+            <input
+              type="text"
+              className="delete-confirmation-input"
+              placeholder="DELETE"
+              value={deletePatientText}
+              onChange={(e) => setDeletePatientText(e.target.value)}
+            />
           </div>
 
-          <hr />
-
-          <div className="text-sm font-semibold text-red-700">Danger Zone</div>
-          <Field
-            label="Type DELETE to confirm deletion"
-            value={deletePatientText}
-            onChange={setDeletePatientText}
-            placeholder="DELETE"
-          />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2 pt-4">
             <button
-              className="h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+              className="h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
               disabled={busy || deletePatientText.trim().toUpperCase() !== "DELETE"}
               onClick={deletePatient}
             >
-              {busy ? "Deleting…" : "Delete Patient"}
+              {busy ? "Deleting…" : "Delete"}
             </button>
+            <div className="flex gap-2">
+              <button
+                className="h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-colors"
+                onClick={() => setEditOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="h-10 save-btn"
+                disabled={busy}
+                onClick={savePatient}
+              >
+                {busy ? "Saving…" : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       </EditModal>
