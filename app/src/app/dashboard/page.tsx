@@ -41,6 +41,8 @@ export default function DashboardPage() {
 
   const [outstanding, setOutstanding] = useState<any[]>([]);
   const [paymentModes, setPaymentModes] = useState<any[]>([]);
+  const [orthoPatientCount, setOrthoPatientCount] = useState(0);
+  const [allPayments, setAllPayments] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -54,7 +56,7 @@ export default function DashboardPage() {
       // Load invoices with complete data
       const { data: invoices, error: invoicesError } = await supabase
         .from("invoices")
-        .select("id, invoice_number, invoice_date, total, status, patient_id, dentist_name")
+        .select("id, invoice_number, invoice_date, total, status, patient_id")
         .order("invoice_date", { ascending: false })
         .limit(100);
 
@@ -89,18 +91,42 @@ export default function DashboardPage() {
       const { data: patients, error: patientsError } = await supabase
         .from("patients")
         .select("id, first_name, last_name, phone, created_at")
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: false });
 
       if (patientsError) throw patientsError;
 
-      // Load dentists
-      const { data: dentists, error: dentistsError } = await supabase
-        .from("dentists")
-        .select("id, full_name, is_active")
-        .eq("is_active", true);
+      // Load appointments (today and upcoming) - if table exists
+      const today = new Date().toISOString().split('T')[0];
+      let appointments: any[] = [];
+      try {
+        const { data: apptData, error: appointmentsError } = await supabase
+          .from("appointments")
+          .select("id, appointment_date, status")
+          .gte("appointment_date", today)
+          .order("appointment_date", { ascending: true });
+        
+        if (!appointmentsError) {
+          appointments = apptData || [];
+        }
+      } catch {
+        // Appointments table may not exist or have different schema
+        appointments = [];
+      }
 
-      if (dentistsError) throw dentistsError;
+      // Load orthodontic patients - try to get patients with ortho treatments
+      let orthoPatientIds = new Set<string>();
+      try {
+        const { data: orthoData, error: orthoError } = await supabase
+          .from("treatments")
+          .select("patient_id")
+          .ilike("treatment_type", "%ortho%");
+        
+        if (!orthoError && orthoData) {
+          orthoPatientIds = new Set(orthoData.map((t: any) => t.patient_id));
+        }
+      } catch {
+        // Treatments table or ortho data may not be available
+      }
 
       // Load payment modes with stats
       const { data: paymentModes, error: modesError } = await supabase
@@ -154,10 +180,16 @@ export default function DashboardPage() {
         totalOutstanding,
         totalPatients: patients?.length || 0,
         totalInvoices: invoiceCount,
-        activeDentists: dentists?.length || 0,
+        activeDentists: appointments.length || 0,
       });
 
       // Set recent activity
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayPaymentsList = (payments || []).filter((p: any) => {
+        const paymentDate = new Date(p.payment_date).toISOString().split('T')[0];
+        return paymentDate === todayStr && !p.voided_at;
+      });
+
       setRecent({
         invoices: (invoices || []).slice(0, 5),
         payments: (payments || []).slice(0, 5).map((p: any) => ({
@@ -239,6 +271,12 @@ export default function DashboardPage() {
 
       setPaymentModes(modeStats as any);
 
+      // Set ortho patient count
+      setOrthoPatientCount(orthoPatientIds.size);
+
+      // Store all payments in state for today's payment calculation
+      setAllPayments(payments || []);
+
       // Log stats for debugging
       console.log("Dashboard Stats:", {
         totalInvoiced,
@@ -247,20 +285,25 @@ export default function DashboardPage() {
         collectionRate: collectionRateValue,
         patients: patients?.length || 0,
         invoices: invoiceCount,
-        dentists: dentists?.length || 0,
+        upcomingAppointments: appointments?.length || 0,
       });
     } catch (error) {
-      console.error("Dashboard error:", error);
-      setErr(error instanceof Error ? error.message : "Failed to load dashboard");
+      const errorMsg = error instanceof Error 
+        ? error.message 
+        : typeof error === 'string'
+        ? error
+        : (error as any)?.message || (error as any)?.error_description || JSON.stringify(error);
+      console.error("Dashboard error:", errorMsg, error);
+      setErr(errorMsg || "Failed to load dashboard");
     } finally {
       setLoading(false);
     }
   }
 
-  const todayPayments = (recent.payments || []).filter((p) => {
-    const paymentDate = new Date(p.payment_date).toDateString();
-    const today = new Date().toDateString();
-    return paymentDate === today;
+  const todayPayments = (allPayments || []).filter((p: any) => {
+    const paymentDate = new Date(p.payment_date).toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    return paymentDate === today && !p.voided_at;
   });
 
   const collectionRate =
@@ -351,7 +394,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Key Metrics - Row 2 */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
@@ -365,21 +408,34 @@ export default function DashboardPage() {
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Active Dentists</p>
-                    <p className="text-3xl font-bold text-slate-900">{stats.activeDentists}</p>
+                    <p className="text-sm text-slate-600">Active Ortho Patients</p>
+                    <p className="text-3xl font-bold text-blue-600">{orthoPatientCount}</p>
                   </div>
-                  <div className="text-4xl">🦷</div>
+                  <div className="text-4xl">😁</div>
                 </div>
+                <p className="mt-2 text-xs text-slate-500">Braces & aligners</p>
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Collection Rate</p>
-                    <p className="text-3xl font-bold text-slate-900">{collectionRate}%</p>
+                    <p className="text-sm text-slate-600">Upcoming Appointments</p>
+                    <p className="text-3xl font-bold text-slate-900">{stats.activeDentists}</p>
                   </div>
-                  <div className="text-4xl">📈</div>
+                  <div className="text-4xl">📅</div>
                 </div>
+                <p className="mt-2 text-xs text-slate-500">This week</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">New Patients</p>
+                    <p className="text-3xl font-bold text-purple-600">{(recent.patients || []).length}</p>
+                  </div>
+                  <div className="text-4xl">⭐</div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">This month</p>
               </div>
             </div>
 
@@ -393,7 +449,7 @@ export default function DashboardPage() {
                     <h2 className="text-lg font-semibold text-slate-900">Recent Payments</h2>
                     <Link
                       href="/reports/payments"
-                      className="text-sm text-blue-600 hover:text-blue-700"
+                      className="rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
                     >
                       View all →
                     </Link>
@@ -457,7 +513,7 @@ export default function DashboardPage() {
                     <h2 className="text-lg font-semibold text-slate-900">Recent Invoices</h2>
                     <Link
                       href="/patients"
-                      className="text-sm text-blue-600 hover:text-blue-700"
+                      className="rounded-lg bg-green-50 px-3 py-1 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
                     >
                       View all →
                     </Link>
@@ -531,12 +587,6 @@ export default function DashboardPage() {
                       → Payment Reports
                     </Link>
                     <Link
-                      href="/reports/bulk-payments"
-                      className="block rounded-lg bg-purple-50 px-4 py-2 text-center text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors"
-                    >
-                      → Bulk Payments
-                    </Link>
-                    <Link
                       href="/settings"
                       className="block rounded-lg bg-slate-50 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
                     >
@@ -586,7 +636,7 @@ export default function DashboardPage() {
                     </p>
                     <Link
                       href="/reports/payments"
-                      className="mt-3 inline-block text-sm text-orange-700 hover:text-orange-800 font-medium"
+                      className="mt-3 inline-block rounded-lg bg-orange-100 px-3 py-1 text-sm font-medium text-orange-700 hover:bg-orange-200 transition-colors"
                     >
                       View details →
                     </Link>

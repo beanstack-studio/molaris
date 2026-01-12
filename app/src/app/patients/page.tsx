@@ -108,57 +108,80 @@ export default function PatientsPage() {
     setLoading(true);
     setError(null);
 
-    // Always use direct calculation to ensure correct last_visit_date and balance
-    const patientsQuery = await supabase
-      .from("patients")
-      .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
-      .order("created_at", { ascending: false });
+    try {
+      // Load all patients
+      const { data: allPatients, error: patientsError } = await supabase
+        .from("patients")
+        .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
+        .order("created_at", { ascending: false });
 
-    if (patientsQuery.error) {
-      setError(patientsQuery.error.message);
-      setLoading(false);
-      return;
-    }
+      if (patientsError) throw patientsError;
 
-    // Get last visit dates and balances for each patient
-    const patientsWithData = await Promise.all(
-      (patientsQuery.data || []).map(async (patient) => {
-        // Get last visit date
-        const { data: treatments } = await supabase
-          .from("treatments")
-          .select("treatment_date")
-          .eq("patient_id", patient.id)
-          .not("treatment_date", "is", null)
-          .order("treatment_date", { ascending: false })
-          .limit(1);
+      // Load all treatments for last visit date lookup
+      const { data: allTreatments, error: treatmentsError } = await supabase
+        .from("treatments")
+        .select("patient_id, treatment_date");
 
-        const lastVisitDate = treatments && treatments.length > 0 ? treatments[0].treatment_date : null;
+      if (treatmentsError) throw treatmentsError;
 
-        // Get balance (total invoiced - total paid)
-        const { data: invoices } = await supabase
-          .from("invoices")
-          .select("total")
-          .eq("patient_id", patient.id);
+      // Load all invoices for balance calculation
+      const { data: allInvoices, error: invoicesError } = await supabase
+        .from("invoices")
+        .select("patient_id, total");
 
-        const { data: payments } = await supabase
-          .from("payments")
-          .select("amount")
-          .eq("patient_id", patient.id);
+      if (invoicesError) throw invoicesError;
 
-        const totalInvoiced = invoices?.reduce((sum, inv) => sum + (inv.total || 0), 0) || 0;
-        const totalPaid = payments?.reduce((sum, pay) => sum + (pay.amount || 0), 0) || 0;
-        const balance = totalInvoiced - totalPaid;
+      // Load all payments for balance calculation
+      const { data: allPayments, error: paymentsError } = await supabase
+        .from("payments")
+        .select("patient_id, amount");
+
+      if (paymentsError) throw paymentsError;
+
+      // Build lookup maps
+      const lastVisitMap: Record<string, string> = {};
+      (allTreatments || []).forEach((t: any) => {
+        if (t.treatment_date) {
+          if (!lastVisitMap[t.patient_id] || t.treatment_date > lastVisitMap[t.patient_id]) {
+            lastVisitMap[t.patient_id] = t.treatment_date;
+          }
+        }
+      });
+
+      const invoicesByPatient: Record<string, number[]> = {};
+      (allInvoices || []).forEach((inv: any) => {
+        if (!invoicesByPatient[inv.patient_id]) {
+          invoicesByPatient[inv.patient_id] = [];
+        }
+        invoicesByPatient[inv.patient_id].push(inv.total || 0);
+      });
+
+      const paymentsByPatient: Record<string, number[]> = {};
+      (allPayments || []).forEach((pay: any) => {
+        if (!paymentsByPatient[pay.patient_id]) {
+          paymentsByPatient[pay.patient_id] = [];
+        }
+        paymentsByPatient[pay.patient_id].push(pay.amount || 0);
+      });
+
+      // Merge all data efficiently
+      const patientsWithData = (allPatients || []).map((patient: any) => {
+        const totalInvoiced = invoicesByPatient[patient.id]?.reduce((a, b) => a + b, 0) || 0;
+        const totalPaid = paymentsByPatient[patient.id]?.reduce((a, b) => a + b, 0) || 0;
 
         return {
           ...patient,
-          last_visit_date: lastVisitDate,
-          balance: balance
+          last_visit_date: lastVisitMap[patient.id] || null,
+          balance: totalInvoiced - totalPaid,
         };
-      })
-    );
+      });
 
-    if (patientsWithData) setPatients(patientsWithData as PatientRow[]);
-    setLoading(false);
+      setPatients(patientsWithData as PatientRow[]);
+    } catch (err: any) {
+      setError(err.message || "Failed to load patients");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {

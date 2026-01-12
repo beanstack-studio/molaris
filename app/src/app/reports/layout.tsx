@@ -5,14 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { label: "Clinic Profile", href: "/settings/clinic-profile" },
-  { label: "Services", href: "/settings/services" },
-  { label: "Team", href: "/settings/team" },
-  { label: "Payment Modes", href: "/settings/payment-modes" },
-  { label: "Document Templates", href: "/settings/document-templates" },
+  { label: "Payments", href: "/reports/payments" },
+  { label: "Patient Revenue", href: "/reports/patient-revenue" },
+  { label: "Treatment Analytics", href: "/reports/treatment-analytics" },
+  { label: "Appointments", href: "/reports/appointments" },
+  { label: "Clinic Performance", href: "/reports/clinic-performance" },
 ];
 
-export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+export default function ReportsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
@@ -20,8 +20,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       <main className="app-section">
         <div className="app-section-header">
           <div>
-            <div className="app-section-title">Settings</div>
-            <div className="app-section-subtitle">Clinic configuration</div>
+            <div className="app-section-title">Reports</div>
+            <div className="app-section-subtitle">Analyze clinic performance and financials</div>
           </div>
         </div>
 

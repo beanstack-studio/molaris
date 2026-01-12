@@ -30,7 +30,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/patients");
+    router.push("/dashboard");
   }
 
   return (
@@ -80,7 +80,7 @@ export default function LoginPage() {
           
           <button
             className="w-full rounded-lg bg-slate-500 text-white py-2 font-medium mt-2"
-            onClick={() => router.push("/patients")}
+            onClick={() => router.push("/dashboard")}
             type="button"
           >
             Skip Login (Dev)

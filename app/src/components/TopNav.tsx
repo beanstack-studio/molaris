@@ -111,16 +111,13 @@ export default function TopNav({
 
           {/* Main Navigation */}
           <div className="hidden sm:flex items-center gap-1">
-            <Link href="/dashboard" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-              Dashboard
-            </Link>
             <Link href="/patients" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               Patients
             </Link>
             <Link href="/reports/payments" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               Reports
             </Link>
-            <Link href="/settings" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+            <Link href="/settings/clinic-profile" className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               Settings
             </Link>
           </div>
@@ -141,16 +138,13 @@ export default function TopNav({
 
         {/* Mobile Navigation */}
         <div className="sm:hidden flex items-center gap-1 mt-2 pt-2 border-t">
-          <Link href="/dashboard" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
-            Dashboard
-          </Link>
           <Link href="/patients" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
             Patients
           </Link>
           <Link href="/reports/payments" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
             Reports
           </Link>
-          <Link href="/settings" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
+          <Link href="/settings/clinic-profile" className="flex-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded text-center">
             Settings
           </Link>
         </div>
