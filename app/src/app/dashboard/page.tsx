@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { ensureSessionRestored } from "@/lib/initializeAuth";
 import { formatMoney, formatDatePH } from "@/lib/helpers";
 
 interface DashboardStats {
@@ -53,6 +54,17 @@ export default function DashboardPage() {
     setErr(null);
 
     try {
+      // Wait for session to be restored
+      await ensureSessionRestored();
+      
+      // Ensure session is loaded before making queries
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setErr("No active session. Please login first.");
+        setLoading(false);
+        return;
+      }
+
       // Load invoices with complete data
       const { data: invoices, error: invoicesError } = await supabase
         .from("invoices")

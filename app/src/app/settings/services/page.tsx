@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { ensureSessionRestored } from "@/lib/initializeAuth";
 import { EditModal } from "@/components/EditModal";
 
 type ServicePriceRow = {
@@ -84,13 +85,28 @@ export default function ServicesSettingsPage() {
 
   async function load() {
     setLoading(true);
-    const r = await supabase
-      .from("service_prices")
-      .select("id, service_name, default_price, item_type, is_active")
-      .order("service_name", { ascending: true });
+    
+    try {
+      // Wait for session to be restored
+      await ensureSessionRestored();
+      
+      // Ensure session is loaded before making queries
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // No session - user should be redirected to login, just return
+        setLoading(false);
+        return;
+      }
+      
+      const r = await supabase
+        .from("service_prices")
+        .select("id, service_name, default_price, item_type, is_active")
+        .order("service_name", { ascending: true });
 
-    setRows((r.data ?? []) as ServicePriceRow[]);
-    setLoading(false);
+      setRows((r.data ?? []) as ServicePriceRow[]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
