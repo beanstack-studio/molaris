@@ -103,11 +103,15 @@ export default function TopNav({
   return (
     <div className="sticky top-0 z-50 border-b bg-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
-        <Link href="/patients" className="text-sm font-semibold text-slate-900 hover:underline">
+        <Link href="/dashboard" className="text-sm font-semibold text-slate-900 hover:underline">
           {title}
         </Link>
 
         <div className="flex items-center gap-2">
+          <Link href="/dashboard" className="btn btn-secondary">
+            Dashboard
+          </Link>
+
           <Link href="/patients" className="btn btn-secondary">
             Patients
           </Link>

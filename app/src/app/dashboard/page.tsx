@@ -1,0 +1,473 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  getInvoiceBalanceOverview,
+  getOutstandingInvoices,
+  getPaymentModeStats,
+} from "@/lib/paymentReportHelpers";
+import { formatMoney, formatDatePH } from "@/lib/helpers";
+
+interface DashboardStats {
+  totalInvoiced: number;
+  totalPaid: number;
+  totalOutstanding: number;
+  totalPatients: number;
+  totalInvoices: number;
+  activeDentists: number;
+}
+
+interface RecentActivity {
+  invoices: any[];
+  payments: any[];
+  patients: any[];
+}
+
+export default function DashboardPage() {
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  const [stats, setStats] = useState<DashboardStats>({
+    totalInvoiced: 0,
+    totalPaid: 0,
+    totalOutstanding: 0,
+    totalPatients: 0,
+    totalInvoices: 0,
+    activeDentists: 0,
+  });
+
+  const [recent, setRecent] = useState<RecentActivity>({
+    invoices: [],
+    payments: [],
+    patients: [],
+  });
+
+  const [outstanding, setOutstanding] = useState<any[]>([]);
+  const [paymentModes, setPaymentModes] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  async function loadDashboardData() {
+    setLoading(true);
+    setErr(null);
+
+    try {
+      // Load invoices
+      const { data: invoices, error: invoicesError } = await supabase
+        .from("invoices")
+        .select("*")
+        .order("invoice_date", { ascending: false })
+        .limit(100);
+
+      if (invoicesError) throw invoicesError;
+
+      // Load payments
+      const { data: payments, error: paymentsError } = await supabase
+        .from("payments")
+        .select(`
+          id,
+          amount,
+          payment_date,
+          status,
+          invoices(invoice_number),
+          payment_modes(name, code)
+        `)
+        .is("voided_at", null)
+        .order("payment_date", { ascending: false })
+        .limit(100);
+
+      if (paymentsError) throw paymentsError;
+
+      // Load patients
+      const { data: patients, error: patientsError } = await supabase
+        .from("patients")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (patientsError) throw patientsError;
+
+      // Load dentists
+      const { data: dentists, error: dentistsError } = await supabase
+        .from("dentists")
+        .select("*")
+        .eq("is_active", true);
+
+      if (dentistsError) throw dentistsError;
+
+      // Calculate stats
+      const balanceOverview = await getInvoiceBalanceOverview();
+      const outstandingInvoices = await getOutstandingInvoices();
+      const modeStats = await getPaymentModeStats();
+
+      setStats({
+        totalInvoiced: balanceOverview.total_invoiced,
+        totalPaid: balanceOverview.total_paid,
+        totalOutstanding: balanceOverview.total_outstanding,
+        totalPatients: patients?.length || 0,
+        totalInvoices: invoices?.length || 0,
+        activeDentists: dentists?.length || 0,
+      });
+
+      setRecent({
+        invoices: (invoices || []).slice(0, 5),
+        payments: (payments || []).slice(0, 5),
+        patients: (patients || []).slice(0, 5),
+      });
+
+      setOutstanding(outstandingInvoices.slice(0, 10));
+      setPaymentModes(modeStats.slice(0, 5));
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const todayPayments = (recent.payments || []).filter((p) => {
+    const paymentDate = new Date(p.payment_date).toDateString();
+    const today = new Date().toDateString();
+    return paymentDate === today;
+  });
+
+  const collectionRate =
+    stats.totalInvoiced > 0
+      ? Math.round((stats.totalPaid / stats.totalInvoiced) * 100)
+      : 0;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <div className="border-b border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <h1 className="text-4xl font-bold text-slate-900">Dashboard</h1>
+          <p className="mt-2 text-slate-600">Welcome back! Here's your clinic overview.</p>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        {/* Error message */}
+        {err && (
+          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-700">
+            <p className="font-semibold">Error loading dashboard</p>
+            <p className="text-sm">{err}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="text-slate-600">Loading dashboard...</div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Key Metrics - Row 1 */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">Total Invoiced</p>
+                    <p className="text-3xl font-bold text-slate-900">
+                      {formatMoney(stats.totalInvoiced)}
+                    </p>
+                  </div>
+                  <div className="text-4xl">📋</div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">{stats.totalInvoices} invoices</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">Total Collected</p>
+                    <p className="text-3xl font-bold text-green-700">
+                      {formatMoney(stats.totalPaid)}
+                    </p>
+                  </div>
+                  <div className="text-4xl">✓</div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">{collectionRate}% collection rate</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">Outstanding</p>
+                    <p className="text-3xl font-bold text-orange-700">
+                      {formatMoney(stats.totalOutstanding)}
+                    </p>
+                  </div>
+                  <div className="text-4xl">⏳</div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">Requires payment</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">Today's Payments</p>
+                    <p className="text-3xl font-bold text-blue-700">{todayPayments.length}</p>
+                  </div>
+                  <div className="text-4xl">💳</div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {formatMoney(
+                    todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Key Metrics - Row 2 */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">Total Patients</p>
+                    <p className="text-3xl font-bold text-slate-900">{stats.totalPatients}</p>
+                  </div>
+                  <div className="text-4xl">👥</div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">Active Dentists</p>
+                    <p className="text-3xl font-bold text-slate-900">{stats.activeDentists}</p>
+                  </div>
+                  <div className="text-4xl">🦷</div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">Collection Rate</p>
+                    <p className="text-3xl font-bold text-slate-900">{collectionRate}%</p>
+                  </div>
+                  <div className="text-4xl">📈</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Grid */}
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Left Column - Recent Activity */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Recent Payments */}
+                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-slate-900">Recent Payments</h2>
+                    <Link
+                      href="/reports/payments"
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      View all →
+                    </Link>
+                  </div>
+
+                  {recent.payments.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-200">
+                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                              Invoice
+                            </th>
+                            <th className="px-4 py-2 text-right font-semibold text-slate-700">
+                              Amount
+                            </th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                              Mode
+                            </th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                              Status
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {recent.payments.map((payment) => (
+                            <tr key={payment.id} className="hover:bg-slate-50">
+                              <td className="px-4 py-2">
+                                {(payment as any).invoices?.invoice_number || "—"}
+                              </td>
+                              <td className="px-4 py-2 text-right font-semibold">
+                                {formatMoney(payment.amount)}
+                              </td>
+                              <td className="px-4 py-2 text-sm">
+                                {payment.payment_modes?.name || "—"}
+                              </td>
+                              <td className="px-4 py-2">
+                                <span
+                                  className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
+                                    payment.status === "verified"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}
+                                >
+                                  {payment.status === "verified" ? "✓ Verified" : "Pending"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 text-center py-4">No recent payments</p>
+                  )}
+                </div>
+
+                {/* Recent Invoices */}
+                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-slate-900">Recent Invoices</h2>
+                    <Link
+                      href="/patients"
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      View all →
+                    </Link>
+                  </div>
+
+                  {recent.invoices.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-200">
+                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                              Invoice
+                            </th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                              Date
+                            </th>
+                            <th className="px-4 py-2 text-right font-semibold text-slate-700">
+                              Amount
+                            </th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
+                              Status
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {recent.invoices.map((invoice) => (
+                            <tr key={invoice.id} className="hover:bg-slate-50">
+                              <td className="px-4 py-2">{invoice.invoice_number}</td>
+                              <td className="px-4 py-2">{formatDatePH(invoice.invoice_date)}</td>
+                              <td className="px-4 py-2 text-right font-semibold">
+                                {formatMoney(invoice.total)}
+                              </td>
+                              <td className="px-4 py-2">
+                                <span
+                                  className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
+                                    invoice.status === "paid"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}
+                                >
+                                  {invoice.status === "paid" ? "Paid" : "Pending"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 text-center py-4">No recent invoices</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column - Sidebar */}
+              <div className="space-y-6">
+                {/* Quick Actions */}
+                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                  <h2 className="mb-4 text-lg font-semibold text-slate-900">Quick Actions</h2>
+                  <div className="space-y-2">
+                    <Link
+                      href="/patients"
+                      className="block rounded-lg bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                    >
+                      → View Patients
+                    </Link>
+                    <Link
+                      href="/reports/payments"
+                      className="block rounded-lg bg-green-50 px-4 py-2 text-center text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
+                    >
+                      → Payment Reports
+                    </Link>
+                    <Link
+                      href="/reports/bulk-payments"
+                      className="block rounded-lg bg-purple-50 px-4 py-2 text-center text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+                    >
+                      → Bulk Payments
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="block rounded-lg bg-slate-50 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                      → Settings
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Payment Modes */}
+                {paymentModes.length > 0 && (
+                  <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                    <h2 className="mb-4 text-lg font-semibold text-slate-900">
+                      Payment Modes (Today)
+                    </h2>
+                    <div className="space-y-2">
+                      {paymentModes.map((mode) => (
+                        <div
+                          key={mode.code}
+                          className="flex items-center justify-between rounded-lg border border-slate-100 p-3 hover:bg-slate-50"
+                        >
+                          <div className="text-sm">
+                            <p className="font-medium text-slate-900">{mode.name}</p>
+                            <p className="text-xs text-slate-500">{mode.count} payments</p>
+                          </div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {formatMoney(mode.total)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Outstanding Summary */}
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-6 shadow-sm">
+                  <h2 className="mb-4 text-lg font-semibold text-orange-900">
+                    Outstanding Invoices
+                  </h2>
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-orange-700">
+                      {outstanding.length}
+                    </p>
+                    <p className="text-sm text-orange-600 mt-2">
+                      Total: {formatMoney(
+                        outstanding.reduce((sum, inv) => sum + (inv.balance || 0), 0)
+                      )}
+                    </p>
+                    <Link
+                      href="/reports/payments"
+                      className="mt-3 inline-block text-sm text-orange-700 hover:text-orange-800 font-medium"
+                    >
+                      View details →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
