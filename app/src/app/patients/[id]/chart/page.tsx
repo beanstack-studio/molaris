@@ -25,7 +25,7 @@ export default function ChartPage() {
   const [toothNote, setToothNote] = useState("");
   const [surfaceSel, setSurfaceSel] = useState<string[]>([]);
   const [findingDetail, setFindingDetail] = useState("");
-  const [pendingStatus, setPendingStatus] = useState<string>("HEALTHY");
+  const [pendingStatus, setPendingStatus] = useState<ToothStatus>("HEALTHY");
   const [editingEntry, setEditingEntry] = useState<ChartEntry | null>(null);
   const [editNotes, setEditNotes] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
