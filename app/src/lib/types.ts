@@ -238,3 +238,57 @@ export type DraftLine = {
 
 export const tabs = ["Info", "Medical", "Chart", "Treatments", "Attachments", "Documents", "Billing"] as const;
 export type Tab = (typeof tabs)[number];
+
+/* =========================
+   Appointments & Messaging
+========================= */
+
+export type Appointment = {
+  id: string;
+  patient_id: string;
+  dentist_id: string | null;
+  appointment_date: string;
+  appointment_time: string;
+  status: "pending" | "confirmed" | "completed" | "no_show" | "cancelled";
+  notes: string | null;
+  message_thread_id: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  patient?: Patient;
+  dentist?: DentistRow;
+};
+
+export type MessageThread = {
+  id: string;
+  patient_id: string;
+  channel: "sms" | "messenger" | "whatsapp" | "email";
+  external_thread_id: string | null;
+  last_message_at: string | null;
+  unread_count: number;
+  subject: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  patient?: Patient;
+};
+
+export type Message = {
+  id: string;
+  thread_id: string;
+  sender_type: "patient" | "staff";
+  sender_id: string | null;
+  sender_name: string | null;
+  content: string;
+  message_type: "text" | "appointment_confirmed" | "query" | "system";
+  external_id: string | null;
+  metadata: Record<string, any>;
+  created_at: string;
+  deleted_at: string | null;
+};
+
+export type MessageWithThread = Message & {
+  thread?: MessageThread;
+};
