@@ -10,8 +10,10 @@ import {
   sendThreadMessage,
   sendAppointmentConfirmation,
   createAppointment,
+  getMessengerUserProfile,
 } from "@/lib/messageHelpers";
 import AppointmentModal from "./AppointmentModal";
+import LinkPatientModal from "./LinkPatientModal";
 
 interface ChatWindowProps {
   threadId: string;
@@ -26,6 +28,8 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showLinkPatientModal, setShowLinkPatientModal] = useState(false);
+  const [messengerProfilePic, setMessengerProfilePic] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,6 +70,19 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
 
       setThread(threadData);
       setMessages(messagesData);
+
+      // Fetch fresh profile pic for unlinked Messenger threads
+      if (threadData.channel === "messenger" && !threadData.patient_id && threadData.external_thread_id) {
+        try {
+          const profile = await getMessengerUserProfile(threadData.external_thread_id);
+          if (profile?.picture_url) {
+            setMessengerProfilePic(profile.picture_url);
+          }
+        } catch (err) {
+          console.warn("Could not fetch Messenger profile pic:", err);
+          // Not critical, continue anyway
+        }
+      }
     } catch (err) {
       console.error("Error loading thread:", err);
       setError("Failed to load conversation");
@@ -171,21 +188,70 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b border-slate-200 bg-white p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              {thread.patients?.full_name}
-            </h2>
-            <p className="text-sm text-slate-600">
-              {thread.channel.toUpperCase()} • {thread.patients?.phone}
-            </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            {thread.patient_id ? (
+              <>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {thread.patients?.full_name}
+                </h2>
+                <p className="text-sm text-slate-600">
+                  {thread.channel.toUpperCase()} • {thread.patients?.phone}
+                </p>
+              </>
+            ) : (
+              /* Unlinked thread - show external user info */
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    {messengerProfilePic ? (
+                      <img
+                        src={messengerProfilePic}
+                        alt={thread.external_user_name || "User"}
+                        className="w-8 h-8 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      /* Fallback to initials avatar if no pic */
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                        {thread.external_user_name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase() || "?"}
+                      </div>
+                    )}
+                    <h2 className="text-lg font-bold text-slate-900">
+                      {thread.external_user_name || "Unknown"}
+                    </h2>
+                    <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">
+                      Not linked
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600">
+                    {thread.channel.toUpperCase()} • {thread.external_thread_id}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowLinkPatientModal(true)}
+                  className="px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium whitespace-nowrap"
+                >
+                  Link Patient
+                </button>
+              </div>
+            )}
           </div>
-          <button
-            onClick={() => setShowAppointmentModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-          >
-            + Appointment
-          </button>
+
+          {thread.patient_id && (
+            <button
+              onClick={() => setShowAppointmentModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            >
+              + Appointment
+            </button>
+          )}
         </div>
       </div>
 
@@ -260,12 +326,26 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
       </div>
 
       {/* Appointment Modal */}
-      {showAppointmentModal && (
+      {showAppointmentModal && thread.patient_id && (
         <AppointmentModal
           patientId={thread.patient_id}
           onConfirm={handleConfirmAppointment}
           onCancel={() => setShowAppointmentModal(false)}
           isSending={sending}
+        />
+      )}
+
+      {/* Link Patient Modal */}
+      {showLinkPatientModal && (
+        <LinkPatientModal
+          threadId={threadId}
+          externalUserName={thread.external_user_name}
+          onLinked={() => {
+            setShowLinkPatientModal(false);
+            loadThreadData();
+            onThreadUpdated();
+          }}
+          onCancel={() => setShowLinkPatientModal(false)}
         />
       )}
     </div>

@@ -263,12 +263,14 @@ export type Appointment = {
 
 export type MessageThread = {
   id: string;
-  patient_id: string;
+  patient_id: string | null; // NULL if not yet linked
   channel: "sms" | "messenger" | "whatsapp" | "email";
   external_thread_id: string | null;
+  external_user_name: string | null; // FB name, WhatsApp name, etc.
   last_message_at: string | null;
   unread_count: number;
   subject: string | null;
+  metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

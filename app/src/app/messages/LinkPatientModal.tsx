@@ -1,0 +1,202 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { Patient } from "@/lib/types";
+import { linkThreadToPatient } from "@/lib/messageHelpers";
+
+interface LinkPatientModalProps {
+  threadId: string;
+  externalUserName: string | null;
+  onLinked: () => void;
+  onCancel: () => void;
+}
+
+export default function LinkPatientModal({
+  threadId,
+  externalUserName,
+  onLinked,
+  onCancel,
+}: LinkPatientModalProps) {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [linking, setLinking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmStep, setConfirmStep] = useState(false);
+
+  useEffect(() => {
+    loadPatients();
+  }, []);
+
+  const loadPatients = async () => {
+    try {
+      const { data, error: err } = await supabase
+        .from("patients")
+        .select("*")
+        .is("deleted_at", null)
+        .order("full_name", { ascending: true });
+
+      if (err) throw err;
+      setPatients(data || []);
+    } catch (err) {
+      console.error("Error loading patients:", err);
+      setError("Failed to load patients");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedPatientData = patients.find((p) => p.id === selectedPatient);
+
+  const handleConfirm = async () => {
+    if (!selectedPatient) {
+      setError("Please select a patient");
+      return;
+    }
+
+    try {
+      setLinking(true);
+      setError(null);
+
+      await linkThreadToPatient(threadId, selectedPatient);
+      onLinked();
+    } catch (err) {
+      console.error("Error linking patient:", err);
+      setError("Failed to link patient");
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-bold text-slate-900 mb-4">Link to Patient</h3>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* External User Info */}
+        <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+          <p className="text-xs font-semibold text-slate-600 uppercase mb-3">
+            Incoming Message From
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+              {externalUserName?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
+            </div>
+            <div>
+              <p className="font-medium text-slate-900">
+                {externalUserName || "Unknown"}
+              </p>
+              <p className="text-xs text-slate-500">Messenger</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Patient Selection */}
+        {!confirmStep ? (
+          <>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Select Patient
+              </label>
+              {loading ? (
+                <div className="p-3 text-slate-600 text-sm text-center">
+                  Loading patients...
+                </div>
+              ) : patients.length === 0 ? (
+                <div className="p-3 text-slate-600 text-sm text-center">
+                  No patients found
+                </div>
+              ) : (
+                <select
+                  value={selectedPatient || ""}
+                  onChange={(e) => setSelectedPatient(e.target.value || null)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-48"
+                >
+                  <option value="">-- Select a patient --</option>
+                  {patients.map((patient) => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.full_name}
+                      {patient.phone ? ` (${patient.phone})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={onCancel}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setConfirmStep(true)}
+                disabled={!selectedPatient}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Confirmation Step */}
+            <div className="mb-6 space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-slate-700 mb-2">
+                  <span className="font-semibold">Confirming:</span> Link messages from{" "}
+                  <span className="font-medium text-blue-900">{externalUserName}</span> to
+                </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-300 flex items-center justify-center text-slate-600 text-sm font-medium">
+                    {selectedPatientData?.full_name?.[0]?.toUpperCase() || "?"}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">
+                      {selectedPatientData?.full_name}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      {selectedPatientData?.phone || "No phone"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-800">
+                  ⚠️ <strong>Verify carefully:</strong> Future messages from this number will be
+                  linked to {selectedPatientData?.full_name}. This cannot be easily undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmStep(false)}
+                disabled={linking}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition disabled:opacity-50"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={linking}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+              >
+                {linking ? "Linking..." : "Confirm & Link"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
