@@ -49,17 +49,17 @@ CREATE INDEX IF NOT EXISTS idx_appointments_message_thread_id ON appointments(me
 
 CREATE TABLE IF NOT EXISTS message_threads (
   id uuid primary key default gen_random_uuid(),
-  patient_id uuid not null references patients(id) on delete cascade,
+  patient_id uuid references patients(id) on delete cascade, -- NULL if not yet linked
   channel text not null, -- 'sms', 'messenger', 'whatsapp', 'email', etc.
   external_thread_id text, -- From Messenger (PSID) or SMS (phone number)
+  external_user_name text, -- From Messenger/WhatsApp (display name they use)
   last_message_at timestamptz,
   unread_count int default 0,
   subject text, -- For email threads
+  metadata jsonb default '{}'::jsonb, -- Channel-specific metadata
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
-  deleted_at timestamptz,
-  
-  unique(patient_id, channel, external_thread_id)
+  deleted_at timestamptz
 );
 
 CREATE INDEX IF NOT EXISTS idx_message_threads_patient_id ON message_threads(patient_id);

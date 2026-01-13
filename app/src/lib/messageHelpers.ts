@@ -322,3 +322,119 @@ export async function sendAppointmentConfirmation(
     throw error;
   }
 }
+
+// ============================================================================
+// PATIENT LINKING (For Unlinked Messenger/WhatsApp Threads)
+// ============================================================================
+
+/**
+ * Link an unlinked message thread to a patient
+ * Used when staff manually matches a Messenger/WhatsApp thread to a patient
+ */
+export async function linkThreadToPatient(
+  threadId: string,
+  patientId: string
+): Promise<MessageThread> {
+  const { data, error } = await supabase
+    .from('message_threads')
+    .update({ patient_id: patientId })
+    .eq('id', threadId)
+    .select('*, patients(id, full_name, phone, email)')
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Unlink a thread from a patient (revert to unlinked state)
+ */
+export async function unlinkThreadFromPatient(threadId: string): Promise<MessageThread> {
+  const { data, error } = await supabase
+    .from('message_threads')
+    .update({ patient_id: null })
+    .eq('id', threadId)
+    .select('*, patients(id, full_name, phone, email)')
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Fetch Messenger user profile info (name, picture)
+ * Called fresh when displaying a thread (not stored in DB)
+ */
+export async function getMessengerUserProfile(psid: string): Promise<{ name: string | null; picture_url: string | null }> {
+  try {
+    const pageAccessToken = process.env.NEXT_PUBLIC_FACEBOOK_PAGE_ACCESS_TOKEN;
+
+    if (!pageAccessToken) {
+      console.log("Facebook access token not configured");
+      return { name: null, picture_url: null };
+    }
+
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/${psid}?fields=first_name,last_name,profile_pic&access_token=${pageAccessToken}`
+    );
+
+    if (!response.ok) {
+      console.log("Failed to fetch Messenger profile");
+      return { name: null, picture_url: null };
+    }
+
+    const data = await response.json();
+    const name = data.first_name && data.last_name 
+      ? `${data.first_name} ${data.last_name}`
+      : data.first_name || null;
+
+    return {
+      name,
+      picture_url: data.profile_pic || null,
+    };
+  } catch (error) {
+    console.error("Error fetching Messenger profile:", error);
+    return { name: null, picture_url: null };
+  }
+}
+
+/**
+ * Update thread external user info (name from Messenger/WhatsApp)
+ */
+export async function updateThreadExternalUserInfo(
+  threadId: string,
+  userName: string | null
+): Promise<MessageThread> {
+  const { data, error } = await supabase
+    .from('message_threads')
+    .update({
+      external_user_name: userName,
+    })
+    .eq('id', threadId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Get unlinked threads (for finding threads waiting to be linked to patients)
+ */
+export async function getUnlinkedThreads(channel?: string) {
+  let query = supabase
+    .from('message_threads')
+    .select('*, patients(id, full_name)')
+    .is('patient_id', null)
+    .is('deleted_at', null)
+    .order('last_message_at', { ascending: false });
+
+  if (channel) {
+    query = query.eq('channel', channel);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+

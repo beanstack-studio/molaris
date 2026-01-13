@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
             messaging.sender.id,
             messaging.recipient.id,
             messaging.message.text,
-            messaging.message.mid
+            messaging.message.mid,
+            messaging.sender.name || null // Pass sender name
           );
         }
       }
@@ -77,10 +78,11 @@ async function handleIncomingMessage(
   senderId: string,
   pageId: string,
   messageText: string,
-  externalMessageId: string
+  externalMessageId: string,
+  senderName: string | null = null
 ) {
   try {
-    // Find patient by messenger PSID (stored in metadata)
+    // Find thread by Messenger PSID
     const { data: threads } = await supabase
       .from("message_threads")
       .select("*, patients(id, full_name)")
@@ -88,18 +90,37 @@ async function handleIncomingMessage(
       .eq("external_thread_id", senderId)
       .single();
 
-    let patient = threads?.patients;
     let threadId = threads?.id;
+    let patient = threads?.patients;
 
     if (!threadId) {
-      // Try to find patient by name/phone
-      // In production, you'd want better matching logic
-      console.log(`Creating new thread for Messenger sender: ${senderId}`);
+      // Create new unlinked thread with external user name
+      const { data: newThread, error: threadError } = await supabase
+        .from("message_threads")
+        .insert({
+          patient_id: null, // Not linked yet
+          channel: "messenger",
+          external_thread_id: senderId,
+          external_user_name: senderName,
+        })
+        .select()
+        .single();
 
-      // For now, log that we received a message from an unknown sender
-      // In production, you might create a stub patient or handle this differently
-      console.log(`No patient found for Messenger PSID: ${senderId}`);
-      return;
+      if (threadError) {
+        console.error("Error creating thread:", threadError);
+        return;
+      }
+
+      threadId = newThread.id;
+      console.log(`Created new unlinked Messenger thread: ${threadId}`);
+    } else if (senderName) {
+      // Update thread with latest sender name
+      await supabase
+        .from("message_threads")
+        .update({
+          external_user_name: senderName,
+        })
+        .eq("id", threadId);
     }
 
     // Store message
@@ -108,8 +129,8 @@ async function handleIncomingMessage(
       .insert({
         thread_id: threadId,
         sender_type: "patient",
-        sender_id: patient?.id,
-        sender_name: patient?.full_name,
+        sender_id: patient?.id || null,
+        sender_name: patient?.full_name || senderName,
         content: messageText,
         message_type: "text",
         external_id: externalMessageId,
