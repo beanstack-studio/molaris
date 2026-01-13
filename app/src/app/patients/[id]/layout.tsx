@@ -100,12 +100,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
           </div>
-          <button
-            className="btn btn-secondary"
-            onClick={() => router.push("/patients")}
-          >
-            Back
-          </button>
         </div>
 
         <PatientTabs activeTab={activeTab} />
