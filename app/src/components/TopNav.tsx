@@ -115,6 +115,7 @@ export default function TopNav({
   const isPatients = pathname?.startsWith("/patients");
   const isReports = pathname?.startsWith("/reports");
   const isSettings = pathname?.startsWith("/settings");
+  const isMessages = pathname?.startsWith("/messages");
 
   return (
     <div className="sticky top-0 z-50 border-b bg-white shadow-sm">
@@ -127,6 +128,16 @@ export default function TopNav({
 
           {/* Right Navigation & Actions */}
           <div className="flex items-center gap-2">
+            <Link
+              href="/messages"
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isMessages
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              💬 Messages
+            </Link>
             <Link
               href="/patients"
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
