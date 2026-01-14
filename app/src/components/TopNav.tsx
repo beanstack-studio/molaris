@@ -116,6 +116,7 @@ export default function TopNav({
   const isReports = pathname?.startsWith("/reports");
   const isSettings = pathname?.startsWith("/settings");
   const isMessages = pathname?.startsWith("/messages");
+  const isAppointments = pathname?.startsWith("/appointments");
 
   return (
     <div className="sticky top-0 z-50 border-b bg-white shadow-sm">
@@ -141,6 +142,16 @@ export default function TopNav({
               💬 Messages
             </Link>
             */}
+            <Link
+              href="/appointments"
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isAppointments
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              📅 Appointments
+            </Link>
             <Link
               href="/patients"
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
