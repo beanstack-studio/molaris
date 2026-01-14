@@ -156,7 +156,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
     dentistId?: string,
     concerns?: string
   ) => {
-    if (!thread) return;
+    if (!thread || !thread.patient_id) return;
 
     try {
       setSending(true);
