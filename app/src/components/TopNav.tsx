@@ -128,6 +128,8 @@ export default function TopNav({
 
           {/* Right Navigation & Actions */}
           <div className="flex items-center gap-2">
+            {/* Messages tab temporarily hidden - will reopen after holidays */}
+            {/* 
             <Link
               href="/messages"
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -138,6 +140,7 @@ export default function TopNav({
             >
               💬 Messages
             </Link>
+            */}
             <Link
               href="/patients"
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${

@@ -117,7 +117,8 @@ export async function createAppointment(
   appointmentTime: string,
   dentistId?: string | null,
   notes?: string,
-  messageThreadId?: string | null
+  messageThreadId?: string | null,
+  concerns?: string
 ): Promise<Appointment> {
   const { data, error } = await supabase
     .from('appointments')
@@ -127,6 +128,7 @@ export async function createAppointment(
       appointment_time: appointmentTime,
       dentist_id: dentistId || null,
       notes: notes || null,
+      concerns: concerns || null,
       message_thread_id: messageThreadId || null,
       status: 'confirmed',
     })

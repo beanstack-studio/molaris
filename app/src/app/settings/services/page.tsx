@@ -11,6 +11,7 @@ type ServicePriceRow = {
   default_price: number;
   item_type: "SERVICE" | "ADD_ON";
   is_active: boolean;
+  duration_minutes?: number;
 };
 
 type ServiceSort = "NAME_ASC" | "NAME_DESC" | "FEE_ASC" | "FEE_DESC";
@@ -75,12 +76,14 @@ export default function ServicesSettingsPage() {
   const [itemType, setItemType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [duration, setDuration] = useState<string>("");
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<ServicePriceRow | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
+  const [editDuration, setEditDuration] = useState<string>("");
   const [deleteText, setDeleteText] = useState("");
 
   async function load() {
@@ -100,7 +103,7 @@ export default function ServicesSettingsPage() {
       
       const r = await supabase
         .from("service_prices")
-        .select("id, service_name, default_price, item_type, is_active")
+        .select("id, service_name, default_price, item_type, is_active, duration_minutes")
         .order("service_name", { ascending: true });
 
       setRows((r.data ?? []) as ServicePriceRow[]);
@@ -132,6 +135,7 @@ export default function ServicesSettingsPage() {
       default_price: Number(price) || 0,
       item_type: itemType,
       is_active: true,
+      duration_minutes: duration ? Number(duration) : null,
     });
 
     if (error) {
@@ -143,6 +147,7 @@ export default function ServicesSettingsPage() {
 
     setName("");
     setPrice("");
+    setDuration("");
     await load();
     setBusy(false);
   }
@@ -151,6 +156,7 @@ export default function ServicesSettingsPage() {
     setEditRow(r);
     setEditName(r.service_name ?? "");
     setEditPrice(String(r.default_price ?? 0));
+    setEditDuration(String(r.duration_minutes ?? ""));
     setDeleteText("");
     setEditOpen(true);
   }
@@ -179,6 +185,7 @@ export default function ServicesSettingsPage() {
       .update({
         service_name: editName.trim(),
         default_price: Number(editPrice) || 0,
+        duration_minutes: editDuration ? Number(editDuration) : null,
       })
       .eq("id", editRow.id);
 
@@ -251,14 +258,16 @@ export default function ServicesSettingsPage() {
       <div className="mt-3">
         <table className="data-table">
           <colgroup>
-            <col style={{ width: "40%" }} />
-            <col style={{ width: "20%" }} />
+            <col style={{ width: "30%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "15%" }} />
             <col style={{ width: "20%" }} />
             <col style={{ width: "20%" }} />
           </colgroup>
           <thead className="data-table-head">
             <tr>
               <th className="data-table-head-cell">Name</th>
+              <th className="data-table-head-cell-right">Duration</th>
               <th className="data-table-head-cell-right">Fee</th>
               <th className="data-table-head-cell-right">Activate</th>
               <th className="data-table-head-cell-right">Actions</th>
@@ -268,6 +277,7 @@ export default function ServicesSettingsPage() {
             {data.map((r, index) => (
               <tr key={r.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                 <td className="data-table-cell">{r.service_name}</td>
+                <td className="data-table-cell-right text-sm">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
                 <td className="data-table-cell-right font-semibold">PHP {Number(r.default_price || 0).toLocaleString()}</td>
                 <td className="data-table-cell-right">
                   <div className="flex items-center justify-end">
@@ -315,35 +325,68 @@ export default function ServicesSettingsPage() {
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <select
-                  className="h-10 rounded-lg border px-2 text-sm"
+                  className="h-10 rounded-lg border px-2 text-sm sm:w-[140px]"
                   value={itemType}
                   onChange={(e) => setItemType(e.target.value as any)}
                   disabled={busy}
                 >
+                  <option value="">-- Type --</option>
                   <option value="SERVICE">Service</option>
                   <option value="ADD_ON">Add-on</option>
                 </select>
 
                 <input
-                  className="h-10 w-full rounded-lg border px-3 text-sm sm:flex-1"
+                  className="h-10 rounded-lg border px-3 text-sm sm:flex-1 sm:max-w-[540px]"
                   placeholder="Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={busy}
                 />
 
+                <select
+                  className="h-10 rounded-lg border px-2 text-sm sm:flex-1 sm:max-w-[200px]"
+                  style={{ maxHeight: '150px', overflowY: 'auto' }}
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  disabled={busy}
+                  title="Duration in minutes (15-min increments)"
+                >
+                  <option value="">-- Duration --</option>
+                  <option value="15">15 min</option>
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">1 hour</option>
+                  <option value="75">1h 15m</option>
+                  <option value="90">1h 30m</option>
+                  <option value="105">1h 45m</option>
+                  <option value="120">2 hours</option>
+                  <option value="135">2h 15m</option>
+                  <option value="150">2h 30m</option>
+                  <option value="165">2h 45m</option>
+                  <option value="180">3 hours</option>
+                </select>
+
                 <input
-                  className="h-10 w-full rounded-lg border px-3 text-sm sm:w-[160px]"
+                  className="h-10 rounded-lg border px-3 text-sm sm:w-[150px]"
                   placeholder="Fee"
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onChange={(e) => {
+                    // Only allow numbers and decimal point
+                    let v = e.target.value.replace(/[^\d.]/g, '');
+                    // Only keep first decimal point
+                    const parts = v.split('.');
+                    if (parts.length > 2) {
+                      v = parts[0] + '.' + parts.slice(1).join('');
+                    }
+                    setPrice(v);
+                  }}
                   disabled={busy}
                   inputMode="decimal"
                 />
 
                 <button
                   type="button"
-                  className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                  className="h-10 flex-1 rounded-lg bg-slate-900 px-8 text-sm font-semibold text-white disabled:opacity-60 sm:flex-initial sm:px-12"
                   onClick={addItem}
                   disabled={busy}
                 >
@@ -385,24 +428,28 @@ export default function ServicesSettingsPage() {
               />
             </div>
 
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
-                onClick={closeEdit}
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Duration (Optional)</label>
+              <select
+                className="mt-1 h-10 w-full rounded-lg border px-2 text-sm"
+                value={editDuration}
+                onChange={(e) => setEditDuration(e.target.value)}
                 disabled={busy}
               >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                onClick={saveEdit}
-                disabled={busy || !editName.trim()}
-              >
-                Save
-              </button>
+                <option value="">No duration</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">1 hour</option>
+                <option value="75">1h 15m</option>
+                <option value="90">1h 30m</option>
+                <option value="105">1h 45m</option>
+                <option value="120">2 hours</option>
+                <option value="135">2h 15m</option>
+                <option value="150">2h 30m</option>
+                <option value="165">2h 45m</option>
+                <option value="180">3 hours</option>
+              </select>
             </div>
 
             <div className="delete-confirmation">

@@ -6,10 +6,27 @@ import { DentistRow } from "@/lib/types";
 
 interface AppointmentModalProps {
   patientId: string;
-  onConfirm: (date: string, time: string, dentistId?: string) => void;
+  onConfirm: (date: string, time: string, dentistId?: string, concerns?: string) => void;
   onCancel: () => void;
   isSending: boolean;
 }
+
+// Kalibo-Aklan PH holidays (2026)
+const PH_HOLIDAYS_2026 = [
+  "2026-01-01", // New Year
+  "2026-02-10", // EDSA Revolution
+  "2026-02-25", // EDSA Revolution (continuation)
+  "2026-04-09", // Araw ng Kagitingan
+  "2026-04-10", // Good Friday
+  "2026-04-14", // Flores de Mayo
+  "2026-06-12", // Independence Day
+  "2026-08-21", // Ninoy Aquino Day
+  "2026-11-01", // All Saints Day
+  "2026-11-30", // Bonifacio Day
+  "2026-12-08", // Feast of Immaculate Conception
+  "2026-12-25", // Christmas Day
+  "2026-12-30", // Rizal Day
+];
 
 export default function AppointmentModal({
   patientId,
@@ -20,24 +37,50 @@ export default function AppointmentModal({
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
   const [dentistId, setDentistId] = useState("");
+  const [concerns, setConcerns] = useState("");
   const [dentists, setDentists] = useState<DentistRow[]>([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const MAX_DENTISTS_PER_SLOT = 2;
 
   useEffect(() => {
     loadDentists();
     // Set minimum date to today
     const today = new Date().toISOString().split("T")[0];
     setAppointmentDate(today);
+    generateTimeSlots(today);
   }, []);
+
+  // Regenerate time slots when date changes
+  useEffect(() => {
+    if (appointmentDate) {
+      generateTimeSlots(appointmentDate);
+    }
+  }, [appointmentDate]);
+
+  const getBookedSlotCount = async (dateStr: string, timeStr: string): Promise<number> => {
+    const { data, error: err } = await supabase
+      .from("appointments")
+      .select("id")
+      .eq("appointment_date", dateStr)
+      .eq("appointment_time", timeStr)
+      .in("status", ["pending", "confirmed"])
+      .is("deleted_at", null);
+
+    if (err) {
+      console.error("Error checking booked slots:", err);
+      return 0;
+    }
+    return data?.length || 0;
+  };
 
   const loadDentists = async () => {
     try {
       const { data, error: err } = await supabase
-        .from("staff")
+        .from("dentists")
         .select("id, full_name")
-        .eq("role", "dentist")
-        .is("deleted_at", null)
+        .eq("is_active", true)
         .order("full_name", { ascending: true });
 
       if (err) throw err;
@@ -50,17 +93,64 @@ export default function AppointmentModal({
     }
   };
 
+  const generateTimeSlots = async (dateStr: string) => {
+    const date = new Date(dateStr + "T00:00:00");
+    const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+    const isHoliday = PH_HOLIDAYS_2026.includes(dateStr);
+    const isToday = dateStr === new Date().toISOString().split("T")[0];
+    const now = new Date();
+
+    let startHour = 8;
+    let endHour = 17; // 5 PM
+
+    // Sunday or Holiday: 8am-12nn
+    if (dayOfWeek === 0 || isHoliday) {
+      endHour = 12;
+    }
+
+    const slots: string[] = [];
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      // Skip lunch break 12-1pm
+      if (hour === 12) continue;
+
+      const timeStr = `${String(hour).padStart(2, "0")}:00`;
+
+      // Skip past times for today
+      if (isToday) {
+        const slotTime = new Date(dateStr + `T${timeStr}:00`);
+        if (slotTime <= now) continue;
+      }
+
+      // Check if slot is fully booked (2 dentists max per slot)
+      const bookedCount = await getBookedSlotCount(dateStr, timeStr);
+      if (bookedCount < MAX_DENTISTS_PER_SLOT) {
+        slots.push(timeStr);
+      }
+    }
+
+    setAvailableTimeSlots(slots);
+    // Reset time selection when date changes
+    if (appointmentTime && !slots.includes(appointmentTime)) {
+      setAppointmentTime("");
+    }
+  };
+
   const handleConfirm = () => {
     if (!appointmentDate || !appointmentTime) {
       setError("Please select date and time");
       return;
     }
-    onConfirm(appointmentDate, appointmentTime, dentistId || undefined);
+    onConfirm(appointmentDate, appointmentTime, dentistId || undefined, concerns || undefined);
+  };
+
+  const getMinDate = () => {
+    return new Date().toISOString().split("T")[0];
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
         <h3 className="text-lg font-bold text-slate-900 mb-4">Create Appointment</h3>
 
         {error && (
@@ -77,6 +167,7 @@ export default function AppointmentModal({
             </label>
             <input
               type="date"
+              min={getMinDate()}
               value={appointmentDate}
               onChange={(e) => setAppointmentDate(e.target.value)}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -86,14 +177,29 @@ export default function AppointmentModal({
           {/* Time */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Time
+              Time (Hourly Slots)
             </label>
-            <input
-              type="time"
-              value={appointmentTime}
-              onChange={(e) => setAppointmentTime(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            {availableTimeSlots.length === 0 ? (
+              <div className="p-3 bg-amber-50 text-amber-800 rounded-lg text-sm">
+                No available slots for this date (closed or only lunch hours)
+              </div>
+            ) : (
+              <select
+                value={appointmentTime}
+                onChange={(e) => setAppointmentTime(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Select time --</option>
+                {availableTimeSlots.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-xs text-slate-500 mt-1">
+              Mon-Sat: 8am-5pm | Sun/Holidays: 8am-12nn | Lunch: 12-1pm (closed)
+            </p>
           </div>
 
           {/* Dentist */}
@@ -118,6 +224,20 @@ export default function AppointmentModal({
               </select>
             )}
           </div>
+
+          {/* Concerns */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Concern / Reason for Visit (Optional)
+            </label>
+            <textarea
+              value={concerns}
+              onChange={(e) => setConcerns(e.target.value)}
+              placeholder="e.g., Toothache, cleaning, checkup, emergency..."
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+            />
+          </div>
         </div>
 
         {/* Actions */}
@@ -131,7 +251,7 @@ export default function AppointmentModal({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={isSending}
+            disabled={isSending || availableTimeSlots.length === 0}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
           >
             {isSending ? "Creating..." : "Confirm & Send"}
