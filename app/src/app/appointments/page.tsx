@@ -77,11 +77,11 @@ export default function AppointmentsPage() {
     try {
       const { data, error: err } = await supabase
         .from("patients")
-        .select("id, full_name, phone")
+        .select("id, full_name, first_name, last_name, phone, birth_date, address, occupation, email, gender, notes")
         .order("full_name");
 
       if (err) throw err;
-      setPatients(data || []);
+      setPatients((data || []) as Patient[]);
     } catch (err) {
       console.error("Error loading patients:", err);
     }
