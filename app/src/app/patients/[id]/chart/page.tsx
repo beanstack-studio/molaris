@@ -417,7 +417,7 @@ export default function ChartPage() {
                     <button
                       className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                       disabled={busy || selectedTooth === null}
-                      onClick={() => saveToothStatus(pendingStatus)}
+                      onClick={() => pendingStatus && saveToothStatus(pendingStatus)}
                     >
                       {busy ? "Saving…" : "Save status"}
                     </button>
