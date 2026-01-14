@@ -30,7 +30,26 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showLinkPatientModal, setShowLinkPatientModal] = useState(false);
   const [messengerProfilePic, setMessengerProfilePic] = useState<string | null>(null);
+  const [avatarColor, setAvatarColor] = useState<string>("bg-blue-500");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Generate random theme color for initials avatar
+  const getRandomAvatarColor = (seed: string) => {
+    const colors = [
+      "bg-blue-500",
+      "bg-indigo-500",
+      "bg-purple-500",
+      "bg-pink-500",
+      "bg-red-500",
+      "bg-orange-500",
+      "bg-amber-500",
+      "bg-green-500",
+      "bg-teal-500",
+      "bg-cyan-500",
+    ];
+    const hash = seed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
 
   useEffect(() => {
     loadThreadData();
@@ -70,6 +89,11 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
 
       setThread(threadData);
       setMessages(messagesData);
+
+      // Set avatar color based on thread name
+      if (threadData.external_user_name) {
+        setAvatarColor(getRandomAvatarColor(threadData.external_user_name));
+      }
 
       // Fetch fresh profile pic for unlinked Messenger threads
       if (threadData.channel === "messenger" && !threadData.patient_id && threadData.external_thread_id) {
@@ -129,7 +153,8 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
   const handleConfirmAppointment = async (
     appointmentDate: string,
     appointmentTime: string,
-    dentistId?: string
+    dentistId?: string,
+    concerns?: string
   ) => {
     if (!thread) return;
 
@@ -143,7 +168,8 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
         appointmentTime,
         dentistId || null,
         `Booked via ${thread.channel}`,
-        threadId
+        threadId,
+        concerns
       );
 
       // Send confirmation message
@@ -215,7 +241,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
                       />
                     ) : (
                       /* Fallback to initials avatar if no pic */
-                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                      <div className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-white text-xs font-bold`}>
                         {thread.external_user_name
                           ?.split(" ")
                           .map((n) => n[0])
@@ -255,8 +281,8 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+      {/* Messages - Add padding to prevent overlap with sticky reply box */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 pb-24">
         {error && (
           <div className="p-3 bg-red-100 text-red-800 rounded-lg text-sm">
             {error}
@@ -271,8 +297,18 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
           messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${msg.sender_type === "staff" ? "justify-end" : "justify-start"}`}
+              className={`flex gap-2 ${msg.sender_type === "staff" ? "justify-end" : "justify-start"}`}
             >
+              {msg.sender_type === "patient" && (
+                <div className={`w-8 h-8 rounded-full ${avatarColor} flex-shrink-0 flex items-center justify-center text-white text-xs font-bold`}>
+                  {(() => {
+                    const name = thread.patients?.full_name || thread.external_user_name || msg.sender_name || "?";
+                    const parts = name.split(" ");
+                    if (parts.length < 2) return parts[0]?.[0]?.toUpperCase() || "?";
+                    return (parts[0]?.[0] + parts[parts.length - 1]?.[0])?.toUpperCase() || "?";
+                  })()}
+                </div>
+              )}
               <div
                 className={`max-w-xs px-4 py-2 rounded-lg ${
                   msg.sender_type === "staff"
@@ -298,8 +334,8 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Reply Input */}
-      <div className="border-t border-slate-200 bg-white p-4">
+      {/* Reply Input - Sticky to bottom of screen (responsive to sidebar) */}
+      <div className="fixed bottom-0 right-0 border-t border-slate-200 bg-white p-4 shadow-lg z-30 md:left-80 left-0">
         <div className="flex gap-2">
           <input
             type="text"

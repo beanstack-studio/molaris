@@ -60,6 +60,7 @@ export default function PaymentModesSettingsPage() {
   }
 
   async function toggleActive(id: string, newValue: boolean) {
+    setBusy(true);
     setErr(null);
     
     // Optimistically update UI immediately
@@ -67,16 +68,35 @@ export default function PaymentModesSettingsPage() {
       prev.map((mode) => (mode.id === id ? { ...mode, is_active: newValue } : mode))
     );
 
-    const { error } = await supabase
-      .from("payment_modes")
-      .update({ is_active: newValue })
-      .eq("id", id);
+    try {
+      const { data, error } = await supabase
+        .from("payment_modes")
+        .update({ is_active: newValue })
+        .eq("id", id)
+        .select();
 
-    if (error) {
-      setErr(error.message);
-      // Revert on error
+      if (error) {
+        console.error("Toggle error:", error);
+        setErr(`Failed to update: ${error.message}`);
+        // Revert on error
+        await loadPaymentModes();
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.error("No data returned from update");
+        setErr("Failed to update payment mode");
+        await loadPaymentModes();
+        return;
+      }
+
+      console.log("Toggle successful:", data[0]);
+    } catch (ex) {
+      console.error("Toggle exception:", ex);
+      setErr("An error occurred while updating");
       await loadPaymentModes();
-      return;
+    } finally {
+      setBusy(false);
     }
   }
 

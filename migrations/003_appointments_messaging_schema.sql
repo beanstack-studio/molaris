@@ -24,11 +24,12 @@
 CREATE TABLE IF NOT EXISTS appointments (
   id uuid primary key default gen_random_uuid(),
   patient_id uuid not null references patients(id) on delete cascade,
-  dentist_id uuid,
+  dentist_id uuid references dentists(id) on delete set null,
   appointment_date date not null,
   appointment_time time not null,
   status text not null default 'pending', -- pending, confirmed, completed, no_show, cancelled
   notes text,
+  concerns text, -- Chief complaint or reason for visit (optional)
   message_thread_id uuid, -- Link to message thread if booked via messaging
   created_by uuid default auth.uid(),
   updated_by uuid default auth.uid(),

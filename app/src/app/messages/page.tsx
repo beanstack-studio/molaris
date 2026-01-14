@@ -10,6 +10,7 @@ export default function MessagesPage() {
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     loadThreads();
@@ -54,11 +55,22 @@ export default function MessagesPage() {
 
   return (
     <div className="flex h-screen bg-slate-50">
-      {/* Sidebar - Message Threads */}
-      <div className="w-80 border-r border-slate-200 bg-white flex flex-col">
-        <div className="p-4 border-b border-slate-200">
-          <h1 className="text-xl font-bold text-slate-900">Messages</h1>
-          <p className="text-sm text-slate-600">SMS & Messenger</p>
+      {/* Sidebar - Message Threads (Hidden on mobile, visible on md+) */}
+      <div className={`${
+        sidebarOpen ? 'fixed inset-0 z-40 md:static md:z-auto' : 'hidden md:block'
+      } w-80 border-r border-slate-200 bg-white flex flex-col md:relative`}>
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Messages</h1>
+            <p className="text-sm text-slate-600">SMS & Messenger</p>
+          </div>
+          {/* Close button for mobile */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden p-2 hover:bg-slate-100 rounded"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -72,7 +84,10 @@ export default function MessagesPage() {
             threads.map((thread) => (
               <button
                 key={thread.id}
-                onClick={() => setSelectedThread(thread.id)}
+                onClick={() => {
+                  setSelectedThread(thread.id);
+                  setSidebarOpen(false); // Close sidebar on mobile after selecting
+                }}
                 className={`w-full p-4 border-b border-slate-100 text-left hover:bg-slate-50 transition ${
                   selectedThread === thread.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
                 }`}
@@ -101,7 +116,15 @@ export default function MessagesPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative">
+        {/* Mobile menu button */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="md:hidden absolute top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          ☰ Threads
+        </button>
+
         {selectedThread ? (
           <ChatWindow
             threadId={selectedThread}

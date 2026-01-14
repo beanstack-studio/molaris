@@ -251,6 +251,7 @@ export type Appointment = {
   appointment_time: string;
   status: "pending" | "confirmed" | "completed" | "no_show" | "cancelled";
   notes: string | null;
+  concerns: string | null;
   message_thread_id: string | null;
   created_by: string | null;
   updated_by: string | null;

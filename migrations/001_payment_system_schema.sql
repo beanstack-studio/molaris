@@ -311,6 +311,19 @@ CREATE POLICY "Allow admin to manage payment modes" ON payment_modes
   USING (auth.jwt()->>'role' = 'admin')
   WITH CHECK (auth.jwt()->>'role' = 'admin');
 
+-- Allow all authenticated users to update payment modes (clinic staff only)
+DROP POLICY IF EXISTS "Allow authenticated to update payment modes status" ON payment_modes;
+CREATE POLICY "Allow authenticated to update payment modes status" ON payment_modes
+  FOR UPDATE TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- Allow all authenticated users to insert payment modes
+DROP POLICY IF EXISTS "Allow authenticated to insert payment modes" ON payment_modes;
+CREATE POLICY "Allow authenticated to insert payment modes" ON payment_modes
+  FOR INSERT TO authenticated
+  WITH CHECK (true);
+
 -- ============================================================================
 -- G) USAGE GUIDELINES (as SQL comments for reference)
 -- ============================================================================
