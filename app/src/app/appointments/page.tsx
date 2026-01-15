@@ -82,17 +82,18 @@ export default function AppointmentsPage() {
       const { data, error: err } = await supabase
         .from("clinic_profile")
         .select("sunday_end_hour")
+        .limit(1)
         .single();
 
       if (err) {
-        console.error("Error loading clinic hours:", err);
+        console.warn("Could not load clinic hours (table may be empty):", err.message);
         return;
       }
       if (data?.sunday_end_hour) {
         setSundayEndHour(data.sunday_end_hour);
       }
     } catch (err) {
-      console.error("Error fetching clinic hours:", err);
+      console.warn("Error fetching clinic hours:", err);
     }
   };
 
@@ -286,6 +287,10 @@ export default function AppointmentsPage() {
           <div className="app-section-title">Appointments</div>
           <div className="app-section-subtitle">Manage patient appointments and calendar</div>
         </div>
+
+        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          + New Appointment
+        </button>
       </div>
 
       <div className="app-section-body">
@@ -297,19 +302,18 @@ export default function AppointmentsPage() {
               </div>
             )}
 
-            {/* View mode toggle + New Appointment */}
-            <div className="flex gap-2 mb-4 items-center justify-between">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`px-4 py-2 rounded-lg transition text-sm ${
-                    viewMode === "list"
-                      ? "bg-blue-100 text-blue-700 font-medium"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
-                >
-                  List View
-                </button>
+            {/* View mode toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-4 py-2 rounded-lg transition text-sm ${
+                  viewMode === "list"
+                    ? "bg-blue-100 text-blue-700 font-medium"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                List View
+              </button>
               <button
                 onClick={() => setViewMode("calendar")}
                 className={`px-4 py-2 rounded-lg transition text-sm ${
@@ -320,18 +324,11 @@ export default function AppointmentsPage() {
               >
                 Calendar View
               </button>
-              </div>
-              <button 
-                onClick={() => setShowCreateModal(true)}
-                className="btn btn-primary"
-              >
-                + New Appointment
-              </button>
             </div>
 
       {/* List View */}
       {viewMode === "list" && (
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 space-y-4">
+        <div className="rounded-lg border border-slate-200 p-4 space-y-4">
           {datesList.length === 0 ? (
             <div className="text-center py-12 bg-slate-100 rounded-lg">
               <p className="text-slate-600">No appointments scheduled</p>
@@ -396,7 +393,7 @@ export default function AppointmentsPage() {
 
       {/* Calendar View */}
       {viewMode === "calendar" && (
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4">
+        <div className="rounded-lg border border-slate-200 p-4">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
             <h2 className="text-xl font-bold text-slate-900">
               {currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
@@ -571,6 +568,12 @@ export default function AppointmentsPage() {
           >
             <h3 className="text-lg font-bold text-slate-900 mb-4">Create Appointment</h3>
 
+            {error && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
             <div className="space-y-4">
               {/* Patient - Searchable */}
               <div className="relative">
@@ -693,13 +696,13 @@ export default function AppointmentsPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
+                className="flex-1 px-4 py-2 border border-slate-300 bg-white text-slate-700 rounded-lg hover:bg-slate-50 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateAppointment}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition font-medium"
               >
                 Create
               </button>

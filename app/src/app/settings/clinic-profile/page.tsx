@@ -36,10 +36,7 @@ export default function ClinicProfileSettingsPage() {
   const [editingClinicHours, setEditingClinicHours] = useState(false);
 
   // Clinic Hours state
-  const [clinicHours, setClinicHours] = useState<Availability[]>([
-    { id: "1", day: "Sunday", open_hour: 8, close_hour: 11 },
-    { id: "2", day: "Weekdays (Mon-Fri)", open_hour: 8, close_hour: 17 },
-  ]);
+  const [clinicHours, setClinicHours] = useState<Availability[]>([]);
   const [editingHourId, setEditingHourId] = useState<string | null>(null);
   const [editingHour, setEditingHour] = useState<Availability | null>(null);
 
@@ -78,6 +75,7 @@ export default function ClinicProfileSettingsPage() {
 
       if (data && data.length > 0) {
         const existingProfile = data[0];
+        console.log("LOAD: existingProfile:", JSON.stringify(existingProfile, null, 2));
         setProfile(existingProfile);
         setFormData({
           clinic_name: existingProfile.clinic_name || "",
@@ -90,6 +88,16 @@ export default function ClinicProfileSettingsPage() {
           postal_code: existingProfile.postal_code || "",
           sunday_end_hour: existingProfile.sunday_end_hour || 11,
         });
+        // Load clinic hours from database
+        if (existingProfile.clinic_hours && Array.isArray(existingProfile.clinic_hours) && existingProfile.clinic_hours.length > 0) {
+          setClinicHours(existingProfile.clinic_hours);
+        } else {
+          // Set default clinic hours if none exist
+          setClinicHours([
+            { id: "1", day: "Sunday", open_hour: 8, close_hour: 11 },
+            { id: "2", day: "Weekdays (Mon-Fri)", open_hour: 8, close_hour: 17 },
+          ]);
+        }
       } else {
         // No profile exists - create a new one
         const { data: newData, error: insertError } = await supabase
@@ -126,9 +134,7 @@ export default function ClinicProfileSettingsPage() {
     }
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-
+  async function handleSaveClinicInfo() {
     if (!profile) {
       setErr("No profile to save");
       return;
@@ -159,14 +165,58 @@ export default function ClinicProfileSettingsPage() {
         setErr(`Failed to save: ${error.message}`);
       } else {
         setSuccess(true);
-        await loadProfile();
         setEditingClinicInfo(false);
-        setEditingClinicHours(false);
+        await loadProfile();
         setTimeout(() => setSuccess(false), 3000);
       }
     } catch (ex) {
       setErr(`Error saving: ${String(ex)}`);
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSaveClinicHours() {
+    if (!profile) {
+      setErr("No profile to save");
+      return;
+    }
+
+    setBusy(true);
+    setErr(null);
+    setSuccess(false);
+
+    try {
+      const { data, error } = await supabase
+        .from("clinic_profile")
+        .update({
+          clinic_hours: clinicHours,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id)
+        .select();
+
+      if (error) {
+        console.error("Save error:", error);
+        setErr(`Failed to save: ${error.message}`);
+        setBusy(false);
+      } else if (!data || data.length === 0) {
+        console.error("Save returned no data - update may have failed");
+        setErr("Failed to save: No rows updated. Profile ID may be invalid.");
+        setBusy(false);
+      } else {
+        // Immediately close edit mode and show success
+        console.log("Save successful, data:", data[0]);
+        setSuccess(true);
+        setEditingClinicHours(false);
+        setTimeout(() => setSuccess(false), 3000);
+        
+        // Reload in background to ensure sync
+        await loadProfile();
+        setBusy(false);
+      }
+    } catch (ex) {
+      setErr(`Error saving: ${String(ex)}`);
       setBusy(false);
     }
   }
@@ -208,7 +258,7 @@ export default function ClinicProfileSettingsPage() {
     const tempId = `temp-${Date.now()}`;
     const newHour: Availability = {
       id: tempId,
-      day: "New Day",
+      day: "Sunday",
       open_hour: 8,
       close_hour: 17,
     };
@@ -282,132 +332,111 @@ export default function ClinicProfileSettingsPage() {
           <div className="rounded-2xl border bg-white p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-700">Clinic Information</h3>
-              <button
-                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
-                onClick={() => setEditingClinicInfo(!editingClinicInfo)}
-              >
-                {editingClinicInfo ? "Cancel" : "Edit"}
-              </button>
+              <div className="flex gap-2">
+                {editingClinicInfo ? (
+                  <>
+                    <button
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      onClick={() => setEditingClinicInfo(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveClinicInfo}
+                      disabled={busy}
+                      className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      {busy ? "Saving..." : "Save"}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+                    onClick={() => setEditingClinicInfo(true)}
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
             </div>
 
-            {editingClinicInfo ? (
-              <form onSubmit={handleSave} className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Clinic Name"
-                    value={formData.clinic_name}
-                    onChange={(e) => handleChange("clinic_name", e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded text-sm"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone"
-                    value={formData.phone}
-                    onChange={(e) => handleChange("phone", e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded text-sm"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={formData.email}
-                    onChange={(e) => handleChange("email", e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded text-sm"
-                  />
-                  <input
-                    type="url"
-                    placeholder="Website"
-                    value={formData.website}
-                    onChange={(e) => handleChange("website", e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded text-sm"
-                  />
-                </div>
-
-                <input
-                  type="text"
-                  placeholder="Street Address"
-                  value={formData.street_address}
-                  onChange={(e) => handleChange("street_address", e.target.value)}
-                  className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Clinic Name</span>
+                <input 
+                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  value={formData.clinic_name} 
+                  readOnly={!editingClinicInfo}
+                  onChange={(e) => editingClinicInfo && handleChange("clinic_name", e.target.value)}
                 />
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <input
-                    type="text"
-                    placeholder="City"
-                    value={formData.city}
-                    onChange={(e) => handleChange("city", e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Province"
-                    value={formData.province}
-                    onChange={(e) => handleChange("province", e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Postal Code"
-                    value={formData.postal_code}
-                    onChange={(e) => handleChange("postal_code", e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded text-sm"
-                  />
-                </div>
-
-                <div className="flex gap-2 justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingClinicInfo(false)}
-                    className="px-3 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="px-3 py-1 text-xs bg-slate-900 text-white rounded hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    {busy ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Clinic Name</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formData.clinic_name} readOnly />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Phone</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formData.phone || ""} readOnly />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Email</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formData.email || ""} readOnly />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Website</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formData.website || ""} readOnly />
-                </label>
-                <label className="grid gap-1 text-sm sm:col-span-2">
-                  <span className="text-slate-700">Street Address</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formData.street_address || ""} readOnly />
-                </label>
-                <label className="grid gap-1 text-sm">
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Phone</span>
+                <input 
+                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  value={formData.phone || ""} 
+                  readOnly={!editingClinicInfo}
+                  onChange={(e) => editingClinicInfo && handleChange("phone", e.target.value)}
+                />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Email</span>
+                <input 
+                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  value={formData.email || ""} 
+                  readOnly={!editingClinicInfo}
+                  onChange={(e) => editingClinicInfo && handleChange("email", e.target.value)}
+                />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">Website</span>
+                <input 
+                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  value={formData.website || ""} 
+                  readOnly={!editingClinicInfo}
+                  onChange={(e) => editingClinicInfo && handleChange("website", e.target.value)}
+                />
+              </label>
+              <label className="grid gap-1 text-sm sm:col-span-2">
+                <span className="text-slate-700">Street Address</span>
+                <input 
+                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  value={formData.street_address || ""} 
+                  readOnly={!editingClinicInfo}
+                  onChange={(e) => editingClinicInfo && handleChange("street_address", e.target.value)}
+                />
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 sm:col-span-2">
+                <label className="grid gap-1 text-sm md:col-span-2">
                   <span className="text-slate-700">City</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formData.city || ""} readOnly />
+                  <input 
+                    className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                    value={formData.city || ""} 
+                    readOnly={!editingClinicInfo}
+                    onChange={(e) => editingClinicInfo && handleChange("city", e.target.value)}
+                  />
                 </label>
-                <label className="grid gap-1 text-sm">
+                <label className="grid gap-1 text-sm md:col-span-2">
                   <span className="text-slate-700">Province</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formData.province || ""} readOnly />
+                  <input 
+                    className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                    value={formData.province || ""} 
+                    readOnly={!editingClinicInfo}
+                    onChange={(e) => editingClinicInfo && handleChange("province", e.target.value)}
+                  />
                 </label>
-                <label className="grid gap-1 text-sm">
+                <label className="grid gap-1 text-sm md:col-span-1">
                   <span className="text-slate-700">Postal Code</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formData.postal_code || ""} readOnly />
+                  <input 
+                    className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                    value={formData.postal_code || ""} 
+                    readOnly={!editingClinicInfo}
+                    onChange={(e) => editingClinicInfo && handleChange("postal_code", e.target.value)}
+                  />
                 </label>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Clinic Hours Box */}
@@ -415,19 +444,38 @@ export default function ClinicProfileSettingsPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-700">Clinic Hours</h3>
               <div className="flex gap-2">
-                <button
-                  className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
-                  onClick={() => setEditingClinicHours(!editingClinicHours)}
-                >
-                  {editingClinicHours ? "Done" : "Edit"}
-                </button>
-                {editingClinicHours && (
+                {editingClinicHours ? (
+                  <>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      onClick={() => setEditingClinicHours(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={startAddClinicHour}
+                      className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                    >
+                      + Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveClinicHours}
+                      disabled={busy}
+                      className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      {busy ? "Saving..." : "Save"}
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
-                    onClick={startAddClinicHour}
                     className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+                    onClick={() => setEditingClinicHours(true)}
                   >
-                    + Add
+                    Edit
                   </button>
                 )}
               </div>
@@ -437,33 +485,37 @@ export default function ClinicProfileSettingsPage() {
               {editingClinicHours ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   {clinicHours.map((hour) => (
-                    <div key={hour.id} className="rounded-lg border bg-white p-3">
-                      {editingHourId === hour.id && editingHour ? (
-                        <div className="grid gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Day</label>
+                    <div key={hour.id} className="rounded-lg border bg-slate-50 p-3">
+                      <div className="grid gap-2">
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-slate-700 font-medium">Day</span>
+                          {editingHourId === hour.id && editingHour ? (
                             <select
                               value={editingHour.day}
                               onChange={(e) => setEditingHour({ ...editingHour, day: e.target.value })}
-                              className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                              className="rounded border px-2 py-1 text-sm"
                             >
-                              <option>Sunday</option>
-                              <option>Monday</option>
-                              <option>Tuesday</option>
-                              <option>Wednesday</option>
-                              <option>Thursday</option>
-                              <option>Friday</option>
-                              <option>Saturday</option>
-                              <option>Weekdays (Mon-Fri)</option>
-                              <option>Weekends (Sat-Sun)</option>
+                              <option value="Sunday">Sunday</option>
+                              <option value="Monday">Monday</option>
+                              <option value="Tuesday">Tuesday</option>
+                              <option value="Wednesday">Wednesday</option>
+                              <option value="Thursday">Thursday</option>
+                              <option value="Friday">Friday</option>
+                              <option value="Saturday">Saturday</option>
+                              <option value="Weekdays (Mon-Fri)">Weekdays (Mon-Fri)</option>
+                              <option value="Weekends (Sat-Sun)">Weekends (Sat-Sun)</option>
                             </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Open</label>
+                          ) : (
+                            <input className="rounded border bg-white px-2 py-1 text-sm" value={hour.day} readOnly />
+                          )}
+                        </label>
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-slate-700 font-medium">Open</span>
+                          {editingHourId === hour.id && editingHour ? (
                             <select
                               value={editingHour.open_hour}
                               onChange={(e) => setEditingHour({ ...editingHour, open_hour: Number(e.target.value) })}
-                              className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                              className="rounded border px-2 py-1 text-sm"
                             >
                               {generateTimeOptions().map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -471,13 +523,17 @@ export default function ClinicProfileSettingsPage() {
                                 </option>
                               ))}
                             </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Close</label>
+                          ) : (
+                            <input className="rounded border bg-white px-2 py-1 text-sm" value={formatTimeFromValue(hour.open_hour)} readOnly />
+                          )}
+                        </label>
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-slate-700 font-medium">Close</span>
+                          {editingHourId === hour.id && editingHour ? (
                             <select
                               value={editingHour.close_hour}
                               onChange={(e) => setEditingHour({ ...editingHour, close_hour: Number(e.target.value) })}
-                              className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                              className="rounded border px-2 py-1 text-sm"
                             >
                               {generateTimeOptions().map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -485,56 +541,48 @@ export default function ClinicProfileSettingsPage() {
                                 </option>
                               ))}
                             </select>
-                          </div>
-                          <div className="flex gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={saveClinicHour}
-                              className="flex-1 px-2 py-1 text-xs bg-emerald-500 text-white rounded hover:bg-emerald-600"
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelClinicHourEdit}
-                              className="flex-1 px-2 py-1 text-xs bg-slate-300 text-slate-700 rounded hover:bg-slate-400"
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                          ) : (
+                            <input className="rounded border bg-white px-2 py-1 text-sm" value={formatTimeFromValue(hour.close_hour)} readOnly />
+                          )}
+                        </label>
+                        <div className="flex gap-2 pt-1">
+                          {editingHourId === hour.id && editingHour ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={saveClinicHour}
+                                className="flex-1 px-2 py-1 text-xs bg-slate-900 text-white rounded hover:bg-slate-800"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelClinicHourEdit}
+                                className="flex-1 px-2 py-1 text-xs border border-slate-300 bg-white text-slate-700 rounded hover:bg-slate-50"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => startEditClinicHour(hour)}
+                                className="flex-1 px-2 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteClinicHour(hour.id)}
+                                className="px-2 py-1 text-xs text-slate-600 hover:text-red-600"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          )}
                         </div>
-                      ) : (
-                        <div className="grid gap-2">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Day</label>
-                            <div className="px-2 py-1 bg-slate-50 rounded text-sm font-medium text-slate-900">{hour.day}</div>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Open</label>
-                            <div className="px-2 py-1 bg-slate-50 rounded text-sm text-slate-700">{formatTimeFromValue(hour.open_hour)}</div>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Close</label>
-                            <div className="px-2 py-1 bg-slate-50 rounded text-sm text-slate-700">{formatTimeFromValue(hour.close_hour)}</div>
-                          </div>
-                          <div className="flex gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => startEditClinicHour(hour)}
-                              className="flex-1 px-2 py-1 text-xs bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteClinicHour(hour.id)}
-                              className="px-2 py-1 text-xs text-slate-600 hover:text-red-600"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                 </div>
