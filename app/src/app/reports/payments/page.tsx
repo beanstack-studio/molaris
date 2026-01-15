@@ -102,38 +102,39 @@ export default function PaymentReportsPage() {
   }
 
   return (
-    <div>
-      {err && (
-        <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-700">
-          <p className="font-semibold">Error</p>
-          <p className="text-sm">{err}</p>
-        </div>
-      )}
+    <main className="app-section">
+      <div className="app-section-body">
+        {err && (
+          <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-700">
+            <p className="font-semibold">Error</p>
+            <p className="text-sm">{err}</p>
+          </div>
+        )}
 
-      {/* Summary Cards */}
-      {summary && (
-        <div className="mb-6 grid gap-4 md:grid-cols-4">
-          <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-600">Total Invoiced</p>
-            <p className="text-2xl font-bold text-slate-900">{formatMoney(summary.totalInvoiced)}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-600">Total Paid</p>
-            <p className="text-2xl font-bold text-green-700">{formatMoney(summary.totalPaid)}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-600">Outstanding</p>
-            <p className="text-2xl font-bold text-orange-700">{formatMoney(summary.totalOutstanding)}</p>
-          </div>
-          <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-600">Collection Rate</p>
-            <p className="text-2xl font-bold text-blue-700">{summary.collectionRate}%</p>
-          </div>
+        {/* Summary Cards */}
+        {summary && (
+          <div className="mb-6 grid gap-4 md:grid-cols-4">
+        <div className="rounded-lg border bg-white p-4 shadow-sm">
+          <p className="text-sm text-slate-600">Total Invoiced</p>
+          <p className="text-2xl font-bold text-slate-900">{formatMoney(summary.totalInvoiced)}</p>
         </div>
-      )}
+        <div className="rounded-lg border bg-white p-4 shadow-sm">
+          <p className="text-sm text-slate-600">Total Paid</p>
+          <p className="text-2xl font-bold text-green-700">{formatMoney(summary.totalPaid)}</p>
+        </div>
+        <div className="rounded-lg border bg-white p-4 shadow-sm">
+          <p className="text-sm text-slate-600">Outstanding</p>
+          <p className="text-2xl font-bold text-orange-700">{formatMoney(summary.totalOutstanding)}</p>
+        </div>
+        <div className="rounded-lg border bg-white p-4 shadow-sm">
+          <p className="text-sm text-slate-600">Collection Rate</p>
+          <p className="text-2xl font-bold text-blue-700">{summary.collectionRate}%</p>
+        </div>
+      </div>
+    )}
 
-      {/* Outstanding Invoices */}
-      <div className="mb-6 rounded-lg border bg-white p-6 shadow-sm">
+    {/* Outstanding Invoices */}
+    <div className="mb-6 rounded-lg border bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">Outstanding Invoices</h2>
         {outstanding.length > 0 ? (
           <div className="overflow-x-auto">
@@ -204,5 +205,6 @@ export default function PaymentReportsPage() {
         )}
       </div>
     </div>
+    </main>
   );
 }

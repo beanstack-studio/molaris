@@ -109,14 +109,19 @@ export default function DashboardPage() {
 
       if (patientsError) throw patientsError;
 
-      // Load appointments (today and upcoming) - if table exists
+      // Load appointments (this week only) - if table exists
       const today = new Date().toISOString().split('T')[0];
+      const endOfWeek = new Date();
+      endOfWeek.setDate(endOfWeek.getDate() + 7);
+      const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
       let appointments: any[] = [];
       try {
         const { data: apptData, error: appointmentsError } = await supabase
           .from("appointments")
           .select("id, appointment_date, status")
           .gte("appointment_date", today)
+          .lte("appointment_date", endOfWeekStr)
+          .is("deleted_at", null)
           .order("appointment_date", { ascending: true });
         
         if (!appointmentsError) {
@@ -193,7 +198,7 @@ export default function DashboardPage() {
         totalOutstanding,
         totalPatients: patients?.length || 0,
         totalInvoices: invoiceCount,
-        activeDentists: appointments.length || 0,
+        activeDentists: appointments.length || 0, // This is actually upcomingAppointmentsThisWeek
       });
 
       // Set recent activity
@@ -201,6 +206,14 @@ export default function DashboardPage() {
       const todayPaymentsList = (payments || []).filter((p: any) => {
         const paymentDate = new Date(p.payment_date).toISOString().split('T')[0];
         return paymentDate === todayStr && !p.voided_at;
+      });
+
+      // Filter patients created this month
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const patientsThisMonth = (patients || []).filter((p: any) => {
+        const createdDate = p.created_at?.split('T')[0] || '';
+        return createdDate >= firstDayOfMonth;
       });
 
       setRecent({
@@ -213,7 +226,7 @@ export default function DashboardPage() {
           },
           invoices: { invoice_number: "INV-" + Math.random().toString(36).slice(7).toUpperCase() },
         })),
-        patients: (patients || []).slice(0, 5),
+        patients: patientsThisMonth,
       });
 
       // Get outstanding invoices with patient info
@@ -463,15 +476,7 @@ export default function DashboardPage() {
               <div className="lg:col-span-2 space-y-6">
                 {/* Recent Payments */}
                 <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-slate-900">Recent Payments</h2>
-                    <Link
-                      href="/reports/payments"
-                      className="rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                    >
-                      View all →
-                    </Link>
-                  </div>
+                  <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Payments</h2>
 
                   {recent.payments.length > 0 ? (
                     <div className="overflow-x-auto">
@@ -527,15 +532,7 @@ export default function DashboardPage() {
 
                 {/* Recent Invoices */}
                 <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-slate-900">Recent Invoices</h2>
-                    <Link
-                      href="/patients"
-                      className="rounded-lg bg-green-50 px-3 py-1 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
-                    >
-                      View all →
-                    </Link>
-                  </div>
+                  <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Invoices</h2>
 
                   {recent.invoices.length > 0 ? (
                     <div className="overflow-x-auto">
