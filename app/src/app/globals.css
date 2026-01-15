@@ -335,6 +335,15 @@
   @apply flex gap-2 justify-end;
 }
 
+/* Modal buttons */
+.modal-btn-primary {
+  @apply rounded-lg bg-slate-900 text-white hover:bg-slate-800 px-4 py-2 text-sm font-semibold disabled:opacity-60 transition-colors;
+}
+
+.modal-btn-secondary {
+  @apply rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 text-sm font-medium disabled:opacity-60 transition-colors;
+}
+
 /* =========================
    Cards (Global)
 ========================= */

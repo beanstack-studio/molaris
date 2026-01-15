@@ -150,7 +150,7 @@ export default function TopNav({
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
-              📅 Appointments
+              Appointments
             </Link>
             <Link
               href="/patients"
