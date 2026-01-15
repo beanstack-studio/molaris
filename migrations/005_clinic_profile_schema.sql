@@ -43,28 +43,30 @@ CREATE INDEX IF NOT EXISTS idx_clinic_profile_id ON clinic_profile(id);
 ALTER TABLE clinic_profile ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Authenticated users can read clinic profile
-CREATE POLICY IF NOT EXISTS clinic_profile_read ON clinic_profile
+DROP POLICY IF EXISTS clinic_profile_read ON clinic_profile;
+CREATE POLICY clinic_profile_read ON clinic_profile
   FOR SELECT TO authenticated
   USING (true);
 
 -- Policy: Authenticated users can update clinic profile
 -- (In production, consider restricting to admin role)
-CREATE POLICY IF NOT EXISTS clinic_profile_update ON clinic_profile
+DROP POLICY IF EXISTS clinic_profile_update ON clinic_profile;
+CREATE POLICY clinic_profile_update ON clinic_profile
   FOR UPDATE TO authenticated
   USING (true)
   WITH CHECK (true);
 
 -- Policy: Authenticated users can insert clinic profile
-CREATE POLICY IF NOT EXISTS clinic_profile_insert ON clinic_profile
+DROP POLICY IF EXISTS clinic_profile_insert ON clinic_profile;
+CREATE POLICY clinic_profile_insert ON clinic_profile
   FOR INSERT TO authenticated
   WITH CHECK (true);
 
 -- ============================================================================
--- INITIAL DATA (Optional - if no profile exists)
+-- INITIAL DATA
 -- ============================================================================
 
 -- Insert default clinic profile if none exists
--- Uncomment to run manually or via Supabase UI
--- INSERT INTO clinic_profile (clinic_name, phone, email, sunday_end_hour)
--- VALUES ('Matira Dental Studio', '', '', 11)
--- ON CONFLICT DO NOTHING;
+INSERT INTO clinic_profile (clinic_name, phone, email, sunday_end_hour)
+VALUES ('Matira Dental Studio', '', '', 11)
+ON CONFLICT DO NOTHING;

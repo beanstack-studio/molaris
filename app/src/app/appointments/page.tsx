@@ -254,7 +254,9 @@ export default function AppointmentsPage() {
     const dayOfWeek = date.getDay();
     const isHoliday = PH_HOLIDAYS_2026.includes(dateStr);
 
-    let validHours = dayOfWeek === 0 || isHoliday ? [8, 9, 10, 11] : [8, 9, 10, 11, 12, 14, 15, 16, 17];
+    let validHours = dayOfWeek === 0 || isHoliday 
+      ? Array.from({ length: sundayEndHour - 7 }, (_, i) => 8 + i)
+      : [8, 9, 10, 11, 12, 14, 15, 16, 17];
 
     const hour = parseInt(timeStr.split(":")[0]);
     return validHours.includes(hour);

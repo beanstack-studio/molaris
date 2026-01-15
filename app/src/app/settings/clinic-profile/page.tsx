@@ -168,14 +168,6 @@ export default function ClinicProfileSettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Card */}
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">Clinic Profile</h2>
-        <p className="text-slate-600">
-          Manage your clinic's name, address, contact details, and default settings.
-        </p>
-      </div>
-
       {/* Form Card */}
       <form onSubmit={handleSave} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         {/* Error Message */}
@@ -194,8 +186,6 @@ export default function ClinicProfileSettingsPage() {
 
         {/* Clinic Information Section */}
         <div className="mb-8">
-          <h3 className="text-base font-semibold text-slate-900 mb-4">Clinic Information</h3>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Clinic Name */}
             <div>
@@ -320,21 +310,11 @@ export default function ClinicProfileSettingsPage() {
 
         {/* Operating Hours Section */}
         <div className="mb-8 pb-8 border-b border-slate-200">
-          <h3 className="text-base font-semibold text-slate-900 mb-4">Operating Hours</h3>
+          <h3 className="text-base font-semibold text-slate-900 mb-4">Appointment Availability</h3>
           
-          <div className="rounded-lg bg-slate-50 p-4 mb-4">
-            <p className="text-sm text-slate-600 mb-3">
-              <strong>Appointment Slots:</strong>
-            </p>
-            <ul className="text-sm text-slate-600 space-y-1 ml-4">
-              <li>• Weekdays: 8:00 AM - 4:00 PM (8 AM, 9-11 AM, 12 PM, 2-4 PM)</li>
-              <li>• Sundays & Holidays: 8:00 AM - (selected end hour)</li>
-            </ul>
-          </div>
-
           <div className="max-w-xs">
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Sunday & Holiday Slots End Hour
+              End Hour
             </label>
             <select
               value={formData.sunday_end_hour}
@@ -351,9 +331,6 @@ export default function ClinicProfileSettingsPage() {
               <option value={16}>4:00 PM</option>
               <option value={17}>5:00 PM</option>
             </select>
-            <p className="text-xs text-slate-500 mt-2">
-              Appointments will not be available after this time on Sundays and Philippine holidays.
-            </p>
           </div>
         </div>
 
