@@ -198,8 +198,8 @@ export default function BulkPaymentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="mx-auto max-w-6xl">
+    <main className="app-section">
+      <div className="app-section-body">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -656,6 +656,6 @@ export default function BulkPaymentsPage() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
