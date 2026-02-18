@@ -114,13 +114,31 @@ export default function PatientsPage() {
     setError(null);
 
     try {
-      // Load all patients
-      const { data: allPatients, error: patientsError } = await supabase
-        .from("patients")
-        .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
-        .order("created_at", { ascending: false });
+      // Load all patients with pagination (Supabase defaults to 1000 rows per response)
+      const allPatients: any[] = [];
+      const BATCH_SIZE = 1000;
+      let offset = 0;
+      let hasMore = true;
 
-      if (patientsError) throw patientsError;
+      while (hasMore && allPatients.length < 7500) {
+        const { data, error: patientsError } = await supabase
+          .from("patients")
+          .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + BATCH_SIZE - 1);
+
+        if (patientsError) throw patientsError;
+
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allPatients.push(...data);
+          if (data.length < BATCH_SIZE) {
+            hasMore = false;
+          }
+          offset += BATCH_SIZE;
+        }
+      }
 
       // Load all treatments for last visit date lookup
       const { data: allTreatments, error: treatmentsError } = await supabase
@@ -342,7 +360,7 @@ export default function PatientsPage() {
               onChange={(e) => setQ(e.target.value)}
             />
 
-            <div className="flex items-center gap-3">
+            <div className="flex-center-gap-3">
               <div className="text-sm text-slate-600">
                 {loading ? "Loading..." : `${filtered.length} of ${patients.length} patients`}
               </div>
@@ -465,7 +483,7 @@ export default function PatientsPage() {
             {filtered.length}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex-center-gap-2">
             <button className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               Prev
             </button>
@@ -484,7 +502,7 @@ export default function PatientsPage() {
 
       {/* Add Patient Modal */}
       {showAdd ? (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 p-4" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
+        <div className="modal-container p-4" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
           <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg">
             <div>
               <h2 className="text-lg font-semibold">Add patient</h2>
@@ -518,12 +536,12 @@ export default function PatientsPage() {
                 <div className="form-group">
                   <div className="form-label">Gender</div>
                   <div className="mt-2 flex items-center gap-6 text-sm">
-                    <label className="flex items-center gap-2">
+                    <label className="flex-center-gap-2">
                       <input type="radio" name="gender" value="male" checked={gender === "male"} onChange={() => setGender("male")} />
                       Male
                     </label>
 
-                    <label className="flex items-center gap-2">
+                    <label className="flex-center-gap-2">
                       <input
                         type="radio"
                         name="gender"

@@ -101,13 +101,32 @@ export default function DashboardPage() {
 
       if (allPaymentsError) throw allPaymentsError;
 
-      // Load patients with complete data
-      const { data: patients, error: patientsError } = await supabase
-        .from("patients")
-        .select("id, first_name, last_name, phone, created_at")
-        .order("created_at", { ascending: false });
+      // Load patients with complete data (using pagination for Supabase 1000-row limit)
+      const allPatients: any[] = [];
+      const BATCH_SIZE = 1000;
+      let offset = 0;
+      let hasMore = true;
 
-      if (patientsError) throw patientsError;
+      while (hasMore && allPatients.length < 7500) {
+        const { data, error: patientsError } = await supabase
+          .from("patients")
+          .select("id, first_name, last_name, phone, created_at")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + BATCH_SIZE - 1);
+
+        if (patientsError) throw patientsError;
+
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allPatients.push(...data);
+          if (data.length < BATCH_SIZE) {
+            hasMore = false;
+          }
+          offset += BATCH_SIZE;
+        }
+      }
+      const patients = allPatients;
 
       // Load appointments (this week only) - if table exists
       const today = new Date().toISOString().split('T')[0];
@@ -361,55 +380,55 @@ export default function DashboardPage() {
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <div className="text-slate-600">Loading dashboard...</div>
+            <div className="text-muted">Loading dashboard...</div>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Key Metrics - Row 1 */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex-between">
                   <div>
-                    <p className="text-sm text-slate-600">Total Invoiced</p>
+                    <p className="text-muted-sm">Total Invoiced</p>
                     <p className="text-3xl font-bold text-slate-900">
                       {formatMoney(stats.totalInvoiced)}
                     </p>
                   </div>
                   <div className="text-4xl">📋</div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">{stats.totalInvoices} invoices</p>
+                <p className="mt-2-text-xs-slate">{stats.totalInvoices} invoices</p>
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex-between">
                   <div>
-                    <p className="text-sm text-slate-600">Total Collected</p>
+                    <p className="text-muted-sm">Total Collected</p>
                     <p className="text-3xl font-bold text-green-700">
                       {formatMoney(stats.totalPaid)}
                     </p>
                   </div>
                   <div className="text-4xl">✓</div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">{collectionRate}% collection rate</p>
+                <p className="mt-2-text-xs-slate">{collectionRate}% collection rate</p>
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex-between">
                   <div>
-                    <p className="text-sm text-slate-600">Outstanding</p>
+                    <p className="text-muted-sm">Outstanding</p>
                     <p className="text-3xl font-bold text-orange-700">
                       {formatMoney(stats.totalOutstanding)}
                     </p>
                   </div>
                   <div className="text-4xl">⏳</div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">Requires payment</p>
+                <p className="mt-2-text-xs-slate">Requires payment</p>
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex-between">
                   <div>
-                    <p className="text-sm text-slate-600">Today's Payments</p>
+                    <p className="text-muted-sm">Today's Payments</p>
                     <p className="text-3xl font-bold text-blue-700">
                       {formatMoney(
                         todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
@@ -418,7 +437,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-4xl">💳</div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2-text-xs-slate">
                   {todayPayments.length} payment{todayPayments.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -427,9 +446,9 @@ export default function DashboardPage() {
             {/* Key Metrics - Row 2 */}
             <div className="grid gap-4 md:grid-cols-4">
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex-between">
                   <div>
-                    <p className="text-sm text-slate-600">Total Patients</p>
+                    <p className="text-muted-sm">Total Patients</p>
                     <p className="text-3xl font-bold text-slate-900">{stats.totalPatients}</p>
                   </div>
                   <div className="text-4xl">👥</div>
@@ -437,36 +456,36 @@ export default function DashboardPage() {
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex-between">
                   <div>
-                    <p className="text-sm text-slate-600">Active Ortho Patients</p>
+                    <p className="text-muted-sm">Active Ortho Patients</p>
                     <p className="text-3xl font-bold text-blue-600">{orthoPatientCount}</p>
                   </div>
                   <div className="text-4xl">😁</div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">Braces & aligners</p>
+                <p className="mt-2-text-xs-slate">Braces & aligners</p>
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex-between">
                   <div>
-                    <p className="text-sm text-slate-600">Upcoming Appointments</p>
+                    <p className="text-muted-sm">Upcoming Appointments</p>
                     <p className="text-3xl font-bold text-slate-900">{stats.activeDentists}</p>
                   </div>
                   <div className="text-4xl">📅</div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">This week</p>
+                <p className="mt-2-text-xs-slate">This week</p>
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+                <div className="flex-between">
                   <div>
-                    <p className="text-sm text-slate-600">New Patients</p>
+                    <p className="text-muted-sm">New Patients</p>
                     <p className="text-3xl font-bold text-purple-600">{(recent.patients || []).length}</p>
                   </div>
                   <div className="text-4xl">⭐</div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">This month</p>
+                <p className="mt-2-text-xs-slate">This month</p>
               </div>
             </div>
 
@@ -479,8 +498,8 @@ export default function DashboardPage() {
                   <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Payments</h2>
 
                   {recent.payments.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                    <div className="overflow-x-auto-container">
+                      <table className="w-full-text-sm">
                         <thead>
                           <tr className="border-b border-slate-200">
                             <th className="px-4 py-2 text-left font-semibold text-slate-700">
@@ -535,8 +554,8 @@ export default function DashboardPage() {
                   <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Invoices</h2>
 
                   {recent.invoices.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                    <div className="overflow-x-auto-container">
+                      <table className="w-full-text-sm">
                         <thead>
                           <tr className="border-b border-slate-200">
                             <th className="px-4 py-2 text-left font-semibold text-slate-700">
@@ -588,7 +607,7 @@ export default function DashboardPage() {
                 {/* Quick Actions */}
                 <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                   <h2 className="mb-4 text-lg font-semibold text-slate-900">Quick Actions</h2>
-                  <div className="space-y-2">
+                  <div className="space-y-2-border-rounded-bg-slate">
                     <Link
                       href="/patients"
                       className="block rounded-lg bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
@@ -616,7 +635,7 @@ export default function DashboardPage() {
                     <h2 className="mb-4 text-lg font-semibold text-slate-900">
                       Payment Modes (Today)
                     </h2>
-                    <div className="space-y-2">
+                    <div className="space-y-2-border-rounded-bg-slate">
                       {paymentModes.map((mode) => (
                         <div
                           key={mode.code}
@@ -624,7 +643,7 @@ export default function DashboardPage() {
                         >
                           <div className="text-sm">
                             <p className="font-medium text-slate-900">{mode.name}</p>
-                            <p className="text-xs text-slate-500">{mode.count} payments</p>
+                            <p className="text-muted-xs">{mode.count} payments</p>
                           </div>
                           <p className="text-sm font-semibold text-slate-900">
                             {formatMoney(mode.total)}

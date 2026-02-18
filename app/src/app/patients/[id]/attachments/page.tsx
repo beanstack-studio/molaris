@@ -191,10 +191,10 @@ export default function AttachmentsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        <div className="flex flex-col items-center gap-3">
-          <img src="/loading.gif" alt="Loading" className="h-12 w-12" />
-          <div className="text-sm">Loading…</div>
+      <div className="loading-screen">
+        <div className="loading-container">
+          <img src="/loading.gif" alt="Loading" className="loading-icon" />
+          <div className="loading-text">Loading…</div>
         </div>
       </div>
     );
@@ -202,18 +202,19 @@ export default function AttachmentsPage() {
 
   return (
     <>
-      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+      {err ? <div className="error-banner">{err}</div> : null}
 
-      <div className="p-4">
-        <div className="grid gap-4">
-          <div className="rounded-xl border bg-white p-4">
-            <div className="text-sm font-semibold">Upload attachment</div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Type</span>
+      <div className="patient-content">
+        <div className="patient-sections">
+          <div className="info-box">
+            <div className="info-box-header">
+              <div className="info-box-title">Upload attachment</div>
+            </div>
+            <div className="mt-3-grid-gap-3-sm-3col">
+              <label className="form-field-wrapper">
+                <span className="text-slate-700-base">Type</span>
                 <select
-                  className="h-10 rounded-lg border bg-white px-3"
+                  className="input-h10-rounded"
                   value={uploadType}
                   onChange={(e) => setUploadType(e.target.value as AttachmentType)}
                 >
@@ -226,18 +227,18 @@ export default function AttachmentsPage() {
                 </select>
               </label>
 
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">File</span>
+              <label className="form-field-wrapper">
+                <span className="text-slate-700-base">File</span>
                 <input
                   type="file"
-                  className="h-10 rounded-lg border bg-white px-3 py-2 text-sm"
+                  className="input-h10-rounded-border-white"
                   onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
                 />
               </label>
 
-              <div className="flex items-end">
+              <div className="flex-items-end-gap-2">
                 <button
-                  className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                  className="btn-secondary-dark"
                   disabled={busy || !uploadType || !fileToUpload}
                   onClick={uploadAttachment}
                 >
@@ -246,13 +247,12 @@ export default function AttachmentsPage() {
               </div>
             </div>
           </div>
-
-          <div className="rounded-xl border bg-white p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm font-semibold">Attachments</div>
-
+          
+          <div className="info-box">
+            <div className="info-box-header">
+              <div className="info-box-title">Attachments</div>
               <select
-                className="h-9 w-40 rounded-lg border bg-white px-2 text-sm"
+                className="select-h9-w40-rounded-border-white"
                 value={attachmentSort}
                 onChange={(e) => setAttachmentSort(e.target.value as any)}
               >
@@ -262,13 +262,13 @@ export default function AttachmentsPage() {
               </select>
             </div>
 
-            <div className="mt-3 overflow-x-auto">
+            <div className="mt-3-overflow">
               <table className="data-table">
                 <colgroup>
-                  <col style={{ width: "10%" }} />
-                  <col style={{ width: "50%" }} />
-                  <col style={{ width: "20%" }} />
-                  <col style={{ width: "20%" }} />
+                  <col className="col-10" />
+                  <col className="col-50" />
+                  <col className="col-20" />
+                  <col className="col-20" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -289,7 +289,7 @@ export default function AttachmentsPage() {
                       </td>
                       <td className="data-table-cell">{formatDatePH(a.created_at)}</td>
                       <td className="data-table-cell-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex-items-center-justify-end-gap-2">
                           <button
                             className="data-table-btn"
                             onClick={() => openAttachment(a)}
@@ -321,26 +321,26 @@ export default function AttachmentsPage() {
       </div>
 
       {showEditModal && editingAttachment ? (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50" onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}>
-          <div className="max-h-screen overflow-y-auto rounded-2xl border bg-white w-full max-w-md">
-            <div className="sticky top-0 border-b bg-white p-4">
-              <div className="text-lg font-semibold">Edit attachment</div>
+        <div className="modal-container p-4" onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}>
+          <div className="modal-scrollable rounded-2xl-border-white modal-box-md">
+            <div className="header-sticky">
+              <div className="text-lg-semibold">Edit attachment</div>
             </div>
 
             <div className="p-4">
-              {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+              {err ? <div className="error-box-sm">{err}</div> : null}
 
-              <div className="grid gap-4">
-                <div className="grid gap-1 text-sm">
-                  <span className="text-slate-700 font-semibold">Type</span>
-                  <div className="p-3 bg-slate-50 rounded-lg text-slate-600">{editingAttachment.type}</div>
-                </div>
+              <div className="grid-gap-4">
+                <label className="form-field-wrapper">
+                  <span className="form-label-text-slate-700-semibold">Type</span>
+                  <div className="container-slate-50">{editingAttachment.type}</div>
+                </label>
 
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700 font-semibold">File name</span>
+                <label className="form-field-wrapper">
+                  <span className="form-label-text-slate-700-semibold">File name</span>
                   <input
                     type="text"
-                    className="h-10 rounded-lg border bg-white px-3 py-2 text-sm"
+                    className="input-h10-rounded-border-white"
                     value={editFileName}
                     onChange={(e) => setEditFileName(e.target.value)}
                     placeholder="File name"

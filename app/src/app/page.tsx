@@ -9,7 +9,7 @@ export default function Home() {
   // TopNav will handle auth state changes and redirect to /dashboard if authenticated
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-slate-600">Loading...</div>
+      <div className="text-muted">Loading...</div>
     </div>
   );
 }

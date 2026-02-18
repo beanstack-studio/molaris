@@ -114,37 +114,35 @@ export default function Page() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        <div className="flex flex-col items-center gap-3">
-          <img src="/loading.gif" alt="Loading" className="h-12 w-12" />
-          <div className="text-sm">Loading…</div>
+      <div className="loading-screen">
+        <div className="loading-container">
+          <img src="/loading.gif" alt="Loading" className="loading-icon" />
+          <div className="loading-text">Loading…</div>
         </div>
       </div>
     );
   }
 
   if (!patient) {
-    return <div className="min-h-screen p-6 text-red-600">Patient not found.</div>;
+    return <div className="not-found-screen">Patient not found.</div>;
   }
 
   const displayFullName = combineFullName(patient.first_name, patient.last_name) || patient.full_name || "";
 
   return (
     <>
-      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
-
-      {/* Content */}
-      <div className="p-4">
-        <div className="grid gap-4">
-          <div className="rounded-xl border bg-white p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-800">Medical Information</div>
+      {err ? <div className="error-banner">{err}</div> : null}
+      <div className="patient-content">
+        <div className="page-sections">
+          <div className="info-box">
+          <div className="info-box-header">
+            <div className="info-box-title">Medical Information</div>
               {medHist ? (
-                <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={openEdit}>
+                <button className="btn-primary-dark" onClick={openEdit}>
                   Edit
                 </button>
               ) : (
-                <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => {
+                <button className="btn-primary-dark" onClick={() => {
                   setEditAllergies("");
                   setEditMedications("");
                   setEditBp("");
@@ -157,25 +155,25 @@ export default function Page() {
               )}
             </div>
             {!medHist ? (
-              <div className="mt-4 text-sm text-slate-500">No medical history recorded.</div>
+              <div className="helper-text-muted mt-4">No medical history recorded.</div>
             ) : (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Allergies</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.allergies ?? ""} readOnly />
+              <div className="info-box-grid responsive-grid-cols-2">
+                <label className="field-label">
+                  <span className="field-label-text">Allergies</span>
+                  <input className="field-input-readonly" value={medHist.allergies ?? ""} readOnly />
                 </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Medications</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.medications ?? ""} readOnly />
+                <label className="field-label">
+                  <span className="field-label-text">Medications</span>
+                  <input className="field-input-readonly" value={medHist.medications ?? ""} readOnly />
                 </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Blood Pressure</span>
-                  <input className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.blood_pressure ?? ""} readOnly />
+                <label className="field-label">
+                  <span className="field-label-text">Blood Pressure</span>
+                  <input className="field-input-readonly" value={medHist.blood_pressure ?? ""} readOnly />
                 </label>
                 {medHist.notes && (
-                  <label className="grid gap-1 text-sm sm:col-span-2">
-                    <span className="text-slate-700">Notes</span>
-                    <textarea className="rounded-lg border bg-slate-50 px-3 py-2" value={medHist.notes} readOnly />
+                  <label className="field-label field-label-2col">
+                    <span className="field-label-text">Notes</span>
+                    <textarea className="field-textarea" value={medHist.notes} readOnly />
                   </label>
                 )}
               </div>
@@ -183,7 +181,6 @@ export default function Page() {
           </div>
         </div>
       </div>
-
       {/* Edit Medical History Modal */}
       <EditModal
         open={editOpen}
@@ -194,44 +191,44 @@ export default function Page() {
           setErr(null);
         }}
       >
-        <div className="space-y-4">
-          <div className="grid gap-1 text-sm">
-            <label className="text-slate-700 font-medium">Allergies</label>
+        <div className="space-y-4-base">
+          <div className="field-label">
+            <label className="field-label-text">Allergies</label>
             <input
               type="text"
-              className="h-10 rounded-lg border px-3"
+              className="field-input"
               value={editAllergies}
               onChange={(e) => setEditAllergies(e.target.value)}
               placeholder="Allergies"
             />
           </div>
 
-          <div className="grid gap-1 text-sm">
-            <label className="text-slate-700 font-medium">Medications</label>
+          <div className="field-label">
+            <label className="field-label-text">Medications</label>
             <input
               type="text"
-              className="h-10 rounded-lg border px-3"
+              className="field-input"
               value={editMedications}
               onChange={(e) => setEditMedications(e.target.value)}
               placeholder="Medications"
             />
           </div>
 
-          <div className="grid gap-1 text-sm">
-            <label className="text-slate-700 font-medium">Blood Pressure</label>
+          <div className="field-label">
+            <label className="field-label-text">Blood Pressure</label>
             <input
               type="text"
-              className="h-10 rounded-lg border px-3"
+              className="field-input"
               value={editBp}
               onChange={(e) => setEditBp(e.target.value)}
               placeholder="e.g., 120/80"
             />
           </div>
 
-          <div className="grid gap-1 text-sm">
-            <label className="text-slate-700 font-medium">Notes</label>
+          <div className="field-label">
+            <label className="field-label-text">Notes</label>
             <textarea
-              className="min-h-[88px] rounded-lg border px-3 py-2"
+              className="field-textarea"
               value={editNotes}
               onChange={(e) => setEditNotes(e.target.value)}
               placeholder="Medical notes…"
@@ -240,7 +237,7 @@ export default function Page() {
 
           {/* Delete Section */}
           <div className="delete-confirmation">
-            <div className="delete-confirmation-title text-red-700">Delete record?</div>
+            <div className="delete-confirmation-title-red">Delete record?</div>
             <div className="delete-confirmation-hint">
               Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
             </div>

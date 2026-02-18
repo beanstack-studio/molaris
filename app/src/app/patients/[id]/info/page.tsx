@@ -28,18 +28,18 @@ function Field({
   textarea?: boolean;
 }) {
   return (
-    <label className="grid gap-1 text-sm">
-      <span className="text-slate-700">{label}</span>
+    <label className="field-label">
+      <span className="field-label-text">{label}</span>
       {textarea ? (
         <textarea
-          className="min-h-[88px] rounded-lg border px-3 py-2"
+          className="field-textarea"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
         />
       ) : (
         <input
-          className="h-10 rounded-lg border px-3"
+          className="field-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -73,6 +73,7 @@ export default function Page() {
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editGender, setEditGender] = useState<"" | "male" | "female">("");
   const [editAddress, setEditAddress] = useState("");
+  const [editOrtho, setEditOrtho] = useState(false);
   const [deletePatientText, setDeletePatientText] = useState("");
 
   const loadPatient = useCallback(async () => {
@@ -118,6 +119,7 @@ export default function Page() {
     setEditBirthDate(pat.birth_date ?? "");
     setEditGender((pat.gender ?? "") as any);
     setEditAddress(pat.address ?? "");
+    setEditOrtho(Boolean(patRaw.ortho_patient ?? false));
 
     // Load last visit
     const t = await supabase
@@ -160,6 +162,8 @@ export default function Page() {
     if (!first || !last) return setErr("First and last name are required.");
 
     setBusy(true);
+    console.log("Saving patient with ortho_patient =", editOrtho);
+    
     const res = await supabase
       .from("patients")
       .update({
@@ -169,12 +173,17 @@ export default function Page() {
         birth_date: birth || null,
         gender,
         address: address || null,
+        ortho_patient: editOrtho,
       })
       .eq("id", patient.id);
 
+    console.log("Save result:", res);
     setBusy(false);
     if (res.error) return setErr(res.error.message);
 
+    // Small delay to ensure real-time subscription processes the update
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     setEditOpen(false);
     await loadPatient();
   }
@@ -197,10 +206,10 @@ export default function Page() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        <div className="flex flex-col items-center gap-3">
-          <img src="/loading.gif" alt="Loading" className="h-12 w-12" />
-          <div className="text-sm">Loading…</div>
+      <div className="loading-screen">
+        <div className="loading-container">
+          <img src="/loading.gif" alt="Loading" className="loading-icon" />
+          <div className="loading-text">Loading…</div>
         </div>
       </div>
     );
@@ -214,68 +223,79 @@ export default function Page() {
 
   return (
     <>
-      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+      {err ? <div className="error-banner">{err}</div> : null}
 
-      <div className="p-4">
-        <div className="grid gap-4">
+      <div className="patient-content">
+        <div className="patient-sections">
           {/* Patient Information Box */}
-          <div className="rounded-xl border bg-white p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-800">Patient Information</div>
-              <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => setEditOpen(true)}>
+          <div className="info-box">
+            <div className="info-box-header">
+              <div className="info-box-title">Patient Information</div>
+              <button className="btn-primary-dark" onClick={() => setEditOpen(true)}>
                 Edit
               </button>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">First name</span>
-                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.first_name ?? ""} readOnly />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Last name</span>
-                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.last_name ?? ""} readOnly />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Phone number</span>
-                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.phone ?? ""} readOnly />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Date of birth</span>
-                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.birth_date ?? ""} readOnly />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Age</span>
-                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={calcAge(patient.birth_date)?.toString() ?? ""} readOnly />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Gender</span>
-                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={formatGenderLabel(patient.gender)} readOnly />
-              </label>
-              <label className="grid gap-1 text-sm sm:col-span-2">
-                <span className="text-slate-700">Address</span>
-                <input className="rounded-lg border bg-slate-50 px-3 py-2" value={patient.address ?? ""} readOnly />
-              </label>
+            <div className="space-y-4-base">
+              {/* Row 1: Last name, First name - 50/50 */}
+              <div className="grid-gap-4-cols-2">
+                <label className="field-label">
+                  <span className="field-label-text">Last name</span>
+                  <input className="field-input-readonly" value={patient.last_name ?? ""} readOnly />
+                </label>
+                <label className="field-label">
+                  <span className="field-label-text">First name</span>
+                  <input className="field-input-readonly" value={patient.first_name ?? ""} readOnly />
+                </label>
+              </div>
+
+              {/* Row 2: Birthday, Age, Gender - 33/33/33 */}
+              <div className="grid-gap-4-cols-3">
+                <label className="field-label">
+                  <span className="field-label-text">Date of birth</span>
+                  <input className="field-input-readonly" value={formatDatePH(patient.birth_date)} readOnly />
+                </label>
+                <label className="field-label">
+                  <span className="field-label-text">Age</span>
+                  <input className="field-input-readonly" value={calcAge(patient.birth_date)?.toString() ?? ""} readOnly />
+                </label>
+                <label className="field-label">
+                  <span className="field-label-text">Gender</span>
+                  <input className="field-input-readonly" value={formatGenderLabel(patient.gender)} readOnly />
+                </label>
+              </div>
+
+              {/* Row 3: Phone 25%, Address 75% */}
+              <div className="grid-gap-4-cols-4">
+                <label className="field-label">
+                  <span className="field-label-text">Phone number</span>
+                  <input className="field-input-readonly" value={patient.phone ?? ""} readOnly />
+                </label>
+                <label className="field-label col-span-3">
+                  <span className="field-label-text">Address</span>
+                  <input className="field-input-readonly" value={patient.address ?? ""} readOnly />
+                </label>
+              </div>
             </div>
           </div>
 
           {/* Last Visit Box */}
-          <div className="rounded-xl border bg-slate-50 p-4">
-            <div className="text-sm font-semibold text-slate-800">Last visit</div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Date</span>
-                <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitDate ? formatDatePH(lastVisitDate) : ""} readOnly />
+          <div className="info-box-muted">
+            <div className="info-box-title">Last visit</div>
+            <div className="info-box-grid-3">
+              <label className="field-label">
+                <span className="field-label-text">Date</span>
+                <input className="field-input-white" value={lastVisitDate ? formatDatePH(lastVisitDate) : ""} readOnly />
               </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Dentist</span>
-                <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitDentist || ""} readOnly />
+              <label className="field-label">
+                <span className="field-label-text">Dentist</span>
+                <input className="field-input-white" value={lastVisitDentist || ""} readOnly />
               </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Concern</span>
-                <input className="rounded-lg border bg-white px-3 py-2" value={lastVisitConcern || ""} readOnly />
+              <label className="field-label">
+                <span className="field-label-text">Concern</span>
+                <input className="field-input-white" value={lastVisitConcern || ""} readOnly />
               </label>
             </div>
-            <div className="mt-2 text-xs text-slate-500">
+            <div className="helper-text-muted">
               TODO: Replace "Concern" with appointment/visit chief complaint once scheduling/messenger integration is done.
             </div>
           </div>
@@ -284,20 +304,36 @@ export default function Page() {
 
       {/* Edit Modal */}
       <EditModal open={editOpen} title="Edit patient" onClose={() => setEditOpen(false)}>
-        <div className="grid gap-4">
-          {/* R1 */}
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid-gap-4">
+          {/* R1: Last name, First name */}
+          <div className="grid-gap-4-cols-2">
             <Field label="Last name" value={editLastName} onChange={setEditLastName} placeholder="Last name" />
             <Field label="First name" value={editFirstName} onChange={setEditFirstName} placeholder="First name" />
           </div>
 
-          {/* R2 */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Birth date" value={editBirthDate} onChange={setEditBirthDate} />
-            <div className="grid gap-1 text-sm">
-              <span className="text-slate-700">Gender</span>
-              <div className="h-10 rounded-lg border bg-white px-3 flex items-center gap-4">
-                <label className="inline-flex items-center gap-2">
+          {/* R2: Birth date, Gender */}
+          <div className="grid-gap-4-cols-2">
+            <div className="field-label">
+              <span className="field-label-text">Birth date</span>
+              <input
+                type="text"
+                className="field-input"
+                value={editBirthDate ? formatDatePH(editBirthDate) : ""}
+                readOnly
+                placeholder="Click to select date"
+                onFocus={(e) => {
+                  const picker = document.createElement("input");
+                  picker.type = "date";
+                  picker.value = editBirthDate;
+                  picker.onchange = () => setEditBirthDate(picker.value);
+                  picker.click();
+                }}
+              />
+            </div>
+            <div className="field-label">
+              <span className="field-label-text">Gender</span>
+              <div className="gender-selector">
+                <label className="gender-option">
                   <input
                     type="radio"
                     name="gender"
@@ -307,7 +343,7 @@ export default function Page() {
                   />
                   Male
                 </label>
-                <label className="inline-flex items-center gap-2">
+                <label className="inline-flex-items-center-gap-2">
                   <input
                     type="radio"
                     name="gender"
@@ -321,11 +357,47 @@ export default function Page() {
             </div>
           </div>
 
+          {/* R3: Phone number full width */}
           <Field label="Phone number" value={editPhone} onChange={setEditPhone} placeholder="e.g., 09123456789" />
-          <Field label="Address" value={editAddress} onChange={setEditAddress} textarea />
+
+          {/* R4: Address full width */}
+          <div className="field-label">
+            <label className="field-label-text">Address</label>
+            <input
+              type="text"
+              className="field-input"
+              value={editAddress}
+              onChange={(e) => setEditAddress(e.target.value)}
+              placeholder="Address"
+            />
+          </div>
+
+          {/* Ortho patient toggle switch */}
+          <div className="flex items-center gap-3">
+            <span className="field-label-text text-sm">Ortho patient?</span>
+            <button
+              type="button"
+              onClick={() => setEditOrtho(!editOrtho)}
+              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none ${
+                editOrtho ? 'bg-green-500' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow-md transition-transform ${
+                  editOrtho ? 'translate-x-7' : 'translate-x-0.5'
+                }`}
+              >
+                <span className={`text-xs font-bold ${
+                  editOrtho ? 'text-green-500' : 'text-slate-300'
+                }`}>
+                  {editOrtho ? '✓' : '✕'}
+                </span>
+              </span>
+            </button>
+          </div>
 
           <div className="delete-confirmation">
-            <div className="delete-confirmation-title text-red-700">Delete Patient?</div>
+            <div className="delete-confirmation-title-red">Delete Patient?</div>
             <div className="delete-confirmation-hint">
               Type <span className="delete-confirmation-code">DELETE</span> to confirm permanent deletion
             </div>
@@ -338,17 +410,17 @@ export default function Page() {
             />
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-4">
+          <div className="modal-footer-spread">
             <button
-              className="h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
+              className="btn-danger-lg"
               disabled={busy || deletePatientText.trim().toUpperCase() !== "DELETE"}
               onClick={deletePatient}
             >
               {busy ? "Deleting…" : "Delete"}
             </button>
-            <div className="flex gap-2">
+            <div className="modal-footer-buttons">
               <button
-                className="h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-colors"
+                className="btn-secondary-outlined"
                 onClick={() => setEditOpen(false)}
               >
                 Cancel

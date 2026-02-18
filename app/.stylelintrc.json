@@ -1,0 +1,23 @@
+{
+  "extends": "stylelint-config-standard",
+  "rules": {
+    "at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": [
+          "tailwind",
+          "apply",
+          "layer",
+          "responsive",
+          "variants"
+        ]
+      }
+    ],
+    "no-invalid-double-slash-comments": null
+  },
+  "ignoreFiles": [
+    "node_modules/**",
+    ".next/**",
+    "dist/**"
+  ]
+}

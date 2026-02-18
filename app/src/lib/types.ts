@@ -236,7 +236,7 @@ export type DraftLine = {
   note: string;
 };
 
-export const tabs = ["Info", "Medical", "Chart", "Treatments", "Attachments", "Documents", "Billing"] as const;
+export const tabs = ["Info", "Medical", "Chart", "Treatments", "Attachments", "Documents", "Billing", "Ortho"] as const;
 export type Tab = (typeof tabs)[number];
 
 /* =========================
@@ -295,3 +295,47 @@ export type Message = {
 export type MessageWithThread = Message & {
   thread?: MessageThread;
 };
+/* =========================
+   Orthodontics (Ortho)
+========================= */
+
+export type OrthoCase = {
+  id: string;
+  patient_id: string;
+  status: "active" | "on_hold" | "completed";
+  start_date: string | null;
+  end_date: string | null;
+  provider_dentist_id: string | null;
+  provider_name: string | null;
+  package_fee: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrthoEntry = {
+  id: string;
+  ortho_case_id: string;
+  entry_date: string;
+  appointment_id: string | null;
+  tag: "adjustment" | "wire_change" | "elastics" | "bracket_repair" | "retainer" | "follow_up" | "other";
+  note: string;
+  arch: string | null; // "upper" | "lower" | "both"
+  teeth: string | null; // free text
+  wire_details: string | null; // free text
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export const orthoEntryTags = [
+  "adjustment",
+  "wire_change",
+  "elastics",
+  "bracket_repair",
+  "retainer",
+  "follow_up",
+  "other",
+] as const;
+
+export const orthoArchOptions = ["upper", "lower", "both"] as const;

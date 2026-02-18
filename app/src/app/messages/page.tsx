@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { formatDatePH } from "@/lib/helpers";
 import { MessageThread, Patient } from "@/lib/types";
 import ChatWindow from "./ChatWindow";
 
@@ -62,7 +63,7 @@ export default function MessagesPage() {
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Messages</h1>
-            <p className="text-sm text-slate-600">SMS & Messenger</p>
+            <p className="text-muted-sm">SMS & Messenger</p>
           </div>
           {/* Close button for mobile */}
           <button
@@ -98,13 +99,13 @@ export default function MessagesPage() {
                     <p className="font-medium text-slate-900 truncate">
                       {thread.patients?.full_name || "Unknown"}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-muted-xs">
                       {thread.channel.toUpperCase()}
                       {thread.unread_count > 0 && ` • ${thread.unread_count} new`}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
                       {thread.last_message_at
-                        ? new Date(thread.last_message_at).toLocaleDateString()
+                        ? formatDatePH(thread.last_message_at.split('T')[0])
                         : "No messages"}
                     </p>
                   </div>

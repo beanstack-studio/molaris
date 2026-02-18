@@ -71,7 +71,7 @@ export default function LinkPatientModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="modal-wrapper">
         <h3 className="text-lg font-bold text-slate-900 mb-4">Link to Patient</h3>
 
         {error && (
@@ -85,7 +85,7 @@ export default function LinkPatientModal({
           <p className="text-xs font-semibold text-slate-600 uppercase mb-3">
             Incoming Message From
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex-center-gap">
             <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
               {externalUserName?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
             </div>
@@ -93,7 +93,7 @@ export default function LinkPatientModal({
               <p className="font-medium text-slate-900">
                 {externalUserName || "Unknown"}
               </p>
-              <p className="text-xs text-slate-500">Messenger</p>
+              <p className="text-muted-xs">Messenger</p>
             </div>
           </div>
         </div>
@@ -117,7 +117,7 @@ export default function LinkPatientModal({
                 <select
                   value={selectedPatient || ""}
                   onChange={(e) => setSelectedPatient(e.target.value || null)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-48"
+                  className="form-input-full-focus"
                 >
                   <option value="">-- Select a patient --</option>
                   {patients.map((patient) => (
@@ -130,17 +130,17 @@ export default function LinkPatientModal({
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="button-group">
               <button
                 onClick={onCancel}
-                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
+                className="flex-1 cancel-btn"
               >
                 Cancel
               </button>
               <button
                 onClick={() => setConfirmStep(true)}
                 disabled={!selectedPatient}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                className="flex-1 modal-btn-primary"
               >
                 Next
               </button>
@@ -155,7 +155,7 @@ export default function LinkPatientModal({
                   <span className="font-semibold">Confirming:</span> Link messages from{" "}
                   <span className="font-medium text-blue-900">{externalUserName}</span> to
                 </p>
-                <div className="flex items-center gap-2 mt-3">
+                <div className="flex-center-gap-sm mt-3">
                   <div className="w-10 h-10 rounded-full bg-slate-300 flex items-center justify-center text-slate-600 text-sm font-medium">
                     {selectedPatientData?.full_name?.[0]?.toUpperCase() || "?"}
                   </div>
@@ -163,7 +163,7 @@ export default function LinkPatientModal({
                     <p className="font-semibold text-slate-900">
                       {selectedPatientData?.full_name}
                     </p>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-muted-sm">
                       {selectedPatientData?.phone || "No phone"}
                     </p>
                   </div>
@@ -178,18 +178,18 @@ export default function LinkPatientModal({
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="button-group">
               <button
                 onClick={() => setConfirmStep(false)}
                 disabled={linking}
-                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition disabled:opacity-50"
+                className="flex-1 cancel-btn"
               >
                 Back
               </button>
               <button
                 onClick={handleConfirm}
                 disabled={linking}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                className="flex-1 modal-btn-primary"
               >
                 {linking ? "Linking..." : "Confirm & Link"}
               </button>

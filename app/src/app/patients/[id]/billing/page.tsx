@@ -594,11 +594,13 @@ export default function BillingPage() {
     <>
       {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
-      <div className="p-4">
-        <div className="grid gap-4">
+      <div className="patient-content">
+        <div className="patient-sections">
             {/* Billing Overview (MUST COME FIRST) */}
-            <div className="rounded-2xl border bg-white p-4">
-                <div className="text-sm font-semibold">Billing Overview</div>
+            <div className="info-box">
+              <div className="info-box-header">
+                <div className="info-box-title">Billing Overview</div>
+              </div>
 
                 <div className="mt-3 grid gap-4 sm:grid-cols-3">
                   <div className="rounded-lg border bg-blue-50 p-3">
@@ -623,11 +625,9 @@ export default function BillingPage() {
               </div>
 
               {/* Invoices */}
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <div>
-                    <div className="text-sm font-semibold">Invoices</div>
-                  </div>
+              <div className="info-box">
+                <div className="info-box-header">
+                  <div className="info-box-title">Invoices</div>
                   <button
                     className="h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white"
                     onClick={() => setShowCreateInvoice(true)}
@@ -722,11 +722,9 @@ export default function BillingPage() {
               </div>
 
               {/* Payments */}
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <div>
-                    <div className="text-sm font-semibold">Payments</div>
-                  </div>
+              <div className="info-box">
+                <div className="info-box-header">
+                  <div className="info-box-title">Payments</div>
                   <button className="h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white" onClick={() => setShowAddPayment(true)}>
                     Add payment
                   </button>

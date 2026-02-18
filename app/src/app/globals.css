@@ -225,6 +225,23 @@
   @apply inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors cursor-pointer whitespace-nowrap;
 }
 
+/* Table Column Width Utilities */
+.col-10 { width: 10%; }
+.col-11 { width: 11%; }
+.col-12 { width: 12%; }
+.col-13 { width: 13%; }
+.col-14 { width: 14%; }
+.col-15 { width: 15%; }
+.col-16 { width: 16%; }
+.col-17 { width: 17%; }
+.col-18 { width: 18%; }
+.col-20 { width: 20%; }
+.col-25 { width: 25%; }
+.col-30 { width: 30%; }
+.col-35 { width: 35%; }
+.col-40 { width: 40%; }
+.col-50 { width: 50%; }
+
 /* Old table classes (deprecated - map to data-table for backwards compatibility) */
 .table-shell {
   @apply overflow-hidden rounded-xl border border-slate-200 bg-white;
@@ -314,6 +331,10 @@
   @apply rounded-lg bg-red-600 text-white hover:bg-red-700 px-4 py-2 text-sm font-semibold disabled:opacity-60 transition-colors;
 }
 
+.btn-sm-delete {
+  @apply rounded-lg bg-red-500 text-white hover:bg-red-600 px-3 py-1 text-sm font-semibold disabled:opacity-50 opacity-60 transition-colors;
+}
+
 .cancel-btn {
   @apply rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 text-sm font-medium disabled:opacity-60 transition-colors;
 }
@@ -332,7 +353,7 @@
 }
 
 .modal-actions-right {
-  @apply flex gap-2 justify-end;
+  @apply flex gap-2;
 }
 
 /* Modal buttons */
@@ -406,4 +427,1796 @@
                               flex: 0 0 auto;
                                 white-space: nowrap;
                                 }
+
+/* ========================================
+   PAGE STRUCTURE - Unified wrappers
+   ======================================== */
+.page-wrapper {
+  @apply p-4;
+}
+
+.page-sections {
+  @apply space-y-6;
+}
+
+/* ========================================
+   PATIENT PAGES - Info Tab
+   ======================================== */
+
+/* Loading state */
+.loading-screen {
+  @apply min-h-screen flex items-center justify-center text-slate-600;
+}
+
+.loading-container {
+  @apply flex flex-col items-center gap-3;
+}
+
+.loading-icon {
+  @apply h-12 w-12;
+}
+
+.loading-text {
+  @apply text-sm;
+}
+
+.not-found-screen {
+  @apply min-h-screen p-6 text-red-600;
+}
+
+/* Error display */
+.error-banner {
+  @apply mb-4 rounded-lg border bg-white p-3 text-sm text-red-600;
+}
+
+/* Main content wrapper */
+.patient-content {
+  @apply p-4;
+}
+
+.patient-sections {
+  @apply grid gap-4;
+}
+
+/* Info boxes */
+.info-box {
+  @apply rounded-xl border bg-white p-4;
+}
+
+.info-box-muted {
+  @apply rounded-xl border bg-slate-50 p-4;
+}
+
+.info-box-header {
+  @apply flex items-center justify-between;
+}
+
+.info-box-title {
+  @apply text-sm font-semibold text-slate-800;
+}
+
+.info-box-grid {
+  @apply mt-4 grid gap-3 sm:grid-cols-2;
+}
+
+.info-box-grid-3 {
+  @apply mt-3 grid gap-3 sm:grid-cols-3;
+}
+
+/* Form field labels */
+.field-label {
+  @apply grid gap-1 text-sm;
+}
+
+.field-label-2col {
+  @apply grid gap-3 sm:grid-cols-2;
+}
+
+.field-label-text {
+  @apply text-slate-700;
+}
+
+/* Inputs */
+.field-input {
+  @apply h-10 rounded-lg border px-3;
+}
+
+.field-textarea {
+  @apply min-h-[88px] rounded-lg border px-3 py-2;
+}
+
+.field-input-readonly {
+  @apply rounded-lg border bg-slate-50 px-3 py-2;
+}
+
+.field-input-white {
+  @apply rounded-lg border bg-white px-3 py-2;
+}
+
+/* Buttons */
+.btn-primary-dark {
+  @apply rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white;
+}
+
+.btn-danger-lg {
+  @apply h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors;
+}
+
+.btn-secondary-outlined {
+  @apply h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-colors;
+}
+
+/* Modal footer */
+.modal-footer-spread {
+  @apply flex items-center justify-between gap-2 pt-4;
+}
+
+.modal-footer-buttons {
+  @apply flex gap-2;
+}
+
+.modal-footer-single {
+  @apply flex gap-2;
+}
+
+/* Gender selector */
+.gender-selector {
+  @apply h-10 rounded-lg border bg-white px-3 flex items-center gap-4;
+}
+
+.gender-option {
+  @apply inline-flex items-center gap-2;
+}
+
+/* Delete confirmation */
+.delete-warning {
+  @apply mt-4;
+}
+
+.delete-warning-title {
+  @apply text-red-700;
+}
+
+.delete-warning-hint {
+  @apply mt-1 text-xs text-slate-600;
+}
+
+.delete-warning-code {
+  @apply font-mono bg-slate-100 px-1 py-0.5 rounded;
+}
+
+.delete-warning-input {
+  @apply mt-2 w-full h-10 rounded-lg border px-3 text-sm;
+}
+
+/* Helper text */
+.helper-text-muted {
+  @apply mt-2 text-xs text-slate-500;
+}
+
+/* ========================================
+   PATIENT PAGES - Billing Tab
+   ======================================== */
+
+/* Modal overlay */
+.modal-overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4;
+}
+
+.modal-box {
+  @apply w-full max-w-md rounded-2xl border bg-white p-6;
+}
+
+/* Billing section box */
+.billing-section {
+  @apply rounded-2xl border bg-white p-4;
+}
+
+.billing-section-grid {
+  @apply mt-4 grid gap-4;
+}
+
+/* Stat cards */
+.stat-box {
+  @apply rounded-lg border bg-blue-50 p-3;
+}
+
+.stat-label {
+  @apply text-xs text-blue-600 font-medium;
+}
+
+.stat-value {
+  @apply text-sm font-semibold text-slate-800;
+}
+
+/* Text utilities */
+.text-hint-xs {
+  @apply text-xs text-slate-600;
+}
+
+.text-secondary-xs {
+  @apply text-xs text-slate-500;
+}
+
+.text-bold-lg {
+  @apply text-lg font-semibold;
+}
+
+.text-bold-sm {
+  @apply text-sm font-semibold;
+}
+
+.text-green-success {
+  @apply text-xs text-green-700 font-semibold;
+}
+
+.text-blue-info {
+  @apply font-semibold text-blue-700;
+}
+
+/* ========================================
+   DATA TABLES
+   ======================================== */
+
+.data-table {
+  @apply w-full;
+}
+
+.data-table-head {
+  @apply border-b bg-slate-50 text-slate-600 text-left text-sm;
+}
+
+.data-table-head-cell {
+  @apply px-3 py-2 text-sm font-semibold text-slate-700;
+}
+
+.data-table-head-cell-right {
+  @apply text-right px-3 py-2 text-sm font-semibold text-slate-700;
+}
+
+.data-table-row {
+  @apply border-b hover:bg-slate-50 transition-colors;
+}
+
+.data-table-row-even {
+  @apply bg-white;
+}
+
+.data-table-row-odd {
+  @apply bg-slate-50;
+}
+
+.data-table-cell {
+  @apply px-3 py-2 text-sm text-slate-700;
+}
+
+.data-table-cell-right {
+  @apply px-3 py-2 text-sm text-right text-slate-700;
+}
+
+.data-table-empty {
+  @apply px-3 py-4 text-center text-sm text-slate-500;
+}
+
+/* ========================================
+   BUTTONS - Action & State
+   ======================================== */
+
+.save-btn {
+  @apply h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors;
+}
+
+.cancel-btn {
+  @apply h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-colors;
+}
+
+.btn-sm-action {
+  @apply h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors;
+}
+
+.btn-badge-blue {
+  @apply text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors;
+}
+
+.btn-badge-yellow {
+  @apply text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors;
+}
+
+.btn-badge-red {
+  @apply text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors;
+}
+
+/* ========================================
+   FORM INPUTS - Billing
+   ======================================== */
+
+.input-sm {
+  @apply h-9 rounded-lg border bg-white px-2 text-sm;
+}
+
+.input-sm-flex {
+  @apply h-9 rounded-lg border bg-white px-2 text-sm flex-1;
+}
+
+.input-sm-width {
+  @apply h-9 rounded-lg border bg-white px-2 text-sm w-24;
+}
+
+/* ========================================
+   CONTAINERS - Sections & Boxes
+   ======================================== */
+
+.section-header {
+  @apply flex items-center justify-between gap-3 mb-4;
+}
+
+.section-label {
+  @apply text-sm font-semibold;
+}
+
+.discount-box {
+  @apply p-3 bg-red-50 rounded-lg border border-red-200;
+}
+
+.total-row {
+  @apply flex justify-between items-center pt-2 text-base font-bold;
+}
+
+.balance-info {
+  @apply text-xs bg-blue-50 border border-blue-200 rounded p-2;
+}
+
+.invoice-checkbox {
+  @apply flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer transition;
+}
+
+.invoice-checkbox-input {
+  @apply w-4 h-4 rounded;
+}
+
+.sticky-header {
+  @apply sticky top-0 border-b bg-white p-4;
+}
+
+.form-section {
+  @apply space-y-2 border rounded-lg bg-slate-50 p-3;
+}
+
+.form-grid {
+  @apply grid gap-2 text-sm;
+}
+
+.form-grid-2 {
+  @apply grid gap-2 sm:grid-cols-2;
+}
+
+/* Status & Info boxes */
+.info-error {
+  @apply rounded-lg bg-red-50 border border-red-200 p-2 text-xs text-red-700;
+}
+
+.info-warning {
+  @apply rounded-lg border-t pt-4;
+}
+
+.info-status {
+  @apply inline-block px-2 py-1 rounded-full text-xs font-semibold;
+}
+
+.status-verified {
+  @apply bg-green-100 text-green-800;
+}
+
+.status-pending {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.status-voided {
+  @apply bg-gray-100 text-gray-800 line-through opacity-60;
+}
+
+/* Payment reference display */
+.payment-ref {
+  @apply relative;
+}
+
+/* ========================================
+   TYPOGRAPHY - Billing Specific
+   ======================================== */
+
+.text-label {
+  @apply text-slate-700 font-medium;
+}
+
+.text-sm-capitalize {
+  @apply text-sm font-semibold capitalize;
+}
+
+.text-amount-green {
+  @apply text-sm text-green-700 font-semibold;
+}
+
+.text-amount-red {
+  @apply text-sm text-red-900;
+}
+
+.text-lg-blue {
+  @apply text-lg font-semibold text-blue-900;
+}
+
+.text-lg-green {
+  @apply text-lg font-semibold text-green-900;
+}
+
+.text-amount-total {
+  @apply text-lg font-bold;
+}
+
+/* ========================================
+   TREATMENTS & MODAL PAGES
+   ======================================== */
+
+/* Draft item cards */
+.draft-item {
+  @apply flex items-center justify-between rounded-lg bg-white p-2;
+}
+
+.draft-list-container {
+  @apply mt-3 rounded-xl border bg-slate-50 p-3;
+}
+
+.draft-list-title {
+  @apply text-sm font-semibold text-slate-700;
+}
+
+.draft-list-items {
+  @apply mt-2 space-y-2;
+}
+
+/* Treatment/Visit grids */
+.visit-date-row {
+  @apply mt-3 grid gap-3 sm:grid-cols-3;
+}
+
+.procedure-input-row {
+  @apply mt-3 grid gap-3 sm:grid-cols-4;
+}
+
+.treatment-item {
+  @apply rounded-lg bg-white p-3;
+}
+
+.treatment-item-bordered {
+  @apply rounded-lg border bg-slate-50 p-3 space-y-2;
+}
+
+.treatment-list-section {
+  @apply mt-3 space-y-4;
+}
+
+.visit-date-header {
+  @apply rounded-xl border bg-slate-50 p-4;
+}
+
+.visit-date-title {
+  @apply flex items-center justify-between mb-3;
+}
+
+.visit-date-label {
+  @apply text-sm font-semibold text-slate-800;
+}
+
+/* Treatment detail display */
+.treatment-detail-title {
+  @apply text-sm font-semibold;
+}
+
+.treatment-detail-tooth {
+  @apply text-sm font-semibold;
+}
+
+.treatment-detail-notes {
+  @apply text-xs text-slate-500;
+}
+
+/* Modal footer actions */
+.modal-actions {
+  @apply flex justify-end gap-2 pt-4;
+}
+
+.modal-actions-right {
+  @apply flex gap-2;
+}
+
+/* Delete button styling */
+.delete-btn {
+  @apply h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors;
+}
+
+.delete-modal-close-btn {
+  @apply text-red-600 hover:text-red-800 font-semibold h-6 w-6 rounded flex items-center justify-center hover:bg-red-50 transition-colors;
+}
+
+/* Form inputs */
+.input-inline-small {
+  @apply h-9 rounded-lg border bg-white px-2 text-sm;
+}
+
+.input-treatment-notes {
+  @apply w-full h-9 rounded-lg border bg-white px-2 text-sm;
+}
+
+/* Add/Remove buttons */
+.btn-add {
+  @apply h-10 rounded-lg border bg-white px-3 text-sm font-semibold disabled:opacity-60;
+}
+
+.btn-remove {
+  @apply rounded border bg-white px-2 py-1 text-sm;
+}
+
+.btn-remove-inline {
+  @apply rounded border bg-white px-2 py-1 text-sm font-semibold text-slate-700;
+}
+
+/* Edit Visit button styling */
+.btn-edit-visit {
+  @apply inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors cursor-pointer whitespace-nowrap;
+}
+
+/* Treatment container items */
+.treatment-item-flex {
+  @apply grid gap-1 flex-1 text-sm;
+}
+
+.treatment-item-flex-start {
+  @apply flex items-start justify-between gap-2;
+}
+
+/* Form spacing */
+.form-action-row {
+  @apply flex items-end;
+}
+
+.form-full-width {
+  @apply grid gap-1;
+}
+
+.form-label-readonly {
+  @apply h-10 rounded-lg border bg-white px-3 text-sm;
+}
+
+/* Delete confirmation section */
+.delete-confirmation {
+  @apply mt-4;
+}
+
+/* Treatment section titles */
+.treatment-section-title {
+  @apply text-sm font-medium text-slate-700;
+}
+
+/* ========================================
+   CHART & SPECIALIZED PAGES
+   ======================================== */
+
+/* Modal for charts */
+.chart-modal-overlay {
+  @apply fixed inset-0 flex items-center justify-center bg-black/50 z-50;
+}
+
+.chart-modal-box {
+  @apply bg-white rounded-xl shadow-lg w-full max-w-md mx-4 p-6;
+}
+
+/* Tooth chart specific */
+.tooth-chart-container {
+  @apply rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 px-4 py-2 transition-colors;
+}
+
+.tooth-status-button {
+  @apply rounded-lg bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 px-3 py-2 transition-colors;
+}
+
+.tooth-status-cancel {
+  @apply rounded-lg bg-slate-200 text-sm font-medium text-slate-800 hover:bg-slate-300 px-4 py-2 transition-colors;
+}
+
+.tooth-notes-input {
+  @apply w-full h-8 rounded-lg border px-3 text-sm mb-2;
+}
+
+.tooth-status-label {
+  @apply text-xs font-semibold text-slate-600 uppercase mb-2;
+}
+
+.tooth-note-label {
+  @apply text-sm font-medium text-slate-700 mb-1;
+}
+
+.tooth-note-input {
+  @apply min-h-[72px] rounded-lg border px-2 py-1 text-sm;
+}
+
+/* List controls */
+.list-control-wrapper {
+  @apply overflow-y-auto max-h-96 rounded-lg border bg-white;
+}
+
+.list-control-item {
+  @apply p-3 text-center text-sm text-slate-500;
+}
+
+.list-actions {
+  @apply mt-2 flex flex-wrap gap-2;
+}
+
+/* Form input variants */
+.input-readonly-bg {
+  @apply h-10 rounded-lg border px-3 bg-slate-50;
+}
+
+.input-status-select {
+  @apply h-8 rounded-lg border px-2 text-sm;
+}
+
+/* Button variants */
+.btn-primary-action {
+  @apply rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60;
+}
+
+.btn-secondary-slate {
+  @apply px-3 py-2 rounded-lg bg-slate-50 text-sm text-slate-600;
+}
+
+/* Section dividers and layouts */
+.section-divider {
+  @apply mt-4 border-t pt-3;
+}
+
+.section-grid-2 {
+  @apply mt-4 grid grid-cols-2 gap-4;
+}
+
+.section-flex-actions {
+  @apply mt-3 flex justify-center;
+}
+
+/* Typography and text helpers */
+.text-mono-semibold {
+  @apply font-mono font-semibold;
+}
+
+.text-lg-semibold-mb {
+  @apply text-lg font-semibold mb-4;
+}
+
+.text-sm-uppercase {
+  @apply text-xs font-semibold text-slate-700;
+}
+
+.text-slate-600-uppercase {
+  @apply text-xs font-semibold text-slate-600 uppercase;
+}
+
+/* Container layouts */
+.container-overflow-x {
+  @apply mt-3 overflow-x-auto;
+}
+
+.container-flex-actions {
+  @apply flex gap-2;
+}
+
+.container-flex-between {
+  @apply flex items-center justify-between gap-2 mt-4;
+}
+
+.container-flex-start {
+  @apply flex items-center justify-start;
+}
+
+/* Data table cell variants */
+.data-table-cell-text-xs {
+  @apply px-3 py-2 text-xs text-slate-700;
+}
+
+.data-table-cell-truncate {
+  @apply px-3 py-2 text-sm text-slate-700 truncate;
+}
+
+/* Error/info boxes */
+.error-box-sm {
+  @apply mb-3 rounded-lg border bg-red-50 p-3 text-sm text-red-600;
+}
+
+/* Attachments & documents specific */
+.file-upload-wrapper {
+  @apply mt-3;
+}
+
+.file-upload-label {
+  @apply text-sm font-medium text-slate-700 mb-1;
+}
+
+.file-item-row {
+  @apply flex items-center justify-between gap-2 mt-4;
+}
+
+.file-action-cell {
+  @apply flex gap-2;
+}
+
+/* Chart section styling */
+.chart-section {
+  @apply mt-4 rounded-xl border bg-white p-4;
+}
+
+.chart-section-header {
+  @apply mt-2 text-left text-sm text-slate-700;
+}
+
+.chart-info-text {
+  @apply text-sm text-slate-600;
+}
+
+.divide-y {
+  @apply divide-y;
+}
+
+/* ========================================
+   TOP NAVIGATION
+   ======================================== */
+
+.topnav-wrapper {
+  @apply sticky top-0 z-50 border-b bg-white shadow-sm;
+}
+
+.topnav-container {
+  @apply mx-auto max-w-7xl px-4 py-3 sm:px-6;
+}
+
+.topnav-inner {
+  @apply flex items-center justify-between gap-4;
+}
+
+.topnav-logo {
+  @apply text-sm font-bold text-slate-900 hover:text-slate-700 transition-colors;
+}
+
+.topnav-links {
+  @apply flex items-center gap-2;
+}
+
+.topnav-link {
+  @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors;
+}
+
+.topnav-link-inactive {
+  @apply bg-slate-100 text-slate-700 hover:bg-slate-200;
+}
+
+.topnav-link-active {
+  @apply bg-blue-100 text-blue-700;
+}
+
+.topnav-button-signout {
+  @apply px-4 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 transition-colors disabled:opacity-60;
+}
+
+/* ========================================
+   STANDARDIZED LAYOUT CONTAINERS
+   ======================================== */
+
+/* Main info box container */
+.info-box {
+  @apply rounded-xl border bg-white p-4;
+}
+
+/* Info box grid layout - 2 columns on sm */
+.info-box-grid {
+  @apply grid gap-3 sm:grid-cols-2;
+}
+
+/* Spacing container for metric/stat cards */
+.stat-cards-grid {
+  @apply mt-3 grid gap-4 sm:grid-cols-3;
+}
+
+/* Stat card variants */
+.stat-card-blue {
+  @apply rounded-lg border bg-blue-50 p-3;
+}
+
+.stat-card-green {
+  @apply rounded-lg border bg-green-50 p-3;
+}
+
+.stat-card-red {
+  @apply rounded-lg border bg-red-50 p-3;
+}
+
+.stat-card-gray {
+  @apply rounded-lg border bg-gray-50 p-3;
+}
+
+/* Modal container base */
+.modal-container {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4;
+}
+
+.modal-box-base {
+  @apply w-full rounded-2xl border bg-white p-6;
+}
+
+.modal-box-md {
+  @apply max-w-md;
+}
+
+.modal-box-2xl {
+  @apply max-w-2xl;
+}
+
+/* Scrollable modal */
+.modal-scrollable {
+  @apply max-h-screen overflow-y-auto;
+}
+
+/* Grid layouts */
+.grid-gap-3 {
+  @apply grid gap-3;
+}
+
+.grid-gap-3-sm-2col {
+  @apply grid gap-3 sm:grid-cols-2;
+}
+
+.grid-gap-3-sm-3col {
+  @apply grid gap-3 sm:grid-cols-3;
+}
+
+.grid-gap-3-sm-4col {
+  @apply grid gap-3 sm:grid-cols-4;
+}
+
+.grid-gap-4 {
+  @apply grid gap-4;
+}
+
+.grid-gap-4-md-2col {
+  @apply grid gap-4 md:grid-cols-2;
+}
+
+.grid-gap-4-md-3col {
+  @apply grid gap-4 md:grid-cols-3;
+}
+
+.grid-gap-4-md-4col {
+  @apply grid gap-4 md:grid-cols-4;
+}
+
+.grid-gap-1 {
+  @apply grid gap-1;
+}
+
+.grid-gap-2 {
+  @apply grid gap-2 sm:grid-cols-2;
+}
+
+/* Flex layouts */
+.flex-between-gap-2 {
+  @apply flex items-center justify-between gap-2;
+}
+
+.flex-between-gap-3 {
+  @apply flex items-center justify-between gap-3;
+}
+
+.flex-between-gap-4 {
+  @apply flex items-center justify-between gap-4;
+}
+
+.flex-start-gap-2 {
+  @apply flex items-start gap-2;
+}
+
+.flex-start-gap-3 {
+  @apply flex items-start justify-between gap-3;
+}
+
+.flex-center-gap-2 {
+  @apply flex items-center gap-2;
+}
+
+.flex-center-gap-3 {
+  @apply flex items-center gap-3;
+}
+
+.flex-col-gap-3 {
+  @apply flex flex-col gap-3;
+}
+
+.flex-col-center {
+  @apply flex flex-col items-center;
+}
+
+.flex-col-sm-row {
+  @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.flex-col-md-row {
+  @apply flex flex-col gap-3 md:flex-row md:items-center;
+}
+
+.flex-row-md-col {
+  @apply flex gap-3 md:flex-col;
+}
+
+.flex-wrap-gap {
+  @apply flex flex-wrap gap-2;
+}
+
+.flex-center-gap-sm {
+  @apply flex items-center gap-1;
+}
+
+.flex-between-items-start {
+  @apply flex items-start justify-between;
+}
+
+.text-label-block {
+  @apply block text-slate-700 font-medium;
+}
+
+/* Overflow and scroll containers */
+.overflow-x-auto-container {
+  @apply overflow-x-auto;
+}
+
+.mt-3-overflow {
+  @apply mt-3 overflow-x-auto;
+}
+
+.mt-3-grid-gap-3-sm-3col {
+  @apply mt-3 grid gap-3 sm:grid-cols-3;
+}
+
+.mt-3-grid-gap-3-sm-2col {
+  @apply mt-3 grid gap-3 sm:grid-cols-2;
+}
+
+.mt-4-grid-gap-4 {
+  @apply mt-4 grid gap-4;
+}
+
+.mt-4-rounded-xl-border-white {
+  @apply mt-4 rounded-xl border bg-white p-4;
+}
+
+/* Rounded border bg-white combinations */
+.rounded-xl-border-white-p-3 {
+  @apply rounded-xl border bg-white p-3;
+}
+
+.rounded-xl-border-white-p-4 {
+  @apply rounded-xl border bg-white p-4;
+}
+
+.rounded-2xl-border-white-p-4 {
+  @apply rounded-2xl border bg-white p-4;
+}
+
+.rounded-2xl-border-white-p-6 {
+  @apply rounded-2xl border bg-white p-6;
+}
+
+.rounded-lg-border-slate-50-p-3 {
+  @apply rounded-lg border bg-slate-50 p-3;
+}
+
+.rounded-lg-border-slate-50-p-4 {
+  @apply rounded-lg border bg-slate-50 p-4;
+}
+
+.rounded-lg-border-red-50-p-3 {
+  @apply rounded-lg border bg-red-50 p-3 text-sm text-red-600;
+}
+
+.rounded-lg-border-blue-50-p-3 {
+  @apply rounded-lg border bg-blue-50 p-3;
+}
+
+.rounded-lg-border-green-50-p-3 {
+  @apply rounded-lg border bg-green-50 p-3;
+}
+
+/* Form label sizing */
+.field-label-grid-gap-1 {
+  @apply grid gap-1 text-sm;
+}
+
+/* Input styling variants */
+.input-h10-rounded {
+  @apply h-10 rounded-lg border bg-white px-3;
+}
+
+.input-h10-rounded-select {
+  @apply h-10 rounded-lg border bg-white px-3 text-sm;
+}
+
+.input-h9-flex-1 {
+  @apply h-9 rounded-lg border bg-white px-2 text-sm flex-1;
+}
+
+.input-h9-w-24 {
+  @apply h-9 rounded-lg border bg-white px-2 text-sm w-24;
+}
+
+.input-h9-w-40 {
+  @apply h-9 w-40 rounded-lg border bg-white px-2 text-sm;
+}
+
+.input-readonly-slate-bg {
+  @apply h-10 rounded-lg border px-3 bg-slate-50;
+}
+
+.textarea-standard {
+  @apply rounded-lg border bg-white px-3 py-2 text-sm;
+}
+
+/* List and collection items */
+.list-item-rounded-flex {
+  @apply flex items-center justify-between rounded-lg bg-white p-2;
+}
+
+.list-item-flex-slate-50 {
+  @apply flex items-center justify-between p-2 bg-slate-50 rounded;
+}
+
+.list-item-mb-2-flex {
+  @apply flex items-center justify-between mb-2;
+}
+
+.list-item-pt-2-border-t {
+  @apply flex justify-between items-center pt-2 text-base font-bold;
+}
+
+/* Error messages */
+.error-message-red {
+  @apply mb-3 rounded-lg border bg-red-50 p-3 text-sm text-red-600;
+}
+
+/* Text styling */
+.text-label-xs {
+  @apply text-xs text-blue-600 font-medium;
+}
+
+.text-value-sm-bold {
+  @apply text-sm font-semibold text-slate-800;
+}
+
+/* Spacing helpers */
+.mt-3 {
+  @apply mt-3;
+}
+
+.mt-4 {
+  @apply mt-4;
+}
+
+.mb-4 {
+  @apply mb-4;
+}
+
+.mb-3 {
+  @apply mb-3;
+}
+
+.mb-2 {
+  @apply mb-2;
+}
+
+.pb-2 {
+  @apply pb-2;
+}
+
+.pt-2 {
+  @apply pt-2;
+}
+
+.pt-4 {
+  @apply pt-4;
+}
+
+/* ========================================
+   BADGE & STATUS COMPONENTS
+   ======================================== */
+
+/* Status badge - generic inline pill-style */
+.status-badge-base {
+  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold;
+}
+
+.status-badge-green {
+  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-green-100 text-green-800;
+}
+
+.status-badge-yellow {
+  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800;
+}
+
+.status-badge-red {
+  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-red-100 text-red-800;
+}
+
+.status-badge-gray {
+  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800;
+}
+
+.status-badge-blue {
+  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700;
+}
+
+.status-badge-voided {
+  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800 line-through opacity-60;
+}
+
+/* ========================================
+   GRID VARIANTS (Direct replacements)
+   ======================================== */
+
+/* Grid with gap-4 and responsive columns */
+.grid-gap-4-cols-2 {
+  @apply grid gap-4 grid-cols-2;
+}
+
+.grid-gap-4-cols-3 {
+  @apply grid gap-4 grid-cols-3;
+}
+
+.grid-gap-4-cols-4 {
+  @apply grid gap-4 grid-cols-4;
+}
+
+.grid-gap-4-cols-5 {
+  @apply grid gap-4 grid-cols-5;
+}
+
+/* Responsive grids sm:col-span */
+.col-span-2 {
+  @apply sm:col-span-2;
+}
+
+.col-span-3 {
+  @apply sm:col-span-3;
+}
+
+.col-span-4 {
+  @apply sm:col-span-4;
+}
+
+/* ========================================
+   FLEX VARIANTS (Inline-flex patterns)
+   ======================================== */
+
+.inline-flex-items-center-gap-2 {
+  @apply inline-flex items-center gap-2;
+}
+
+.inline-flex-items-center-gap-3 {
+  @apply inline-flex items-center gap-3;
+}
+
+.inline-flex-items-center-gap-4 {
+  @apply inline-flex items-center gap-4;
+}
+
+.flex-items-center-justify-start {
+  @apply flex items-center justify-start;
+}
+
+/* ========================================
+   FORM FIELD STYLING
+   ======================================== */
+
+/* Form field wrapper - commonly repeated */
+.form-field-wrapper {
+  @apply grid gap-1 text-sm;
+}
+
+/* Form field with label */
+.form-field-labeled {
+  @apply grid gap-1 text-sm;
+}
+
+/* ========================================
+   ACTION BUTTON ROWS
+   ======================================== */
+
+/* Flex row with items aligned at end */
+.flex-items-end-gap-2 {
+  @apply flex items-end gap-2;
+}
+
+.flex-items-end-gap-3 {
+  @apply flex items-end gap-3;
+}
+
+/* ========================================
+   TEXT STYLING HELPERS
+   ======================================== */
+
+.text-sm-semibold {
+  @apply text-sm font-semibold;
+}
+
+.text-lg-semibold {
+  @apply text-lg font-semibold;
+}
+
+.text-sm-semibold-slate-700 {
+  @apply text-sm font-semibold text-slate-700;
+}
+
+.text-xs-slate-500 {
+  @apply text-xs text-slate-500;
+}
+
+.text-xs-slate-600 {
+  @apply text-xs text-slate-600;
+}
+
+.text-lg-semibold-blue-900 {
+  @apply text-lg font-semibold text-blue-900;
+}
+
+.text-lg-semibold-green-900 {
+  @apply text-lg font-semibold text-green-900;
+}
+
+/* ========================================
+   INFO BOX VARIANTS
+   ======================================== */
+
+/* Info box with specific styling */
+.info-box-white {
+  @apply rounded-xl border bg-white p-4;
+}
+
+.info-box-slate-50 {
+  @apply rounded-xl border bg-slate-50 p-4;
+}
+
+/* Helper text styling */
+.helper-text-muted-mt-4 {
+  @apply mt-4 text-xs text-slate-500;
+}
+
+/* ========================================
+   PRIMARY BUTTON STYLES
+   ======================================== */
+
+.btn-primary {
+  @apply h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60;
+}
+
+/* ========================================
+   INPUT & FORM FIELD STYLES
+   ======================================== */
+
+.input-standard {
+  @apply h-10 rounded-lg border px-3 bg-white text-sm;
+}
+
+.input-standard-sm {
+  @apply h-9 rounded-lg border px-2 bg-white text-sm;
+}
+
+.input-standard-white {
+  @apply h-10 rounded-lg border bg-white px-3 text-sm;
+}
+
+.textarea-standard {
+  @apply min-h-[88px] rounded-lg border px-3 py-2 bg-white text-sm;
+}
+
+/* ========================================
+   TEXT & TYPOGRAPHY PATTERNS
+   ======================================== */
+
+.text-xs-semibold-slate-600-uppercase {
+  @apply text-xs font-semibold text-slate-600 uppercase mb-2;
+}
+
+.text-sm-medium-slate-700 {
+  @apply text-sm font-medium text-slate-700;
+}
+
+.text-sm-medium-slate-700-mb-1 {
+  @apply text-sm font-medium text-slate-700 mb-1;
+}
+
+.text-xs-semibold-slate-700 {
+  @apply text-xs font-semibold text-slate-700;
+}
+
+.text-medium-slate-700 {
+  @apply font-medium text-slate-700;
+}
+
+.text-semibold-slate-700 {
+  @apply font-semibold text-slate-700;
+}
+
+/* ========================================
+   LAYOUT & CONTAINER PATTERNS
+   ======================================== */
+
+.container-input-slate-50 {
+  @apply px-3 py-2 rounded-lg bg-slate-50 text-sm text-slate-600;
+}
+
+.container-center-sm-slate-500 {
+  @apply p-3 text-center text-sm text-slate-500;
+}
+
+.flex-wrap-gap-2-mt-2 {
+  @apply mt-2 flex flex-wrap gap-2;
+}
+
+.space-y-2-mt-2 {
+  @apply mt-2 space-y-2;
+}
+
+.error-box-sm {
+  @apply mb-4 rounded-lg border bg-white p-3 text-sm text-red-600;
+}
+
+.container-slate-50 {
+  @apply p-3 bg-slate-50 rounded-lg text-slate-600;
+}
+
+.header-sticky {
+  @apply sticky top-0 border-b bg-white p-4;
+}
+
+/* ========================================
+   BADGE STYLES
+   ======================================== */
+
+.badge-info-blue {
+  @apply inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700;
+}
+
+/* ========================================
+   SECONDARY BUTTON STYLES (DARK)
+   ======================================== */
+
+.btn-secondary-dark {
+  @apply h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60;
+}
+
+.btn-secondary-light {
+  @apply h-10 rounded-lg border bg-white px-3 text-sm font-semibold disabled:opacity-60;
+}
+
+/* ========================================
+   ACTION BUTTON STYLES (COLORED BACKGROUNDS)
+   ======================================== */
+
+.btn-action-blue {
+  @apply rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 px-4 py-2 transition-colors;
+}
+
+.btn-action-red {
+  @apply rounded-lg bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 px-3 py-2 transition-colors;
+}
+
+.btn-action-blue-sm {
+  @apply flex-1 rounded-lg bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200;
+}
+
+.btn-action-red-sm {
+  @apply flex-1 rounded-lg bg-red-100 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-200;
+}
+
+/* ========================================
+   ADDITIONAL TEXT STYLES
+   ======================================== */
+
+.text-sm-text-slate-500 {
+  @apply text-sm text-slate-500;
+}
+
+.text-sm-text-slate-700-mb-2 {
+  @apply text-sm text-slate-700 mb-2;
+}
+
+.text-xs-text-slate-600 {
+  @apply text-xs text-slate-600;
+}
+
+.text-base-font-bold {
+  @apply text-base font-bold;
+}
+
+/* ========================================
+   FLEX LAYOUT COMBINATIONS
+   ======================================== */
+
+.flex-items-center-gap-2 {
+  @apply flex items-center gap-2;
+}
+
+.flex-items-center-gap-3 {
+  @apply flex items-center gap-3;
+}
+
+.flex-items-center-justify-between {
+  @apply flex items-center justify-between;
+}
+
+.flex-items-center-justify-end {
+  @apply flex items-center justify-end;
+}
+
+.flex-items-start-justify-between {
+  @apply flex items-start justify-between;
+}
+
+.flex-justify-between {
+  @apply flex justify-between;
+}
+
+.flex-justify-end {
+  @apply flex justify-end;
+}
+
+.flex-gap-1 {
+  @apply flex gap-1;
+}
+
+.flex-gap-2 {
+  @apply flex gap-2;
+}
+
+.flex-gap-3 {
+  @apply flex gap-3;
+}
+
+.flex-wrap-gap-3 {
+  @apply flex flex-wrap gap-3;
+}
+
+.flex-wrap-items-center-justify-between {
+  @apply flex flex-wrap items-center justify-between gap-3;
+}
+
+/* ========================================
+   GRID LAYOUT COMBINATIONS
+   ======================================== */
+
+.grid-gap-4 {
+  @apply grid gap-4;
+}
+
+.grid-gap-3 {
+  @apply grid gap-3;
+}
+
+.grid-gap-1 {
+  @apply grid gap-1;
+}
+
+.grid-gap-2 {
+  @apply grid gap-2;
+}
+
+.grid-cols-2-gap-2 {
+  @apply grid grid-cols-2 gap-2;
+}
+
+.grid-cols-2-gap-4 {
+  @apply grid grid-cols-2 gap-4;
+}
+
+.grid-gap-3-text-sm {
+  @apply grid gap-3 text-sm;
+}
+
+.grid-gap-1-flex-1 {
+  @apply grid gap-1 flex-1 text-sm;
+}
+
+/* ========================================
+   CONTAINER STYLING COMBINATIONS
+   ======================================== */
+
+.container-bg-white-rounded-shadow {
+  @apply bg-white rounded-xl shadow-lg w-full max-w-md mx-4 p-6;
+}
+
+.container-slate-50-rounded-p-3 {
+  @apply rounded-lg bg-slate-50 p-3 grid grid-cols-2 gap-2;
+}
+
+.container-red-50-border-red {
+  @apply mb-4 p-3 bg-red-50 border border-red-200 rounded-lg;
+}
+
+.container-rounded-border-white {
+  @apply mt-3 rounded-xl border bg-white p-3;
+}
+
+/* ========================================
+   FORM INPUT WITH TEXT
+   ======================================== */
+
+.input-sm-text-sm {
+  @apply h-8 rounded-lg border px-2 text-sm;
+}
+
+.input-bordered-sm {
+  @apply rounded border bg-white px-2 py-1 text-sm;
+}
+
+.textarea-sm {
+  @apply min-h-[72px] rounded-lg border px-2 py-1 text-sm;
+}
+
+/* ========================================
+   OVERFLOW & SCROLLING
+   ======================================== */
+
+.overflow-scroll-bordered {
+  @apply overflow-y-auto max-h-96 rounded-lg border bg-white;
+}
+
+/* ========================================
+   TEXT ALIGNMENT & SPACING
+   ======================================== */
+
+.text-left-mt-2-sm-slate-700 {
+  @apply mt-2 text-left text-sm text-slate-700;
+}
+
+.flex-center-text-sm {
+  @apply mt-3 flex justify-center;
+}
+
+/* ========================================
+   BORDER & SEPARATOR STYLES
+   ======================================== */
+
+.border-b-border-t-pt-2-text-sm-semibold {
+  @apply flex items-center justify-between text-sm font-semibold border-t pt-2;
+}
+
+.border-b-pb-2-flex-between {
+  @apply flex justify-between items-center pb-2 border-b;
+}
+
+.text-left-bg-slate-50 {
+  @apply border-b text-left text-slate-600 bg-slate-50;
+}
+
+/* ========================================
+   HIGH-FREQUENCY PATTERN CONSOLIDATION
+   ======================================== */
+
+/* Form labels and fields - appearing 5+ times each */
+.form-label-wrapper {
+  @apply grid gap-1 text-sm;
+}
+
+.form-label-text {
+  @apply text-sm text-slate-700;
+}
+
+.form-label-text-medium {
+  @apply text-sm font-medium text-slate-700;
+}
+
+.form-label-xs-medium {
+  @apply text-xs font-medium text-slate-700;
+}
+
+/* Input fields - appearing 7+ times as inline */
+.input-h10-border-white {
+  @apply h-10 rounded-lg border bg-white px-3 text-sm;
+}
+
+.input-h10-border-white-semibold {
+  @apply h-10 rounded-lg border bg-white px-3 text-sm font-semibold disabled:opacity-60;
+}
+
+.input-px-py-standard {
+  @apply py-2 px-3;
+}
+
+.input-px-py-standard-right {
+  @apply py-2 px-3 text-right;
+}
+
+/* Text color - appearing 16+ times */
+.text-slate-700-base {
+  @apply text-slate-700;
+}
+
+.text-slate-700-medium {
+  @apply text-slate-700 font-medium;
+}
+
+.text-slate-600-base {
+  @apply text-slate-600;
+}
+
+.text-xs-slate-500-base {
+  @apply text-xs text-slate-500;
+}
+
+.text-sm-medium-slate-700-base {
+  @apply text-sm font-medium text-slate-700;
+}
+
+/* Spacing and layout - appearing 3-5 times each */
+.space-y-2-mt-2 {
+  @apply space-y-2 mt-2;
+}
+
+.space-y-3-base {
+  @apply space-y-3;
+}
+
+.space-y-4-base {
+  @apply space-y-4;
+}
+
+.mt-3-grid-gap-3-sm-2col {
+  @apply mt-3 grid gap-3 sm:grid-cols-2;
+}
+
+.mt-3-grid-gap-3-sm-3col {
+  @apply mt-3 grid gap-3 sm:grid-cols-3;
+}
+
+.mt-4-grid-gap-4 {
+  @apply mt-4 grid gap-4;
+}
+
+.grid-gap-1-text-sm {
+  @apply grid gap-1 text-sm;
+}
+
+/* Button and action layouts - appearing 3+ times each */
+.flex-justify-end-gap-2 {
+  @apply flex justify-end gap-2;
+}
+
+.flex-between-gap-2-mt-4 {
+  @apply flex justify-between gap-2 mt-4;
+}
+
+.flex-between-gap-3-mb-4 {
+  @apply flex justify-between gap-3 mb-4;
+}
+
+/* Data table cells - appearing 3+ times combined - composed as combination */
+.data-table-cell-text-sm {
+  @apply text-sm;
+  @apply p-2 text-slate-700;
+}
+
+.data-table-btn-text-xs {
+  @apply text-xs;
+  @apply px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer transition;
+}
+
+/* Confirmation and status styling */
+.delete-confirmation-title-red {
+  @apply text-sm font-semibold text-red-700 mb-2;
+}
+
+/* Grid column combinations - appearing multiple times */
+.grid-gap-4-base {
+  @apply grid gap-4;
+}
+
+/* Additional combined patterns from comprehensive scan */
+.rounded-lg-border-p-3 {
+  @apply rounded-lg border p-3;
+}
+
+.text-slate-700-xs-semibold {
+  @apply text-slate-700 text-xs font-semibold;
+}
+
+.badge-xs-semibold-rounded-full {
+  @apply inline-block px-2 py-1 rounded-full text-xs font-semibold;
+}
+
+/* ========================================
+   COMPOSITE NESTING PATTERNS (Container + Header + Title)
+   ======================================== */
+
+/* Section container with header row and title */
+.section-container-with-header {
+  @apply rounded-2xl border border-white bg-white p-4;
+}
+
+.section-header-row {
+  @apply flex justify-between gap-3 mb-4;
+}
+
+.section-title-wrapper {
+  @apply flex items-start;
+}
+
+.section-title-text {
+  @apply text-sm font-semibold;
+}
+
+/* ========================================
+   ADDITIONAL RAW PATTERNS FOUND (appearing 2+ times)
+   ======================================== */
+
+/* Text styling combinations */
+.text-sm-semibold-mb-3 {
+  @apply text-sm font-semibold mb-3;
+}
+
+.flex-between-text-sm-mb-2 {
+  @apply flex items-center justify-between text-sm mb-2;
+}
+
+/* Textarea/Input field styling */
+.textarea-rounded-border-white {
+  @apply rounded-lg border bg-white px-3 py-2 text-sm;
+}
+
+.input-h10-rounded-border-white {
+  @apply h-10 rounded-lg border bg-white px-3 py-2 text-sm;
+}
+
+/* Select/sort dropdown styling */
+.select-h9-w40-rounded-border-white {
+  @apply h-9 w-40 rounded-lg border bg-white px-2 text-sm;
+}
+
+
+
+/* Form label text styling */
+.form-label-text-slate-700-semibold {
+  @apply text-slate-700 font-semibold;
+}
+
+/* Text styling for paid amounts */
+.text-green-700-semibold {
+  @apply text-green-700 font-semibold;
+}
+
+/* Responsive grid with 2 cols on small screens */
+.responsive-grid-cols-2 {
+  @apply sm:grid-cols-2;
+}
+
+/* Table header row styling */
+.table-header-left-bg-slate-50 {
+  @apply text-left bg-slate-50;
+}
+
+/* Full width table styling */
+.table-full-width-text-sm {
+  @apply w-full text-sm;
+}
+
+/* Section divider with top border and padding */
+.section-divider-border-t-pt-4 {
+  @apply border-t pt-4;
+}
+
+/* Flex justify end with gap */
+.flex-items-center-justify-end-gap-2 {
+  @apply flex items-center justify-end gap-2;
+}
 

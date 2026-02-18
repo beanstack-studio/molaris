@@ -20,6 +20,7 @@ export default function TreatmentsPage() {
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [serviceMenu, setServiceMenu] = useState<ServicePriceRow[]>([]);
+  const [invoicedDates, setInvoicedDates] = useState<Set<string>>(new Set());
 
   const [visitDate, setVisitDate] = useState(() => todayLocalISO());
   const [visitDentistId, setVisitDentistId] = useState<string>("");
@@ -33,8 +34,12 @@ export default function TreatmentsPage() {
   const [editingVisitDate, setEditingVisitDate] = useState<string | null>(null);
   const [editingVisitDentistId, setEditingVisitDentistId] = useState<string>("");
   const [editingTreatmentNotes, setEditingTreatmentNotes] = useState<Record<string, string>>({});
-  const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(null);
+  const [editingTreatmentTooth, setEditingTreatmentTooth] = useState<Record<string, string>>({});
+  const [editingTreatmentProcedure, setEditingTreatmentProcedure] = useState<Record<string, string>>({});
+  const [editingTreatmentServiceId, setEditingTreatmentServiceId] = useState<Record<string, string>>({});
+  const [newTreatmentsToAdd, setNewTreatmentsToAdd] = useState<DraftLine[]>([]);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [treatmentSort, setTreatmentSort] = useState<"DATE_DESC" | "DATE_ASC">("DATE_DESC");
 
   const dentistNameById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -59,13 +64,21 @@ export default function TreatmentsPage() {
     }
     for (const k of Object.keys(acc)) {
       acc[k] = acc[k].slice().sort((a, b) => {
+        // Sort by tooth number first (ascending), then by creation time (newest first)
+        const toothA = a.tooth_number ?? 999;
+        const toothB = b.tooth_number ?? 999;
+        if (toothA !== toothB) return toothA - toothB;
         const aa = a.created_at ? new Date(a.created_at).getTime() : 0;
         const bb = b.created_at ? new Date(b.created_at).getTime() : 0;
         return bb - aa;
       });
     }
-    return Object.entries(acc).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [treatments]);
+    const list = Object.entries(acc);
+    if (treatmentSort === "DATE_ASC") {
+      return list.sort((a, b) => (a[0] > b[0] ? 1 : -1));
+    }
+    return list.sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [treatments, treatmentSort]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -120,6 +133,19 @@ export default function TreatmentsPage() {
       .order("treatment_date", { ascending: false })
       .order("created_at", { ascending: false });
     setTreatments(!t.error && t.data ? (t.data as Treatment[]) : []);
+
+    // Load invoices to track which dates are invoiced
+    const inv = await supabase
+      .from("invoices")
+      .select("invoice_date")
+      .eq("patient_id", id);
+    const invoicedDateSet = new Set<string>();
+    if (!inv.error && inv.data) {
+      inv.data.forEach((record: any) => {
+        if (record.invoice_date) invoicedDateSet.add(record.invoice_date);
+      });
+    }
+    setInvoicedDates(invoicedDateSet);
 
     setLoading(false);
   }, [id]);
@@ -204,10 +230,10 @@ export default function TreatmentsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        <div className="flex flex-col items-center gap-3">
-          <img src="/loading.gif" alt="Loading" className="h-12 w-12" />
-          <div className="text-sm">Loading…</div>
+      <div className="loading-screen">
+        <div className="loading-container">
+          <img src="/loading.gif" alt="Loading" className="loading-icon" />
+          <div className="loading-text">Loading…</div>
         </div>
       </div>
     );
@@ -215,28 +241,28 @@ export default function TreatmentsPage() {
 
   return (
     <>
-      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
-
-      <div className="p-4">
-        <div className="grid gap-4">
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="text-sm font-semibold">Add treatment</div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Visit date</span>
+      {err ? <div className="error-banner">{err}</div> : null}
+      <div className="patient-content">
+        <div className="patient-sections">
+          <div className="info-box">
+            <div className="info-box-header">
+              <div className="info-box-title">Add treatment</div>
+              </div>
+                <div className="mt-3-grid-gap-3-sm-3col">
+                  <label className="form-field-wrapper">
+                    <span className="text-slate-700-base">Visit date</span>
                     <input
                       type="date"
-                      className="h-10 rounded-lg border px-3"
+                      className="input-standard"
                       value={visitDate}
                       onChange={(e) => setVisitDate(e.target.value)}
                     />
                   </label>
 
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Dentist</span>
+                  <label className="form-field-wrapper">
+                    <span className="text-slate-700-base">Dentist</span>
                     <select
-                      className="h-10 rounded-lg border bg-white px-3"
+                      className="input-h10-rounded"
                       value={visitDentistId}
                       onChange={(e) => setVisitDentistId(e.target.value)}
                     >
@@ -249,9 +275,9 @@ export default function TreatmentsPage() {
                     </select>
                   </label>
 
-                  <div className="flex items-end">
+                  <div className="flex-items-end-gap-2">
                     <button
-                      className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                      className="btn-secondary-dark"
                       disabled={busy || draftLines.length === 0}
                       onClick={saveVisit}
                     >
@@ -261,20 +287,20 @@ export default function TreatmentsPage() {
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Tooth #</span>
+                  <label className="form-field-wrapper">
+                    <span className="text-slate-700-base">Tooth #</span>
                     <input
-                      className="h-10 rounded-lg border px-3"
+                      className="input-standard"
                       value={lineTooth}
                       onChange={(e) => setLineTooth(e.target.value)}
                       placeholder="Optional"
                     />
                   </label>
 
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Procedure</span>
+                  <label className="form-field-wrapper">
+                    <span className="text-slate-700-base">Procedure</span>
                     <select
-                      className="h-10 rounded-lg border bg-white px-3"
+                      className="input-h10-border-white"
                       value={txServiceId}
                       onChange={(e) => {
                         const svc = serviceMenu.find((s) => s.id === e.target.value);
@@ -291,19 +317,19 @@ export default function TreatmentsPage() {
                     </select>
                   </label>
 
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Notes</span>
+                  <label className="form-field-wrapper">
+                    <span className="text-slate-700-base">Notes</span>
                     <input
-                      className="h-10 rounded-lg border px-3"
+                      className="input-standard"
                       value={lineNote}
                       onChange={(e) => setLineNote(e.target.value)}
                       placeholder="Optional"
                     />
                   </label>
 
-                  <div className="flex items-end">
+                  <div className="flex-items-end-gap-2">
                     <button
-                      className="h-10 rounded-lg border bg-white px-3 text-sm font-semibold disabled:opacity-60"
+                      className="btn-secondary-light"
                       disabled={!txServiceId}
                       onClick={addDraftLine}
                     >
@@ -313,69 +339,117 @@ export default function TreatmentsPage() {
                 </div>
 
                 {draftLines.length > 0 ? (
-                  <div className="mt-3 rounded-xl border bg-slate-50 p-3">
-                    <div className="text-sm font-semibold text-slate-700">Draft procedures</div>
-                    <div className="mt-2 space-y-2">
-                      {draftLines.map((ln) => (
-                        <div key={ln.id} className="flex items-center justify-between rounded-lg bg-white p-2">
-                          <div className="text-sm">
-                            {ln.tooth_number ? `Tooth ${ln.tooth_number}: ` : ""}
-                            {ln.procedure}
-                            {ln.note ? ` (${ln.note})` : ""}
-                          </div>
-                          <button
-                            className="rounded border bg-white px-2 py-1 text-sm"
-                            onClick={() => removeDraftLine(ln.id)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="mt-3-overflow">
+                    <table className="data-table">
+                      <thead className="data-table-head">
+                        <tr>
+                          <th className="data-table-head-cell">Draft Visit</th>
+                          <th className="data-table-head-cell-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draftLines.map((ln, index) => (
+                          <tr key={ln.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                            <td className="data-table-cell">
+                              {ln.tooth_number ? `Tooth ${ln.tooth_number}: ` : ""}
+                              {ln.procedure}
+                              {ln.note ? ` (${ln.note})` : ""}
+                            </td>
+                            <td className="data-table-cell-right">
+                              <button
+                                className="data-table-btn"
+                                onClick={() => removeDraftLine(ln.id)}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 ) : null}
               </div>
+                
+              <div className="info-box">
+                <div className="flex-wrap-items-center-justify-between">
+                  <div className="info-box-title">Treatment history</div>
+                  <select
+                    className="select-h9-w40-rounded-border-white"
+                    value={treatmentSort}
+                    onChange={(e) => setTreatmentSort(e.target.value as any)}
+                  >
+                    <option value="DATE_DESC">Newest</option>
+                    <option value="DATE_ASC">Oldest</option>
+                  </select>
+                </div>
 
-              <div className="rounded-2xl border bg-white p-4">
-                <div className="text-sm font-semibold">Treatment history</div>
-
-                <div className="mt-3 space-y-4">
-                  {groupedTreatmentHistory.map(([date, txs]) => (
-                    <div key={date} className="rounded-xl border bg-slate-50 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm font-semibold text-slate-800">
-                          {formatDatePH(date)} {txs[0]?.dentist_name ? `• ${txs[0].dentist_name}` : ""}
-                        </div>
-                        <button
-                          className="data-table-btn text-xs"
-                          onClick={() => setEditingVisitDate(date)}
-                        >
-                          Edit Visit
-                        </button>
-                      </div>
-                      <div className="mt-2 space-y-2">
-                        {txs.map((t) => (
-                          <div key={t.id} className="rounded-lg bg-white p-3">
-                            <div className="grid gap-1">
-                              <div className="text-sm font-semibold">
-                                {t.tooth_number ? `Tooth ${t.tooth_number}: ` : ""}
-                                {t.procedure}
-                              </div>
-                              {t.notes ? <div className="text-xs text-slate-500">{t.notes}</div> : null}
+                <div className="mt-3-overflow">
+                  <table className="data-table">
+                    <colgroup>
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "25%" }} />
+                      <col style={{ width: "40%" }} />
+                      <col style={{ width: "15%" }} />
+                    </colgroup>
+                    <thead className="data-table-head">
+                      <tr>
+                        <th className="data-table-head-cell">Date</th>
+                        <th className="data-table-head-cell">Doctor</th>
+                        <th className="data-table-head-cell">Treatments</th>
+                        <th className="data-table-head-cell-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupedTreatmentHistory.map(([date, txs], index) => (
+                        <tr key={date} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                          <td className="data-table-cell">{formatDatePH(date)}</td>
+                          <td className="data-table-cell">{txs[0]?.dentist_name || "—"}</td>
+                          <td className="data-table-cell">
+                            <div className="space-y-1">
+                              {txs.map((t) => (
+                                <div key={t.id} className="text-sm">
+                                  {t.tooth_number ? `Tooth ${t.tooth_number}: ` : ""}
+                                  {t.procedure}
+                                  {t.notes ? <div className="text-xs-slate-500-base">{t.notes}</div> : null}
+                                </div>
+                              ))}
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {groupedTreatmentHistory.length === 0 ? (
-                    <div className="text-sm text-slate-500">No treatments yet.</div>
-                  ) : null}
+                          </td>
+                          <td className="data-table-cell-right">
+                            {invoicedDates.has(date) ? (
+                              <div className="inline-block px-3 py-1 rounded-lg bg-amber-100 text-amber-800 text-sm font-semibold">Invoiced</div>
+                            ) : (
+                              <button
+                                className="data-table-btn"
+                                onClick={() => {
+                                  setEditingVisitDate(date);
+                                  setEditingTreatmentNotes({});
+                                  setEditingTreatmentTooth({});
+                                  setEditingTreatmentProcedure({});
+                                  setEditingTreatmentServiceId({});
+                                  setNewTreatmentsToAdd([]);
+                                }}
+                              >
+                                Edit Visit
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {groupedTreatmentHistory.length === 0 ? (
+                        <tr>
+                          <td className="data-table-empty" colSpan={4}>
+                            No treatments yet.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
-          </div>
-
+      </div>
       {/* Edit Visit Modal */}
       <EditModal
         open={editingVisitDate !== null}
@@ -384,6 +458,10 @@ export default function TreatmentsPage() {
           setEditingVisitDate(null);
           setEditingVisitDentistId("");
           setEditingTreatmentNotes({});
+          setEditingTreatmentTooth({});
+          setEditingTreatmentProcedure({});
+          setEditingTreatmentServiceId({});
+          setNewTreatmentsToAdd([]);
           setDeleteConfirmationText("");
           setErr(null);
         }}
@@ -394,12 +472,12 @@ export default function TreatmentsPage() {
             setEditingVisitDentistId(visitTreatments[0].dentist_id || "");
           }
           return (
-            <div className="space-y-4">
+            <div className="space-y-4-base">
               {/* Dentist Dropdown */}
-              <div className="grid gap-1">
-                <label className="text-sm font-medium text-slate-700">Dentist</label>
+              <div className="grid-gap-1">
+                <label className="text-sm-medium-slate-700">Dentist</label>
                 <select
-                  className="h-10 rounded-lg border bg-white px-3 text-sm"
+                  className="input-h10-border-white"
                   value={editingVisitDentistId}
                   onChange={(e) => setEditingVisitDentistId(e.target.value)}
                 >
@@ -414,43 +492,148 @@ export default function TreatmentsPage() {
 
               {/* Treatment Items */}
               <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-700">Treatments ({visitTreatments.length})</div>
+                <div className="text-sm-medium-slate-700">Treatments ({visitTreatments.length + newTreatmentsToAdd.length})</div>
                 {visitTreatments.map((t) => (
                   <div key={t.id} className="rounded-lg border bg-slate-50 p-3 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="grid gap-1 flex-1 text-sm">
-                        <div className="font-semibold">
-                          {t.tooth_number ? `Tooth ${t.tooth_number}: ` : ""}
-                          {t.procedure}
-                        </div>
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div className="grid gap-1">
+                        <label className="text-xs-semibold-slate-700">Tooth #</label>
+                        <input
+                          type="number"
+                          className="input-standard-sm"
+                          placeholder="Optional"
+                          value={editingTreatmentTooth[t.id] ?? (t.tooth_number?.toString() || "")}
+                          onChange={(e) =>
+                            setEditingTreatmentTooth((prev) => ({ ...prev, [t.id]: e.target.value }))
+                          }
+                          min="1"
+                          max="32"
+                        />
                       </div>
+                      <div className="grid gap-1 col-span-2">
+                        <label className="text-xs-semibold-slate-700">Procedure</label>
+                        <select
+                          className="input-h10-border-white"
+                          value={editingTreatmentServiceId[t.id] ?? (t.service_price_id || "")}
+                          onChange={(e) => {
+                            const svc = serviceMenu.find((s) => s.id === e.target.value);
+                            setEditingTreatmentServiceId((prev) => ({ ...prev, [t.id]: e.target.value }));
+                            setEditingTreatmentProcedure((prev) => ({ ...prev, [t.id]: svc?.service_name ?? "" }));
+                          }}
+                        >
+                          <option value="">Select procedure</option>
+                          {serviceMenu.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.service_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        className="input-standard-sm flex-1"
+                        placeholder="Notes…"
+                        value={editingTreatmentNotes[t.id] ?? t.notes ?? ""}
+                        onChange={(e) =>
+                          setEditingTreatmentNotes((prev) => ({ ...prev, [t.id]: e.target.value }))
+                        }
+                      />
                       <button
-                        className="text-red-600 hover:text-red-800 font-semibold h-6 w-6 rounded flex items-center justify-center hover:bg-red-50 transition-colors"
+                        className="btn-sm-delete"
                         onClick={() => deleteTreatment(t.id)}
                         title="Delete treatment"
                       >
-                        ×
+                        Delete
                       </button>
                     </div>
-                    <input
-                      type="text"
-                      className="w-full h-9 rounded-lg border bg-white px-2 text-sm"
-                      placeholder="Notes…"
-                      value={editingTreatmentNotes[t.id] ?? t.notes ?? ""}
-                      onChange={(e) =>
-                        setEditingTreatmentNotes((prev) => ({ ...prev, [t.id]: e.target.value }))
-                      }
-                    />
                   </div>
                 ))}
                 {visitTreatments.length === 0 ? (
-                  <div className="text-xs text-slate-500">No treatments on this date.</div>
+                  <div className="text-xs-slate-500-base">No treatments on this date.</div>
                 ) : null}
+                
+                {newTreatmentsToAdd.map((newT) => (
+                  <div key={newT.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div className="grid gap-1">
+                        <label className="text-xs-semibold-slate-700">Tooth #</label>
+                        <input
+                          type="number"
+                          className="input-standard-sm"
+                          placeholder="Optional"
+                          value={editingTreatmentTooth[newT.id] ?? ""}
+                          onChange={(e) =>
+                            setEditingTreatmentTooth((prev) => ({ ...prev, [newT.id]: e.target.value }))
+                          }
+                          min="1"
+                          max="32"
+                        />
+                      </div>
+                      <div className="grid gap-1 col-span-2">
+                        <label className="text-xs-semibold-slate-700">Procedure</label>
+                        <select
+                          className="input-h10-border-white"
+                          value={editingTreatmentServiceId[newT.id] ?? ""}
+                          onChange={(e) => {
+                            const svc = serviceMenu.find((s) => s.id === e.target.value);
+                            setEditingTreatmentServiceId((prev) => ({ ...prev, [newT.id]: e.target.value }));
+                            setEditingTreatmentProcedure((prev) => ({ ...prev, [newT.id]: svc?.service_name ?? "" }));
+                          }}
+                        >
+                          <option value="">Select procedure</option>
+                          {serviceMenu.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.service_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        className="input-standard-sm flex-1"
+                        placeholder="Notes…"
+                        value={editingTreatmentNotes[newT.id] ?? ""}
+                        onChange={(e) =>
+                          setEditingTreatmentNotes((prev) => ({ ...prev, [newT.id]: e.target.value }))
+                        }
+                      />
+                      <button
+                        className="btn-sm-delete"
+                        onClick={() => setNewTreatmentsToAdd((prev) => prev.filter((nt) => nt.id !== newT.id))}
+                        title="Remove treatment"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  className="btn btn-sm btn-ghost w-full mt-2"
+                  onClick={() => {
+                    setNewTreatmentsToAdd((prev) => [
+                      ...prev,
+                      {
+                        id: crypto.randomUUID(),
+                        tooth_number: null,
+                        service_price_id: null,
+                        procedure: "",
+                        note: "",
+                      },
+                    ]);
+                  }}
+                >
+                  + Add Treatment
+                </button>
               </div>
 
               {/* Delete Entire Visit */}
               <div className="delete-confirmation">
-                <div className="delete-confirmation-title text-red-700">Delete entire visit?</div>
+                <div className="delete-confirmation-title-red">Delete entire visit?</div>
                 <div className="delete-confirmation-hint">
                   Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion of all treatments on this date
                 </div>
@@ -465,10 +648,11 @@ export default function TreatmentsPage() {
 
               {/* Modal Actions */}
               <div className="modal-actions">
-                <button
-                  className="delete-btn"
-                  disabled={busy || deleteConfirmationText !== "DELETE"}
-                  onClick={async () => {
+                <div className="modal-actions-left">
+                  <button
+                    className="delete-btn"
+                    disabled={busy || deleteConfirmationText !== "DELETE"}
+                    onClick={async () => {
                     if (!editingVisitDate) return;
                     setBusy(true);
                     setErr(null);
@@ -481,12 +665,17 @@ export default function TreatmentsPage() {
                     setEditingVisitDate(null);
                     setEditingVisitDentistId("");
                     setEditingTreatmentNotes({});
+                    setEditingTreatmentTooth({});
+                    setEditingTreatmentProcedure({});
+                    setEditingTreatmentServiceId({});
+                    setNewTreatmentsToAdd([]);
                     setDeleteConfirmationText("");
                     await loadData();
                   }}
                 >
-                  {busy ? "Deleting…" : "Delete Visit"}
-                </button>
+                    {busy ? "Deleting…" : "Delete Visit"}
+                  </button>
+                </div>
                 <div className="modal-actions-right">
                   <button
                     className="cancel-btn"
@@ -494,6 +683,10 @@ export default function TreatmentsPage() {
                       setEditingVisitDate(null);
                       setEditingVisitDentistId("");
                       setEditingTreatmentNotes({});
+                      setEditingTreatmentTooth({});
+                      setEditingTreatmentProcedure({});
+                      setEditingTreatmentServiceId({});
+                      setNewTreatmentsToAdd([]);
                       setDeleteConfirmationText("");
                       setErr(null);
                     }}
@@ -507,23 +700,70 @@ export default function TreatmentsPage() {
                     onClick={async () => {
                       setBusy(true);
                       setErr(null);
-                      // Save notes for treatments
-                      for (const [tId, notes] of Object.entries(editingTreatmentNotes)) {
-                        if (notes !== (visitTreatments.find((t) => t.id === tId)?.notes ?? "")) {
+                      
+                      // Update existing treatments
+                      for (const t of visitTreatments) {
+                        const toothVal = editingTreatmentTooth[t.id] !== undefined ? (editingTreatmentTooth[t.id].trim() ? Number(editingTreatmentTooth[t.id]) : null) : t.tooth_number;
+                        const procedureVal = editingTreatmentProcedure[t.id] ?? t.procedure;
+                        const serviceIdVal = editingTreatmentServiceId[t.id] ?? t.service_price_id;
+                        const notesVal = editingTreatmentNotes[t.id] ?? t.notes;
+
+                        const hasChanges = 
+                          toothVal !== t.tooth_number ||
+                          procedureVal !== t.procedure ||
+                          serviceIdVal !== t.service_price_id ||
+                          notesVal !== t.notes;
+
+                        if (hasChanges) {
                           const { error } = await supabase
                             .from("treatments")
-                            .update({ notes: notes || null })
-                            .eq("id", tId);
+                            .update({
+                              tooth_number: toothVal,
+                              procedure: procedureVal,
+                              service_price_id: serviceIdVal,
+                              notes: notesVal || null,
+                            })
+                            .eq("id", t.id);
                           if (error) {
                             setBusy(false);
                             return setErr(error.message);
                           }
                         }
                       }
+
+                      // Insert new treatments
+                      if (newTreatmentsToAdd.length > 0) {
+                        const dentistName = dentists.find((d) => d.id === editingVisitDentistId)?.full_name || "";
+                        const newPayload = newTreatmentsToAdd
+                          .filter((nt) => editingTreatmentServiceId[nt.id]) // Only insert if procedure selected
+                          .map((nt) => ({
+                            patient_id: id,
+                            treatment_date: editingVisitDate,
+                            tooth_number: editingTreatmentTooth[nt.id]?.trim() ? Number(editingTreatmentTooth[nt.id]) : null,
+                            procedure: editingTreatmentProcedure[nt.id] || "",
+                            service_price_id: editingTreatmentServiceId[nt.id],
+                            notes: editingTreatmentNotes[nt.id]?.trim() || null,
+                            dentist_id: editingVisitDentistId || null,
+                            dentist_name: dentistName || null,
+                          }));
+                        
+                        if (newPayload.length > 0) {
+                          const { error } = await supabase.from("treatments").insert(newPayload);
+                          if (error) {
+                            setBusy(false);
+                            return setErr(error.message);
+                          }
+                        }
+                      }
+
                       setBusy(false);
                       setEditingVisitDate(null);
                       setEditingVisitDentistId("");
                       setEditingTreatmentNotes({});
+                      setEditingTreatmentTooth({});
+                      setEditingTreatmentProcedure({});
+                      setEditingTreatmentServiceId({});
+                      setNewTreatmentsToAdd([]);
                       setDeleteConfirmationText("");
                       await loadData();
                     }}

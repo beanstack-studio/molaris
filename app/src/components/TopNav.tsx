@@ -119,16 +119,16 @@ export default function TopNav({
   const isAppointments = pathname?.startsWith("/appointments");
 
   return (
-    <div className="sticky top-0 z-50 border-b bg-white shadow-sm">
-      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
-        <div className="flex items-center justify-between gap-4">
+    <div className="topnav-wrapper">
+      <div className="topnav-container">
+        <div className="topnav-inner">
           {/* Logo/Home */}
-          <Link href="/dashboard" className="text-sm font-bold text-slate-900 hover:text-slate-700 transition-colors">
+          <Link href="/dashboard" className="topnav-logo">
             🦷 {title}
           </Link>
 
           {/* Right Navigation & Actions */}
-          <div className="flex items-center gap-2">
+          <div className="topnav-links">
             {/* Messages tab temporarily hidden - will reopen after holidays */}
             {/* 
             <Link
@@ -144,47 +144,47 @@ export default function TopNav({
             */}
             <Link
               href="/appointments"
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              className={`topnav-link ${
                 isAppointments
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  ? "topnav-link-active"
+                  : "topnav-link-inactive"
               }`}
             >
               Appointments
             </Link>
             <Link
               href="/patients"
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              className={`topnav-link ${
                 isPatients
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  ? "topnav-link-active"
+                  : "topnav-link-inactive"
               }`}
             >
               Patients
             </Link>
             <Link
               href="/reports/payments"
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              className={`topnav-link ${
                 isReports
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  ? "topnav-link-active"
+                  : "topnav-link-inactive"
               }`}
             >
               Reports
             </Link>
             <Link
               href="/settings/clinic-profile"
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              className={`topnav-link ${
                 isSettings
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  ? "topnav-link-active"
+                  : "topnav-link-inactive"
               }`}
             >
               Settings
             </Link>
             <button
               type="button"
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 transition-colors disabled:opacity-60"
+              className="topnav-button-signout"
               onClick={signOut}
               disabled={busy}
               title="Sign out"

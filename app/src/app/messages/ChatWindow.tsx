@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { formatDateTimePH } from "@/lib/helpers";
 import { Message, MessageThread, Patient, Appointment } from "@/lib/types";
 import {
   getMessageThread,
@@ -197,7 +198,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-slate-600">Loading conversation...</p>
+        <p className="text-muted">Loading conversation...</p>
       </div>
     );
   }
@@ -214,22 +215,22 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b border-slate-200 bg-white p-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex-between gap-4">
           <div className="flex-1">
             {thread.patient_id ? (
               <>
                 <h2 className="text-lg font-bold text-slate-900">
                   {thread.patients?.full_name}
                 </h2>
-                <p className="text-sm text-slate-600">
+                <p className="text-muted-sm">
                   {thread.channel.toUpperCase()} • {thread.patients?.phone}
                 </p>
               </>
             ) : (
               /* Unlinked thread - show external user info */
-              <div className="flex items-center gap-3">
+              <div className="flex-center-gap">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-center-gap-sm mb-1">
                     {messengerProfilePic ? (
                       <img
                         src={messengerProfilePic}
@@ -256,13 +257,13 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
                       Not linked
                     </span>
                   </div>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-muted-sm">
                     {thread.channel.toUpperCase()} • {thread.external_thread_id}
                   </p>
                 </div>
                 <button
                   onClick={() => setShowLinkPatientModal(true)}
-                  className="px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium whitespace-nowrap"
+                  className="btn btn-primary"
                 >
                   Link Patient
                 </button>
@@ -273,7 +274,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
           {thread.patient_id && (
             <button
               onClick={() => setShowAppointmentModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+              className="modal-btn-primary"
             >
               + Appointment
             </button>
@@ -322,10 +323,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
                     msg.sender_type === "staff" ? "text-blue-100" : "text-slate-500"
                   }`}
                 >
-                  {new Date(msg.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatDateTimePH(msg.created_at)}
                 </p>
               </div>
             </div>
@@ -354,7 +352,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
           <button
             onClick={handleSendReply}
             disabled={!replyText.trim() || sending}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            className="modal-btn-primary"
           >
             {sending ? "Sending..." : "Send"}
           </button>

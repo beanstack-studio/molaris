@@ -150,7 +150,7 @@ export default function AppointmentModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+      <div className="modal-wrapper">
         <h3 className="text-lg font-bold text-slate-900 mb-4">Create Appointment</h3>
 
         {error && (
@@ -162,7 +162,7 @@ export default function AppointmentModal({
         <div className="space-y-4">
           {/* Date */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="text-label-block">
               Date
             </label>
             <input
@@ -170,13 +170,13 @@ export default function AppointmentModal({
               min={getMinDate()}
               value={appointmentDate}
               onChange={(e) => setAppointmentDate(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="form-input-full-focus"
             />
           </div>
 
           {/* Time */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="text-label-block">
               Time (Hourly Slots)
             </label>
             {availableTimeSlots.length === 0 ? (
@@ -187,7 +187,7 @@ export default function AppointmentModal({
               <select
                 value={appointmentTime}
                 onChange={(e) => setAppointmentTime(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="form-input-full-focus"
               >
                 <option value="">-- Select time --</option>
                 {availableTimeSlots.map((time) => (
@@ -204,7 +204,7 @@ export default function AppointmentModal({
 
           {/* Dentist */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="text-label-block">
               Dentist (Optional)
             </label>
             {loading ? (
@@ -213,7 +213,7 @@ export default function AppointmentModal({
               <select
                 value={dentistId}
                 onChange={(e) => setDentistId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="form-input-full-focus"
               >
                 <option value="">-- Select dentist --</option>
                 {dentists.map((dentist) => (
@@ -227,32 +227,32 @@ export default function AppointmentModal({
 
           {/* Concerns */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="text-label-block">
               Concern / Reason for Visit (Optional)
             </label>
             <textarea
               value={concerns}
               onChange={(e) => setConcerns(e.target.value)}
               placeholder="e.g., Toothache, cleaning, checkup, emergency..."
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="form-textarea-full-focus"
               rows={3}
             />
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 mt-6">
+        <div className="button-group mt-6">
           <button
             onClick={onCancel}
             disabled={isSending}
-            className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition disabled:opacity-50"
+            className="flex-1 cancel-btn"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={isSending || availableTimeSlots.length === 0}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            className="flex-1 modal-btn-primary"
           >
             {isSending ? "Creating..." : "Confirm & Send"}
           </button>

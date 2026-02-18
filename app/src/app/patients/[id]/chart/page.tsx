@@ -6,7 +6,7 @@ import ToothChart, { ToothStatus, getStatusTheme } from "@/components/ToothChart
 import PatientTabs from "@/components/PatientTabs";
 import { supabase } from "@/lib/supabaseClient";
 import type { ChartEntry, ToothStatusRow, Patient } from "@/lib/types";
-import { formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
+import { formatDatePH, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
 
 export default function ChartPage() {
   const params = useParams();
@@ -259,10 +259,10 @@ export default function ChartPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        <div className="flex flex-col items-center gap-3">
-          <img src="/loading.gif" alt="Loading" className="h-12 w-12" />
-          <div className="text-sm">Loading…</div>
+      <div className="loading-screen">
+        <div className="loading-container">
+          <img src="/loading.gif" alt="Loading" className="loading-icon" />
+          <div className="loading-text">Loading…</div>
         </div>
       </div>
     );
@@ -270,45 +270,40 @@ export default function ChartPage() {
 
   return (
     <>
-      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+      {err ? <div className="error-banner">{err}</div> : null}
+      <div className="patient-content">
+       
+          <div className="info-box">
+            <ToothChart
+              entries={chart ?? []}
+              statuses={toothStatuses}
+              selectedTooth={selectedTooth}
+              previewStatus={selectedTooth ? pendingStatus : null}
+              onSelectTooth={(n) => {
+                setSelectedTooth(n);
+                setToothNote(toothStatuses[n]?.note ?? "");
+                setPendingStatus(toothStatuses[n]?.status ?? "HEALTHY");
+                setSurfaceSel([]);
+                setFindingDetail("");
+              }}
+            />
+          </div>
 
-      <div className="p-4">
-        <div className="grid gap-4">
-          <div className="rounded-xl border bg-white p-4">
-            <div className="text-sm font-semibold">Tooth chart</div>
-
-            <div className="mt-4">
-              <ToothChart
-                entries={chart ?? []}
-                statuses={toothStatuses}
-                selectedTooth={selectedTooth}
-                previewStatus={selectedTooth ? pendingStatus : null}
-                onSelectTooth={(n) => {
-                  setSelectedTooth(n);
-                  setToothNote(toothStatuses[n]?.note ?? "");
-                  setPendingStatus(toothStatuses[n]?.status ?? "HEALTHY");
-                  setSurfaceSel([]);
-                  setFindingDetail("");
-                }}
-              />
+          <div className="mt-4-rounded-xl-border-white">
+            <div className="flex-items-center-justify-start">
+              <div className="text-sm-semibold">Tooth tools</div>
             </div>
 
-
-          <div className="mt-4 rounded-xl border bg-white p-4">
-            <div className="flex items-center justify-start">
-              <div className="text-sm font-semibold">Tooth tools</div>
-            </div>
-
-            <div className="mt-2 text-left text-sm text-slate-700">
+            <div className="text-left-mt-2-sm-slate-700">
               Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
             </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4">
                 {/* LEFT COLUMN - Add/Update Status */}
                 <div>
-                  <div className="text-xs font-semibold text-slate-600 uppercase mb-2">Set Status</div>
+                  <div className="text-xs-semibold-slate-600-uppercase">Set Status</div>
                   
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="flex-wrap-gap-2-mt-2">
                     {(
                       [
                         "HEALTHY",
@@ -367,7 +362,7 @@ export default function ChartPage() {
                   {(pendingStatus === "CARIES" || pendingStatus === "FILLED") && (
                     <div className="mt-3">
                       <div className="text-xs font-semibold text-slate-700">Surfaces</div>
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="flex-wrap-gap-2-mt-2">
                         {["O", "M", "D", "B", "L", "F"].map((surf) => (
                           <button
                             key={surf}
@@ -392,10 +387,10 @@ export default function ChartPage() {
                   )}
 
                   <div className="mt-3">
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700 text-xs font-semibold">Finding detail</span>
+                    <label className="form-field-wrapper">
+                      <span className="text-slate-700-xs-semibold">Finding detail</span>
                       <input
-                        className="h-8 rounded-lg border px-2 text-sm"
+                        className="input-sm-text-sm"
                         value={findingDetail}
                         onChange={(e) => setFindingDetail(e.target.value)}
                       />
@@ -403,17 +398,17 @@ export default function ChartPage() {
                   </div>
 
                   <div className="mt-3">
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-slate-700 text-xs font-semibold">Notes</span>
+                    <label className="form-field-wrapper">
+                      <span className="text-slate-700-xs-semibold">Notes</span>
                       <textarea
-                        className="min-h-[72px] rounded-lg border px-2 py-1 text-sm"
+                        className="textarea-sm"
                         value={toothNote}
                         onChange={(e) => setToothNote(e.target.value)}
                       />
                     </label>
                   </div>
 
-                  <div className="mt-3 flex justify-center">
+                  <div className="flex-center-text-sm">
                     <button
                       className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                       disabled={busy || selectedTooth === null}
@@ -426,9 +421,9 @@ export default function ChartPage() {
 
                 {/* RIGHT COLUMN - Tooth History */}
                 <div>
-                  <div className="text-xs font-semibold text-slate-600 uppercase mb-2">Tooth History</div>
+                  <div className="text-xs-semibold-slate-600-uppercase">Tooth History</div>
                   
-                  <div className="overflow-y-auto max-h-96 rounded-lg border bg-white">
+                  <div className="overflow-scroll-bordered">
                     {selectedTooth ? (
                       chart.filter((e) => e.tooth_number === selectedTooth).length > 0 ? (
                         <table className="data-table w-full">
@@ -446,7 +441,7 @@ export default function ChartPage() {
                                 <tr key={entry.id} className={`data-table-row ${idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                                   <td className="data-table-cell">{entry.finding_code}</td>
                                   <td className="data-table-cell text-xs">
-                                    {entry.recorded_at ? new Date(entry.recorded_at).toLocaleDateString() : "—"}
+                                    {entry.recorded_at ? formatDatePH(entry.recorded_at.split('T')[0]) : "—"}
                                   </td>
                                   <td className="data-table-cell-right">
                                     <button
@@ -461,27 +456,27 @@ export default function ChartPage() {
                           </tbody>
                         </table>
                       ) : (
-                        <div className="p-3 text-center text-sm text-slate-500">No history for this tooth</div>
+                        <div className="container-center-sm-slate-500">No history for this tooth</div>
                       )
                     ) : (
-                      <div className="p-3 text-center text-sm text-slate-500">Select a tooth</div>
+                      <div className="container-center-sm-slate-500">Select a tooth</div>
                     )}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl border bg-white p-4">
-              <div className="text-sm font-semibold">Chart history</div>
+            <div className="mt-4-rounded-xl-border-white">
+              <div className="text-sm-semibold">Chart history</div>
 
-              <div className="mt-3 overflow-x-auto">
+              <div className="mt-3-overflow">
                 <table className="data-table">
                   <colgroup>
-                    <col style={{ width: "12%" }} />
-                    <col style={{ width: "18%" }} />
-                    <col style={{ width: "15%" }} />
-                    <col style={{ width: "35%" }} />
-                    <col style={{ width: "20%" }} />
+                    <col className="col-12" />
+                    <col className="col-18" />
+                    <col className="col-15" />
+                    <col className="col-35" />
+                    <col className="col-20" />
                   </colgroup>
                   <thead className="data-table-head">
                     <tr>
@@ -521,38 +516,37 @@ export default function ChartPage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        
 
       {editingEntry ? (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50" onDoubleClick={() => setEditingEntry(null)}>
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-md mx-4 p-6">
+        <div className="modal-container" onDoubleClick={() => setEditingEntry(null)}>
+          <div className="container-bg-white-rounded-shadow">
             <div className="text-lg font-semibold mb-4">
               Edit Entry — Tooth #{editingEntry.tooth_number}
             </div>
 
-            {err && <div className="mb-3 rounded-lg border bg-red-50 p-3 text-sm text-red-600">{err}</div>}
+            {err && <div className="error-message-red">{err}</div>}
 
-            <div className="space-y-3">
+            <div className="space-y-3-base">
               <div>
-                <div className="text-sm font-medium text-slate-700 mb-1">Finding</div>
-                <div className="px-3 py-2 rounded-lg bg-slate-50 text-sm text-slate-600">
+                <div className="text-sm-medium-slate-700-mb-1">Finding</div>
+                <div className="container-input-slate-50">
                   {editingEntry.finding_code}
                 </div>
               </div>
 
               <div>
-                <div className="text-sm font-medium text-slate-700 mb-1">Surfaces</div>
-                <div className="px-3 py-2 rounded-lg bg-slate-50 text-sm text-slate-600">
+                <div className="text-sm-medium-slate-700-mb-1">Surfaces</div>
+                <div className="container-input-slate-50">
                   {editingEntry.surfaces || "—"}
                 </div>
               </div>
 
               <div>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700 font-medium">Finding detail</span>
+                <label className="form-field-wrapper">
+                  <span className="text-slate-700-medium">Finding detail</span>
                   <input
-                    className="h-10 rounded-lg border px-3 bg-slate-50"
+                    className="input-readonly-slate-bg"
                     value={editingEntry.finding_detail ?? ""}
                     disabled
                   />
@@ -560,10 +554,10 @@ export default function ChartPage() {
               </div>
 
               <div>
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700 font-medium">Notes</span>
+                <label className="form-field-wrapper">
+                  <span className="text-slate-700-medium">Notes</span>
                   <textarea
-                    className="min-h-[88px] rounded-lg border px-3 py-2"
+                    className="textarea-standard"
                     value={editNotes}
                     onChange={(e) => setEditNotes(e.target.value)}
                   />
@@ -582,15 +576,15 @@ export default function ChartPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-2 mt-4">
+              <div className="flex-between-gap-2 mt-4">
                 <button
                   onClick={() => deleteChartEntry()}
                   disabled={busy || deleteConfirmation.trim().toUpperCase() !== "DELETE"}
-                  className="rounded-lg bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 px-3 py-2 transition-colors"
+                  className="btn-action-red"
                 >
                   {busy ? "Deleting…" : "Delete"}
                 </button>
-                <div className="flex gap-2">
+                <div className="flex-gap-2">
                   <button
                     onClick={() => {
                       setEditingEntry(null);
@@ -604,7 +598,7 @@ export default function ChartPage() {
                   <button
                     onClick={() => saveChartEntryEdit()}
                     disabled={busy}
-                    className="rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 px-4 py-2 transition-colors"
+                    className="btn-action-blue"
                   >
                     {busy ? "Saving…" : "Save"}
                   </button>

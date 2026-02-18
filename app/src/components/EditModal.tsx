@@ -41,7 +41,7 @@ export function EditModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4" onClick={handleBackdropEvent} onDoubleClick={handleBackdropEvent}>
+    <div className="modal-container p-4" onClick={handleBackdropEvent} onDoubleClick={handleBackdropEvent}>
       <div
         ref={panelRef}
         role="dialog"
@@ -50,7 +50,7 @@ export function EditModal({
         className="w-full max-w-lg rounded-2xl border bg-white shadow-xl"
       >
         <div className="border-b px-4 py-3">
-          <div className="text-sm font-semibold">{title}</div>
+          <div className="table-title">{title}</div>
         </div>
 
         {/* Body scroll on small screens */}

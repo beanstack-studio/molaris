@@ -28,6 +28,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       documents: "Documents",
       attachments: "Attachments",
       billing: "Billing",
+      ortho: "Ortho",
     };
     return tabMap[segment] || "Info";
   };
@@ -89,7 +90,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className="app-section">
         <div className="app-section-header">
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex-center-gap-3">
               <div className="app-section-title">{displayName}</div>
               {(patientAge !== null || patientGender) && (
                 <div className="text-sm text-slate-600">
