@@ -348,24 +348,46 @@ export default function AttachmentsPage() {
           }}
         >
           <div className="spacing-vertical-lg">
-            {/* Type and File name - Side by Side */}
+            {/* Type and File - Side by Side */}
             <div className="flex gap-4">
               <div className="grid-gap-1" style={{ width: "25%" }}>
                 <label className="text-sm-medium-slate-700">Type</label>
-                <div className="input-h10-border-white w-full flex items-center py-2 px-3 text-sm bg-slate-50 rounded-lg">
-                  <span className="text-slate-900">{editingAttachment.type}</span>
-                </div>
+                <select
+                  className="input-h10-border-white w-full"
+                  value={editFileName.split(".")[0] === editingAttachment.type ? editingAttachment.type : ""}
+                  onChange={(e) => setEditFileName(e.target.value)}
+                >
+                  <option value="">Select type</option>
+                  {attachmentTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-transparent">—</div>
               </div>
 
               <div className="grid-gap-1" style={{ width: "75%" }}>
-                <label className="text-sm-medium-slate-700">File name</label>
-                <input
-                  type="text"
-                  className="input-h10-border-white w-full"
-                  value={editFileName}
-                  onChange={(e) => setEditFileName(e.target.value)}
-                  placeholder="File name"
-                />
+                <label className="text-sm-medium-slate-700">File</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setFileToUpload(file);
+                      setEditFileName(file?.name ?? editFileName);
+                      setErr(null);
+                    }}
+                  />
+                  <div className="input-h10-border-white w-full flex items-center py-2 px-3 text-sm gap-3">
+                    
+                    <span className={`flex-1 truncate ${editFileName ? "text-slate-900" : "text-slate-500"}`}>
+                      {editFileName || "no file chosen"}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-500">Maximum file size: 5MB</div>
               </div>
             </div>
 

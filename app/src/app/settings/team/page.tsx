@@ -467,7 +467,7 @@ export default function TeamSettingsPage() {
                         key={d.id}
                         className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
                       >
-                        <td className="data-table-cell font-medium">{d.full_name}</td>
+                        <td className="data-table-cell">{d.full_name}</td>
                         <td className="data-table-cell">
                           {d.date_of_birth
                             ? new Date(d.date_of_birth).toLocaleDateString("en-PH")
@@ -556,7 +556,7 @@ export default function TeamSettingsPage() {
                         key={s.id}
                         className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
                       >
-                        <td className="data-table-cell font-medium">{s.full_name}</td>
+                        <td className="data-table-cell">{s.full_name}</td>
                         <td className="data-table-cell">{s.role}</td>
                         <td className="data-table-cell">
                           {s.date_of_birth
