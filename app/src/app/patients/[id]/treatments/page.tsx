@@ -24,6 +24,8 @@ export default function TreatmentsPage() {
 
   const [visitDate, setVisitDate] = useState(() => todayLocalISO());
   const [visitDentistId, setVisitDentistId] = useState<string>("");
+  const [visitConcern, setVisitConcern] = useState<string>("");
+  const [defaultAppointmentConcern, setDefaultAppointmentConcern] = useState<string>("");
   const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
   const [lineTooth, setLineTooth] = useState("");
   const [txServiceId, setTxServiceId] = useState<string>("");
@@ -33,6 +35,7 @@ export default function TreatmentsPage() {
   // Edit/delete states
   const [editingVisitDate, setEditingVisitDate] = useState<string | null>(null);
   const [editingVisitDentistId, setEditingVisitDentistId] = useState<string>("");
+  const [editingVisitConcern, setEditingVisitConcern] = useState<string>("");
   const [editingTreatmentNotes, setEditingTreatmentNotes] = useState<Record<string, string>>({});
   const [editingTreatmentTooth, setEditingTreatmentTooth] = useState<Record<string, string>>({});
   const [editingTreatmentProcedure, setEditingTreatmentProcedure] = useState<Record<string, string>>({});
@@ -147,6 +150,22 @@ export default function TreatmentsPage() {
     }
     setInvoicedDates(invoicedDateSet);
 
+    // Load last appointment's concern to use as default
+    const appt = await supabase
+      .from("appointments")
+      .select("concerns")
+      .eq("patient_id", id)
+      .eq("status", "completed")
+      .order("appointment_date", { ascending: false })
+      .limit(1);
+    if (!appt.error && appt.data?.length && appt.data[0].concerns) {
+      setDefaultAppointmentConcern(appt.data[0].concerns);
+      setVisitConcern(appt.data[0].concerns); // Pre-fill on initial load
+    } else {
+      setDefaultAppointmentConcern("");
+      setVisitConcern(""); // Reset to empty/placeholder if no appointment
+    }
+
     setLoading(false);
   }, [id]);
 
@@ -187,6 +206,7 @@ export default function TreatmentsPage() {
     setErr(null);
 
     if (!visitDate) return setErr("Select a visit date.");
+    if (!visitConcern.trim()) return setErr("Enter the visit concern.");
     if (!visitDentistId) return setErr("Select the attending dentist.");
     if (draftLines.length === 0) return setErr("Add at least one procedure.");
 
@@ -200,6 +220,7 @@ export default function TreatmentsPage() {
       procedure: ln.procedure,
       tooth_number: ln.tooth_number,
       notes: ln.note || null,
+      visit_concern: visitConcern.trim() || null,
       dentist_id: visitDentistId || null,
       dentist_name: dentistName || null,
       service_price_id: ln.service_price_id,
@@ -213,6 +234,7 @@ export default function TreatmentsPage() {
     setDraftLines([]);
     setVisitDate(todayLocalISO());
     setVisitDentistId("");
+    setVisitConcern(""); // Reset concern after saving
     await loadData();
   }
 
@@ -248,18 +270,37 @@ export default function TreatmentsPage() {
             <div className="info-box-header">
               <div className="info-box-title">Add treatment</div>
               </div>
-                <div className="mt-3-grid-gap-3-sm-3col">
-                  <label className="form-field-wrapper">
+                <div className="mt-3 grid gap-3 sm:grid-cols-6">
+                  <label className="form-field-wrapper sm:col-span-1">
                     <span className="text-slate-700-base">Visit date</span>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="input-standard pointer-events-none"
+                        value={visitDate ? formatDatePH(visitDate) : ""}
+                        readOnly
+                      />
+                      <input
+                        type="date"
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        value={visitDate}
+                        onChange={(e) => setVisitDate(e.target.value)}
+                      />
+                    </div>
+                  </label>
+
+                  <label className="form-field-wrapper sm:col-span-2">
+                    <span className="text-slate-700-base">Concern</span>
                     <input
-                      type="date"
+                      type="text"
                       className="input-standard"
-                      value={visitDate}
-                      onChange={(e) => setVisitDate(e.target.value)}
+                      value={visitConcern}
+                      onChange={(e) => setVisitConcern(e.target.value)}
+                      placeholder={defaultAppointmentConcern ? "From appointment" : "Chief complaint or concern"}
                     />
                   </label>
 
-                  <label className="form-field-wrapper">
+                  <label className="form-field-wrapper sm:col-span-2">
                     <span className="text-slate-700-base">Dentist</span>
                     <select
                       className="input-h10-rounded"
@@ -275,10 +316,10 @@ export default function TreatmentsPage() {
                     </select>
                   </label>
 
-                  <div className="flex-items-end-gap-2">
+                  <div className="flex-items-end-gap-2 sm:col-span-1">
                     <button
                       className="btn-secondary-dark"
-                      disabled={busy || draftLines.length === 0}
+                      disabled={busy || draftLines.length === 0 || !visitConcern.trim()}
                       onClick={saveVisit}
                     >
                       {busy ? "Saving…" : "Save visit"}
@@ -286,8 +327,8 @@ export default function TreatmentsPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                  <label className="form-field-wrapper">
+                <div className="mt-3 grid gap-3 sm:grid-cols-6">
+                  <label className="form-field-wrapper sm:col-span-1">
                     <span className="text-slate-700-base">Tooth #</span>
                     <input
                       className="input-standard"
@@ -297,7 +338,7 @@ export default function TreatmentsPage() {
                     />
                   </label>
 
-                  <label className="form-field-wrapper">
+                  <label className="form-field-wrapper sm:col-span-2">
                     <span className="text-slate-700-base">Procedure</span>
                     <select
                       className="input-h10-border-white"
@@ -309,15 +350,23 @@ export default function TreatmentsPage() {
                       }}
                     >
                       <option value="">Select procedure</option>
-                      {serviceMenu.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.service_name}
-                        </option>
-                      ))}
+                      {serviceMenu
+                        .slice()
+                        .sort((a, b) => {
+                          if (a.item_type !== b.item_type) {
+                            return a.item_type === "SERVICE" ? -1 : 1;
+                          }
+                          return a.service_name.localeCompare(b.service_name);
+                        })
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.service_name}
+                          </option>
+                        ))}
                     </select>
                   </label>
 
-                  <label className="form-field-wrapper">
+                  <label className="form-field-wrapper sm:col-span-2">
                     <span className="text-slate-700-base">Notes</span>
                     <input
                       className="input-standard"
@@ -327,9 +376,9 @@ export default function TreatmentsPage() {
                     />
                   </label>
 
-                  <div className="flex-items-end-gap-2">
+                  <div className="flex-items-end-gap-2 sm:col-span-1">
                     <button
-                      className="btn-secondary-light"
+                      className="btn-secondary-dark"
                       disabled={!txServiceId}
                       onClick={addDraftLine}
                     >
@@ -429,6 +478,9 @@ export default function TreatmentsPage() {
                                   setEditingTreatmentProcedure({});
                                   setEditingTreatmentServiceId({});
                                   setNewTreatmentsToAdd([]);
+                                  // Extract concern from existing treatments on this date
+                                  const txsForDate = groupedTreatmentHistory.find(([d]) => d === date)?.[1] || [];
+                                  setEditingVisitConcern(txsForDate[0]?.visit_concern || "");
                                 }}
                               >
                                 Edit Visit
@@ -457,6 +509,7 @@ export default function TreatmentsPage() {
         onClose={() => {
           setEditingVisitDate(null);
           setEditingVisitDentistId("");
+          setEditingVisitConcern("");
           setEditingTreatmentNotes({});
           setEditingTreatmentTooth({});
           setEditingTreatmentProcedure({});
@@ -488,6 +541,18 @@ export default function TreatmentsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Visit Concern */}
+              <div className="grid-gap-1">
+                <label className="text-sm-medium-slate-700">Concern</label>
+                <input
+                  type="text"
+                  className="input-h10-border-white"
+                  value={editingVisitConcern}
+                  onChange={(e) => setEditingVisitConcern(e.target.value)}
+                  placeholder="Chief complaint or concern"
+                />
               </div>
 
               {/* Treatment Items */}
@@ -522,11 +587,19 @@ export default function TreatmentsPage() {
                           }}
                         >
                           <option value="">Select procedure</option>
-                          {serviceMenu.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.service_name}
-                            </option>
-                          ))}
+                          {serviceMenu
+                            .slice()
+                            .sort((a, b) => {
+                              if (a.item_type !== b.item_type) {
+                                return a.item_type === "SERVICE" ? -1 : 1;
+                              }
+                              return a.service_name.localeCompare(b.service_name);
+                            })
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.service_name}
+                              </option>
+                            ))}
                         </select>
                       </div>
                     </div>
@@ -583,11 +656,19 @@ export default function TreatmentsPage() {
                           }}
                         >
                           <option value="">Select procedure</option>
-                          {serviceMenu.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.service_name}
-                            </option>
-                          ))}
+                          {serviceMenu
+                            .slice()
+                            .sort((a, b) => {
+                              if (a.item_type !== b.item_type) {
+                                return a.item_type === "SERVICE" ? -1 : 1;
+                              }
+                              return a.service_name.localeCompare(b.service_name);
+                            })
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.service_name}
+                              </option>
+                            ))}
                         </select>
                       </div>
                     </div>
@@ -664,6 +745,7 @@ export default function TreatmentsPage() {
                     if (error) return setErr(error.message);
                     setEditingVisitDate(null);
                     setEditingVisitDentistId("");
+                    setEditingVisitConcern("");
                     setEditingTreatmentNotes({});
                     setEditingTreatmentTooth({});
                     setEditingTreatmentProcedure({});
@@ -682,6 +764,7 @@ export default function TreatmentsPage() {
                     onClick={() => {
                       setEditingVisitDate(null);
                       setEditingVisitDentistId("");
+                      setEditingVisitConcern("");
                       setEditingTreatmentNotes({});
                       setEditingTreatmentTooth({});
                       setEditingTreatmentProcedure({});
@@ -712,7 +795,8 @@ export default function TreatmentsPage() {
                           toothVal !== t.tooth_number ||
                           procedureVal !== t.procedure ||
                           serviceIdVal !== t.service_price_id ||
-                          notesVal !== t.notes;
+                          notesVal !== t.notes ||
+                          editingVisitConcern !== (t.visit_concern ?? "");
 
                         if (hasChanges) {
                           const { error } = await supabase
@@ -722,6 +806,7 @@ export default function TreatmentsPage() {
                               procedure: procedureVal,
                               service_price_id: serviceIdVal,
                               notes: notesVal || null,
+                              visit_concern: editingVisitConcern?.trim() || null,
                             })
                             .eq("id", t.id);
                           if (error) {
@@ -743,6 +828,7 @@ export default function TreatmentsPage() {
                             procedure: editingTreatmentProcedure[nt.id] || "",
                             service_price_id: editingTreatmentServiceId[nt.id],
                             notes: editingTreatmentNotes[nt.id]?.trim() || null,
+                            visit_concern: editingVisitConcern?.trim() || null,
                             dentist_id: editingVisitDentistId || null,
                             dentist_name: dentistName || null,
                           }));
@@ -759,6 +845,7 @@ export default function TreatmentsPage() {
                       setBusy(false);
                       setEditingVisitDate(null);
                       setEditingVisitDentistId("");
+                      setEditingVisitConcern("");
                       setEditingTreatmentNotes({});
                       setEditingTreatmentTooth({});
                       setEditingTreatmentProcedure({});

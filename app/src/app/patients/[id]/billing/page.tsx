@@ -310,6 +310,7 @@ export default function BillingPage() {
           procedure: t.procedure,
           tooth_number: t.tooth_number,
           notes: t.notes,
+          visit_concern: t.visit_concern || null,
           dentist_id: t.dentist_id,
           dentist_name: t.dentist_name,
           service_price_id: t.service_price_id,

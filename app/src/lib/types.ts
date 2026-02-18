@@ -52,6 +52,7 @@ export type Treatment = {
   procedure: string;
   tooth_number: number | null;
   notes: string | null;
+  visit_concern: string | null; // Chief complaint or concern from appointment/walk-in
   dentist_id: string | null;
   dentist_name: string | null;
   service_price_id: string | null;

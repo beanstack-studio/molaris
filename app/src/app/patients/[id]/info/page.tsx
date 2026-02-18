@@ -124,17 +124,17 @@ export default function Page() {
     // Load last visit
     const t = await supabase
       .from("treatments")
-      .select("treatment_date, dentist_name, procedure")
+      .select("treatment_date, dentist_name, procedure, visit_concern")
       .eq("patient_id", id)
       .order("treatment_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(1);
 
     if (!t.error && t.data?.length) {
-      const latest = t.data[0];
+      const latest = t.data[0] as any;
       setLastVisitDate(latest.treatment_date ?? "");
       setLastVisitDentist(latest.dentist_name || "");
-      setLastVisitConcern("Placeholder - Appointments feature coming soon");
+      setLastVisitConcern(latest.visit_concern || "");
     } else {
       setLastVisitDate("");
       setLastVisitDentist("");
@@ -294,9 +294,6 @@ export default function Page() {
                 <span className="field-label-text">Concern</span>
                 <input className="field-input-white" value={lastVisitConcern || ""} readOnly />
               </label>
-            </div>
-            <div className="helper-text-muted">
-              TODO: Replace "Concern" with appointment/visit chief complaint once scheduling/messenger integration is done.
             </div>
           </div>
         </div>
