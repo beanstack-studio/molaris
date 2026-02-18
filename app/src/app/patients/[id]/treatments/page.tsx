@@ -394,43 +394,46 @@ export default function TreatmentsPage() {
         onClose={closeAddVisit}
       >
         <div className="spacing-vertical-lg">
-          {/* Visit Date */}
-          <div className="grid-gap-1">
-            <label className="text-sm-medium-slate-700">Visit date</label>
-            <div className="relative">
-              <input
-                type="text"
-                className="input-h10-border-white pointer-events-none"
-                value={visitDate ? formatDatePH(visitDate) : ""}
-                readOnly
-              />
-              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <input
-                type="date"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                value={visitDate}
-                onChange={(e) => setVisitDate(e.target.value)}
-              />
+          {/* Visit Date and Dentist - Side by Side */}
+          <div className="flex gap-4">
+            {/* Visit Date */}
+            <div className="grid-gap-1" style={{ width: "40%" }}>
+              <label className="text-sm-medium-slate-700">Visit date</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  className="input-h10-border-white w-full pr-10 pointer-events-none"
+                  value={visitDate ? formatDatePH(visitDate) : ""}
+                  readOnly
+                />
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <input
+                  type="date"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  value={visitDate}
+                  onChange={(e) => setVisitDate(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Dentist Dropdown */}
-          <div className="grid-gap-1">
-            <label className="text-sm-medium-slate-700">Dentist</label>
-            <select
-              className="input-h10-border-white"
-              value={visitDentistId}
-              onChange={(e) => setVisitDentistId(e.target.value)}
-            >
-              <option value="">Select dentist…</option>
-              {dentists.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.full_name}
-                </option>
-              ))}
-            </select>
+            {/* Dentist Dropdown */}
+            <div className="grid-gap-1" style={{ width: "60%" }}>
+              <label className="text-sm-medium-slate-700">Dentist</label>
+              <select
+                className="input-h10-border-white w-full"
+                value={visitDentistId}
+                onChange={(e) => setVisitDentistId(e.target.value)}
+              >
+                <option value="">Select dentist…</option>
+                {dentists.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Visit Concern */}
