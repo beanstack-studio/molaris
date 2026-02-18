@@ -600,7 +600,7 @@ export default function ChartPage() {
                   <button
                     onClick={() => saveChartEntryEdit()}
                     disabled={busy}
-                    className="btn-action-blue"
+                    className="save-btn"
                   >
                     {busy ? "Saving…" : "Save"}
                   </button>

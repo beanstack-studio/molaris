@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import PatientTabs from "@/components/PatientTabs";
+import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
 import type { Attachment, Patient } from "@/lib/types";
 import { formatDatePH, safeFileName, combineFullName, splitFullName } from "@/lib/helpers";
@@ -23,6 +24,7 @@ export default function AttachmentsPage() {
   const [uploadType, setUploadType] = useState<AttachmentType | "">("");
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [attachmentSort, setAttachmentSort] = useState<"DATE_DESC" | "DATE_ASC" | "NAME_ASC">("DATE_DESC");
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAttachment, setEditingAttachment] = useState<Attachment | null>(null);
   const [editFileName, setEditFileName] = useState("");
@@ -132,6 +134,20 @@ export default function AttachmentsPage() {
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   }
 
+  function openUploadModal() {
+    setUploadType("");
+    setFileToUpload(null);
+    setErr(null);
+    setShowUploadModal(true);
+  }
+
+  function closeUploadModal() {
+    setShowUploadModal(false);
+    setUploadType("");
+    setFileToUpload(null);
+    setErr(null);
+  }
+
   function openEditModal(att: Attachment) {
     setEditingAttachment(att);
     setEditFileName(att.file_name || "");
@@ -208,58 +224,25 @@ export default function AttachmentsPage() {
         <div className="page-sections">
           <div className="card">
             <div className="card-header">
-              <div className="card-title">Upload attachment</div>
-            </div>
-            <div className="form-grid-3">
-              <label className="form-field-wrapper">
-                <span className="label-text">Type</span>
+              <div className="card-title">Attachments</div>
+              <div className="flex items-center gap-2">
                 <select
-                  className="form-input"
-                  value={uploadType}
-                  onChange={(e) => setUploadType(e.target.value as AttachmentType)}
+                  className="form-select-standard"
+                  value={attachmentSort}
+                  onChange={(e) => setAttachmentSort(e.target.value as any)}
                 >
-                  <option value="">Select type</option>
-                  {attachmentTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
+                  <option value="DATE_DESC">Newest</option>
+                  <option value="DATE_ASC">Oldest</option>
+                  <option value="NAME_ASC">Name A–Z</option>
                 </select>
-              </label>
-
-              <label className="form-field-wrapper">
-                <span className="label-text">File</span>
-                <input
-                  type="file"
-                  className="form-input-border-white"
-                  onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
-                />
-              </label>
-
-              <div className="button-group-row">
                 <button
                   className="btn-secondary-dark"
-                  disabled={busy || !uploadType || !fileToUpload}
-                  onClick={uploadAttachment}
+                  onClick={openUploadModal}
+                  disabled={busy}
                 >
-                  {busy ? "Uploading…" : "Upload"}
+                  Add/Upload attachment
                 </button>
               </div>
-            </div>
-          </div>
-          
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">Attachments</div>
-              <select
-                className="form-select-standard"
-                value={attachmentSort}
-                onChange={(e) => setAttachmentSort(e.target.value as any)}
-              >
-                <option value="DATE_DESC">Newest</option>
-                <option value="DATE_ASC">Oldest</option>
-                <option value="NAME_ASC">Name A–Z</option>
-              </select>
             </div>
 
             <div className="table-wrapper">
@@ -391,6 +374,59 @@ export default function AttachmentsPage() {
           </div>
         </div>
       ) : null}
+
+      {/* Upload Attachment Modal */}
+      <EditModal
+        open={showUploadModal}
+        title="Add/Upload attachment"
+        onClose={closeUploadModal}
+      >
+        <div className="spacing-vertical-lg">
+          <div className="grid-gap-1">
+            <label className="text-sm-medium-slate-700">Type</label>
+            <select
+              className="input-h10-border-white w-full"
+              value={uploadType}
+              onChange={(e) => setUploadType(e.target.value as AttachmentType)}
+            >
+              <option value="">Select type</option>
+              {attachmentTypes.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid-gap-1">
+            <label className="text-sm-medium-slate-700">File</label>
+            <input
+              type="file"
+              className="input-h10-border-white w-full"
+              onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
+            />
+          </div>
+
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button
+                className="cancel-btn"
+                onClick={closeUploadModal}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                className="save-btn"
+                disabled={busy || !uploadType || !fileToUpload}
+                onClick={uploadAttachment}
+              >
+                {busy ? "Uploading…" : "Upload"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
     </>
   );
 }
