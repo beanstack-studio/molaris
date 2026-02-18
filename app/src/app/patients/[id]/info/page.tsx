@@ -225,17 +225,17 @@ export default function Page() {
     <>
       {err ? <div className="error-banner">{err}</div> : null}
 
-      <div className="patient-content">
-        <div className="patient-sections">
+      <div className="page-content">
+        <div className="page-sections">
           {/* Patient Information Box */}
-          <div className="info-box">
-            <div className="info-box-header">
-              <div className="info-box-title">Patient Information</div>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Patient Information</div>
               <button className="btn-primary-dark" onClick={() => setEditOpen(true)}>
                 Edit
               </button>
             </div>
-            <div className="space-y-4-base">
+            <div className="spacing-vertical-lg">
               {/* Row 1: Last name, First name - 50/50 */}
               <div className="grid-gap-4-cols-2">
                 <label className="field-label">
@@ -279,9 +279,11 @@ export default function Page() {
           </div>
 
           {/* Last Visit Box */}
-          <div className="info-box-muted">
-            <div className="info-box-title">Last visit</div>
-            <div className="info-box-grid-3">
+          <div className="card-muted">
+            <div className="card-header">
+              <div className="card-title">Last visit</div>
+            </div>
+            <div className="card-grid-3">
               <label className="field-label">
                 <span className="field-label-text">Date</span>
                 <input className="field-input-white" value={lastVisitDate ? formatDatePH(lastVisitDate) : ""} readOnly />

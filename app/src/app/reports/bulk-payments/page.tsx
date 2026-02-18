@@ -198,12 +198,12 @@ export default function BulkPaymentsPage() {
   };
 
   return (
-    <div className="patient-content">
-      <div className="patient-sections">
+    <div className="page-content">
+      <div className="page-sections">
         {/* Header */}
-        <div className="info-box-header mb-6">
+        <div className="card-header mb-6">
           <div>
-            <div className="info-box-title">Bulk Payments</div>
+            <div className="card-title">Bulk Payments</div>
             <p className="text-sm text-slate-600 mt-1">
               Record multiple payments, import from CSV, and generate receipts
             </p>
@@ -238,7 +238,7 @@ export default function BulkPaymentsPage() {
         </div>
 
         {/* Content */}
-        <div className="info-box">
+        <div className="card">
           {/* MANUAL ENTRY TAB */}
           {activeTab === "manual" && (
             <div className="space-y-4">

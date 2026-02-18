@@ -2,10 +2,12 @@
 
 export default function ClinicPerformanceReportPage() {
   return (
-    <div className="patient-content">
-      <div className="patient-sections">
-      <div className="info-box">
-      <div className="info-box-title mb-2">Clinic Performance Report</div>
+    <div className="page-content">
+      <div className="page-sections">
+      <div className="card">
+      <div className="card-header">
+        <div className="card-title">Clinic Performance Report</div>
+      </div>
       <p className="text-sm text-slate-600 mb-6">
         View overall KPIs, clinic health metrics, growth trends, and comparative analytics.
       </p>

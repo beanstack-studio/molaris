@@ -151,12 +151,14 @@ export default function PaymentModesSettingsPage() {
   return (
     <>
       {err ? <div className="error-banner">{err}</div> : null}
-      <div className="patient-content">
-        <div className="patient-sections">
+      <div className="page-content">
+        <div className="page-sections">
             {/* Payment modes table */}
-            <div className="info-box">
-              <div className="info-box-title mb-3">Payment Modes</div>
-              <div className="mt-3-overflow">
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Payment Modes</div>
+              </div>
+              <div className="table-wrapper">
                 <table className="data-table">
                 <colgroup>
                   <col className="col-18" />
@@ -350,29 +352,31 @@ export default function PaymentModesSettingsPage() {
             </div>
 
             {/* Requirements legend */}
-            <div className="info-box">
-              <div className="info-box-title mb-3">Requirements Legend</div>
-              <div className="grid grid-cols-2 gap-4 text-xs text-slate-700">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Requirements Legend</div>
+              </div>
+              <div className="legend-grid">
+                <div className="legend-item">
+                  <span className="legend-indicator bg-blue-500"></span>
                   <span>
                     <strong>Proof</strong> - Requires proof upload
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
+                <div className="legend-item">
+                  <span className="legend-indicator bg-blue-500"></span>
                   <span>
                     <strong>Reference</strong> - Requires reference number
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>
+                <div className="legend-item">
+                  <span className="legend-indicator bg-blue-500"></span>
                   <span>
                     <strong>Staff</strong> - Requires staff member
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-4 h-4 rounded bg-green-500"></span>
+                <div className="legend-item">
+                  <span className="legend-indicator bg-green-500"></span>
                   <span>
                     <strong>Auto-Verify</strong> - Verifies automatically
                   </span>

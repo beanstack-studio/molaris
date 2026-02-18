@@ -2,10 +2,12 @@
 
 export default function ReportsOverviewPage() {
   return (
-    <div className="patient-content">
-      <div className="patient-sections">
-      <div className="info-box">
-        <div className="info-box-title mb-3">Welcome to Reports</div>
+    <div className="page-content">
+      <div className="page-sections">
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">Welcome to Reports</div>
+        </div>
         <p className="text-slate-600 mb-6">
           Select a report type from the tabs above to analyze clinic performance and financial metrics.
         </p>

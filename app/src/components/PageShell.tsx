@@ -1,6 +1,6 @@
 /**
  * PageShell - Standardized page wrapper for all main menu pages
- * Provides consistent outer structure: patient-content > patient-sections
+ * Provides consistent outer structure: page-content > page-sections
  */
 
 interface PageShellProps {
@@ -12,8 +12,8 @@ export function PageShell({ children, error }: PageShellProps) {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-      <div className="patient-content">
-        <div className="patient-sections">{children}</div>
+      <div className="page-content">
+        <div className="page-sections">{children}</div>
       </div>
     </>
   );

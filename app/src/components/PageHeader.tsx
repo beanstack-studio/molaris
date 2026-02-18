@@ -18,10 +18,10 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
-    <div className="info-box">
-      <div className="info-box-header">
+    <div className="card">
+      <div className="card-header">
         <div>
-          <div className="info-box-title">{title}</div>
+          <div className="card-title">{title}</div>
           {subtitle && <div className="text-sm text-slate-500 mt-1">{subtitle}</div>}
         </div>
         {action && (

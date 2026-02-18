@@ -204,17 +204,17 @@ export default function AttachmentsPage() {
     <>
       {err ? <div className="error-banner">{err}</div> : null}
 
-      <div className="patient-content">
-        <div className="patient-sections">
-          <div className="info-box">
-            <div className="info-box-header">
-              <div className="info-box-title">Upload attachment</div>
+      <div className="page-content">
+        <div className="page-sections">
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Upload attachment</div>
             </div>
-            <div className="mt-3-grid-gap-3-sm-3col">
+            <div className="form-grid-3">
               <label className="form-field-wrapper">
-                <span className="text-slate-700-base">Type</span>
+                <span className="label-text">Type</span>
                 <select
-                  className="input-h10-rounded"
+                  className="form-input"
                   value={uploadType}
                   onChange={(e) => setUploadType(e.target.value as AttachmentType)}
                 >
@@ -228,15 +228,15 @@ export default function AttachmentsPage() {
               </label>
 
               <label className="form-field-wrapper">
-                <span className="text-slate-700-base">File</span>
+                <span className="label-text">File</span>
                 <input
                   type="file"
-                  className="input-h10-rounded-border-white"
+                  className="form-input-border-white"
                   onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
                 />
               </label>
 
-              <div className="flex-items-end-gap-2">
+              <div className="button-group-row">
                 <button
                   className="btn-secondary-dark"
                   disabled={busy || !uploadType || !fileToUpload}
@@ -248,11 +248,11 @@ export default function AttachmentsPage() {
             </div>
           </div>
           
-          <div className="info-box">
-            <div className="info-box-header">
-              <div className="info-box-title">Attachments</div>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Attachments</div>
               <select
-                className="select-h9-w40-rounded-border-white"
+                className="form-select-standard"
                 value={attachmentSort}
                 onChange={(e) => setAttachmentSort(e.target.value as any)}
               >
@@ -262,7 +262,7 @@ export default function AttachmentsPage() {
               </select>
             </div>
 
-            <div className="mt-3-overflow">
+            <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
                   <col className="col-10" />
@@ -340,7 +340,7 @@ export default function AttachmentsPage() {
                   <span className="form-label-text-slate-700-semibold">File name</span>
                   <input
                     type="text"
-                    className="input-h10-rounded-border-white"
+                    className="form-input-border-white"
                     value={editFileName}
                     onChange={(e) => setEditFileName(e.target.value)}
                     placeholder="File name"

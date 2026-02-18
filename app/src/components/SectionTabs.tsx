@@ -22,7 +22,7 @@ export function SectionTabs({ tabs, children }: SectionTabsProps) {
   const pathname = usePathname();
 
   return (
-    <div className="space-y-4-base">
+    <div className="spacing-vertical-lg">
       {/* Tabs Navigation */}
       <div className="border-b border-slate-200">
         <div className="flex gap-1 flex-wrap">
@@ -46,7 +46,7 @@ export function SectionTabs({ tabs, children }: SectionTabsProps) {
       </div>
 
       {/* Tab Content */}
-      <div className="info-box">{children}</div>
+      <div className="card">{children}</div>
     </div>
   );
 }

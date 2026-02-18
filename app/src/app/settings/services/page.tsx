@@ -58,13 +58,23 @@ function sortRows(list: ServicePriceRow[], sort: ServiceSort) {
   return out;
 }
 
+function formatPhpAmount(value: string | number): string {
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (!num) return '0.00';
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export default function ServicesSettingsPage() {
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState<ServiceSort>("NAME_ASC");
 
-  // Add form
+  // Add modal state
+  const [addOpen, setAddOpen] = useState(false);
   const [itemType, setItemType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -137,11 +147,9 @@ export default function ServicesSettingsPage() {
       return;
     }
 
-    setName("");
-    setPrice("");
-    setDuration("");
     await load();
     setBusy(false);
+    closeAdd();
   }
 
   function openEdit(r: ServicePriceRow) {
@@ -157,6 +165,22 @@ export default function ServicesSettingsPage() {
     setEditOpen(false);
     setEditRow(null);
     setDeleteText("");
+  }
+
+  function openAdd(type: "SERVICE" | "ADD_ON") {
+    setItemType(type);
+    setName("");
+    setPrice("");
+    setDuration("");
+    setAddOpen(true);
+  }
+
+  function closeAdd() {
+    setAddOpen(false);
+    setItemType("SERVICE");
+    setName("");
+    setPrice("");
+    setDuration("");
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -233,27 +257,41 @@ export default function ServicesSettingsPage() {
   const Table = ({
     title,
     data,
+    onAdd,
+    addLabel,
   }: {
     title: string;
     data: ServicePriceRow[];
+    onAdd: () => void;
+    addLabel: string;
   }) => (
-    <div className="info-box">
-      <div className="info-box-header">
-        <div className="info-box-title">{title}</div>
-        <select
-          className="select-h9-w40-rounded-border-white"
-          value={sort}
-          onChange={(e) => setSort(e.target.value as ServiceSort)}
-          disabled={busy}
-        >
-          <option value="NAME_ASC">Name A–Z</option>
-          <option value="NAME_DESC">Name Z–A</option>
-          <option value="FEE_ASC">Fee low → high</option>
-          <option value="FEE_DESC">Fee high → low</option>
-        </select>
+    <div className="card">
+      <div className="card-header">
+        <div className="card-title">{title}</div>
+        <div className="flex items-center gap-2">
+          <select
+            className="form-select-standard"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as ServiceSort)}
+            disabled={busy}
+          >
+            <option value="NAME_ASC">Name A–Z</option>
+            <option value="NAME_DESC">Name Z–A</option>
+            <option value="FEE_ASC">Fee low → high</option>
+            <option value="FEE_DESC">Fee high → low</option>
+          </select>
+          <button
+            type="button"
+            className="btn-secondary-dark"
+            onClick={onAdd}
+            disabled={busy}
+          >
+            {addLabel}
+          </button>
+        </div>
       </div>
 
-      <div className="mt-3-overflow">
+      <div className="table-wrapper">
         <table className="data-table">
           <colgroup>
             <col className="col-30" />
@@ -315,75 +353,41 @@ export default function ServicesSettingsPage() {
 
   return (
     <>
-      <div className="patient-content">
-        <div className="patient-sections">
-          {/* ADD BOX */}
-          <div className="info-box">
-            <div className="info-box-title mb-3">Add a service / add-on</div>
+      <div className="page-content">
+        <div className="page-sections">
+          <Table title="Services" data={services} onAdd={() => openAdd('SERVICE')} addLabel="Add Service" />
+          <Table title="Extras" data={addOns} onAdd={() => openAdd('ADD_ON')} addLabel="Add Extra" />
+        </div>
+      </div>
 
-            <div className="mt-3-grid-gap-3-sm-3col">
-              <label className="form-field-wrapper">
-                <span className="text-slate-700-base">Type</span>
-                <select
-                  className="input-h10-rounded"
-                  value={itemType}
-                  onChange={(e) => setItemType(e.target.value as any)}
-                  disabled={busy}
-                >
-                  <option value="">Select type</option>
-                  <option value="SERVICE">Service</option>
-                  <option value="ADD_ON">Add-on</option>
-                </select>
-              </label>
+      <EditModal
+        open={addOpen}
+        title={itemType === "ADD_ON" ? "Add Extra" : "Add Service"}
+        onClose={closeAdd}
+      >
+        <div className="spacing-vertical-lg">
+          <label className="field-label">
+            <span className="field-label-text">Name</span>
+            <input
+              className="field-input"
+              placeholder={itemType === "ADD_ON" ? "Extra name" : "Service name"}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={busy}
+            />
+          </label>
 
-              <label className="form-field-wrapper">
-                <span className="text-slate-700-base">Name</span>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="field-label">
+              <span className="field-label-text">Fee</span>
+              <div className="flex items-center border rounded-lg bg-white overflow-hidden">
+                <span className="px-3 py-2 text-slate-600 bg-slate-50 font-medium text-sm">PHP</span>
                 <input
-                  type="text"
-                  className="input-h10-rounded"
-                  placeholder="Service or add-on name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={busy}
-                />
-              </label>
-
-              <label className="form-field-wrapper">
-                <span className="text-slate-700-base">Duration (Optional)</span>
-                <select
-                  className="input-h10-rounded"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  disabled={busy}
-                  title="Duration in minutes (15-min increments)"
-                >
-                  <option value="">No duration</option>
-                  <option value="15">15 min</option>
-                  <option value="30">30 min</option>
-                  <option value="45">45 min</option>
-                  <option value="60">1 hour</option>
-                  <option value="75">1h 15m</option>
-                  <option value="90">1h 30m</option>
-                  <option value="105">1h 45m</option>
-                  <option value="120">2 hours</option>
-                  <option value="135">2h 15m</option>
-                  <option value="150">2h 30m</option>
-                  <option value="165">2h 45m</option>
-                  <option value="180">3 hours</option>
-                </select>
-              </label>
-
-              <label className="form-field-wrapper">
-                <span className="text-slate-700-base">Fee</span>
-                <input
-                  type="text"
-                  className="input-h10-rounded"
+                  className="flex-1 h-10 border-0 bg-transparent px-2 focus:outline-none text-sm"
                   placeholder="0.00"
                   value={price}
                   onChange={(e) => {
-                    // Only allow numbers and decimal point
                     let v = e.target.value.replace(/[^\d.]/g, '');
-                    // Only keep first decimal point
                     const parts = v.split('.');
                     if (parts.length > 2) {
                       v = parts[0] + '.' + parts.slice(1).join('');
@@ -393,63 +397,19 @@ export default function ServicesSettingsPage() {
                   disabled={busy}
                   inputMode="decimal"
                 />
-              </label>
-
-              <div className="flex-items-end-gap-2">
-                <button
-                  type="button"
-                  className="btn-secondary-dark"
-                  onClick={addItem}
-                  disabled={busy}
-                >
-                  Add
-                </button>
+                
               </div>
-            </div>
-          </div>
-
-          <Table title="Services" data={services} />
-          <Table title="Add-ons" data={addOns} />
-        </div>
-      </div>
-
-      <EditModal
-        open={editOpen}
-        title={editRow ? `Edit ${editRow.item_type === "ADD_ON" ? "Add-on" : "Service"}` : "Edit"}
-        onClose={closeEdit}
-      >
-        {!editRow ? null : (
-          <div className="space-y-4-base">
-            <label className="field-label">
-              <span className="field-label-text">Name</span>
-              <input
-                className="field-input"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                disabled={busy}
-              />
             </label>
 
             <label className="field-label">
-              <span className="field-label-text">Fee</span>
-              <input
-                className="field-input"
-                value={editPrice}
-                onChange={(e) => setEditPrice(e.target.value)}
-                disabled={busy}
-                inputMode="decimal"
-              />
-            </label>
-
-            <label className="field-label">
-              <span className="field-label-text">Duration (Optional)</span>
+              <span className="field-label-text">Duration</span>
               <select
-                className="field-input"
-                value={editDuration}
-                onChange={(e) => setEditDuration(e.target.value)}
+                className="field-input text-sm h-10"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
                 disabled={busy}
               >
-                <option value="">No duration</option>
+                <option value="">None</option>
                 <option value="15">15 min</option>
                 <option value="30">30 min</option>
                 <option value="45">45 min</option>
@@ -464,6 +424,96 @@ export default function ServicesSettingsPage() {
                 <option value="180">3 hours</option>
               </select>
             </label>
+          </div>
+
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={closeAdd}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="save-btn"
+                onClick={addItem}
+                disabled={busy || !name.trim()}
+              >
+                {busy ? "Adding…" : "Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
+
+      <EditModal
+        open={editOpen}
+        title={editRow ? `Edit ${editRow.item_type === "ADD_ON" ? "Extra" : "Service"}` : "Edit"}
+        onClose={closeEdit}
+      >
+        {!editRow ? null : (
+          <div className="spacing-vertical-lg">
+            <label className="field-label">
+              <span className="field-label-text">Name</span>
+              <input
+                className="field-input"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="field-label">
+                <span className="field-label-text">Fee</span>
+                <div className="flex items-center border rounded-lg bg-white overflow-hidden">
+                  <span className="px-3 py-2 text-slate-600 bg-slate-50 font-medium text-sm">PHP</span>
+                  <input
+                    className="flex-1 h-10 border-0 bg-transparent px-2 focus:outline-none text-sm"
+                    placeholder="0.00"
+                    value={editPrice}
+                    onChange={(e) => {
+                      let v = e.target.value.replace(/[^\d.]/g, '');
+                      const parts = v.split('.');
+                      if (parts.length > 2) {
+                        v = parts[0] + '.' + parts.slice(1).join('');
+                      }
+                      setEditPrice(v);
+                    }}
+                    disabled={busy}
+                    inputMode="decimal"
+                  />
+                  <span className="px-2 text-slate-400 text-sm">.00</span>
+                </div>
+              </label>
+
+              <label className="field-label">
+                <span className="field-label-text">Duration</span>
+                <select
+                  className="field-input text-sm h-10"
+                  value={editDuration}
+                  onChange={(e) => setEditDuration(e.target.value)}
+                  disabled={busy}
+                >
+                  <option value="">None</option>
+                  <option value="15">15 min</option>
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">1 hour</option>
+                  <option value="75">1h 15m</option>
+                  <option value="90">1h 30m</option>
+                  <option value="105">1h 45m</option>
+                  <option value="120">2 hours</option>
+                  <option value="135">2h 15m</option>
+                  <option value="150">2h 30m</option>
+                  <option value="165">2h 45m</option>
+                  <option value="180">3 hours</option>
+                </select>
+              </label>
+            </div>
 
             <div className="delete-confirmation">
               <div className="delete-confirmation-title">Delete service?</div>

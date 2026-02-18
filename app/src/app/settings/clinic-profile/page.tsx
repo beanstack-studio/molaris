@@ -316,13 +316,13 @@ export default function ClinicProfileSettingsPage() {
     <>
       {err ? <div className="error-banner">{err}</div> : null}
       {success ? <div className="success-banner">Saved successfully</div> : null}
-      <div className="patient-content">
-        <div className="patient-sections">
+        <div className="page-content">
+          <div className="page-sections">
 
           {/* Clinic Information Box */}
-          <div className="info-box">
-            <div className="info-box-header">
-              <h3 className="info-box-title">Clinic Information</h3>
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Clinic Information</h3>
               <div className="flex gap-2">
                 {editingClinicInfo ? (
                   <>
@@ -352,7 +352,7 @@ export default function ClinicProfileSettingsPage() {
               </div>
             </div>
 
-            <div className="mt-3-grid-gap-3-sm-2col">
+            <div className="form-grid-2">
               <label className="field-label">
                 <span className="field-label-text">Clinic Name</span>
                 <input 
@@ -420,9 +420,9 @@ export default function ClinicProfileSettingsPage() {
           </div>
 
           {/* Clinic Hours Box */}
-          <div className="rounded-2xl border bg-white p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-slate-700">Clinic Hours</h3>
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Clinic Hours</h3>
               <div className="flex gap-2">
                 {editingClinicHours ? (
                   <>
@@ -452,7 +452,7 @@ export default function ClinicProfileSettingsPage() {
                 ) : (
                   <button
                     type="button"
-                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+                    className="btn-secondary-dark"
                     onClick={() => setEditingClinicHours(true)}
                   >
                     Edit
@@ -463,7 +463,7 @@ export default function ClinicProfileSettingsPage() {
 
             <div>
               {editingClinicHours ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="form-grid-3">
                   {clinicHours.map((hour) => (
                     <div key={hour.id} className="rounded-lg border bg-slate-50 p-3">
                       <div className="grid gap-2">
@@ -567,7 +567,7 @@ export default function ClinicProfileSettingsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="form-grid-3">
                   {clinicHours.map((hour) => (
                     <div key={hour.id} className="rounded-lg border bg-slate-50 p-3">
                       <div className="grid gap-2">

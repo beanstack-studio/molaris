@@ -385,10 +385,6 @@
   @apply bg-slate-50/70;
 }
 
-.card-title {
-  @apply font-semibold underline decoration-slate-300;
-}
-
 .card-meta {
   @apply mt-2 text-sm text-slate-700;
 }
@@ -435,10 +431,6 @@
   @apply p-4;
 }
 
-.page-sections {
-  @apply space-y-6;
-}
-
 /* ========================================
    PATIENT PAGES - Info Tab
    ======================================== */
@@ -474,36 +466,36 @@
 }
 
 /* Main content wrapper */
-.patient-content {
+.page-content {
   @apply p-4;
 }
 
-.patient-sections {
+.page-sections {
   @apply grid gap-4;
 }
 
 /* Info boxes */
-.info-box {
-  @apply rounded-xl border bg-white p-4;
+.card {
+  @apply rounded-xl border bg-white px-4 pt-3 pb-6;
 }
 
-.info-box-muted {
-  @apply rounded-xl border bg-slate-50 p-4;
-}
+.card-muted {
+  @apply rounded-xl border bg-slate-50 pr-4 pl-4 pt-2 pb-6;
+} 
 
-.info-box-header {
+.card-header {
   @apply flex items-center justify-between;
 }
 
-.info-box-title {
-  @apply text-sm font-semibold text-slate-800;
+.card-title {
+  @apply text-xl font-semibold text-blue-950 no-underline;
 }
 
-.info-box-grid {
+.card-grid {
   @apply mt-4 grid gap-3 sm:grid-cols-2;
 }
 
-.info-box-grid-3 {
+.card-grid-3 {
   @apply mt-3 grid gap-3 sm:grid-cols-3;
 }
 
@@ -612,16 +604,16 @@
 }
 
 /* Billing section box */
-.billing-section {
+.section-box {
   @apply rounded-2xl border bg-white p-4;
 }
 
-.billing-section-grid {
+.section-grid {
   @apply mt-4 grid gap-4;
 }
 
 /* Stat cards */
-.stat-box {
+.stat-card {
   @apply rounded-lg border bg-blue-50 p-3;
 }
 
@@ -1212,13 +1204,8 @@
    STANDARDIZED LAYOUT CONTAINERS
    ======================================== */
 
-/* Main info box container */
-.info-box {
-  @apply rounded-xl border bg-white p-4;
-}
-
 /* Info box grid layout - 2 columns on sm */
-.info-box-grid {
+.card-grid {
   @apply grid gap-3 sm:grid-cols-2;
 }
 
@@ -1377,16 +1364,29 @@
   @apply overflow-x-auto;
 }
 
-.mt-3-overflow {
+.table-wrapper {
   @apply mt-3 overflow-x-auto;
 }
 
-.mt-3-grid-gap-3-sm-3col {
+.form-grid-3 {
   @apply mt-3 grid gap-3 sm:grid-cols-3;
 }
 
-.mt-3-grid-gap-3-sm-2col {
+.form-grid-2 {
   @apply mt-3 grid gap-3 sm:grid-cols-2;
+}
+
+/* Legend grid and items */
+.legend-grid {
+  @apply mt-3 grid grid-cols-2 gap-4 text-xs text-slate-700;
+}
+
+.legend-item {
+  @apply flex items-center gap-2;
+}
+
+.legend-indicator {
+  @apply inline-block w-4 h-4 rounded;
 }
 
 .mt-4-grid-gap-4 {
@@ -1440,11 +1440,11 @@
 }
 
 /* Input styling variants */
-.input-h10-rounded {
+.form-input {
   @apply h-10 rounded-lg border bg-white px-3;
 }
 
-.input-h10-rounded-select {
+.form-input-select {
   @apply h-10 rounded-lg border bg-white px-3 text-sm;
 }
 
@@ -1638,7 +1638,7 @@
    ======================================== */
 
 /* Flex row with items aligned at end */
-.flex-items-end-gap-2 {
+.button-group-row {
   @apply flex items-end gap-2;
 }
 
@@ -1683,11 +1683,11 @@
    ======================================== */
 
 /* Info box with specific styling */
-.info-box-white {
+.card-white {
   @apply rounded-xl border bg-white p-4;
 }
 
-.info-box-slate-50 {
+.card-slate-50 {
   @apply rounded-xl border bg-slate-50 p-4;
 }
 
@@ -2043,7 +2043,7 @@
 }
 
 /* Text color - appearing 16+ times */
-.text-slate-700-base {
+.label-text {
   @apply text-slate-700;
 }
 
@@ -2072,15 +2072,15 @@
   @apply space-y-3;
 }
 
-.space-y-4-base {
+.spacing-vertical-lg {
   @apply space-y-4;
 }
 
-.mt-3-grid-gap-3-sm-2col {
+.form-grid-2 {
   @apply mt-3 grid gap-3 sm:grid-cols-2;
 }
 
-.mt-3-grid-gap-3-sm-3col {
+.form-grid-3 {
   @apply mt-3 grid gap-3 sm:grid-cols-3;
 }
 
@@ -2178,12 +2178,12 @@
   @apply rounded-lg border bg-white px-3 py-2 text-sm;
 }
 
-.input-h10-rounded-border-white {
+.form-input-border-white {
   @apply h-10 rounded-lg border bg-white px-3 py-2 text-sm;
 }
 
 /* Select/sort dropdown styling */
-.select-h9-w40-rounded-border-white {
+.form-select-standard {
   @apply h-9 w-40 rounded-lg border bg-white px-2 text-sm;
 }
 

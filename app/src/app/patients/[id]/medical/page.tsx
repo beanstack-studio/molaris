@@ -132,11 +132,11 @@ export default function Page() {
   return (
     <>
       {err ? <div className="error-banner">{err}</div> : null}
-      <div className="patient-content">
+      <div className="page-content">
         <div className="page-sections">
-          <div className="info-box">
-          <div className="info-box-header">
-            <div className="info-box-title">Medical Information</div>
+          <div className="card">
+          <div className="card-header">
+            <div className="card-title">Medical Information</div>
               {medHist ? (
                 <button className="btn-primary-dark" onClick={openEdit}>
                   Edit
@@ -157,7 +157,7 @@ export default function Page() {
             {!medHist ? (
               <div className="helper-text-muted mt-4">No medical history recorded.</div>
             ) : (
-              <div className="info-box-grid responsive-grid-cols-2">
+              <div className="card-grid responsive-grid-cols-2">
                 <label className="field-label">
                   <span className="field-label-text">Allergies</span>
                   <input className="field-input-readonly" value={medHist.allergies ?? ""} readOnly />
@@ -191,7 +191,7 @@ export default function Page() {
           setErr(null);
         }}
       >
-        <div className="space-y-4-base">
+        <div className="spacing-vertical-lg">
           <div className="field-label">
             <label className="field-label-text">Allergies</label>
             <input

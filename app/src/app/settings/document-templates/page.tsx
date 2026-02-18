@@ -3,10 +3,12 @@
 export default function DocumentTemplatesSettingsPage() {
   return (
     <>
-      <div className="patient-content">
-        <div className="patient-sections">
-          <div className="info-box">
-            <div className="info-box-title mb-3">Document Templates</div>
+      <div className="page-content">
+        <div className="page-sections">
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Document Templates</div>
+            </div>
             <p className="text-slate-600 mb-6">
               Manage your certificate and receipt templates, including logo support.
             </p>

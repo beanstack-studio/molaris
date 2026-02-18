@@ -280,13 +280,13 @@ export default function OrthoPage() {
   return (
     <>
       {err ? <div className="error-banner">{err}</div> : null}
-      <div className="patient-content">
-        <div className="patient-sections">
+      <div className="page-content">
+        <div className="page-sections">
 
           {/* Ortho Case Box - Like Patient Information */}
-          <div className="info-box">
-            <div className="info-box-header">
-              <div className="info-box-title">Ortho Case</div>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Ortho Case</div>
               {orthoCase ? (
                 <button className="btn-primary-dark" disabled={busy} onClick={openEditCaseModal}>
                   Edit
@@ -299,7 +299,7 @@ export default function OrthoPage() {
             </div>
 
             {orthoCase ? (
-              <div className="space-y-4-base">
+              <div className="spacing-vertical-lg">
                 {/* Row 1: Status, Start Date */}
                 <div className="grid-gap-4-cols-2">
                   <label className="field-label">
@@ -355,9 +355,9 @@ export default function OrthoPage() {
 
           {/* Adjustment Log - Like Treatment History Table */}
           {orthoCase && (
-            <div className="info-box">
-              <div className="info-box-header">
-                <div className="info-box-title">Adjustment Log</div>
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Adjustment Log</div>
                 <button className="btn-secondary-dark" disabled={busy || entriesLoading} onClick={openCreateEntryModal}>
                   Add Entry
                 </button>
@@ -368,7 +368,7 @@ export default function OrthoPage() {
               ) : filteredEntries.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">No adjustment entries yet.</div>
               ) : (
-                <div className="mt-3-overflow">
+                <div className="table-wrapper">
                   <table className="data-table">
                     <colgroup>
                       <col style={{ width: "15%" }} />
@@ -425,7 +425,7 @@ export default function OrthoPage() {
           title={`${caseModalMode === "create" ? "Create" : "Edit"} Ortho Case`} 
           onClose={() => { setCaseModalOpen(false); setErr(null); }}
         >
-          <div className="space-y-4-base">
+          <div className="spacing-vertical-lg">
             {/* Row 1: Start Date, End Date */}
             <div className="grid-gap-4-cols-2">
               <div className="field-label">
@@ -553,7 +553,7 @@ export default function OrthoPage() {
           title={`${entryModalMode === "create" ? "Add" : "Edit"} Entry`} 
           onClose={() => { setEntryModalOpen(false); setErr(null); }}
         >
-          <div className="space-y-4-base">
+          <div className="spacing-vertical-lg">
             {/* Row 1: Date, Tag */}
             <div className="grid-gap-4-cols-2">
               <div className="field-label">

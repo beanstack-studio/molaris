@@ -13,12 +13,12 @@ export default function AppointmentsReportPage() {
   };
 
   return (
-    <div className="patient-content">
-      <div className="patient-sections">
-      <div className="info-box">
-        <div className="info-box-header mb-6">
+    <div className="page-content">
+      <div className="page-sections">
+      <div className="card">
+        <div className="card-header mb-6">
           <div>
-            <div className="info-box-title">Appointment Reports</div>
+            <div className="card-title">Appointment Reports</div>
             <p className="text-sm text-slate-600 mt-1">
               Track appointment utilization, no-show rates, scheduling efficiency, and dentist workload.
             </p>

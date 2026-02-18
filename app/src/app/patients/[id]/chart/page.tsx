@@ -271,9 +271,9 @@ export default function ChartPage() {
   return (
     <>
       {err ? <div className="error-banner">{err}</div> : null}
-      <div className="patient-content">
-       
-          <div className="info-box">
+      <div className="page-content">
+        <div className="page-sections">
+          <div className="card">
             <ToothChart
               entries={chart ?? []}
               statuses={toothStatuses}
@@ -289,9 +289,9 @@ export default function ChartPage() {
             />
           </div>
 
-          <div className="mt-4-rounded-xl-border-white">
-            <div className="flex-items-center-justify-start">
-              <div className="text-sm-semibold">Tooth tools</div>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Tooth tools</div>
             </div>
 
             <div className="text-left-mt-2-sm-slate-700">
@@ -466,10 +466,12 @@ export default function ChartPage() {
               </div>
             </div>
 
-            <div className="mt-4-rounded-xl-border-white">
-              <div className="text-sm-semibold">Chart history</div>
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Chart history</div>
+              </div>
 
-              <div className="mt-3-overflow">
+              <div className="table-wrapper">
                 <table className="data-table">
                   <colgroup>
                     <col className="col-12" />
@@ -516,7 +518,7 @@ export default function ChartPage() {
               </div>
             </div>
           </div>
-        
+      </div>
 
       {editingEntry ? (
         <div className="modal-container" onDoubleClick={() => setEditingEntry(null)}>

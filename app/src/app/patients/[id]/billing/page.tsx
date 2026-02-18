@@ -595,12 +595,12 @@ export default function BillingPage() {
     <>
       {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
 
-      <div className="patient-content">
-        <div className="patient-sections">
+      <div className="page-content">
+        <div className="page-sections">
             {/* Billing Overview (MUST COME FIRST) */}
-            <div className="info-box">
-              <div className="info-box-header">
-                <div className="info-box-title">Billing Overview</div>
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Billing Overview</div>
               </div>
 
                 <div className="mt-3 grid gap-4 sm:grid-cols-3">
@@ -626,9 +626,9 @@ export default function BillingPage() {
               </div>
 
               {/* Invoices */}
-              <div className="info-box">
-                <div className="info-box-header">
-                  <div className="info-box-title">Invoices</div>
+              <div className="card">
+                <div className="card-header">
+                  <div className="card-title">Invoices</div>
                   <button
                     className="h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white"
                     onClick={() => setShowCreateInvoice(true)}
@@ -723,9 +723,9 @@ export default function BillingPage() {
               </div>
 
               {/* Payments */}
-              <div className="info-box">
-                <div className="info-box-header">
-                  <div className="info-box-title">Payments</div>
+              <div className="card">
+                <div className="card-header">
+                  <div className="card-title">Payments</div>
                   <button className="h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white" onClick={() => setShowAddPayment(true)}>
                     Add payment
                   </button>

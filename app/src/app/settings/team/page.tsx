@@ -412,12 +412,12 @@ export default function TeamSettingsPage() {
   return (
     <>
       {err ? <div className="error-banner">{err}</div> : null}
-      <div className="patient-content">
-        <div className="patient-sections">
+      <div className="page-content">
+        <div className="page-sections">
             {/* DENTISTS SECTION */}
-            <div className="info-box">
-              <div className="info-box-header">
-                <h2 className="info-box-title">Dentists</h2>
+            <div className="card">
+              <div className="card-header">
+                <h2 className="card-title">Dentists</h2>
                 <button
                   className="btn-secondary-dark"
                   onClick={() => {
@@ -434,7 +434,7 @@ export default function TeamSettingsPage() {
                 </button>
               </div>
 
-              <div className="mt-3-overflow">
+              <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
                   <col className="col-25" />
@@ -507,9 +507,9 @@ export default function TeamSettingsPage() {
             </div>
 
             {/* STAFF SECTION */}
-            <div className="info-box">
-              <div className="info-box-header">
-                <h2 className="info-box-title">Staff Members</h2>
+            <div className="card">
+              <div className="card-header">
+                <h2 className="card-title">Staff Members</h2>
                 <button
                   className="btn-secondary-dark"
                   onClick={() => {
@@ -525,7 +525,7 @@ export default function TeamSettingsPage() {
                 </button>
               </div>
 
-              <div className="mt-3-overflow">
+              <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
                   <col className="col-30" />
@@ -608,7 +608,7 @@ export default function TeamSettingsPage() {
           setDentistPtr("");
         }}
       >
-        <div className="space-y-4-base">
+        <div className="spacing-vertical-lg">
           <label className="field-label">
             <span className="field-label-text">Full name</span>
             <input
@@ -701,7 +701,7 @@ export default function TeamSettingsPage() {
           setStaffDob("");
         }}
       >
-        <div className="space-y-4-base">
+        <div className="spacing-vertical-lg">
           <label className="field-label">
             <span className="field-label-text">Full name</span>
             <input

@@ -5,8 +5,11 @@ export default function DocumentsPage() {
     <>
       <div className="p-4">
         <div className="grid gap-4">
-          <div className="rounded-2xl border bg-white p-4">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Patient Documents</h2>
+          <div className="card">
+          <div className="card-header">
+            <div className="card-title">Patient Documents</div>
+          </div>
+          <div className="mt-3">
             <p className="text-slate-600 mb-6">
               Generate and manage patient certificates, receipts, and other documents.
             </p>
@@ -18,6 +21,7 @@ export default function DocumentsPage() {
           </div>
         </div>
       </div>
+    </div>
     </>
   );
 }

@@ -109,26 +109,26 @@ export default function PaymentReportsPage() {
   }
 
   return (
-    <div className="patient-content">
-      <div className="patient-sections">
+    <div className="page-content">
+      <div className="page-sections">
       {err ? <div className="error-banner">{err}</div> : null}
 
       {/* Summary Cards */}
       {summary && (
         <div className="grid gap-4 sm:grid-cols-4">
-          <div className="info-box">
+          <div className="card">
             <div className="text-sm text-slate-600">Total Invoiced</div>
             <div className="text-2xl font-bold text-slate-900 mt-2">{formatMoney(summary.totalInvoiced)}</div>
           </div>
-          <div className="info-box">
+          <div className="card">
             <div className="text-sm text-slate-600">Total Paid</div>
             <div className="text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.totalPaid)}</div>
           </div>
-          <div className="info-box">
+          <div className="card">
             <div className="text-sm text-slate-600">Outstanding</div>
             <div className="text-2xl font-bold text-orange-700 mt-2">{formatMoney(summary.totalOutstanding)}</div>
           </div>
-          <div className="info-box">
+          <div className="card">
             <div className="text-sm text-slate-600">Collection Rate</div>
             <div className="text-2xl font-bold text-blue-700 mt-2">{summary.collectionRate}%</div>
           </div>
@@ -136,10 +136,12 @@ export default function PaymentReportsPage() {
       )}
 
       {/* Outstanding Invoices */}
-      <div className="info-box">
-        <div className="info-box-title mb-3">Outstanding Invoices</div>
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">Outstanding Invoices</div>
+        </div>
         {outstanding.length > 0 ? (
-          <div className="mt-3-overflow">
+          <div className="table-wrapper">
             <table className="data-table">
               <colgroup>
                 <col className="col-40" />
@@ -173,10 +175,12 @@ export default function PaymentReportsPage() {
       </div>
 
       {/* Recent Payments */}
-      <div className="info-box">
-        <div className="info-box-title mb-3">Recent Payments</div>
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">Recent Payments</div>
+        </div>
         {payments.length > 0 ? (
-          <div className="mt-3-overflow">
+          <div className="table-wrapper">
             <table className="data-table">
               <colgroup>
                 <col className="col-25" />

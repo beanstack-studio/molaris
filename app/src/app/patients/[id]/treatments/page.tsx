@@ -264,15 +264,15 @@ export default function TreatmentsPage() {
   return (
     <>
       {err ? <div className="error-banner">{err}</div> : null}
-      <div className="patient-content">
-        <div className="patient-sections">
-          <div className="info-box">
-            <div className="info-box-header">
-              <div className="info-box-title">Add treatment</div>
+      <div className="page-content">
+        <div className="page-sections">
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Add visit</div>
               </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-6">
                   <label className="form-field-wrapper sm:col-span-1">
-                    <span className="text-slate-700-base">Visit date</span>
+                    <span className="label-text">Visit date</span>
                     <div className="relative">
                       <input
                         type="text"
@@ -280,6 +280,9 @@ export default function TreatmentsPage() {
                         value={visitDate ? formatDatePH(visitDate) : ""}
                         readOnly
                       />
+                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
                       <input
                         type="date"
                         className="absolute inset-0 opacity-0 cursor-pointer"
@@ -290,7 +293,7 @@ export default function TreatmentsPage() {
                   </label>
 
                   <label className="form-field-wrapper sm:col-span-2">
-                    <span className="text-slate-700-base">Concern</span>
+                    <span className="label-text">Concern</span>
                     <input
                       type="text"
                       className="input-standard"
@@ -301,9 +304,9 @@ export default function TreatmentsPage() {
                   </label>
 
                   <label className="form-field-wrapper sm:col-span-2">
-                    <span className="text-slate-700-base">Dentist</span>
+                    <span className="label-text">Dentist</span>
                     <select
-                      className="input-h10-rounded"
+                      className="input-h10-border-white"
                       value={visitDentistId}
                       onChange={(e) => setVisitDentistId(e.target.value)}
                     >
@@ -316,7 +319,7 @@ export default function TreatmentsPage() {
                     </select>
                   </label>
 
-                  <div className="flex-items-end-gap-2 sm:col-span-1">
+                  <div className="button-group-row sm:col-span-1">
                     <button
                       className="btn-secondary-dark"
                       disabled={busy || draftLines.length === 0 || !visitConcern.trim()}
@@ -329,7 +332,7 @@ export default function TreatmentsPage() {
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-6">
                   <label className="form-field-wrapper sm:col-span-1">
-                    <span className="text-slate-700-base">Tooth #</span>
+                    <span className="label-text">Tooth #</span>
                     <input
                       className="input-standard"
                       value={lineTooth}
@@ -339,7 +342,7 @@ export default function TreatmentsPage() {
                   </label>
 
                   <label className="form-field-wrapper sm:col-span-2">
-                    <span className="text-slate-700-base">Procedure</span>
+                    <span className="label-text">Treatment</span>
                     <select
                       className="input-h10-border-white"
                       value={txServiceId}
@@ -349,7 +352,7 @@ export default function TreatmentsPage() {
                         setTxServiceName(svc?.service_name ?? "");
                       }}
                     >
-                      <option value="">Select procedure</option>
+                      <option value="">Select treatment</option>
                       {serviceMenu
                         .slice()
                         .sort((a, b) => {
@@ -367,7 +370,7 @@ export default function TreatmentsPage() {
                   </label>
 
                   <label className="form-field-wrapper sm:col-span-2">
-                    <span className="text-slate-700-base">Notes</span>
+                    <span className="label-text">Notes</span>
                     <input
                       className="input-standard"
                       value={lineNote}
@@ -376,7 +379,7 @@ export default function TreatmentsPage() {
                     />
                   </label>
 
-                  <div className="flex-items-end-gap-2 sm:col-span-1">
+                  <div className="button-group-row sm:col-span-1">
                     <button
                       className="btn-secondary-dark"
                       disabled={!txServiceId}
@@ -388,7 +391,7 @@ export default function TreatmentsPage() {
                 </div>
 
                 {draftLines.length > 0 ? (
-                  <div className="mt-3-overflow">
+                  <div className="table-wrapper">
                     <table className="data-table">
                       <thead className="data-table-head">
                         <tr>
@@ -420,11 +423,11 @@ export default function TreatmentsPage() {
                 ) : null}
               </div>
                 
-              <div className="info-box">
+              <div className="card">
                 <div className="flex-wrap-items-center-justify-between">
-                  <div className="info-box-title">Treatment history</div>
+                  <div className="card-title">Treatment history</div>
                   <select
-                    className="select-h9-w40-rounded-border-white"
+                    className="form-select-standard"
                     value={treatmentSort}
                     onChange={(e) => setTreatmentSort(e.target.value as any)}
                   >
@@ -433,18 +436,18 @@ export default function TreatmentsPage() {
                   </select>
                 </div>
 
-                <div className="mt-3-overflow">
+                <div className="table-wrapper">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "25%" }} />
-                      <col style={{ width: "40%" }} />
-                      <col style={{ width: "15%" }} />
+                      <col className="col-20" />
+                      <col className="col-25" />
+                      <col className="col-40" />
+                      <col className="col-15" />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
                         <th className="data-table-head-cell">Date</th>
-                        <th className="data-table-head-cell">Doctor</th>
+                        <th className="data-table-head-cell">Dentist</th>
                         <th className="data-table-head-cell">Treatments</th>
                         <th className="data-table-head-cell-right">Actions</th>
                       </tr>
@@ -525,7 +528,7 @@ export default function TreatmentsPage() {
             setEditingVisitDentistId(visitTreatments[0].dentist_id || "");
           }
           return (
-            <div className="space-y-4-base">
+            <div className="spacing-vertical-lg">
               {/* Dentist Dropdown */}
               <div className="grid-gap-1">
                 <label className="text-sm-medium-slate-700">Dentist</label>
@@ -576,7 +579,7 @@ export default function TreatmentsPage() {
                         />
                       </div>
                       <div className="grid gap-1 col-span-2">
-                        <label className="text-xs-semibold-slate-700">Procedure</label>
+                        <label className="text-xs-semibold-slate-700">Treatment</label>
                         <select
                           className="input-h10-border-white"
                           value={editingTreatmentServiceId[t.id] ?? (t.service_price_id || "")}
@@ -586,7 +589,7 @@ export default function TreatmentsPage() {
                             setEditingTreatmentProcedure((prev) => ({ ...prev, [t.id]: svc?.service_name ?? "" }));
                           }}
                         >
-                          <option value="">Select procedure</option>
+                          <option value="">Select treatment</option>
                           {serviceMenu
                             .slice()
                             .sort((a, b) => {
@@ -645,7 +648,7 @@ export default function TreatmentsPage() {
                         />
                       </div>
                       <div className="grid gap-1 col-span-2">
-                        <label className="text-xs-semibold-slate-700">Procedure</label>
+                        <label className="text-xs-semibold-slate-700">Treatment</label>
                         <select
                           className="input-h10-border-white"
                           value={editingTreatmentServiceId[newT.id] ?? ""}
@@ -655,7 +658,7 @@ export default function TreatmentsPage() {
                             setEditingTreatmentProcedure((prev) => ({ ...prev, [newT.id]: svc?.service_name ?? "" }));
                           }}
                         >
-                          <option value="">Select procedure</option>
+                          <option value="">Select treatment</option>
                           {serviceMenu
                             .slice()
                             .sort((a, b) => {

@@ -2,10 +2,12 @@
 
 export default function PatientRevenueReportPage() {
   return (
-    <div className="patient-content">
-      <div className="patient-sections">
-      <div className="info-box">
-      <div className="info-box-title mb-2">Patient Revenue Report</div>
+    <div className="page-content">
+      <div className="page-sections">
+      <div className="card">
+      <div className="card-header">
+        <div className="card-title">Patient Revenue Report</div>
+      </div>
       <p className="text-sm text-slate-600 mb-6">
         Analyze revenue by patient and treatment type. Identify top revenue-generating patients and track treatment profitability.
       </p>

@@ -2,10 +2,12 @@
 
 export default function TreatmentAnalyticsReportPage() {
   return (
-    <div className="patient-content">
-      <div className="patient-sections">
-      <div className="info-box">
-      <div className="info-box-title mb-2">Treatment Analytics Report</div>
+    <div className="page-content">
+      <div className="page-sections">
+      <div className="card">
+      <div className="card-header">
+        <div className="card-title">Treatment Analytics Report</div>
+      </div>
       <p className="text-sm text-slate-600 mb-6">
         See which procedures are most common, track completion rates, and analyze treatment success metrics.
       </p>
