@@ -16,14 +16,6 @@ type ServicePriceRow = {
 
 type ServiceSort = "NAME_ASC" | "NAME_DESC" | "FEE_ASC" | "FEE_DESC";
 
-function LoadingBlock() {
-  return (
-    <div className="flex items-center justify-center py-16">
-      <img src="/loading.gif" alt="Loading" className="h-12 w-12 opacity-70" />
-    </div>
-  );
-}
-
 function TogglePill({
   checked,
   onChange,
@@ -228,7 +220,15 @@ export default function ServicesSettingsPage() {
     closeEdit();
   }
 
-  if (loading) return <LoadingBlock />;
+  if (loading)
+    return (
+      <div className="loading-screen">
+        <div className="loading-container">
+          <img src="/loading.gif" alt="Loading" className="loading-icon" />
+          <div className="loading-text">Loading…</div>
+        </div>
+      </div>
+    );
 
   const Table = ({
     title,
@@ -237,13 +237,11 @@ export default function ServicesSettingsPage() {
     title: string;
     data: ServicePriceRow[];
   }) => (
-    <div className="rounded-2xl border bg-white p-4">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div>
-          <div className="text-sm font-semibold">{title}</div>
-        </div>
+    <div className="info-box">
+      <div className="info-box-header">
+        <div className="info-box-title">{title}</div>
         <select
-          className="h-10 rounded-lg border bg-white px-3"
+          className="select-h9-w40-rounded-border-white"
           value={sort}
           onChange={(e) => setSort(e.target.value as ServiceSort)}
           disabled={busy}
@@ -255,14 +253,14 @@ export default function ServicesSettingsPage() {
         </select>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3-overflow">
         <table className="data-table">
           <colgroup>
-            <col style={{ width: "30%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "20%" }} />
-            <col style={{ width: "20%" }} />
+            <col className="col-30" />
+            <col className="col-15" />
+            <col className="col-15" />
+            <col className="col-20" />
+            <col className="col-20" />
           </colgroup>
           <thead className="data-table-head">
             <tr>
@@ -277,8 +275,8 @@ export default function ServicesSettingsPage() {
             {data.map((r, index) => (
               <tr key={r.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                 <td className="data-table-cell">{r.service_name}</td>
-                <td className="data-table-cell-right text-sm">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
-                <td className="data-table-cell-right font-semibold">PHP {Number(r.default_price || 0).toLocaleString()}</td>
+                <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
+                <td className="data-table-cell-right">PHP {Number(r.default_price || 0).toLocaleString()}</td>
                 <td className="data-table-cell-right">
                   <div className="flex items-center justify-end">
                     <TogglePill
@@ -292,7 +290,7 @@ export default function ServicesSettingsPage() {
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
-                      className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      className="data-table-btn"
                       onClick={() => openEdit(r)}
                       disabled={busy}
                     >
@@ -304,7 +302,7 @@ export default function ServicesSettingsPage() {
             ))}
             {data.length === 0 ? (
               <tr>
-                <td className="data-table-empty" colSpan={4}>
+                <td className="data-table-empty" colSpan={5}>
                   No items yet.
                 </td>
               </tr>
@@ -317,41 +315,49 @@ export default function ServicesSettingsPage() {
 
   return (
     <>
-      <div className="p-4">
-        <div className="grid gap-4">
-            {/* ADD BOX */}
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="mb-3 text-sm font-semibold text-slate-700">Add a service / add-on</div>
+      <div className="patient-content">
+        <div className="patient-sections">
+          {/* ADD BOX */}
+          <div className="info-box">
+            <div className="info-box-title mb-3">Add a service / add-on</div>
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="mt-3-grid-gap-3-sm-3col">
+              <label className="form-field-wrapper">
+                <span className="text-slate-700-base">Type</span>
                 <select
-                  className="h-10 rounded-lg border px-2 text-sm sm:w-[140px]"
+                  className="input-h10-rounded"
                   value={itemType}
                   onChange={(e) => setItemType(e.target.value as any)}
                   disabled={busy}
                 >
-                  <option value="">-- Type --</option>
+                  <option value="">Select type</option>
                   <option value="SERVICE">Service</option>
                   <option value="ADD_ON">Add-on</option>
                 </select>
+              </label>
 
+              <label className="form-field-wrapper">
+                <span className="text-slate-700-base">Name</span>
                 <input
-                  className="h-10 rounded-lg border px-3 text-sm sm:flex-1 sm:max-w-[540px]"
-                  placeholder="Name"
+                  type="text"
+                  className="input-h10-rounded"
+                  placeholder="Service or add-on name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={busy}
                 />
+              </label>
 
+              <label className="form-field-wrapper">
+                <span className="text-slate-700-base">Duration (Optional)</span>
                 <select
-                  className="h-10 rounded-lg border px-2 text-sm sm:flex-1 sm:max-w-[200px]"
-                  style={{ maxHeight: '150px', overflowY: 'auto' }}
+                  className="input-h10-rounded"
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   disabled={busy}
                   title="Duration in minutes (15-min increments)"
                 >
-                  <option value="">-- Duration --</option>
+                  <option value="">No duration</option>
                   <option value="15">15 min</option>
                   <option value="30">30 min</option>
                   <option value="45">45 min</option>
@@ -365,10 +371,14 @@ export default function ServicesSettingsPage() {
                   <option value="165">2h 45m</option>
                   <option value="180">3 hours</option>
                 </select>
+              </label>
 
+              <label className="form-field-wrapper">
+                <span className="text-slate-700-base">Fee</span>
                 <input
-                  className="h-10 rounded-lg border px-3 text-sm sm:w-[150px]"
-                  placeholder="Fee"
+                  type="text"
+                  className="input-h10-rounded"
+                  placeholder="0.00"
                   value={price}
                   onChange={(e) => {
                     // Only allow numbers and decimal point
@@ -383,10 +393,12 @@ export default function ServicesSettingsPage() {
                   disabled={busy}
                   inputMode="decimal"
                 />
+              </label>
 
+              <div className="flex-items-end-gap-2">
                 <button
                   type="button"
-                  className="h-10 flex-1 rounded-lg bg-slate-900 px-8 text-sm font-semibold text-white disabled:opacity-60 sm:flex-initial sm:px-12"
+                  className="btn-secondary-dark"
                   onClick={addItem}
                   disabled={busy}
                 >
@@ -394,9 +406,10 @@ export default function ServicesSettingsPage() {
                 </button>
               </div>
             </div>
+          </div>
 
-            <Table title="Services" data={services} />
-            <Table title="Add-ons" data={addOns} />
+          <Table title="Services" data={services} />
+          <Table title="Add-ons" data={addOns} />
         </div>
       </div>
 
@@ -406,32 +419,32 @@ export default function ServicesSettingsPage() {
         onClose={closeEdit}
       >
         {!editRow ? null : (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Name</label>
+          <div className="space-y-4-base">
+            <label className="field-label">
+              <span className="field-label-text">Name</span>
               <input
-                className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                className="field-input"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 disabled={busy}
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Fee</label>
+            <label className="field-label">
+              <span className="field-label-text">Fee</span>
               <input
-                className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+                className="field-input"
                 value={editPrice}
                 onChange={(e) => setEditPrice(e.target.value)}
                 disabled={busy}
                 inputMode="decimal"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Duration (Optional)</label>
+            <label className="field-label">
+              <span className="field-label-text">Duration (Optional)</span>
               <select
-                className="mt-1 h-10 w-full rounded-lg border px-2 text-sm"
+                className="field-input"
                 value={editDuration}
                 onChange={(e) => setEditDuration(e.target.value)}
                 disabled={busy}
@@ -450,10 +463,10 @@ export default function ServicesSettingsPage() {
                 <option value="165">2h 45m</option>
                 <option value="180">3 hours</option>
               </select>
-            </div>
+            </label>
 
             <div className="delete-confirmation">
-              <div className="delete-confirmation-title text-red-700">Delete service?</div>
+              <div className="delete-confirmation-title">Delete service?</div>
               <div className="delete-confirmation-hint">
                 Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
               </div>
@@ -486,7 +499,7 @@ export default function ServicesSettingsPage() {
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60 transition-colors"
+                  className="save-btn"
                   onClick={saveEdit}
                   disabled={busy}
                 >

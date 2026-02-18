@@ -411,19 +411,15 @@ export default function TeamSettingsPage() {
 
   return (
     <>
-      {err && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {err}
-        </div>
-      )}
-      <div className="p-4">
-        <div className="grid gap-4">
+      {err ? <div className="error-banner">{err}</div> : null}
+      <div className="patient-content">
+        <div className="patient-sections">
             {/* DENTISTS SECTION */}
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">Dentists</h2>
+            <div className="info-box">
+              <div className="info-box-header">
+                <h2 className="info-box-title">Dentists</h2>
                 <button
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                  className="btn-secondary-dark"
                   onClick={() => {
                     setDentistName("");
                     setDentistDob("");
@@ -438,14 +434,15 @@ export default function TeamSettingsPage() {
                 </button>
               </div>
 
+              <div className="mt-3-overflow">
               <table className="data-table">
                 <colgroup>
-                  <col style={{ width: "25%" }} />
-                  <col style={{ width: "20%" }} />
-                  <col style={{ width: "17%" }} />
-                  <col style={{ width: "17%" }} />
-                  <col style={{ width: "11%" }} />
-                  <col style={{ width: "10%" }} />
+                  <col className="col-25" />
+                  <col className="col-20" />
+                  <col className="col-17" />
+                  <col className="col-17" />
+                  <col className="col-11" />
+                  <col className="col-10" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -487,7 +484,7 @@ export default function TeamSettingsPage() {
                         </td>
                         <td className="data-table-cell-right">
                           <button
-                            className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                            className="data-table-btn"
                             onClick={() => {
                               setEditingDentist(d);
                               setDentistName(d.full_name);
@@ -507,13 +504,14 @@ export default function TeamSettingsPage() {
                 </tbody>
               </table>
             </div>
+            </div>
 
             {/* STAFF SECTION */}
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">Staff Members</h2>
+            <div className="info-box">
+              <div className="info-box-header">
+                <h2 className="info-box-title">Staff Members</h2>
                 <button
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                  className="btn-secondary-dark"
                   onClick={() => {
                     setStaffName("");
                     setStaffRole("");
@@ -527,13 +525,14 @@ export default function TeamSettingsPage() {
                 </button>
               </div>
 
+              <div className="mt-3-overflow">
               <table className="data-table">
                 <colgroup>
-                  <col style={{ width: "30%" }} />
-                  <col style={{ width: "20%" }} />
-                  <col style={{ width: "25%" }} />
-                  <col style={{ width: "15%" }} />
-                  <col style={{ width: "10%" }} />
+                  <col className="col-30" />
+                  <col className="col-20" />
+                  <col className="col-25" />
+                  <col className="col-15" />
+                  <col className="col-10" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -573,7 +572,7 @@ export default function TeamSettingsPage() {
                         </td>
                         <td className="data-table-cell-right">
                           <button
-                            className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-60"
+                            className="data-table-btn"
                             onClick={() => {
                               setEditingStaff(s);
                               setStaffName(s.full_name);
@@ -592,6 +591,7 @@ export default function TeamSettingsPage() {
                 </tbody>
               </table>
             </div>
+            </div>
         </div>
       </div>
 
@@ -608,47 +608,47 @@ export default function TeamSettingsPage() {
           setDentistPtr("");
         }}
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Full name</label>
+        <div className="space-y-4-base">
+          <label className="field-label">
+            <span className="field-label-text">Full name</span>
             <input
-              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              className="field-input"
               value={dentistName}
               onChange={(e) => setDentistName(e.target.value)}
               disabled={busy}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Date of Birth</label>
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Date of Birth</span>
             <input
               type="date"
-              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              className="field-input"
               value={dentistDob}
               onChange={(e) => setDentistDob(e.target.value)}
               disabled={busy}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">PRC Number</label>
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">PRC Number</span>
             <input
-              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              className="field-input"
               placeholder="PRC number (permanent)"
               value={dentistPrc}
               onChange={(e) => setDentistPrc(e.target.value)}
               disabled={busy}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">PTR Number</label>
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">PTR Number</span>
             <input
               type="number"
-              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              className="field-input"
               placeholder="PTR number (annual)"
               value={dentistPtr}
               onChange={(e) => setDentistPtr(e.target.value)}
               disabled={busy}
             />
-          </div>
+          </label>
           <div className="modal-actions">
             {editingDentist && (
               <button
@@ -701,20 +701,20 @@ export default function TeamSettingsPage() {
           setStaffDob("");
         }}
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Full name</label>
+        <div className="space-y-4-base">
+          <label className="field-label">
+            <span className="field-label-text">Full name</span>
             <input
-              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              className="field-input"
               value={staffName}
               onChange={(e) => setStaffName(e.target.value)}
               disabled={busy}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Role</label>
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Role</span>
             <select
-              className="mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm"
+              className="field-input"
               value={staffRole}
               onChange={(e) => setStaffRole(e.target.value)}
               disabled={busy}
@@ -728,17 +728,17 @@ export default function TeamSettingsPage() {
               <option value="Admin">Admin</option>
               <option value="Other">Other</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Date of Birth</label>
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Date of Birth</span>
             <input
               type="date"
-              className="mt-1 h-10 w-full rounded-lg border px-3 text-sm"
+              className="field-input"
               value={staffDob}
               onChange={(e) => setStaffDob(e.target.value)}
               disabled={busy}
             />
-          </div>
+          </label>
           <div className="modal-actions">
             {editingStaff && (
               <button

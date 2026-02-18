@@ -303,40 +303,31 @@ export default function ClinicProfileSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <img src="/loading.gif" alt="Loading" className="h-12 w-12 opacity-70" />
+      <div className="loading-screen">
+        <div className="loading-container">
+          <img src="/loading.gif" alt="Loading" className="loading-icon" />
+          <div className="loading-text">Loading…</div>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      {/* Error */}
-      {err && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3">
-          <p className="text-sm text-red-700">{err}</p>
-        </div>
-      )}
-
-      {/* Success */}
-      {success && (
-        <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 p-3">
-          <p className="text-sm text-emerald-700">✓ Saved successfully</p>
-        </div>
-      )}
-
-      <div className="p-4">
-        <div className="grid gap-4">
+      {err ? <div className="error-banner">{err}</div> : null}
+      {success ? <div className="success-banner">Saved successfully</div> : null}
+      <div className="patient-content">
+        <div className="patient-sections">
 
           {/* Clinic Information Box */}
-          <div className="rounded-2xl border bg-white p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-slate-700">Clinic Information</h3>
+          <div className="info-box">
+            <div className="info-box-header">
+              <h3 className="info-box-title">Clinic Information</h3>
               <div className="flex gap-2">
                 {editingClinicInfo ? (
                   <>
                     <button
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      className="cancel-btn"
                       onClick={() => setEditingClinicInfo(false)}
                     >
                       Cancel
@@ -345,14 +336,14 @@ export default function ClinicProfileSettingsPage() {
                       type="button"
                       onClick={handleSaveClinicInfo}
                       disabled={busy}
-                      className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                      className="save-btn"
                     >
                       {busy ? "Saving..." : "Save"}
                     </button>
                   </>
                 ) : (
                   <button
-                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+                    className="btn-secondary-dark"
                     onClick={() => setEditingClinicInfo(true)}
                   >
                     Edit
@@ -361,81 +352,70 @@ export default function ClinicProfileSettingsPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Clinic Name</span>
+            <div className="mt-3-grid-gap-3-sm-2col">
+              <label className="field-label">
+                <span className="field-label-text">Clinic Name</span>
                 <input 
-                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  className="field-input" 
                   value={formData.clinic_name} 
                   readOnly={!editingClinicInfo}
                   onChange={(e) => editingClinicInfo && handleChange("clinic_name", e.target.value)}
                 />
               </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Phone</span>
+              <label className="field-label">
+                <span className="field-label-text">Phone</span>
                 <input 
-                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  className="field-input" 
                   value={formData.phone || ""} 
                   readOnly={!editingClinicInfo}
                   onChange={(e) => editingClinicInfo && handleChange("phone", e.target.value)}
                 />
               </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Email</span>
+              <label className="field-label">
+                <span className="field-label-text">Email</span>
                 <input 
-                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  className="field-input" 
                   value={formData.email || ""} 
                   readOnly={!editingClinicInfo}
                   onChange={(e) => editingClinicInfo && handleChange("email", e.target.value)}
                 />
               </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">Website</span>
+              <label className="field-label">
+                <span className="field-label-text">Website</span>
                 <input 
-                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  className="field-input" 
                   value={formData.website || ""} 
                   readOnly={!editingClinicInfo}
                   onChange={(e) => editingClinicInfo && handleChange("website", e.target.value)}
                 />
               </label>
-              <label className="grid gap-1 text-sm sm:col-span-2">
-                <span className="text-slate-700">Street Address</span>
+              <label className="field-label sm:col-span-2">
+                <span className="field-label-text">Street Address</span>
                 <input 
-                  className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  className="field-input" 
                   value={formData.street_address || ""} 
                   readOnly={!editingClinicInfo}
                   onChange={(e) => editingClinicInfo && handleChange("street_address", e.target.value)}
                 />
               </label>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 sm:col-span-2">
-                <label className="grid gap-1 text-sm md:col-span-2">
-                  <span className="text-slate-700">City</span>
-                  <input 
-                    className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
-                    value={formData.city || ""} 
-                    readOnly={!editingClinicInfo}
-                    onChange={(e) => editingClinicInfo && handleChange("city", e.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1 text-sm md:col-span-2">
-                  <span className="text-slate-700">Province</span>
-                  <input 
-                    className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
-                    value={formData.province || ""} 
-                    readOnly={!editingClinicInfo}
-                    onChange={(e) => editingClinicInfo && handleChange("province", e.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1 text-sm md:col-span-1">
-                  <span className="text-slate-700">Postal Code</span>
-                  <input 
-                    className="rounded-lg border bg-slate-50 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
-                    value={formData.postal_code || ""} 
-                    readOnly={!editingClinicInfo}
-                    onChange={(e) => editingClinicInfo && handleChange("postal_code", e.target.value)}
-                  />
-                </label>
-              </div>
+              <label className="field-label sm:col-span-1">
+                <span className="field-label-text">City</span>
+                <input 
+                  className="field-input" 
+                  value={formData.city || ""} 
+                  readOnly={!editingClinicInfo}
+                  onChange={(e) => editingClinicInfo && handleChange("city", e.target.value)}
+                />
+              </label>
+              <label className="field-label sm:col-span-1">
+                <span className="field-label-text">Province</span>
+                <input 
+                  className="field-input" 
+                  value={formData.province || ""} 
+                  readOnly={!editingClinicInfo}
+                  onChange={(e) => editingClinicInfo && handleChange("province", e.target.value)}
+                />
+              </label>
             </div>
           </div>
 
