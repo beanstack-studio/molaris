@@ -2,10 +2,11 @@
 
 export default function ReportsOverviewPage() {
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Welcome to Reports</h2>
-        <p className="text-slate-600 mb-4">
+    <div className="patient-content">
+      <div className="patient-sections">
+      <div className="info-box">
+        <div className="info-box-title mb-3">Welcome to Reports</div>
+        <p className="text-slate-600 mb-6">
           Select a report type from the tabs above to analyze clinic performance and financial metrics.
         </p>
         
@@ -40,6 +41,7 @@ export default function ReportsOverviewPage() {
             <p className="text-sm text-rose-700 mt-2">Overall KPIs and clinic health metrics</p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

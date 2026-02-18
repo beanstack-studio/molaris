@@ -198,28 +198,26 @@ export default function BulkPaymentsPage() {
   };
 
   return (
-    <main className="app-section">
-      <div className="app-section-body">
+    <div className="patient-content">
+      <div className="patient-sections">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-slate-900">Bulk Payments</h1>
-              <p className="mt-2 text-slate-600">
-                Record multiple payments, import from CSV, and generate receipts
-              </p>
-            </div>
-            <Link
-              href="/reports/payments"
-              className="rounded-lg bg-slate-600 px-4 py-2 text-white hover:bg-slate-700"
-            >
-              ← Back to Reports
-            </Link>
+        <div className="info-box-header mb-6">
+          <div>
+            <div className="info-box-title">Bulk Payments</div>
+            <p className="text-sm text-slate-600 mt-1">
+              Record multiple payments, import from CSV, and generate receipts
+            </p>
           </div>
+          <Link
+            href="/reports/payments"
+            className="btn-secondary-dark"
+          >
+            ← Back
+          </Link>
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-2 border-b border-slate-300">
+        <div className="tabs mb-6">
           {[
             { key: "manual", label: "✏️ Manual Entry" },
             { key: "csv", label: "📄 CSV Import" },
@@ -230,12 +228,8 @@ export default function BulkPaymentsPage() {
               key={tab.key}
               onClick={() => !tab.disabled && setActiveTab(tab.key as TabType)}
               disabled={tab.disabled}
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === tab.key
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : tab.disabled
-                    ? "cursor-not-allowed text-slate-400"
-                    : "text-slate-600 hover:text-slate-900"
+              className={`tab-item ${
+                activeTab === tab.key ? "tab-item-active" : tab.disabled ? "tab-item-disabled" : ""
               }`}
             >
               {tab.label}
@@ -244,7 +238,7 @@ export default function BulkPaymentsPage() {
         </div>
 
         {/* Content */}
-        <div className="rounded-lg bg-white p-6 shadow-lg">
+        <div className="info-box">
           {/* MANUAL ENTRY TAB */}
           {activeTab === "manual" && (
             <div className="space-y-4">
@@ -374,14 +368,14 @@ export default function BulkPaymentsPage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleAddPaymentRow}
-                  className="rounded-lg bg-slate-600 px-4 py-2 text-white hover:bg-slate-700"
+                  className="btn-secondary-dark"
                 >
                   + Add Row
                 </button>
                 <button
                   onClick={handleValidateManual}
                   disabled={isValidating}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="btn-primary-dark"
                 >
                   {isValidating ? "Validating..." : "Continue to Review"}
                 </button>
@@ -656,6 +650,6 @@ export default function BulkPaymentsPage() {
           )}
         </div>
       </div>
-    </main>
+    </div>
   );
 }

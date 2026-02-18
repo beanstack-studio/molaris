@@ -98,93 +98,107 @@ export default function PaymentReportsPage() {
   }
 
   if (loading) {
-    return <div className="text-center py-12 text-slate-600">Loading...</div>;
+    return (
+      <div className="loading-screen">
+        <div className="loading-container">
+          <img src="/loading.gif" alt="Loading" className="loading-icon" />
+          <div className="loading-text">Loading…</div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main className="app-section">
-      <div className="app-section-body">
-        {err && (
-          <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-700">
-            <p className="font-semibold">Error</p>
-            <p className="text-sm">{err}</p>
+    <div className="patient-content">
+      <div className="patient-sections">
+      {err ? <div className="error-banner">{err}</div> : null}
+
+      {/* Summary Cards */}
+      {summary && (
+        <div className="grid gap-4 sm:grid-cols-4">
+          <div className="info-box">
+            <div className="text-sm text-slate-600">Total Invoiced</div>
+            <div className="text-2xl font-bold text-slate-900 mt-2">{formatMoney(summary.totalInvoiced)}</div>
           </div>
-        )}
+          <div className="info-box">
+            <div className="text-sm text-slate-600">Total Paid</div>
+            <div className="text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.totalPaid)}</div>
+          </div>
+          <div className="info-box">
+            <div className="text-sm text-slate-600">Outstanding</div>
+            <div className="text-2xl font-bold text-orange-700 mt-2">{formatMoney(summary.totalOutstanding)}</div>
+          </div>
+          <div className="info-box">
+            <div className="text-sm text-slate-600">Collection Rate</div>
+            <div className="text-2xl font-bold text-blue-700 mt-2">{summary.collectionRate}%</div>
+          </div>
+        </div>
+      )}
 
-        {/* Summary Cards */}
-        {summary && (
-          <div className="mb-6 grid gap-4 md:grid-cols-4">
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Total Invoiced</p>
-          <p className="text-2xl font-bold text-slate-900">{formatMoney(summary.totalInvoiced)}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Total Paid</p>
-          <p className="text-2xl font-bold text-green-700">{formatMoney(summary.totalPaid)}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Outstanding</p>
-          <p className="text-2xl font-bold text-orange-700">{formatMoney(summary.totalOutstanding)}</p>
-        </div>
-        <div className="rounded-lg border bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Collection Rate</p>
-          <p className="text-2xl font-bold text-blue-700">{summary.collectionRate}%</p>
-        </div>
-      </div>
-    )}
-
-    {/* Outstanding Invoices */}
-    <div className="mb-6 rounded-lg border bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Outstanding Invoices</h2>
+      {/* Outstanding Invoices */}
+      <div className="info-box">
+        <div className="info-box-title mb-3">Outstanding Invoices</div>
         {outstanding.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Invoice</th>
-                  <th className="px-4 py-2 text-right font-semibold text-slate-700">Total</th>
-                  <th className="px-4 py-2 text-right font-semibold text-slate-700">Paid</th>
-                  <th className="px-4 py-2 text-right font-semibold text-slate-700">Balance</th>
+          <div className="mt-3-overflow">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-40" />
+                <col className="col-20" />
+                <col className="col-20" />
+                <col className="col-20" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Invoice</th>
+                  <th className="data-table-head-cell-right">Total</th>
+                  <th className="data-table-head-cell-right">Paid</th>
+                  <th className="data-table-head-cell-right">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {outstanding.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 font-medium">{inv.invoice_number}</td>
-                    <td className="px-4 py-2 text-right">{formatMoney(inv.total)}</td>
-                    <td className="px-4 py-2 text-right text-green-700">{formatMoney(inv.paid_amount)}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-orange-700">{formatMoney(inv.balance)}</td>
+              <tbody>
+                {outstanding.map((inv, index) => (
+                  <tr key={inv.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                    <td className="data-table-cell font-medium">{inv.invoice_number}</td>
+                    <td className="data-table-cell-right">{formatMoney(inv.total)}</td>
+                    <td className="data-table-cell-right text-green-700">{formatMoney(inv.paid_amount)}</td>
+                    <td className="data-table-cell-right font-semibold text-orange-700">{formatMoney(inv.balance)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <p className="text-center text-slate-500">No outstanding invoices</p>
+          <p className="text-center text-slate-500 py-4">No outstanding invoices</p>
         )}
       </div>
 
       {/* Recent Payments */}
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Payments</h2>
+      <div className="info-box">
+        <div className="info-box-title mb-3">Recent Payments</div>
         {payments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Invoice ID</th>
-                  <th className="px-4 py-2 text-right font-semibold text-slate-700">Amount</th>
-                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Date</th>
-                  <th className="px-4 py-2 text-left font-semibold text-slate-700">Status</th>
+          <div className="mt-3-overflow">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-25" />
+                <col className="col-25" />
+                <col className="col-25" />
+                <col className="col-25" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Invoice ID</th>
+                  <th className="data-table-head-cell-right">Amount</th>
+                  <th className="data-table-head-cell">Date</th>
+                  <th className="data-table-head-cell">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {payments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2">{payment.invoice_id}</td>
-                    <td className="px-4 py-2 text-right font-semibold">{formatMoney(payment.amount)}</td>
-                    <td className="px-4 py-2 text-sm">{formatDatePH(payment.payment_date)}</td>
-                    <td className="px-4 py-2">
+              <tbody>
+                {payments.map((payment, index) => (
+                  <tr key={payment.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                    <td className="data-table-cell">{payment.invoice_id}</td>
+                    <td className="data-table-cell-right font-semibold">{formatMoney(payment.amount)}</td>
+                    <td className="data-table-cell text-sm">{formatDatePH(payment.payment_date)}</td>
+                    <td className="data-table-cell">
                       <span
                         className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
                           payment.status === "verified"
@@ -201,10 +215,10 @@ export default function PaymentReportsPage() {
             </table>
           </div>
         ) : (
-          <p className="text-center text-slate-500">No payments</p>
+          <p className="text-center text-slate-500 py-4">No payments</p>
         )}
       </div>
+      </div>
     </div>
-    </main>
   );
 }
