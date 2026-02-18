@@ -150,24 +150,22 @@ export default function PaymentModesSettingsPage() {
 
   return (
     <>
-      {err && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {err}
-        </div>
-      )}
-      <div className="p-4">
-        <div className="grid gap-4">
+      {err ? <div className="error-banner">{err}</div> : null}
+      <div className="patient-content">
+        <div className="patient-sections">
             {/* Payment modes table */}
-            <div className="rounded-2xl border bg-white p-4">
-              <table className="data-table">
+            <div className="info-box">
+              <div className="info-box-title mb-3">Payment Modes</div>
+              <div className="mt-3-overflow">
+                <table className="data-table">
                 <colgroup>
-                  <col style={{ width: "18%" }} />
-                  <col style={{ width: "13%" }} />
-                  <col style={{ width: "13%" }} />
-                  <col style={{ width: "13%" }} />
-                  <col style={{ width: "13%" }} />
-                  <col style={{ width: "13%" }} />
-                  <col style={{ width: "17%" }} />
+                  <col className="col-18" />
+                  <col className="col-13" />
+                  <col className="col-13" />
+                  <col className="col-13" />
+                  <col className="col-13" />
+                  <col className="col-13" />
+                  <col className="col-17" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -269,14 +267,14 @@ export default function PaymentModesSettingsPage() {
                             <td className="data-table-cell-right">
                               <div className="flex gap-2 justify-end">
                                 <button
-                                  className="rounded bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                                  className="save-btn"
                                   onClick={saveEdit}
                                   disabled={busy}
                                 >
                                   Save
                                 </button>
                                 <button
-                                  className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                                  className="cancel-btn"
                                   onClick={cancelEdit}
                                   disabled={busy}
                                 >
@@ -334,7 +332,7 @@ export default function PaymentModesSettingsPage() {
                             </td>
                             <td className="data-table-cell-right">
                               <button
-                                className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                                className="data-table-btn"
                                 onClick={() => startEdit(mode)}
                                 disabled={busy}
                               >
@@ -349,10 +347,11 @@ export default function PaymentModesSettingsPage() {
                 </tbody>
               </table>
             </div>
+            </div>
 
             {/* Requirements legend */}
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="text-sm font-semibold mb-3">Requirements Legend</div>
+            <div className="info-box">
+              <div className="info-box-title mb-3">Requirements Legend</div>
               <div className="grid grid-cols-2 gap-4 text-xs text-slate-700">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-4 h-4 rounded bg-blue-500"></span>

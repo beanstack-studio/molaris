@@ -3,10 +3,10 @@
 export default function DocumentTemplatesSettingsPage() {
   return (
     <>
-      <div className="p-4">
-        <div className="grid gap-4">
-          <div className="rounded-2xl border bg-white p-4">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Document Templates</h2>
+      <div className="patient-content">
+        <div className="patient-sections">
+          <div className="info-box">
+            <div className="info-box-title mb-3">Document Templates</div>
             <p className="text-slate-600 mb-6">
               Manage your certificate and receipt templates, including logo support.
             </p>
