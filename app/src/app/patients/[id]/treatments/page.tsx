@@ -32,6 +32,9 @@ export default function TreatmentsPage() {
   const [txServiceName, setTxServiceName] = useState<string>("");
   const [lineNote, setLineNote] = useState("");
 
+  // Add visit modal state
+  const [showAddVisitModal, setShowAddVisitModal] = useState(false);
+  
   // Edit/delete states
   const [editingVisitDate, setEditingVisitDate] = useState<string | null>(null);
   const [editingVisitDentistId, setEditingVisitDentistId] = useState<string>("");
@@ -250,6 +253,32 @@ export default function TreatmentsPage() {
     await loadData();
   }
 
+  function openAddVisit() {
+    setVisitDate(todayLocalISO());
+    setVisitConcern(defaultAppointmentConcern);
+    setVisitDentistId("");
+    setDraftLines([]);
+    setLineTooth("");
+    setTxServiceId("");
+    setTxServiceName("");
+    setLineNote("");
+    setErr(null);
+    setShowAddVisitModal(true);
+  }
+
+  function closeAddVisit() {
+    setShowAddVisitModal(false);
+    setVisitDate(todayLocalISO());
+    setVisitConcern("");
+    setVisitDentistId("");
+    setDraftLines([]);
+    setLineTooth("");
+    setTxServiceId("");
+    setTxServiceName("");
+    setLineNote("");
+    setErr(null);
+  }
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -267,174 +296,26 @@ export default function TreatmentsPage() {
       <div className="page-content">
         <div className="page-sections">
           <div className="card">
-            <div className="card-header">
-              <div className="card-title">Add visit</div>
+            <div className="flex-wrap-items-center-justify-between">
+              <div className="card-title">Treatment history</div>
+              <div className="flex items-center gap-2">
+                <select
+                  className="form-select-standard"
+                  value={treatmentSort}
+                  onChange={(e) => setTreatmentSort(e.target.value as any)}
+                >
+                  <option value="DATE_DESC">Newest</option>
+                  <option value="DATE_ASC">Oldest</option>
+                </select>
+                <button
+                  className="btn-secondary-dark"
+                  onClick={openAddVisit}
+                  disabled={busy}
+                >
+                  Add visit
+                </button>
               </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-6">
-                  <label className="form-field-wrapper sm:col-span-1">
-                    <span className="label-text">Visit date</span>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        className="input-standard pointer-events-none"
-                        value={visitDate ? formatDatePH(visitDate) : ""}
-                        readOnly
-                      />
-                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <input
-                        type="date"
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        value={visitDate}
-                        onChange={(e) => setVisitDate(e.target.value)}
-                      />
-                    </div>
-                  </label>
-
-                  <label className="form-field-wrapper sm:col-span-2">
-                    <span className="label-text">Concern</span>
-                    <input
-                      type="text"
-                      className="input-standard"
-                      value={visitConcern}
-                      onChange={(e) => setVisitConcern(e.target.value)}
-                      placeholder={defaultAppointmentConcern ? "From appointment" : "Chief complaint or concern"}
-                    />
-                  </label>
-
-                  <label className="form-field-wrapper sm:col-span-2">
-                    <span className="label-text">Dentist</span>
-                    <select
-                      className="input-h10-border-white"
-                      value={visitDentistId}
-                      onChange={(e) => setVisitDentistId(e.target.value)}
-                    >
-                      <option value="">Select dentist</option>
-                      {dentists.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="button-group-row sm:col-span-1">
-                    <button
-                      className="btn-secondary-dark"
-                      disabled={busy || draftLines.length === 0 || !visitConcern.trim()}
-                      onClick={saveVisit}
-                    >
-                      {busy ? "Saving…" : "Save visit"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-6">
-                  <label className="form-field-wrapper sm:col-span-1">
-                    <span className="label-text">Tooth #</span>
-                    <input
-                      className="input-standard"
-                      value={lineTooth}
-                      onChange={(e) => setLineTooth(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <label className="form-field-wrapper sm:col-span-2">
-                    <span className="label-text">Treatment</span>
-                    <select
-                      className="input-h10-border-white"
-                      value={txServiceId}
-                      onChange={(e) => {
-                        const svc = serviceMenu.find((s) => s.id === e.target.value);
-                        setTxServiceId(e.target.value);
-                        setTxServiceName(svc?.service_name ?? "");
-                      }}
-                    >
-                      <option value="">Select treatment</option>
-                      {serviceMenu
-                        .slice()
-                        .sort((a, b) => {
-                          if (a.item_type !== b.item_type) {
-                            return a.item_type === "SERVICE" ? -1 : 1;
-                          }
-                          return a.service_name.localeCompare(b.service_name);
-                        })
-                        .map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.service_name}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-
-                  <label className="form-field-wrapper sm:col-span-2">
-                    <span className="label-text">Notes</span>
-                    <input
-                      className="input-standard"
-                      value={lineNote}
-                      onChange={(e) => setLineNote(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </label>
-
-                  <div className="button-group-row sm:col-span-1">
-                    <button
-                      className="btn-secondary-dark"
-                      disabled={!txServiceId}
-                      onClick={addDraftLine}
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-
-                {draftLines.length > 0 ? (
-                  <div className="table-wrapper">
-                    <table className="data-table">
-                      <thead className="data-table-head">
-                        <tr>
-                          <th className="data-table-head-cell">Draft Visit</th>
-                          <th className="data-table-head-cell-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {draftLines.map((ln, index) => (
-                          <tr key={ln.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                            <td className="data-table-cell">
-                              {ln.tooth_number ? `Tooth ${ln.tooth_number}: ` : ""}
-                              {ln.procedure}
-                              {ln.note ? ` (${ln.note})` : ""}
-                            </td>
-                            <td className="data-table-cell-right">
-                              <button
-                                className="data-table-btn"
-                                onClick={() => removeDraftLine(ln.id)}
-                              >
-                                Remove
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : null}
-              </div>
-                
-              <div className="card">
-                <div className="flex-wrap-items-center-justify-between">
-                  <div className="card-title">Treatment history</div>
-                  <select
-                    className="form-select-standard"
-                    value={treatmentSort}
-                    onChange={(e) => setTreatmentSort(e.target.value as any)}
-                  >
-                    <option value="DATE_DESC">Newest</option>
-                    <option value="DATE_ASC">Oldest</option>
-                  </select>
-                </div>
+            </div>
 
                 <div className="table-wrapper">
                   <table className="data-table">
@@ -505,6 +386,190 @@ export default function TreatmentsPage() {
               </div>
             </div>
       </div>
+
+      {/* Add Visit Modal */}
+      <EditModal
+        open={showAddVisitModal}
+        title="Add visit"
+        onClose={closeAddVisit}
+      >
+        <div className="spacing-vertical-lg">
+          {/* Visit Date */}
+          <div className="grid-gap-1">
+            <label className="text-sm-medium-slate-700">Visit date</label>
+            <div className="relative">
+              <input
+                type="text"
+                className="input-h10-border-white pointer-events-none"
+                value={visitDate ? formatDatePH(visitDate) : ""}
+                readOnly
+              />
+              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <input
+                type="date"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                value={visitDate}
+                onChange={(e) => setVisitDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Dentist Dropdown */}
+          <div className="grid-gap-1">
+            <label className="text-sm-medium-slate-700">Dentist</label>
+            <select
+              className="input-h10-border-white"
+              value={visitDentistId}
+              onChange={(e) => setVisitDentistId(e.target.value)}
+            >
+              <option value="">Select dentist…</option>
+              {dentists.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Visit Concern */}
+          <div className="grid-gap-1">
+            <label className="text-sm-medium-slate-700">Concern</label>
+            <input
+              type="text"
+              className="input-h10-border-white"
+              value={visitConcern}
+              onChange={(e) => setVisitConcern(e.target.value)}
+              placeholder="Chief complaint or concern"
+            />
+          </div>
+
+          {/* Treatment Items */}
+          <div className="space-y-2">
+            <div className="text-sm-medium-slate-700">Treatments ({draftLines.length})</div>
+            {draftLines.map((t) => (
+              <div key={t.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div className="grid gap-1">
+                    <label className="text-xs-semibold-slate-700">Tooth #</label>
+                    <input
+                      type="number"
+                      className="input-standard-sm"
+                      placeholder="Optional"
+                      value={t.tooth_number?.toString() || ""}
+                      onChange={(e) => {
+                        const updated = draftLines.map((dl) =>
+                          dl.id === t.id
+                            ? { ...dl, tooth_number: e.target.value.trim() ? Number(e.target.value) : null }
+                            : dl
+                        );
+                        setDraftLines(updated);
+                      }}
+                      min="1"
+                      max="32"
+                    />
+                  </div>
+                  <div className="grid gap-1 col-span-2">
+                    <label className="text-xs-semibold-slate-700">Treatment</label>
+                    <select
+                      className="input-h10-border-white"
+                      value={t.service_price_id || ""}
+                      onChange={(e) => {
+                        const svc = serviceMenu.find((s) => s.id === e.target.value);
+                        const updated = draftLines.map((dl) =>
+                          dl.id === t.id
+                            ? { ...dl, service_price_id: e.target.value, procedure: svc?.service_name ?? "" }
+                            : dl
+                        );
+                        setDraftLines(updated);
+                      }}
+                    >
+                      <option value="">Select treatment</option>
+                      {serviceMenu
+                        .slice()
+                        .sort((a, b) => {
+                          if (a.item_type !== b.item_type) {
+                            return a.item_type === "SERVICE" ? -1 : 1;
+                          }
+                          return a.service_name.localeCompare(b.service_name);
+                        })
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.service_name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    className="input-standard-sm flex-1"
+                    placeholder="Notes…"
+                    value={t.note ?? ""}
+                    onChange={(e) => {
+                      const updated = draftLines.map((dl) =>
+                        dl.id === t.id ? { ...dl, note: e.target.value } : dl
+                      );
+                      setDraftLines(updated);
+                    }}
+                  />
+                  <button
+                    className="btn-sm-delete"
+                    onClick={() => removeDraftLine(t.id)}
+                    title="Remove treatment"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+            {draftLines.length === 0 ? (
+              <div className="text-xs-slate-500-base">No treatments on this visit yet.</div>
+            ) : null}
+
+            <button
+              className="btn btn-sm btn-ghost w-full mt-2"
+              onClick={() => {
+                setDraftLines((prev) => [
+                  ...prev,
+                  {
+                    id: crypto.randomUUID(),
+                    tooth_number: null,
+                    service_price_id: null,
+                    procedure: "",
+                    note: "",
+                  },
+                ]);
+              }}
+            >
+              + Add Treatment
+            </button>
+          </div>
+
+          {/* Modal Actions */}
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button
+                className="cancel-btn"
+                onClick={closeAddVisit}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                className="save-btn"
+                disabled={busy || draftLines.length === 0 || !visitConcern.trim() || !visitDentistId}
+                onClick={saveVisit}
+              >
+                {busy ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
+
       {/* Edit Visit Modal */}
       <EditModal
         open={editingVisitDate !== null}
