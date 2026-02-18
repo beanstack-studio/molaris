@@ -130,7 +130,7 @@ export default function TreatmentsPage() {
     const t = await supabase
       .from("treatments")
       .select(
-        "id, treatment_date, procedure, tooth_number, notes, dentist_id, dentist_name, service_price_id, created_at"
+        "id, treatment_date, procedure, tooth_number, notes, visit_concern, dentist_id, dentist_name, service_price_id, created_at"
       )
       .eq("patient_id", id)
       .order("treatment_date", { ascending: false })
