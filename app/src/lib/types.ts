@@ -212,6 +212,7 @@ export type Attachment = {
   content_type: string | null;
   file_size_bytes: number | null;
   created_at: string;
+  notes?: string | null;
 };
 
 export type DocTemplate = {

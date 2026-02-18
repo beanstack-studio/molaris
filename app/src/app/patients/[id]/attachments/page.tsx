@@ -11,6 +11,14 @@ import { formatDatePH, safeFileName, combineFullName, splitFullName } from "@/li
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
 type AttachmentType = (typeof attachmentTypes)[number];
 
+function formatDateCompact(dateStr: string): string {
+  const date = new Date(dateStr);
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${month} ${day}, ${year}`;
+}
+
 export default function AttachmentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
@@ -23,11 +31,14 @@ export default function AttachmentsPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploadType, setUploadType] = useState<AttachmentType | "">("");
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+  const [fileDisplayName, setFileDisplayName] = useState<string>("");
+  const [attachmentNotes, setAttachmentNotes] = useState("");
   const [attachmentSort, setAttachmentSort] = useState<"DATE_DESC" | "DATE_ASC" | "NAME_ASC">("DATE_DESC");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAttachment, setEditingAttachment] = useState<Attachment | null>(null);
   const [editFileName, setEditFileName] = useState("");
+  const [editNotes, setEditNotes] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const displayedAttachments = useMemo(() => {
@@ -79,7 +90,7 @@ export default function AttachmentsPage() {
 
     const a = await supabase
       .from("attachments")
-      .select("id, type, file_path, file_name, content_type, file_size_bytes, created_at")
+      .select("id, type, file_path, file_name, content_type, file_size_bytes, created_at, notes")
       .eq("patient_id", id)
       .order("created_at", { ascending: false });
     setAttachments(!a.error && a.data ? (a.data as Attachment[]) : []);
@@ -94,13 +105,21 @@ export default function AttachmentsPage() {
   async function uploadAttachment() {
     if (!fileToUpload || !uploadType) return;
 
+    // Validate file size (5MB = 5,242,880 bytes)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (fileToUpload.size > MAX_FILE_SIZE) {
+      return setErr("File size must not exceed 5MB");
+    }
+
     setBusy(true);
     setErr(null);
 
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
 
-    const fileName = safeFileName(fileToUpload.name);
+    // Use original file name
+    const baseFileName = safeFileName(fileToUpload.name);
+    const fileName = baseFileName;
     const filePath = `patient-files/${id}/${crypto.randomUUID()}-${fileName}`;
 
     const up = await supabase.storage.from("patient-files").upload(filePath, fileToUpload);
@@ -118,6 +137,7 @@ export default function AttachmentsPage() {
       content_type: fileToUpload.type || null,
       file_size_bytes: fileToUpload.size || null,
       uploaded_by: userId,
+      notes: attachmentNotes.trim() || null,
     });
 
     setBusy(false);
@@ -125,6 +145,7 @@ export default function AttachmentsPage() {
 
     setUploadType("");
     setFileToUpload(null);
+    closeUploadModal();
     await loadData();
   }
 
@@ -145,12 +166,15 @@ export default function AttachmentsPage() {
     setShowUploadModal(false);
     setUploadType("");
     setFileToUpload(null);
+    setFileDisplayName("");
+    setAttachmentNotes("");
     setErr(null);
   }
 
   function openEditModal(att: Attachment) {
     setEditingAttachment(att);
     setEditFileName(att.file_name || "");
+    setEditNotes((att as any).notes || "");
     setDeleteConfirmation("");
     setShowEditModal(true);
   }
@@ -163,7 +187,7 @@ export default function AttachmentsPage() {
 
     const { error } = await supabase
       .from("attachments")
-      .update({ file_name: editFileName || null })
+      .update({ file_name: editFileName || null, notes: editNotes.trim() || null })
       .eq("id", editingAttachment.id);
 
     setBusy(false);
@@ -174,6 +198,7 @@ export default function AttachmentsPage() {
     setShowEditModal(false);
     setEditingAttachment(null);
     setEditFileName("");
+    setEditNotes("");
     await loadData();
   }
 
@@ -201,6 +226,7 @@ export default function AttachmentsPage() {
     setShowEditModal(false);
     setEditingAttachment(null);
     setEditFileName("");
+    setEditNotes("");
     setDeleteConfirmation("");
     await loadData();
   }
@@ -240,7 +266,7 @@ export default function AttachmentsPage() {
                   onClick={openUploadModal}
                   disabled={busy}
                 >
-                  Add/Upload attachment
+                  Add attachment
                 </button>
               </div>
             </div>
@@ -248,29 +274,34 @@ export default function AttachmentsPage() {
             <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
+                  <col className="col-15" />
                   <col className="col-10" />
-                  <col className="col-50" />
-                  <col className="col-20" />
-                  <col className="col-20" />
+                  <col className="col-30" />
+                  <col className="col-30" />
+                  <col className="col-15" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
+                    <th className="data-table-head-cell">Date</th>
                     <th className="data-table-head-cell">Type</th>
                     <th className="data-table-head-cell">File</th>
-                    <th className="data-table-head-cell">Date</th>
+                    <th className="data-table-head-cell">Notes</th>
                     <th className="data-table-head-cell-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {displayedAttachments.map((a, index) => (
                     <tr key={a.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                      <td className="data-table-cell">{formatDateCompact(a.created_at)}</td>
                       <td className="data-table-cell">{a.type}</td>
                       <td className="data-table-cell">
                         <div className="truncate">
                           {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
                         </div>
                       </td>
-                      <td className="data-table-cell">{formatDatePH(a.created_at)}</td>
+                      <td className="data-table-cell text-xs text-slate-600 truncate">
+                        {(a as any).notes || "—"}
+                      </td>
                       <td className="data-table-cell-right">
                         <div className="flex-items-center-justify-end-gap-2">
                           <button
@@ -291,7 +322,7 @@ export default function AttachmentsPage() {
                   ))}
                   {displayedAttachments.length === 0 ? (
                     <tr>
-                      <td className="data-table-empty" colSpan={4}>
+                      <td className="data-table-empty" colSpan={5}>
                         No attachments yet.
                       </td>
                     </tr>
@@ -304,106 +335,163 @@ export default function AttachmentsPage() {
       </div>
 
       {showEditModal && editingAttachment ? (
-        <div className="modal-container p-4" onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}>
-          <div className="modal-scrollable rounded-2xl-border-white modal-box-md">
-            <div className="header-sticky">
-              <div className="text-lg-semibold">Edit attachment</div>
+        <EditModal
+          open={showEditModal}
+          title="Edit attachment"
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingAttachment(null);
+            setEditFileName("");
+            setEditNotes("");
+            setDeleteConfirmation("");
+            setErr(null);
+          }}
+        >
+          <div className="spacing-vertical-lg">
+            {/* Type and File name - Side by Side */}
+            <div className="flex gap-4">
+              <div className="grid-gap-1" style={{ width: "25%" }}>
+                <label className="text-sm-medium-slate-700">Type</label>
+                <div className="input-h10-border-white w-full flex items-center py-2 px-3 text-sm bg-slate-50 rounded-lg">
+                  <span className="text-slate-900">{editingAttachment.type}</span>
+                </div>
+              </div>
+
+              <div className="grid-gap-1" style={{ width: "75%" }}>
+                <label className="text-sm-medium-slate-700">File name</label>
+                <input
+                  type="text"
+                  className="input-h10-border-white w-full"
+                  value={editFileName}
+                  onChange={(e) => setEditFileName(e.target.value)}
+                  placeholder="File name"
+                />
+              </div>
             </div>
 
-            <div className="p-4">
-              {err ? <div className="error-box-sm">{err}</div> : null}
+            {/* Notes - Full Width */}
+            <div className="grid-gap-1">
+              <label className="text-sm-medium-slate-700">Notes (optional)</label>
+              <input
+                type="text"
+                className="input-h10-border-white w-full"
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Add notes for this attachment"
+              />
+            </div>
 
-              <div className="grid-gap-4">
-                <label className="form-field-wrapper">
-                  <span className="form-label-text-slate-700-semibold">Type</span>
-                  <div className="container-slate-50">{editingAttachment.type}</div>
-                </label>
+            {/* Delete Confirmation */}
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title">Delete attachment?</div>
+              <div className="delete-confirmation-hint">
+                Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
+              </div>
+              <input
+                type="text"
+                placeholder="DELETE"
+                className="delete-confirmation-input"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+              />
+            </div>
 
-                <label className="form-field-wrapper">
-                  <span className="form-label-text-slate-700-semibold">File name</span>
-                  <input
-                    type="text"
-                    className="form-input-border-white"
-                    value={editFileName}
-                    onChange={(e) => setEditFileName(e.target.value)}
-                    placeholder="File name"
-                  />
-                </label>
-
-                <div className="delete-confirmation">
-                  <div className="delete-confirmation-title">Delete attachment?</div>
-                  <div className="delete-confirmation-hint">
-                    Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="DELETE"
-                    className="delete-confirmation-input"
-                    value={deleteConfirmation}
-                    onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  />
-                </div>
-
-                <div className="modal-actions pt-4">
-                  <button
-                    className="delete-btn"
-                    disabled={busy || deleteConfirmation !== "DELETE"}
-                    onClick={deleteAttachment}
-                  >
-                    {busy ? "Deleting…" : "Delete"}
-                  </button>
-                  <div className="modal-actions-right">
-                    <button
-                      className="cancel-btn"
-                      disabled={busy}
-                      onClick={() => setShowEditModal(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="save-btn"
-                      disabled={busy}
-                      onClick={updateAttachmentFileName}
-                    >
-                      {busy ? "Saving…" : "Save"}
-                    </button>
-                  </div>
-                </div>
+            {/* Modal Actions */}
+            <div className="modal-actions">
+              <button
+                className="delete-btn"
+                disabled={busy || deleteConfirmation !== "DELETE"}
+                onClick={deleteAttachment}
+              >
+                {busy ? "Deleting…" : "Delete"}
+              </button>
+              <div className="modal-actions-right">
+                <button
+                  className="cancel-btn"
+                  disabled={busy}
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingAttachment(null);
+                    setEditFileName("");
+                    setEditNotes("");
+                    setDeleteConfirmation("");
+                    setErr(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="save-btn"
+                  disabled={busy}
+                  onClick={updateAttachmentFileName}
+                >
+                  {busy ? "Saving…" : "Save"}
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        </EditModal>
       ) : null}
 
       {/* Upload Attachment Modal */}
       <EditModal
         open={showUploadModal}
-        title="Add/Upload attachment"
+        title="Add attachment"
         onClose={closeUploadModal}
       >
         <div className="spacing-vertical-lg">
-          <div className="grid-gap-1">
-            <label className="text-sm-medium-slate-700">Type</label>
-            <select
-              className="input-h10-border-white w-full"
-              value={uploadType}
-              onChange={(e) => setUploadType(e.target.value as AttachmentType)}
-            >
-              <option value="">Select type</option>
-              {attachmentTypes.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Type and File - Side by Side */}
+          <div className="flex gap-4">
+            <div className="grid-gap-1" style={{ width: "25%" }}>
+              <label className="text-sm-medium-slate-700">Type</label>
+              <select
+                className="input-h10-border-white w-full"
+                value={uploadType}
+                onChange={(e) => setUploadType(e.target.value as AttachmentType)}
+              >
+                <option value="">Select type</option>
+                {attachmentTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              <div className="text-xs text-transparent">—</div>
+            </div>
 
+            <div className="grid-gap-1" style={{ width: "75%" }}>
+              <label className="text-sm-medium-slate-700">File</label>
+              <div className="relative">
+                <input
+                  type="file"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setFileToUpload(file);
+                    setFileDisplayName(file?.name ?? "");
+                    setErr(null);
+                  }}
+                />
+                <div className="input-h10-border-white w-full flex items-center py-2 px-3 text-sm gap-3">
+                  
+                  <span className={`flex-1 truncate ${fileDisplayName ? "text-slate-900" : "text-slate-500"}`}>
+                    {fileDisplayName || "No file chosen."}
+                  </span>
+                </div>
+              </div>
+              <div className="text-xs text-slate-500">Maximum file size: 5MB</div>
+            </div>
+          </div>
+        
+          {/* Notes - Full Width */}
           <div className="grid-gap-1">
-            <label className="text-sm-medium-slate-700">File</label>
+            <label className="text-sm-medium-slate-700">Notes (optional)</label>
             <input
-              type="file"
+              type="text"
               className="input-h10-border-white w-full"
-              onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
+              value={attachmentNotes}
+              onChange={(e) => setAttachmentNotes(e.target.value)}
+              placeholder="Add notes for this attachment"
             />
           </div>
 
