@@ -103,7 +103,10 @@ export function escapeHtml(s: string) {
 }
 
 export function formatMoney(amount: number) {
-  return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(amount);
+  return "₱ " + Number(amount).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 /**

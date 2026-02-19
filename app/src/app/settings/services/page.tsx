@@ -12,6 +12,7 @@ type ServicePriceRow = {
   item_type: "SERVICE" | "ADD_ON";
   is_active: boolean;
   duration_minutes?: number;
+  category?: "general" | "ortho"; // PART 1: Service categorization
 };
 
 type ServiceSort = "NAME_ASC" | "NAME_DESC" | "FEE_ASC" | "FEE_DESC";
@@ -79,6 +80,7 @@ export default function ServicesSettingsPage() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState<string>("");
+  const [addCategory, setAddCategory] = useState<"general" | "ortho">("general"); // PART 1
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -86,6 +88,7 @@ export default function ServicesSettingsPage() {
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editDuration, setEditDuration] = useState<string>("");
+  const [editCategory, setEditCategory] = useState<"general" | "ortho">("general"); // PART 1
   const [deleteText, setDeleteText] = useState("");
 
   async function load() {
@@ -105,7 +108,7 @@ export default function ServicesSettingsPage() {
       
       const r = await supabase
         .from("service_prices")
-        .select("id, service_name, default_price, item_type, is_active, duration_minutes")
+        .select("id, service_name, default_price, item_type, is_active, duration_minutes, category")
         .order("service_name", { ascending: true });
 
       setRows((r.data ?? []) as ServicePriceRow[]);
@@ -138,6 +141,7 @@ export default function ServicesSettingsPage() {
       item_type: itemType,
       is_active: true,
       duration_minutes: duration ? Number(duration) : null,
+      category: addCategory, // PART 1
     });
 
     if (error) {
@@ -157,6 +161,7 @@ export default function ServicesSettingsPage() {
     setEditName(r.service_name ?? "");
     setEditPrice(String(r.default_price ?? 0));
     setEditDuration(String(r.duration_minutes ?? ""));
+    setEditCategory(r.category ?? "general"); // PART 1
     setDeleteText("");
     setEditOpen(true);
   }
@@ -172,6 +177,7 @@ export default function ServicesSettingsPage() {
     setName("");
     setPrice("");
     setDuration("");
+    setAddCategory("general"); // PART 1
     setAddOpen(true);
   }
 
@@ -181,6 +187,7 @@ export default function ServicesSettingsPage() {
     setName("");
     setPrice("");
     setDuration("");
+    setAddCategory("general"); // PART 1
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -202,6 +209,7 @@ export default function ServicesSettingsPage() {
         service_name: editName.trim(),
         default_price: Number(editPrice) || 0,
         duration_minutes: editDuration ? Number(editDuration) : null,
+        category: editCategory, // PART 1
       })
       .eq("id", editRow.id);
 
@@ -314,7 +322,7 @@ export default function ServicesSettingsPage() {
               <tr key={r.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                 <td className="data-table-cell">{r.service_name}</td>
                 <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
-                <td className="data-table-cell-right">PHP {Number(r.default_price || 0).toLocaleString()}</td>
+                <td className="data-table-cell-right">₱ {Number(r.default_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td className="data-table-cell-right">
                   <div className="flex items-center justify-end">
                     <TogglePill
@@ -381,7 +389,7 @@ export default function ServicesSettingsPage() {
             <label className="field-label">
               <span className="field-label-text">Fee</span>
               <div className="flex items-center border rounded-lg bg-white overflow-hidden">
-                <span className="px-3 py-2 text-slate-600 bg-slate-50 font-medium text-sm">PHP</span>
+                <span className="px-3 py-2 text-slate-600 bg-slate-50 font-medium text-sm">₱</span>
                 <input
                   className="flex-1 h-10 border-0 bg-transparent px-2 focus:outline-none text-sm"
                   placeholder="0.00"
@@ -425,6 +433,19 @@ export default function ServicesSettingsPage() {
               </select>
             </label>
           </div>
+
+          <label className="field-label">
+            <span className="field-label-text">Category</span>
+            <select
+              className="field-input"
+              value={addCategory}
+              onChange={(e) => setAddCategory(e.target.value as "general" | "ortho")}
+              disabled={busy}
+            >
+              <option value="general">General</option>
+              <option value="ortho">Ortho</option>
+            </select>
+          </label>
 
           <div className="modal-actions">
             <div className="modal-actions-right">
@@ -470,7 +491,7 @@ export default function ServicesSettingsPage() {
               <label className="field-label">
                 <span className="field-label-text">Fee</span>
                 <div className="flex items-center border rounded-lg bg-white overflow-hidden">
-                  <span className="px-3 py-2 text-slate-600 bg-slate-50 font-medium text-sm">PHP</span>
+                  <span className="px-3 py-2 text-slate-600 bg-slate-50 font-medium text-sm">₱</span>
                   <input
                     className="flex-1 h-10 border-0 bg-transparent px-2 focus:outline-none text-sm"
                     placeholder="0.00"
@@ -514,6 +535,19 @@ export default function ServicesSettingsPage() {
                 </select>
               </label>
             </div>
+
+            <label className="field-label">
+              <span className="field-label-text">Category</span>
+              <select
+                className="field-input"
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value as "general" | "ortho")}
+                disabled={busy}
+              >
+                <option value="general">General</option>
+                <option value="ortho">Ortho</option>
+              </select>
+            </label>
 
             <div className="delete-confirmation">
               <div className="delete-confirmation-title">Delete service?</div>

@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
-import type { OrthoCase, OrthoEntry, DentistRow, Appointment } from "@/lib/types";
+import type { OrthoCase, OrthoEntry, DentistRow, Appointment, ServicePriceRow } from "@/lib/types";
 import { formatDatePH } from "@/lib/helpers";
-import { orthoEntryTags, orthoArchOptions } from "@/lib/types";
+import { orthoEntryTags, orthoArchOptions, orthoApplianceTypes, orthoVisitTypes } from "@/lib/types";
 
 export default function OrthoPage() {
   const params = useParams();
@@ -20,6 +20,9 @@ export default function OrthoPage() {
   const [orthoCase, setOrthoCase] = useState<OrthoCase | null>(null);
   const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
   const [dentists, setDentists] = useState<DentistRow[]>([]);
+  const [orthoServices, setOrthoServices] = useState<ServicePriceRow[]>([]);
+  const [orthoPaid, setOrthoPaid] = useState(0); // Total paid on ortho invoices
+  const [orthoOutstanding, setOrthoOutstanding] = useState(0); // Outstanding balance on ortho invoices
 
   // Entries data
   const [entries, setEntries] = useState<OrthoEntry[]>([]);
@@ -33,9 +36,20 @@ export default function OrthoPage() {
   const [editEndDate, setEditEndDate] = useState("");
   const [editStatus, setEditStatus] = useState<"active" | "on_hold" | "completed">("active");
   const [editProviderDentistId, setEditProviderDentistId] = useState("");
-  const [editProviderName, setEditProviderName] = useState("");
   const [editPackageFee, setEditPackageFee] = useState("");
   const [editCaseNotes, setEditCaseNotes] = useState("");
+  const [editPackageServiceId, setEditPackageServiceId] = useState("");
+  const [editPhase, setEditPhase] = useState<"braces" | "aligners" | "retainer" | "completed" | "">("");
+  const [editInclusions, setEditInclusions] = useState<Record<string, boolean>>({
+    case_analysis: false,
+    braces_installation: false,
+    monthly_adjustments: false,
+    consultations: false,
+    ortho_kit: false,
+    prophylaxis: false,
+    xray: false,
+    retainer: false,
+  });
 
   // Entry modal
   const [entryModalOpen, setEntryModalOpen] = useState(false);
@@ -47,6 +61,14 @@ export default function OrthoPage() {
   const [editEntryArch, setEditEntryArch] = useState("");
   const [editEntryTeeth, setEditEntryTeeth] = useState("");
   const [editEntryWireDetails, setEditEntryWireDetails] = useState("");
+  // PART 4B: New entry fields
+  const [editEntryVisitType, setEditEntryVisitType] = useState<"adjustment" | "emergency" | "rebond" | "install" | "debond" | "retainer" | "consultation" | "">("");
+  const [editEntryLostBracket, setEditEntryLostBracket] = useState(false);
+  const [editEntryBrokenBracket, setEditEntryBrokenBracket] = useState(false);
+  const [editEntryPokedWire, setEditEntryPokedWire] = useState(false);
+  const [editEntryIsBillable, setEditEntryIsBillable] = useState(false);
+  const [editEntryAddonServiceId, setEditEntryAddonServiceId] = useState("");
+  const [editEntryAmountOverride, setEditEntryAmountOverride] = useState("");
 
   // Delete confirmation
   const [deleteConfirmEntry, setDeleteConfirmEntry] = useState<string | null>(null);
@@ -79,6 +101,18 @@ export default function OrthoPage() {
 
     if (!dentistsRes.error && dentistsRes.data) {
       setDentists(dentistsRes.data as DentistRow[]);
+    }
+
+    // PART 4A: Load ortho services (category='ortho')
+    const servicesRes = await supabase
+      .from("service_prices")
+      .select("*")
+      .eq("category", "ortho")
+      .eq("is_active", true)
+      .order("service_name", { ascending: true });
+
+    if (!servicesRes.error && servicesRes.data) {
+      setOrthoServices(servicesRes.data as ServicePriceRow[]);
     }
 
     // Load next appointment
@@ -136,9 +170,11 @@ export default function OrthoPage() {
       start_date: editStartDate || null,
       end_date: editEndDate || null,
       provider_dentist_id: editProviderDentistId || null,
-      provider_name: editProviderName.trim() || null,
       package_fee: editPackageFee ? parseFloat(editPackageFee) : null,
       notes: editCaseNotes.trim() || null,
+      package_service_id: editPackageServiceId || null,
+      phase: editPhase || null,
+      inclusions: editInclusions,
     };
 
     setBusy(true);
@@ -169,9 +205,20 @@ export default function OrthoPage() {
     setEditEndDate("");
     setEditStatus("active");
     setEditProviderDentistId("");
-    setEditProviderName("");
     setEditPackageFee("");
     setEditCaseNotes("");
+    setEditPackageServiceId("");
+    setEditPhase("");
+    setEditInclusions({
+      case_analysis: false,
+      braces_installation: false,
+      monthly_adjustments: false,
+      consultations: false,
+      ortho_kit: false,
+      prophylaxis: false,
+      xray: false,
+      retainer: false,
+    });
     setCaseModalOpen(true);
   }
 
@@ -182,9 +229,20 @@ export default function OrthoPage() {
     setEditEndDate(orthoCase.end_date || "");
     setEditStatus(orthoCase.status as "active" | "on_hold" | "completed");
     setEditProviderDentistId(orthoCase.provider_dentist_id || "");
-    setEditProviderName(orthoCase.provider_name || "");
     setEditPackageFee(orthoCase.package_fee?.toString() || "");
     setEditCaseNotes(orthoCase.notes || "");
+    setEditPackageServiceId(orthoCase.package_service_id || "");
+    setEditPhase(orthoCase.phase || "");
+    setEditInclusions(orthoCase.inclusions || {
+      case_analysis: false,
+      braces_installation: false,
+      monthly_adjustments: false,
+      consultations: false,
+      ortho_kit: false,
+      prophylaxis: false,
+      xray: false,
+      retainer: false,
+    });
     setCaseModalOpen(true);
   }
 
@@ -204,6 +262,14 @@ export default function OrthoPage() {
       arch: editEntryArch || undefined,
       teeth: editEntryTeeth.trim() || undefined,
       wire_details: editEntryWireDetails.trim() || undefined,
+      // PART 4B: New entry fields
+      visit_type: editEntryVisitType || null,
+      lost_bracket: editEntryLostBracket,
+      broken_bracket: editEntryBrokenBracket,
+      poked_wire: editEntryPokedWire,
+      is_billable: editEntryIsBillable,
+      addon_service_id: editEntryIsBillable && editEntryAddonServiceId ? editEntryAddonServiceId : null,
+      amount_override: editEntryAmountOverride ? parseFloat(editEntryAmountOverride) : null,
     };
 
     setBusy(true);
@@ -229,14 +295,14 @@ export default function OrthoPage() {
   }
 
   function openCreateEntryModal() {
-    setEntryModalMode("create");
-    setEditEntryId("");
-    setEditEntryDate(new Date().toISOString().split("T")[0]);
-    setEditEntryTag("adjustment");
-    setEditEntryNote("");
-    setEditEntryArch("");
-    setEditEntryTeeth("");
-    setEditEntryWireDetails("");
+    // PART 4B: Reset new entry fields
+    setEditEntryVisitType("");
+    setEditEntryLostBracket(false);
+    setEditEntryBrokenBracket(false);
+    setEditEntryPokedWire(false);
+    setEditEntryIsBillable(false);
+    setEditEntryAddonServiceId("");
+    setEditEntryAmountOverride("");
     setEntryModalOpen(true);
   }
 
@@ -249,6 +315,14 @@ export default function OrthoPage() {
     setEditEntryArch(entry.arch || "");
     setEditEntryTeeth(entry.teeth || "");
     setEditEntryWireDetails(entry.wire_details || "");
+    // PART 4B: Load new entry fields
+    setEditEntryVisitType(entry.visit_type || "");
+    setEditEntryLostBracket(entry.lost_bracket || false);
+    setEditEntryBrokenBracket(entry.broken_bracket || false);
+    setEditEntryPokedWire(entry.poked_wire || false);
+    setEditEntryIsBillable(entry.is_billable || false);
+    setEditEntryAddonServiceId(entry.addon_service_id || "");
+    setEditEntryAmountOverride(entry.amount_override?.toString() || "");
     setEntryModalOpen(true);
   }
 
@@ -283,10 +357,10 @@ export default function OrthoPage() {
       <div className="page-content">
         <div className="page-sections">
 
-          {/* Ortho Case Box - Like Patient Information */}
+          {/* Case Overview Box - Like Patient Information */}
           <div className="card">
             <div className="card-header">
-              <div className="card-title">Ortho Case</div>
+              <div className="card-title">Case Overview</div>
               {orthoCase ? (
                 <button className="btn-primary-dark" disabled={busy} onClick={openEditCaseModal}>
                   Edit
@@ -300,53 +374,123 @@ export default function OrthoPage() {
 
             {orthoCase ? (
               <div className="spacing-vertical-lg">
-                {/* Row 1: Status, Start Date */}
-                <div className="grid-gap-4-cols-2">
-                  <label className="field-label">
-                    <span className="field-label-text">Status</span>
-                    <input className="field-input-readonly" value={orthoCase.status?.toUpperCase() || ""} readOnly />
-                  </label>
+                {/* Row 1: Start Date, End Date, Status, Phase */}
+                <div className="grid gap-3 grid-cols-4">
                   <label className="field-label">
                     <span className="field-label-text">Start Date</span>
                     <input className="field-input-readonly" value={orthoCase.start_date ? formatDatePH(orthoCase.start_date) : ""} readOnly />
                   </label>
-                </div>
-
-                {/* Row 2: End Date, Provider */}
-                <div className="grid-gap-4-cols-2">
                   <label className="field-label">
                     <span className="field-label-text">End Date</span>
-                    <input className="field-input-readonly" value={orthoCase.end_date ? formatDatePH(orthoCase.end_date) : "—"} readOnly />
+                    <input className="field-input-readonly" value={orthoCase.end_date ? formatDatePH(orthoCase.end_date) : ""} readOnly />
                   </label>
                   <label className="field-label">
-                    <span className="field-label-text">Provider</span>
-                    <input className="field-input-readonly" value={orthoCase.provider_name || "—"} readOnly />
+                    <span className="field-label-text">Status</span>
+                    <input className="field-input-readonly" value={orthoCase.status.charAt(0).toUpperCase() + orthoCase.status.slice(1).replace(/_/g, " ")} readOnly />
+                  </label>
+                  <label className="field-label">
+                    <span className="field-label-text">Phase</span>
+                    <input className="field-input-readonly" value={orthoCase.phase ? orthoCase.phase.charAt(0).toUpperCase() + orthoCase.phase.slice(1) : ""} readOnly />
                   </label>
                 </div>
 
-                {/* Row 3: Package Fee, Next Appointment */}
-                <div className="grid-gap-4-cols-2">
+                {/* Row 2: Dentist, Package, Next Appointment */}
+                <div className="grid gap-3 grid-cols-3">
                   <label className="field-label">
-                    <span className="field-label-text">Package Fee</span>
-                    <input className="field-input-readonly" value={orthoCase.package_fee ? `₱${orthoCase.package_fee.toFixed(2)}` : "—"} readOnly />
+                    <span className="field-label-text">Dentist</span>
+                    <input 
+                      className="field-input-readonly" 
+                      value={
+                      orthoCase.provider_dentist_id 
+                        ? dentists.find(d => d.id === orthoCase.provider_dentist_id)?.full_name || ""
+                        : ""
+                    } 
+                      readOnly 
+                    />
+                  </label>
+                  <label className="field-label">
+                    <span className="field-label-text">Package</span>
+                    <input 
+                      className="field-input-readonly" 
+                      value={orthoServices.find(s => s.id === orthoCase.package_service_id)?.service_name || ""} 
+                      readOnly 
+                    />
                   </label>
                   <label className="field-label">
                     <span className="field-label-text">Next Appointment</span>
                     <input 
                       className="field-input-readonly" 
-                      value={nextAppointment ? `${formatDatePH(nextAppointment.appointment_date)} at ${nextAppointment.appointment_time}` : "No upcoming appointment"} 
+                      value={nextAppointment ? formatDatePH(nextAppointment.appointment_date) : "Use Appointments tool to schedule"} 
                       readOnly 
                     />
                   </label>
                 </div>
 
-                {/* Row 4: Notes (full width) */}
-                {orthoCase.notes && (
+                {/* Row 3: Inclusions (2 columns) + Notes */}
+                <div className="grid gap-3 grid-cols-2">
+                  {/* Inclusions - only show if any are checked */}
+                  {orthoCase.inclusions && Object.values(orthoCase.inclusions).some(v => v) ? (
+                    <div className="field-label">
+                      <span className="field-label-text">Inclusions</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { key: "case_analysis", label: "Case Analysis & Diagnostics" },
+                          { key: "ortho_kit", label: "Ortho Kit" },
+                          { key: "braces_installation", label: "Braces Installation" },
+                          { key: "prophylaxis", label: "Dental Prophylaxis" },
+                          { key: "monthly_adjustments", label: "Monthly Adjustments" },
+                          { key: "xray", label: "X-ray" },
+                          { key: "consultations", label: "Ortho Consultations" },
+                          { key: "retainer", label: "Retainer" },
+                        ].map(({key, label}) => (
+                          orthoCase.inclusions?.[key] ? (
+                            <div key={key} className="flex items-center gap-2 text-sm">
+                              ✓ <span>{label}</span>
+                            </div>
+                          ) : null
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Notes */}
                   <label className="field-label">
                     <span className="field-label-text">Notes</span>
-                    <textarea className="field-textarea-readonly" value={orthoCase.notes} readOnly />
+                    {orthoCase.notes ? (
+                      <textarea className="field-textarea" value={orthoCase.notes} readOnly rows={4} />
+                    ) : (
+                      <div className="text-sm text-slate-600">No notes</div>
+                    )}
                   </label>
-                )}
+                </div>
+
+                {/* Row 4: Package Fee, Paid, Outstanding */}
+                <div className="grid gap-3 grid-cols-3 border-t pt-3">
+                  <label className="field-label">
+                    <span className="field-label-text">Package Fee</span>
+                    <input 
+                      className="field-input-readonly" 
+                      value={orthoCase.package_fee ? `₱ ${Number(orthoCase.package_fee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""} 
+                      readOnly 
+                    />
+                  </label>
+                  <label className="field-label">
+                    <span className="field-label-text">Paid</span>
+                    <input 
+                      className="field-input-readonly" 
+                      value={`₱ ${Number(orthoPaid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
+                      readOnly 
+                    />
+                  </label>
+                  <label className="field-label">
+                    <span className="field-label-text">Outstanding</span>
+                    <input 
+                      className="field-input-readonly" 
+                      value={`₱ ${Number(orthoOutstanding).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
+                      readOnly 
+                    />
+                  </label>
+                </div>
               </div>
             ) : (
               <div className="text-sm text-slate-600 py-4">No ortho case created yet. Click "Create Case" to get started.</div>
@@ -371,12 +515,14 @@ export default function OrthoPage() {
                 <div className="table-wrapper">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "35%" }} />
                       <col style={{ width: "12%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "25%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "9%" }} />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
@@ -384,31 +530,69 @@ export default function OrthoPage() {
                         <th className="data-table-head-cell">Tag</th>
                         <th className="data-table-head-cell">Note</th>
                         <th className="data-table-head-cell">Arch</th>
-                        <th className="data-table-head-cell">Details</th>
+                        <th className="data-table-head-cell">Visit Type</th>
+                        <th className="data-table-head-cell">Incidents</th>
+                        <th className="data-table-head-cell">Charge</th>
                         <th className="data-table-head-cell-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredEntries.map((entry, index) => (
-                        <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                          <td className="data-table-cell">{formatDatePH(entry.entry_date)}</td>
-                          <td className="data-table-cell">
-                            <span className="badge badge-secondary">{entry.tag.replace(/_/g, " ")}</span>
-                          </td>
-                          <td className="data-table-cell">{entry.note || "—"}</td>
-                          <td className="data-table-cell">{entry.arch || "—"}</td>
-                          <td className="data-table-cell">{entry.teeth || entry.wire_details ? "✓" : "—"}</td>
-                          <td className="data-table-cell-right">
-                            <button
-                              className="data-table-btn"
-                              disabled={busy}
-                              onClick={() => openEditEntryModal(entry)}
-                            >
-                              Edit
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredEntries.map((entry, index) => {
+                        // PART 5: Helper to get service price or override
+                        const chargeAmount = entry.amount_override || (
+                          entry.addon_service_id 
+                            ? orthoServices.find(s => s.id === entry.addon_service_id)?.default_price 
+                            : undefined
+                        );
+                        const chargeDisplay = entry.is_billable && chargeAmount 
+                          ? `₱ ${Number(chargeAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : "—";
+
+                        // PART 5: Helper to display incident badges
+                        const incidents = [];
+                        if (entry.lost_bracket) incidents.push("Lost");
+                        if (entry.broken_bracket) incidents.push("Broken");
+                        if (entry.poked_wire) incidents.push("Poked");
+
+                        return (
+                          <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                            <td className="data-table-cell">{formatDatePH(entry.entry_date)}</td>
+                            <td className="data-table-cell">
+                              <span className="badge badge-secondary">{entry.tag.replace(/_/g, " ")}</span>
+                            </td>
+                            <td className="data-table-cell">{entry.note || "—"}</td>
+                            <td className="data-table-cell">{entry.arch || "—"}</td>
+                            <td className="data-table-cell">
+                              {entry.visit_type ? (
+                                <span className="text-xs text-slate-600">{entry.visit_type.replace(/_/g, " ")}</span>
+                              ) : "—"}
+                            </td>
+                            <td className="data-table-cell">
+                              {incidents.length > 0 ? (
+                                <div className="flex gap-1 flex-wrap">
+                                  {incidents.map((inc) => (
+                                    <span key={inc} className="inline-block text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+                                      {inc}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : "—"}
+                            </td>
+                            <td className="data-table-cell">
+                              <span className="text-sm font-medium">{chargeDisplay}</span>
+                            </td>
+                            <td className="data-table-cell-right">
+                              <button
+                                className="data-table-btn"
+                                disabled={busy}
+                                onClick={() => openEditEntryModal(entry)}
+                              >
+                                Edit
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -448,58 +632,94 @@ export default function OrthoPage() {
               </div>
             </div>
 
-            {/* Status */}
-            <div className="field-label">
-              <span className="field-label-text">Status</span>
-              <select
-                className="field-input"
-                value={editStatus}
-                onChange={(e) => setEditStatus(e.target.value as "active" | "on_hold" | "completed")}
-              >
-                <option value="active">Active</option>
-                <option value="on_hold">On Hold</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-
-            {/* Row 2: Provider ID, Provider Name */}
+            {/* Row 2: Status, Phase */}
             <div className="grid-gap-4-cols-2">
               <div className="field-label">
-                <span className="field-label-text">Dentist</span>
-                <select className="field-input" value={editProviderDentistId} onChange={(e) => setEditProviderDentistId(e.target.value)}>
-                  <option value="">— None —</option>
-                  {dentists.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.full_name}
-                    </option>
-                  ))}
+                <span className="field-label-text">Status</span>
+                <select
+                  className="field-input"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as "active" | "on_hold" | "completed")}
+                >
+                  <option value="active">Active</option>
+                  <option value="on_hold">On Hold</option>
+                  <option value="completed">Completed</option>
                 </select>
               </div>
               <div className="field-label">
-                <span className="field-label-text">Provider Name (if not listed)</span>
-                <input
-                  className="field-input"
-                  value={editProviderName}
-                  onChange={(e) => setEditProviderName(e.target.value)}
-                  placeholder="e.g., Dr. Smith"
-                />
+                <span className="field-label-text">Phase</span>
+                <select 
+                  className="field-input" 
+                  value={editPhase} 
+                  onChange={(e) => setEditPhase(e.target.value as "braces" | "aligners" | "retainer" | "completed" | "")}
+                >
+                  <option value="">— Select —</option>
+                  <option value="braces">Braces</option>
+                  <option value="aligners">Aligners</option>
+                  <option value="retainer">Retainer</option>
+                  <option value="completed">Completed</option>
+                </select>
               </div>
             </div>
 
-            {/* Package Fee */}
+            {/* Row 3: Dentist */}
             <div className="field-label">
-              <span className="field-label-text">Package Fee</span>
-              <input
-                type="number"
-                className="field-input"
-                step="0.01"
-                value={editPackageFee}
-                onChange={(e) => setEditPackageFee(e.target.value)}
-                placeholder="0.00"
-              />
+              <span className="field-label-text">Dentist</span>
+              <select className="field-input" value={editProviderDentistId} onChange={(e) => setEditProviderDentistId(e.target.value)}>
+                <option value="">— None —</option>
+                {dentists.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.full_name}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Notes */}
+            {/* Row 4: Treatment (Package Service) */}
+            <div className="field-label">
+              <span className="field-label-text">Treatment</span>
+              <select 
+                className="field-input" 
+                value={editPackageServiceId} 
+                onChange={(e) => setEditPackageServiceId(e.target.value)}
+              >
+                <option value="">— None —</option>
+                {orthoServices.filter(s => s.item_type === "SERVICE").map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.service_name} (₱ {Number(s.default_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Row 5: Inclusions Checklist (2 columns) */}
+            <div className="field-label">
+              <span className="field-label-text">Inclusions</span>
+              <div className="grid gap-3 grid-cols-2">
+                {[
+                  { key: "case_analysis", label: "Case Analysis & Diagnostics" },
+                  { key: "ortho_kit", label: "Ortho Kit" },
+                  { key: "braces_installation", label: "Braces Installation" },
+                  { key: "prophylaxis", label: "Dental Prophylaxis" },
+                  { key: "monthly_adjustments", label: "Monthly Adjustments" },
+                  { key: "xray", label: "X-ray" },
+                  { key: "consultations", label: "Ortho Consultations" },
+                  { key: "retainer", label: "Retainer" },
+                ].map((inc) => (
+                  <label key={inc.key} className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={editInclusions[inc.key] || false}
+                      onChange={(e) => setEditInclusions({ ...editInclusions, [inc.key]: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{inc.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 6: Notes */}
             <div className="field-label">
               <span className="field-label-text">Notes</span>
               <textarea 
@@ -623,6 +843,101 @@ export default function OrthoPage() {
                 placeholder="e.g., 0.016 NiTi"
               />
             </div>
+
+            {/* PART 4B: New Ortho Entry Fields */}
+            <div className="field-label">
+              <span className="field-label-text">Visit Type</span>
+              <select 
+                className="field-input" 
+                value={editEntryVisitType} 
+                onChange={(e) => setEditEntryVisitType(e.target.value as any)}
+              >
+                <option value="">— Select —</option>
+                <option value="adjustment">Adjustment</option>
+                <option value="emergency">Emergency</option>
+                <option value="rebond">Rebond</option>
+                <option value="install">Install</option>
+                <option value="debond">Debond</option>
+                <option value="retainer">Retainer</option>
+                <option value="consultation">Consultation</option>
+              </select>
+            </div>
+
+            <div className="field-label">
+              <span className="field-label-text">Incidents</span>
+              <div className="grid gap-3">
+                <label className="flex items-center gap-2">
+                  <input 
+                    type="checkbox" 
+                    checked={editEntryLostBracket}
+                    onChange={(e) => setEditEntryLostBracket(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Lost Bracket</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input 
+                    type="checkbox" 
+                    checked={editEntryBrokenBracket}
+                    onChange={(e) => setEditEntryBrokenBracket(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Broken Bracket</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input 
+                    type="checkbox" 
+                    checked={editEntryPokedWire}
+                    onChange={(e) => setEditEntryPokedWire(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Poked Wire</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="field-label">
+              <label className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  checked={editEntryIsBillable}
+                  onChange={(e) => setEditEntryIsBillable(e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-sm font-medium">Additional Charge?</span>
+              </label>
+            </div>
+
+            {editEntryIsBillable && (
+              <div className="grid-gap-4-cols-2">
+                <div className="field-label">
+                  <span className="field-label-text">Service</span>
+                  <select 
+                    className="field-input" 
+                    value={editEntryAddonServiceId} 
+                    onChange={(e) => setEditEntryAddonServiceId(e.target.value)}
+                  >
+                    <option value="">— Select —</option>
+                    {orthoServices.filter(s => s.item_type === "SERVICE").map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.service_name} (₱ {Number(s.default_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field-label">
+                  <span className="field-label-text">Override Amount</span>
+                  <input
+                    type="number"
+                    className="field-input"
+                    step="0.01"
+                    value={editEntryAmountOverride}
+                    onChange={(e) => setEditEntryAmountOverride(e.target.value)}
+                    placeholder="Leave blank to use service price"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Modal Footer */}
             <div className="modal-footer-spread">

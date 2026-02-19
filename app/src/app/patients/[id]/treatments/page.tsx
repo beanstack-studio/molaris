@@ -124,7 +124,8 @@ export default function TreatmentsPage() {
 
     const sm = await supabase
       .from("service_prices")
-      .select("id, service_name, default_price, item_type, sort_order, created_at")
+      .select("id, service_name, default_price, item_type, sort_order, created_at, category")
+      .eq("category", "general") // PART 3: Filter to general services only (excludes ortho)
       .order("item_type", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("service_name", { ascending: true });

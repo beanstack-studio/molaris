@@ -336,58 +336,169 @@ export default function BillingPage() {
 
     setBusy(true);
 
-    const invoiceNumber = await getNextInvoiceNumber();
+    try {
+      // PART 6: Regular invoice for treatments (category='general')
+      const invoiceNumber = await getNextInvoiceNumber();
 
-    const ins = await supabase.from("invoices").insert({
-      patient_id: id,
-      invoice_number: invoiceNumber,
-      invoice_date: invoiceDate,
-      total: invoiceTotal,
-      status: "unpaid",
-    });
+      const ins = await supabase.from("invoices").insert({
+        patient_id: id,
+        invoice_number: invoiceNumber,
+        invoice_date: invoiceDate,
+        total: invoiceTotal,
+        status: "unpaid",
+        invoice_type: "regular", // PART 6: Default to regular
+      });
 
-    if (ins.error) {
-      setBusy(false);
-      return setErr(ins.error.message);
-    }
-
-    const invoiceId = (ins as any).data?.[0]?.id;
-    if (invoiceId) {
-      const itemsToInsert = visitTreatments
-        .filter((t) => t.visit_date === selectedVisitDate)
-        .map((treatment) => {
-          const servicePrice = servicePrices.find((sp) => sp.id === treatment.service_price_id);
-          const unitPrice = (servicePrice as any)?.default_price || 0;
-          return {
-            invoice_id: invoiceId,
-            service_name: servicePrice?.service_name || "Service",
-            description: treatment.procedure || "Treatment",
-            qty: 1,
-            unit_price: unitPrice,
-            line_total: unitPrice,
-            tooth_number: treatment.tooth_number,
-            dentist_name: treatment.dentist_name,
-          };
-        });
-
-      const itemsIns = await supabase.from("invoice_items").insert(itemsToInsert);
-
-      if (itemsIns.error) {
+      if (ins.error) {
         setBusy(false);
-        return setErr(itemsIns.error.message);
+        return setErr(ins.error.message);
       }
 
-      await supabase.rpc("recalc_invoice", { invoice_id: invoiceId });
-    }
+      const invoiceId = (ins as any).data?.[0]?.id;
+      if (invoiceId) {
+        const itemsToInsert = visitTreatments
+          .filter((t) => t.visit_date === selectedVisitDate)
+          .map((treatment) => {
+            const servicePrice = servicePrices.find((sp) => sp.id === treatment.service_price_id);
+            const unitPrice = (servicePrice as any)?.default_price || 0;
+            return {
+              invoice_id: invoiceId,
+              service_name: servicePrice?.service_name || "Service",
+              description: treatment.procedure || "Treatment",
+              qty: 1,
+              unit_price: unitPrice,
+              line_total: unitPrice,
+              tooth_number: treatment.tooth_number,
+              dentist_name: treatment.dentist_name,
+              source_type: "treatment", // PART 6: Track source
+              source_id: treatment.id, // PART 6: Track source ID
+            };
+          });
 
-    setBusy(false);
-    setShowCreateInvoice(false);
-    setSelectedVisitDate("");
-    setVisitTreatments([]);
-    setDiscountAmount("");
-    setDiscountDescription("");
-    setShowDiscount(false);
-    await loadData();
+        const itemsIns = await supabase.from("invoice_items").insert(itemsToInsert);
+
+        if (itemsIns.error) {
+          setBusy(false);
+          return setErr(itemsIns.error.message);
+        }
+
+        await supabase.rpc("recalc_invoice", { invoice_id: invoiceId });
+      }
+
+      // PART 6: Check for ortho invoicing needs on same patient + date
+      // 1) If ortho case starts on this date, add package to ortho invoice
+      // 2) If ortho entries on this date are billable, add to ortho invoice
+      const { data: orthoCases, error: orthoError } = await supabase
+        .from("ortho_cases")
+        .select("*")
+        .eq("patient_id", id)
+        .eq("status", "active");
+
+      const activeOrthoCase = orthoCases?.[0]; // Most recent active case
+      let hasOrthoItems = false;
+      let orthoInvoiceId: string | null = null;
+
+      if (activeOrthoCase) {
+        // Check if package starts on this date
+        const packageStartsToday = activeOrthoCase.start_date === selectedVisitDate;
+
+        // Check for billable entries on this date
+        const { data: billableEntries, error: entriesError } = await supabase
+          .from("ortho_entries")
+          .select("*")
+          .eq("ortho_case_id", activeOrthoCase.id)
+          .eq("entry_date", selectedVisitDate)
+          .eq("is_billable", true);
+
+        const billableCount = billableEntries?.length || 0;
+        hasOrthoItems = packageStartsToday || billableCount > 0;
+
+        if (hasOrthoItems) {
+          // Create ortho invoice for same date
+          const orthoInvoiceNumber = await getNextInvoiceNumber();
+
+          const orthoIns = await supabase.from("invoices").insert({
+            patient_id: id,
+            invoice_number: orthoInvoiceNumber,
+            invoice_date: invoiceDate,
+            total: 0, // Will recalculate after items
+            status: "unpaid",
+            invoice_type: "ortho", // PART 6: Mark as ortho
+          });
+
+          if (!orthoIns.error && (orthoIns as any).data?.[0]?.id) {
+            orthoInvoiceId = (orthoIns as any).data[0].id;
+            const orthoItems = [];
+
+            // Add package item if case starts today
+            if (packageStartsToday && activeOrthoCase.package_service_id) {
+              const packageService = servicePrices.find(
+                (sp) => sp.id === activeOrthoCase.package_service_id
+              );
+              if (packageService) {
+                orthoItems.push({
+                  invoice_id: orthoInvoiceId,
+                  service_name: packageService.service_name,
+                  description: `Ortho Package - ${activeOrthoCase.appliance_type || "Braces"}`,
+                  qty: 1,
+                  unit_price: (packageService as any)?.default_price || 0,
+                  line_total: (packageService as any)?.default_price || 0,
+                  source_type: "ortho_package", // PART 6: Track source
+                  source_id: activeOrthoCase.id, // PART 6: Track source ID
+                });
+              }
+            }
+
+            // Add billable entry items
+            if (billableEntries) {
+              billableEntries.forEach((entry) => {
+                const chargeAmount = entry.amount_override || (
+                  entry.addon_service_id
+                    ? servicePrices.find((sp) => sp.id === entry.addon_service_id)?. default_price
+                    : undefined
+                );
+                if (chargeAmount) {
+                  orthoItems.push({
+                    invoice_id: orthoInvoiceId,
+                    service_name:  servicePrices.find((sp) => sp.id === entry.addon_service_id)?.service_name || "Ortho Service",
+                    description: `Ortho ${entry.visit_type || "Visit"} - ${entry.note || ""}`.trim(),
+                    qty: 1,
+                    unit_price: chargeAmount,
+                    line_total: chargeAmount,
+                    source_type: "ortho_entry", // PART 6: Track source
+                    source_id: entry.id, // PART 6: Track source ID
+                  });
+                }
+              });
+            }
+
+            // Insert all ortho items
+            if (orthoItems.length > 0) {
+              const orthoItemsIns = await supabase.from("invoice_items").insert(orthoItems);
+              if (!orthoItemsIns.error) {
+                await supabase.rpc("recalc_invoice", { invoice_id: orthoInvoiceId });
+              }
+            } else {
+              // Delete empty ortho invoice
+              await supabase.from("invoices").delete().eq("id", orthoInvoiceId);
+              orthoInvoiceId = null;
+            }
+          }
+        }
+      }
+
+      setBusy(false);
+      setShowCreateInvoice(false);
+      setSelectedVisitDate("");
+      setVisitTreatments([]);
+      setDiscountAmount("");
+      setDiscountDescription("");
+      setShowDiscount(false);
+      await loadData();
+    } catch (error) {
+      setBusy(false);
+      setErr(error instanceof Error ? error.message : "Failed to create invoice");
+    }
   }
 
   async function verifyPayment() {
@@ -668,7 +779,17 @@ export default function BillingPage() {
                         const balance = invoiceAmount - paidAmount;
                         return (
                         <tr key={inv.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                          <td className="data-table-cell">{inv.invoice_number}</td>
+                          <td className="data-table-cell">
+                            <div className="flex items-center gap-2">
+                              <span>{inv.invoice_number}</span>
+                              {/* PART 7: Show Ortho badge only for ortho invoices */}
+                              {inv.invoice_type === "ortho" && (
+                                <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
+                                  Ortho
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="data-table-cell">{formatDatePH(inv.invoice_date)}</td>
                           <td className="data-table-cell-right">{formatMoney(invoiceAmount)}</td>
                           <td className="data-table-cell-right text-green-700 font-semibold">{formatMoney(paidAmount)}</td>

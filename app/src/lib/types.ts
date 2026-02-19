@@ -67,6 +67,7 @@ export type ServicePriceRow = {
   item_type: "SERVICE" | "ADD_ON";
   is_active: boolean;
   sort_order: number;
+  category: "general" | "ortho"; // PART 1: Service categorization
   created_at: string;
 };
 
@@ -80,6 +81,7 @@ export type InvoiceRow = {
   discount_amount: number | null;
   total: number | null;
   notes: string | null;
+  invoice_type?: "regular" | "ortho"; // PART 7: Ortho billing
   created_at: string | null;
 };
 
@@ -96,6 +98,8 @@ export type InvoiceItemRow = {
   line_total: number;
   tooth_number: number | null;
   dentist_name: string | null;
+  source_type?: "treatment" | "ortho_package" | "ortho_entry" | null; // PART 6: Track source for idempotency
+  source_id?: string | null; // PART 6: Track source ID
   created_at: string | null;
 };
 
@@ -311,6 +315,10 @@ export type OrthoCase = {
   provider_name: string | null;
   package_fee: number | null;
   notes: string | null;
+  // Ortho case fields
+  package_service_id: string | null;
+  phase: "braces" | "aligners" | "retainer" | "completed" | null;
+  inclusions: Record<string, boolean> | null; // JSON object with inclusion flags
   created_at: string;
   updated_at: string;
 };
@@ -326,6 +334,14 @@ export type OrthoEntry = {
   teeth: string | null; // free text
   wire_details: string | null; // free text
   created_by: string | null;
+  // PART 2B: Ortho entry enhancements
+  visit_type: "adjustment" | "emergency" | "rebond" | "install" | "debond" | "retainer" | "consultation" | null;
+  lost_bracket: boolean;
+  broken_bracket: boolean;
+  poked_wire: boolean;
+  is_billable: boolean;
+  addon_service_id: string | null;
+  amount_override: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -341,3 +357,23 @@ export const orthoEntryTags = [
 ] as const;
 
 export const orthoArchOptions = ["upper", "lower", "both"] as const;
+
+// PART 2C: New ortho constants
+export const orthoApplianceTypes = [
+  "metal_braces",
+  "ceramic_braces",
+  "self_ligating",
+  "aligners",
+  "retainer",
+  "other",
+] as const;
+
+export const orthoVisitTypes = [
+  "adjustment",
+  "emergency",
+  "rebond",
+  "install",
+  "debond",
+  "retainer",
+  "consultation",
+] as const;
