@@ -794,7 +794,7 @@ export default function OrthoPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="modal-footer-buttons">
+            <div className="modal-footer-buttons flex justify-end gap-2">
               <button className="btn-secondary-outlined" onClick={() => setCaseModalOpen(false)}>
                 Cancel
               </button>
