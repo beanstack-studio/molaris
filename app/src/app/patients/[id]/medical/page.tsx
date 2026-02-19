@@ -155,7 +155,7 @@ export default function Page() {
               )}
             </div>
             {!medHist ? (
-              <div className="helper-text-muted mt-4">No medical history recorded.</div>
+              <div className="text-sm text-slate-600 py-4">No medical history recorded.</div>
             ) : (
               <div className="card-grid responsive-grid-cols-2">
                 <label className="field-label">

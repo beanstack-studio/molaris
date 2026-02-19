@@ -68,6 +68,7 @@ export type ServicePriceRow = {
   is_active: boolean;
   sort_order: number;
   category: "general" | "ortho"; // PART 1: Service categorization
+  ortho_kind?: "package" | "addon"; // Optional ortho classification
   created_at: string;
 };
 
@@ -327,21 +328,20 @@ export type OrthoEntry = {
   id: string;
   ortho_case_id: string;
   entry_date: string;
-  appointment_id: string | null;
-  tag: "adjustment" | "wire_change" | "elastics" | "bracket_repair" | "retainer" | "follow_up" | "other";
-  note: string;
-  arch: string | null; // "upper" | "lower" | "both"
-  teeth: string | null; // free text
-  wire_details: string | null; // free text
-  created_by: string | null;
-  // PART 2B: Ortho entry enhancements
-  visit_type: "adjustment" | "emergency" | "rebond" | "install" | "debond" | "retainer" | "consultation" | null;
-  lost_bracket: boolean;
-  broken_bracket: boolean;
-  poked_wire: boolean;
-  is_billable: boolean;
-  addon_service_id: string | null;
+  visit_type: "adjustment" | "emergency" | "consultation" | "debond" | "retainer_delivery" | null;
+  note: string | null;
+  invoice_package: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrthoEntryItem = {
+  id: string;
+  ortho_entry_id: string;
+  service_id: string;
+  is_charged: boolean;
   amount_override: number | null;
+  service_detail: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -370,10 +370,8 @@ export const orthoApplianceTypes = [
 
 export const orthoVisitTypes = [
   "adjustment",
-  "emergency",
-  "rebond",
-  "install",
-  "debond",
-  "retainer",
   "consultation",
+  "emergency",
+  "debond",
+  "retainer_delivery",
 ] as const;

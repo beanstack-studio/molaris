@@ -4,9 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
-import type { OrthoCase, OrthoEntry, DentistRow, Appointment, ServicePriceRow } from "@/lib/types";
+import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow } from "@/lib/types";
 import { formatDatePH } from "@/lib/helpers";
-import { orthoEntryTags, orthoArchOptions, orthoApplianceTypes, orthoVisitTypes } from "@/lib/types";
 
 export default function OrthoPage() {
   const params = useParams();
@@ -23,11 +22,6 @@ export default function OrthoPage() {
   const [orthoServices, setOrthoServices] = useState<ServicePriceRow[]>([]);
   const [orthoPaid, setOrthoPaid] = useState(0); // Total paid on ortho invoices
   const [orthoOutstanding, setOrthoOutstanding] = useState(0); // Outstanding balance on ortho invoices
-
-  // Entries data
-  const [entries, setEntries] = useState<OrthoEntry[]>([]);
-  const [filteredEntries, setFilteredEntries] = useState<OrthoEntry[]>([]);
-  const [entriesLoading, setEntriesLoading] = useState(false);
 
   // Case edit modal
   const [caseModalOpen, setCaseModalOpen] = useState(false);
@@ -51,27 +45,19 @@ export default function OrthoPage() {
     retainer: false,
   });
 
-  // Entry modal
-  const [entryModalOpen, setEntryModalOpen] = useState(false);
-  const [entryModalMode, setEntryModalMode] = useState<"create" | "edit">("create");
-  const [editEntryId, setEditEntryId] = useState("");
-  const [editEntryDate, setEditEntryDate] = useState("");
-  const [editEntryTag, setEditEntryTag] = useState<"adjustment" | "wire_change" | "elastics" | "bracket_repair" | "retainer" | "follow_up" | "other">("adjustment");
-  const [editEntryNote, setEditEntryNote] = useState("");
-  const [editEntryArch, setEditEntryArch] = useState("");
-  const [editEntryTeeth, setEditEntryTeeth] = useState("");
-  const [editEntryWireDetails, setEditEntryWireDetails] = useState("");
-  // PART 4B: New entry fields
-  const [editEntryVisitType, setEditEntryVisitType] = useState<"adjustment" | "emergency" | "rebond" | "install" | "debond" | "retainer" | "consultation" | "">("");
-  const [editEntryLostBracket, setEditEntryLostBracket] = useState(false);
-  const [editEntryBrokenBracket, setEditEntryBrokenBracket] = useState(false);
-  const [editEntryPokedWire, setEditEntryPokedWire] = useState(false);
-  const [editEntryIsBillable, setEditEntryIsBillable] = useState(false);
-  const [editEntryAddonServiceId, setEditEntryAddonServiceId] = useState("");
-  const [editEntryAmountOverride, setEditEntryAmountOverride] = useState("");
-
-  // Delete confirmation
-  const [deleteConfirmEntry, setDeleteConfirmEntry] = useState<string | null>(null);
+  // Visit log modal
+  const [entries, setEntries] = useState<OrthoEntry[]>([]);
+  const [entryItems, setEntryItems] = useState<Map<string, OrthoEntryItem[]>>(new Map());
+  const [entriesLoading, setEntriesLoading] = useState(false);
+  const [visitModalOpen, setVisitModalOpen] = useState(false);
+  const [visitModalMode, setVisitModalMode] = useState<"create" | "edit">("create");
+  const [editVisitId, setEditVisitId] = useState("");
+  const [editVisitDate, setEditVisitDate] = useState("");
+  const [editVisitType, setEditVisitType] = useState<"adjustment" | "consultation" | "emergency" | "debond" | "retainer_delivery">("adjustment");
+  const [editVisitNote, setEditVisitNote] = useState("");
+  const [editVisitItems, setEditVisitItems] = useState<Partial<OrthoEntryItem>[]>([]);
+  const [editPackageInvoice, setEditPackageInvoice] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -138,6 +124,7 @@ export default function OrthoPage() {
     if (!orthoCase) return;
     setEntriesLoading(true);
 
+    // Load all entries for this case
     const entriesRes = await supabase
       .from("ortho_entries")
       .select("*")
@@ -146,7 +133,21 @@ export default function OrthoPage() {
 
     if (!entriesRes.error && entriesRes.data) {
       setEntries(entriesRes.data as OrthoEntry[]);
-      setFilteredEntries(entriesRes.data as OrthoEntry[]);
+
+      // Load items for each entry
+      const itemsMap = new Map<string, OrthoEntryItem[]>();
+      for (const entry of entriesRes.data) {
+        const itemsRes = await supabase
+          .from("ortho_entry_items")
+          .select("*")
+          .eq("ortho_entry_id", entry.id)
+          .order("created_at", { ascending: true });
+
+        if (!itemsRes.error && itemsRes.data) {
+          itemsMap.set(entry.id, itemsRes.data as OrthoEntryItem[]);
+        }
+      }
+      setEntryItems(itemsMap);
     }
 
     setEntriesLoading(false);
@@ -157,8 +158,10 @@ export default function OrthoPage() {
   }, [loadData]);
 
   useEffect(() => {
-    loadEntries();
-  }, [loadEntries]);
+    if (orthoCase) {
+      loadEntries();
+    }
+  }, [orthoCase, loadEntries]);
 
   async function saveCase() {
     if (!id) return;
@@ -246,101 +249,141 @@ export default function OrthoPage() {
     setCaseModalOpen(true);
   }
 
-  async function saveEntry() {
+  async function saveVisit() {
     if (!orthoCase) return;
     setErr(null);
 
-    if (!editEntryDate.trim()) {
-      return setErr("Entry date is required.");
+    if (!editVisitDate.trim()) {
+      return setErr("Visit date is required.");
     }
 
-    const data: Partial<OrthoEntry> = {
+    const visitData: Partial<OrthoEntry> = {
       ortho_case_id: orthoCase.id,
-      entry_date: editEntryDate,
-      tag: editEntryTag,
-      note: editEntryNote.trim() || undefined,
-      arch: editEntryArch || undefined,
-      teeth: editEntryTeeth.trim() || undefined,
-      wire_details: editEntryWireDetails.trim() || undefined,
-      // PART 4B: New entry fields
-      visit_type: editEntryVisitType || null,
-      lost_bracket: editEntryLostBracket,
-      broken_bracket: editEntryBrokenBracket,
-      poked_wire: editEntryPokedWire,
-      is_billable: editEntryIsBillable,
-      addon_service_id: editEntryIsBillable && editEntryAddonServiceId ? editEntryAddonServiceId : null,
-      amount_override: editEntryAmountOverride ? parseFloat(editEntryAmountOverride) : null,
+      entry_date: editVisitDate,
+      visit_type: editVisitType,
+      note: editVisitNote.trim() || null,
+      invoice_package: editPackageInvoice,
     };
 
     setBusy(true);
 
-    let res;
-    if (entryModalMode === "create") {
-      res = await supabase.from("ortho_entries").insert([data]);
-    } else if (entryModalMode === "edit" && editEntryId) {
-      res = await supabase.from("ortho_entries").update(data).eq("id", editEntryId);
+    let entryId: string;
+    if (visitModalMode === "create") {
+      const res = await supabase.from("ortho_entries").insert([visitData]).select("id");
+      if (res.error) {
+        setBusy(false);
+        return setErr(res.error.message);
+      }
+      entryId = res.data?.[0]?.id;
+    } else if (visitModalMode === "edit") {
+      entryId = editVisitId;
+      const res = await supabase.from("ortho_entries").update(visitData).eq("id", entryId);
+      if (res.error) {
+        setBusy(false);
+        return setErr(res.error.message);
+      }
     } else {
       setBusy(false);
       return;
     }
 
-    setBusy(false);
-
-    if (res.error) {
-      setErr(res.error.message);
-    } else {
-      setEntryModalOpen(false);
-      await loadEntries();
-    }
-  }
-
-  function openCreateEntryModal() {
-    // PART 4B: Reset new entry fields
-    setEditEntryVisitType("");
-    setEditEntryLostBracket(false);
-    setEditEntryBrokenBracket(false);
-    setEditEntryPokedWire(false);
-    setEditEntryIsBillable(false);
-    setEditEntryAddonServiceId("");
-    setEditEntryAmountOverride("");
-    setEntryModalOpen(true);
-  }
-
-  function openEditEntryModal(entry: OrthoEntry) {
-    setEntryModalMode("edit");
-    setEditEntryId(entry.id);
-    setEditEntryDate(entry.entry_date);
-    setEditEntryTag(entry.tag as "adjustment" | "wire_change" | "elastics" | "bracket_repair" | "retainer" | "follow_up" | "other");
-    setEditEntryNote(entry.note || "");
-    setEditEntryArch(entry.arch || "");
-    setEditEntryTeeth(entry.teeth || "");
-    setEditEntryWireDetails(entry.wire_details || "");
-    // PART 4B: Load new entry fields
-    setEditEntryVisitType(entry.visit_type || "");
-    setEditEntryLostBracket(entry.lost_bracket || false);
-    setEditEntryBrokenBracket(entry.broken_bracket || false);
-    setEditEntryPokedWire(entry.poked_wire || false);
-    setEditEntryIsBillable(entry.is_billable || false);
-    setEditEntryAddonServiceId(entry.addon_service_id || "");
-    setEditEntryAmountOverride(entry.amount_override?.toString() || "");
-    setEntryModalOpen(true);
-  }
-
-  async function deleteEntry(entryId: string) {
-    setErr(null);
-    setBusy(true);
-
-    const res = await supabase.from("ortho_entries").delete().eq("id", entryId);
-
-    setBusy(false);
-
-    if (res.error) {
-      setErr(res.error.message);
-      return;
+    // Remove old items if editing
+    if (visitModalMode === "edit") {
+      const deleteRes = await supabase.from("ortho_entry_items").delete().eq("ortho_entry_id", entryId);
+      if (deleteRes.error) {
+        setBusy(false);
+        return setErr(deleteRes.error.message);
+      }
     }
 
-    setDeleteConfirmEntry(null);
+    // Check if any item being charged is an ortho package and already exists in another visit
+    for (const item of editVisitItems) {
+      if (item.is_charged && item.service_id) {
+        const service = orthoServices.find(s => s.id === item.service_id);
+        if (service?.ortho_kind === "package") {
+          // Check if this package is already billed for this case
+          const existingRes = await supabase
+            .from("ortho_entry_items")
+            .select("id")
+            .eq("service_id", item.service_id)
+            .eq("is_charged", true);
+
+          const caseEntries = await supabase
+            .from("ortho_entries")
+            .select("id")
+            .eq("ortho_case_id", orthoCase.id);
+
+          const caseEntryIds = caseEntries.data?.map(e => e.id) || [];
+          const isAlreadyBilled = existingRes.data?.some(ei => caseEntryIds.includes(ei.id));
+
+          if (isAlreadyBilled && visitModalMode === "create") {
+            setBusy(false);
+            return setErr("This ortho package has already been billed for this case.");
+          }
+        }
+      }
+    }
+
+    // Insert new items
+    const itemsToInsert = editVisitItems
+      .filter(item => item.service_id)
+      .map(item => ({
+        ortho_entry_id: entryId,
+        service_id: item.service_id,
+        is_charged: item.is_charged || false,
+        amount_override: item.amount_override || null,
+        service_detail: item.service_detail?.trim() || null,
+      }));
+
+    if (itemsToInsert.length > 0) {
+      const itemsRes = await supabase.from("ortho_entry_items").insert(itemsToInsert);
+      if (itemsRes.error) {
+        setBusy(false);
+        return setErr(itemsRes.error.message);
+      }
+    }
+
+    setBusy(false);
+    setVisitModalOpen(false);
     await loadEntries();
+  }
+
+  function openCreateVisitModal() {
+    setVisitModalMode("create");
+    setEditVisitId("");
+    const today = new Date().toISOString().split("T")[0];
+    setEditVisitDate(today);
+    setEditVisitType("adjustment");
+    setEditVisitNote("");
+    setEditVisitItems([]);
+    setEditPackageInvoice(false);
+    setVisitModalOpen(true);
+  }
+
+  function openEditVisitModal(entry: OrthoEntry) {
+    setVisitModalMode("edit");
+    setEditVisitId(entry.id);
+    setEditVisitDate(entry.entry_date);
+    setEditVisitType((entry.visit_type as "adjustment" | "consultation" | "emergency" | "debond" | "retainer_delivery") || "adjustment");
+    setEditVisitNote(entry.note || "");
+    setEditPackageInvoice(entry.invoice_package || false);
+    const items = entryItems.get(entry.id) || [];
+    setEditVisitItems(items);
+    setVisitModalOpen(true);
+  }
+
+  function addVisitItem() {
+    setEditVisitItems([...editVisitItems, { service_id: "", is_charged: false }]);
+  }
+
+  function removeVisitItem(index: number) {
+    setEditVisitItems(editVisitItems.filter((_, i) => i !== index));
+  }
+
+  function updateVisitItem(index: number, updates: Partial<OrthoEntryItem>) {
+    const updated = [...editVisitItems];
+    updated[index] = { ...updated[index], ...updates };
+    setEditVisitItems(updated);
   }
 
   if (loading) {
@@ -426,42 +469,45 @@ export default function OrthoPage() {
                   </label>
                 </div>
 
-                {/* Row 3: Inclusions (2 columns) + Notes */}
-                <div className="grid gap-3 grid-cols-2">
-                  {/* Inclusions - only show if any are checked */}
-                  {orthoCase.inclusions && Object.values(orthoCase.inclusions).some(v => v) ? (
-                    <div className="field-label">
-                      <span className="field-label-text">Inclusions</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { key: "case_analysis", label: "Case Analysis & Diagnostics" },
-                          { key: "ortho_kit", label: "Ortho Kit" },
-                          { key: "braces_installation", label: "Braces Installation" },
-                          { key: "prophylaxis", label: "Dental Prophylaxis" },
-                          { key: "monthly_adjustments", label: "Monthly Adjustments" },
-                          { key: "xray", label: "X-ray" },
-                          { key: "consultations", label: "Ortho Consultations" },
-                          { key: "retainer", label: "Retainer" },
-                        ].map(({key, label}) => (
-                          orthoCase.inclusions?.[key] ? (
-                            <div key={key} className="flex items-center gap-2 text-sm">
-                              ✓ <span>{label}</span>
-                            </div>
-                          ) : null
-                        ))}
+                {/* Row 3: Inclusions & Notes */}
+                <div className="grid gap-3 grid-cols-2 items-start">
+                  <div className="field-label flex flex-col">
+                    <span className="field-label-text">Inclusions</span>
+                    {orthoCase.inclusions && Object.values(orthoCase.inclusions).some(v => v) ? (
+                      <div className="rounded-lg border bg-slate-50 p-3">
+                        <div className="grid grid-cols-2 gap-1">
+                          {[
+                            { key: "case_analysis", label: "Case Analysis & Diagnostics" },
+                            { key: "ortho_kit", label: "Ortho Kit" },
+                            { key: "braces_installation", label: "Braces Installation" },
+                            { key: "prophylaxis", label: "Dental Prophylaxis" },
+                            { key: "monthly_adjustments", label: "Monthly Adjustments" },
+                            { key: "xray", label: "X-ray" },
+                            { key: "consultations", label: "Ortho Consultations" },
+                            { key: "retainer", label: "Retainer" },
+                          ].map(({key, label}) => (
+                            orthoCase.inclusions?.[key] ? (
+                              <div key={key} className="flex items-start gap-2 text-sm leading-tight">
+                                <span className="text-slate-400">•</span>
+                                <span>{label}</span>
+                              </div>
+                            ) : null
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
+                    ) : (
+                      <div className="rounded-lg border bg-slate-50 p-3 text-sm text-slate-600">No inclusions selected</div>
+                    )}
+                  </div>
 
-                  {/* Notes */}
-                  <label className="field-label">
+                  <div className="field-label flex flex-col">
                     <span className="field-label-text">Notes</span>
                     {orthoCase.notes ? (
-                      <textarea className="field-textarea" value={orthoCase.notes} readOnly rows={4} />
+                      <div className="rounded-lg border bg-slate-50 p-3 text-sm whitespace-pre-wrap">{orthoCase.notes}</div>
                     ) : (
-                      <div className="text-sm text-slate-600">No notes</div>
+                      <div className="rounded-lg border bg-slate-50 p-3 text-sm text-slate-600">No notes</div>
                     )}
-                  </label>
+                  </div>
                 </div>
 
                 {/* Row 4: Package Fee, Paid, Outstanding */}
@@ -497,95 +543,100 @@ export default function OrthoPage() {
             )}
           </div>
 
-          {/* Adjustment Log - Like Treatment History Table */}
+          {/* Ortho Visit Log Table */}
           {orthoCase && (
             <div className="card">
               <div className="card-header">
-                <div className="card-title">Adjustment Log</div>
-                <button className="btn-secondary-dark" disabled={busy || entriesLoading} onClick={openCreateEntryModal}>
-                  Add Entry
+                <div className="card-title">Ortho Visit Log</div>
+                <button className="btn-secondary-dark" disabled={busy || entriesLoading} onClick={openCreateVisitModal}>
+                  Add Visit
                 </button>
               </div>
 
               {entriesLoading ? (
-                <div className="text-center py-8 text-slate-500">Loading entries…</div>
-              ) : filteredEntries.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">No adjustment entries yet.</div>
+                <div className="text-center py-8 text-slate-500">Loading visits…</div>
+              ) : entries.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">No visits recorded yet.</div>
               ) : (
                 <div className="table-wrapper">
                   <table className="data-table">
                     <colgroup>
                       <col style={{ width: "12%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "25%" }} />
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "50%" }} />
+                      <col style={{ width: "14%" }} />
                       <col style={{ width: "10%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "9%" }} />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
                         <th className="data-table-head-cell">Date</th>
-                        <th className="data-table-head-cell">Tag</th>
-                        <th className="data-table-head-cell">Note</th>
-                        <th className="data-table-head-cell">Arch</th>
                         <th className="data-table-head-cell">Visit Type</th>
-                        <th className="data-table-head-cell">Incidents</th>
-                        <th className="data-table-head-cell">Charge</th>
+                        <th className="data-table-head-cell">Service</th>
+                        <th className="data-table-head-cell">Charged Amount</th>
                         <th className="data-table-head-cell-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredEntries.map((entry, index) => {
-                        // PART 5: Helper to get service price or override
-                        const chargeAmount = entry.amount_override || (
-                          entry.addon_service_id 
-                            ? orthoServices.find(s => s.id === entry.addon_service_id)?.default_price 
-                            : undefined
-                        );
-                        const chargeDisplay = entry.is_billable && chargeAmount 
-                          ? `₱ ${Number(chargeAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                          : "—";
+                      {entries.map((entry, index) => {
+                        const items = entryItems.get(entry.id) || [];
+                        const chargedItems = items.filter(item => item.is_charged);
+                        let chargedTotal = chargedItems.reduce((sum, item) => {
+                          const amount = item.amount_override || 
+                            orthoServices.find(s => s.id === item.service_id)?.default_price || 0;
+                          return sum + (Number(amount) || 0);
+                        }, 0);
 
-                        // PART 5: Helper to display incident badges
-                        const incidents = [];
-                        if (entry.lost_bracket) incidents.push("Lost");
-                        if (entry.broken_bracket) incidents.push("Broken");
-                        if (entry.poked_wire) incidents.push("Poked");
+                        // Add package fee if invoice_package is true
+                        if (entry.invoice_package && orthoCase?.package_fee) {
+                          chargedTotal += Number(orthoCase.package_fee);
+                        }
+
+                        // Build services list including package if invoiced
+                        const addonsSummary = [];
+                        if (entry.invoice_package && orthoCase?.package_service_id) {
+                          const packageService = orthoServices.find(s => s.id === orthoCase.package_service_id);
+                          if (packageService) {
+                            addonsSummary.push(packageService.service_name);
+                          }
+                        }
+                        // Add charged add-ons
+                        items.filter(item => item.is_charged).forEach(item => {
+                          const service = orthoServices.find(s => s.id === item.service_id);
+                          if (service) {
+                            addonsSummary.push(service.service_name);
+                          }
+                        });
+
+                        // Format visit type (capitalize and replace underscores)
+                        const visitTypeDisplay = entry.visit_type
+                          ? entry.visit_type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')
+                          : '—';
 
                         return (
                           <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                             <td className="data-table-cell">{formatDatePH(entry.entry_date)}</td>
                             <td className="data-table-cell">
-                              <span className="badge badge-secondary">{entry.tag.replace(/_/g, " ")}</span>
+                              <span className="badge badge-secondary">{visitTypeDisplay}</span>
                             </td>
-                            <td className="data-table-cell">{entry.note || "—"}</td>
-                            <td className="data-table-cell">{entry.arch || "—"}</td>
-                            <td className="data-table-cell">
-                              {entry.visit_type ? (
-                                <span className="text-xs text-slate-600">{entry.visit_type.replace(/_/g, " ")}</span>
-                              ) : "—"}
-                            </td>
-                            <td className="data-table-cell">
-                              {incidents.length > 0 ? (
-                                <div className="flex gap-1 flex-wrap">
-                                  {incidents.map((inc) => (
-                                    <span key={inc} className="inline-block text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
-                                      {inc}
-                                    </span>
+                            <td className="data-table-cell text-sm">
+                              {addonsSummary.length > 0 ? (
+                                <div className="space-y-1">
+                                  {addonsSummary.map((svc, idx) => (
+                                    <div key={idx}>{svc}</div>
                                   ))}
                                 </div>
-                              ) : "—"}
+                              ) : (
+                                "—"
+                              )}
                             </td>
                             <td className="data-table-cell">
-                              <span className="text-sm font-medium">{chargeDisplay}</span>
+                              <span className="font-medium">{chargedTotal > 0 ? `₱ ${Number(chargedTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</span>
                             </td>
                             <td className="data-table-cell-right">
                               <button
                                 className="data-table-btn"
                                 disabled={busy}
-                                onClick={() => openEditEntryModal(entry)}
+                                onClick={() => openEditVisitModal(entry)}
                               >
                                 Edit
                               </button>
@@ -599,6 +650,7 @@ export default function OrthoPage() {
               )}
             </div>
           )}
+
         </div>
       </div>
 
@@ -681,9 +733,17 @@ export default function OrthoPage() {
               <select 
                 className="field-input" 
                 value={editPackageServiceId} 
-                onChange={(e) => setEditPackageServiceId(e.target.value)}
+                onChange={(e) => {
+                  setEditPackageServiceId(e.target.value);
+                  const selectedService = orthoServices.find(s => s.id === e.target.value);
+                  if (selectedService) {
+                    setEditPackageFee((selectedService.default_price || 0).toString());
+                  } else {
+                    setEditPackageFee("");
+                  }
+                }}
               >
-                <option value="">— None —</option>
+                <option value="" disabled>Select a Package</option>
                 {orthoServices.filter(s => s.item_type === "SERVICE").map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.service_name} (₱ {Number(s.default_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
@@ -732,268 +792,303 @@ export default function OrthoPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="modal-footer-spread">
-              {caseModalMode === "edit" && orthoCase && (
-                <button
-                  className="btn-danger-lg"
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    const res = await supabase.from("ortho_cases").delete().eq("id", orthoCase.id);
-                    setBusy(false);
-                    if (res.error) return setErr(res.error.message);
-                    setCaseModalOpen(false);
-                    await loadData();
-                  }}
-                >
-                  {busy ? "Deleting…" : "Delete Case"}
-                </button>
-              )}
-              <div className="modal-footer-buttons">
-                <button className="btn-secondary-outlined" onClick={() => setCaseModalOpen(false)}>
-                  Cancel
-                </button>
-                <button
-                  className="h-10 save-btn"
-                  disabled={busy}
-                  onClick={saveCase}
-                >
-                  {busy ? "Saving…" : caseModalMode === "create" ? "Create" : "Save"}
-                </button>
-              </div>
+            <div className="modal-footer-buttons">
+              <button className="btn-secondary-outlined" onClick={() => setCaseModalOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="h-10 save-btn"
+                disabled={busy}
+                onClick={saveCase}
+              >
+                {busy ? "Saving…" : caseModalMode === "create" ? "Create" : "Save"}
+              </button>
             </div>
           </div>
         </EditModal>
       )}
 
-      {/* Add/Edit Entry Modal */}
-      {entryModalOpen && (
+      {/* Create/Edit Visit Modal */}
+      {visitModalOpen && orthoCase && (
         <EditModal 
-          open={entryModalOpen} 
-          title={`${entryModalMode === "create" ? "Add" : "Edit"} Entry`} 
-          onClose={() => { setEntryModalOpen(false); setErr(null); }}
+          open={visitModalOpen} 
+          title={visitModalMode === "create" ? "Add Visit" : "Edit Visit"} 
+          onClose={() => { setVisitModalOpen(false); setErr(null); }}
         >
           <div className="spacing-vertical-lg">
-            {/* Row 1: Date, Tag */}
-            <div className="grid-gap-4-cols-2">
-              <div className="field-label">
-                <span className="field-label-text">Date</span>
-                <input
-                  type="date"
-                  className="field-input"
-                  value={editEntryDate}
-                  onChange={(e) => setEditEntryDate(e.target.value)}
-                />
-              </div>
-              <div className="field-label">
-                <span className="field-label-text">Tag</span>
-                <select className="field-input" value={editEntryTag} onChange={(e) => setEditEntryTag(e.target.value as any)}>
-                  {orthoEntryTags.map((t) => (
-                    <option key={t} value={t}>
-                      {t.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Note - Optional */}
-            <div className="field-label">
-              <span className="field-label-text">Note <span className="text-slate-400 text-xs">(optional)</span></span>
-              <textarea
-                className="field-textarea"
-                value={editEntryNote}
-                onChange={(e) => setEditEntryNote(e.target.value)}
-                placeholder="Adjustment details, wire change info, etc."
-                rows={3}
-              />
-            </div>
-
-            {/* Row 2: Arch, Teeth */}
-            <div className="grid-gap-4-cols-2">
-              <div className="field-label">
-                <span className="field-label-text">Arch</span>
-                <select className="field-input" value={editEntryArch} onChange={(e) => setEditEntryArch(e.target.value)}>
-                  <option value="">— None —</option>
-                  {orthoArchOptions.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field-label">
-                <span className="field-label-text">Teeth</span>
-                <input
-                  className="field-input"
-                  value={editEntryTeeth}
-                  onChange={(e) => setEditEntryTeeth(e.target.value)}
-                  placeholder="e.g., 1.1, 1.2"
-                />
-              </div>
-            </div>
-
-            {/* Wire Details */}
-            <div className="field-label">
-              <span className="field-label-text">Wire Details</span>
-              <input
-                className="field-input"
-                value={editEntryWireDetails}
-                onChange={(e) => setEditEntryWireDetails(e.target.value)}
-                placeholder="e.g., 0.016 NiTi"
-              />
-            </div>
-
-            {/* PART 4B: New Ortho Entry Fields */}
-            <div className="field-label">
-              <span className="field-label-text">Visit Type</span>
-              <select 
-                className="field-input" 
-                value={editEntryVisitType} 
-                onChange={(e) => setEditEntryVisitType(e.target.value as any)}
-              >
-                <option value="">— Select —</option>
-                <option value="adjustment">Adjustment</option>
-                <option value="emergency">Emergency</option>
-                <option value="rebond">Rebond</option>
-                <option value="install">Install</option>
-                <option value="debond">Debond</option>
-                <option value="retainer">Retainer</option>
-                <option value="consultation">Consultation</option>
-              </select>
-            </div>
-
-            <div className="field-label">
-              <span className="field-label-text">Incidents</span>
-              <div className="grid gap-3">
-                <label className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    checked={editEntryLostBracket}
-                    onChange={(e) => setEditEntryLostBracket(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Lost Bracket</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    checked={editEntryBrokenBracket}
-                    onChange={(e) => setEditEntryBrokenBracket(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Broken Bracket</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    checked={editEntryPokedWire}
-                    onChange={(e) => setEditEntryPokedWire(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Poked Wire</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="field-label">
-              <label className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
-                  checked={editEntryIsBillable}
-                  onChange={(e) => setEditEntryIsBillable(e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-sm font-medium">Additional Charge?</span>
-              </label>
-            </div>
-
-            {editEntryIsBillable && (
-              <div className="grid-gap-4-cols-2">
-                <div className="field-label">
-                  <span className="field-label-text">Service</span>
-                  <select 
-                    className="field-input" 
-                    value={editEntryAddonServiceId} 
-                    onChange={(e) => setEditEntryAddonServiceId(e.target.value)}
-                  >
-                    <option value="">— Select —</option>
-                    {orthoServices.filter(s => s.item_type === "SERVICE").map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.service_name} (₱ {Number(s.default_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field-label">
-                  <span className="field-label-text">Override Amount</span>
+            {/* Visit Date and Visit Type - Side by Side */}
+            <div className="flex gap-4">
+              <div className="grid-gap-1" style={{ width: "40%" }}>
+                <label className="text-sm-medium-slate-700">Visit date</label>
+                <div className="relative" style={{ height: "2.5rem" }}>
                   <input
-                    type="number"
-                    className="field-input"
-                    step="0.01"
-                    value={editEntryAmountOverride}
-                    onChange={(e) => setEditEntryAmountOverride(e.target.value)}
-                    placeholder="Leave blank to use service price"
+                    type="text"
+                    className="input-h10-border-white w-full pr-10 pointer-events-none"
+                    value={editVisitDate ? formatDatePH(editVisitDate) : ""}
+                    readOnly
                   />
+                  <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <input
+                    type="date"
+                    className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                    style={{ zIndex: 50 }}
+                    value={editVisitDate}
+                    onChange={(e) => setEditVisitDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid-gap-1" style={{ width: "60%" }}>
+                <label className="text-sm-medium-slate-700">Visit Type</label>
+                <select
+                  className="input-h10-border-white w-full"
+                  value={editVisitType}
+                  onChange={(e) => setEditVisitType(e.target.value as any)}
+                >
+                  <option value="adjustment">Adjustment</option>
+                  <option value="consultation">Consultation</option>
+                  <option value="emergency">Emergency</option>
+                  <option value="debond">Debond</option>
+                  <option value="retainer_delivery">Retainer Delivery</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Visit Notes */}
+            <div className="grid-gap-1">
+              <label className="text-sm-medium-slate-700">Notes</label>
+              <input
+                type="text"
+                className="input-h10-border-white"
+                value={editVisitNote}
+                onChange={(e) => setEditVisitNote(e.target.value)}
+                placeholder="Incidents, observations…"
+              />
+            </div>
+
+            {/* Package Invoice Checkbox - Only show in edit mode and if no other visit has invoice_package = true */}
+            {visitModalMode === "edit" && orthoCase?.package_service_id && !entries.some(entry => entry.id !== editVisitId && entry.invoice_package) && (
+              <div className="form-section">
+                {/* 2-Column Layout: 5% Checkbox + 95% Fields */}
+                <div className="flex gap-3" style={{ display: "flex" }}>
+                  {/* Column 1: Checkbox (5%) */}
+                  <div className="flex items-center" style={{ width: "5%", minWidth: "2rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={editPackageInvoice}
+                      onChange={(e) => setEditPackageInvoice(e.target.checked)}
+                      className="w-5 h-5"
+                    />
+                  </div>
+
+                  {/* Column 2: Fields (95%) */}
+                  <div className="flex-1" style={{ width: "95%" }}>
+                    {/* Row 1: Package (70%) + Fee (30%) */}
+                    <div className="flex gap-3 mb-2">
+                      <input
+                        type="text"
+                        className="field-input-readonly"
+                        value={orthoServices.find(s => s.id === orthoCase.package_service_id)?.service_name || ""}
+                        readOnly
+                        style={{ width: "70%" }}
+                      />
+                      <input
+                        type="text"
+                        className="field-input-readonly"
+                        value={`₱ ${Number(orthoCase.package_fee || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        readOnly
+                        style={{ width: "30%" }}
+                      />
+                    </div>
+
+                    {/* Row 2: Inclusions (taller height, more rounded) */}
+                    {orthoCase.inclusions && Object.values(orthoCase.inclusions).some(v => v) ? (
+                      <div className="grid grid-cols-2 gap-2 bg-white p-2 text-xs rounded-lg overflow-hidden max-h-24 border">
+                        {[
+                          { key: "case_analysis", label: "Case Analysis & Diagnostics" },
+                          { key: "ortho_kit", label: "Ortho Kit" },
+                          { key: "braces_installation", label: "Braces Installation" },
+                          { key: "prophylaxis", label: "Dental Prophylaxis" },
+                          { key: "monthly_adjustments", label: "Monthly Adjustments" },
+                          { key: "xray", label: "X-ray" },
+                          { key: "consultations", label: "Ortho Consultations" },
+                          { key: "retainer", label: "Retainer" },
+                        ].map(({key, label}) => (
+                          orthoCase.inclusions?.[key] ? (
+                            <div key={key} className="flex items-start gap-1">
+                              <span className="text-slate-400 flex-shrink-0">•</span>
+                              <span className="leading-tight">{label}</span>
+                            </div>
+                          ) : null
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border bg-white p-2 text-xs text-slate-500">No inclusions</div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Modal Footer */}
-            <div className="modal-footer-spread">
-              {entryModalMode === "edit" && editEntryId && (
+            {/* Service/Add-ons Items */}
+            <div className="space-y-2">
+              <div className="text-sm-medium-slate-700">Service/Add-ons ({editVisitItems.length})</div>
+              {editVisitItems.map((item, index) => {
+                // Filter services to show: Only ADD_ONs tagged 'ortho'
+                const availableServices = orthoServices.filter(s => {
+                  if (s.category !== "ortho") return false;
+                  if (s.item_type !== "ADD_ON") return false;
+                  // Exclude already added services (except current item)
+                  if (editVisitItems.some((vi, idx) => idx !== index && vi.service_id === s.id)) {
+                    return false;
+                  }
+                  return true;
+                });
+
+                return (
+                  <div key={index} className="form-section">
+                    {/* Row 1: Service Dropdown + Charge Extra Toggle */}
+                    <div className="flex gap-2 items-start">
+                      <div className="flex-1 grid gap-1">
+                        <label className="text-xs-semibold-slate-700">Service/Add-ons</label>
+                        <select
+                          className="input-h10-border-white"
+                          value={item.service_id || ""}
+                          onChange={(e) => updateVisitItem(index, { service_id: e.target.value })}
+                        >
+                          <option value="" disabled>Select service/treatment</option>
+                          {availableServices.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.service_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      {/* Charge Extra Toggle */}
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs-semibold-slate-700">Charge extra?</label>
+                        <button
+                          type="button"
+                          onClick={() => updateVisitItem(index, { is_charged: !item.is_charged })}
+                          className={`h-8 w-12 rounded-full transition-colors flex items-center ${
+                            item.is_charged ? 'bg-emerald-500' : 'bg-slate-300'
+                          }`}
+                          aria-label={item.is_charged ? 'Charge extra enabled' : 'Charge extra disabled'}
+                        >
+                          <span
+                            className={`h-6 w-6 rounded-full bg-white transition transform ${
+                              item.is_charged ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Details + Delete Button */}
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1 grid gap-1">
+                        <label className="text-xs-semibold-slate-700">Details</label>
+                        <input
+                          type="text"
+                          className="input-h10-border-white"
+                          value={item.service_detail || ""}
+                          onChange={(e) => updateVisitItem(index, { service_detail: e.target.value })}
+                          placeholder="Wire, arc, teeth..."
+                        />
+                      </div>
+                      
+                      {/* Delete Button */}
+                      <button
+                        type="button"
+                        className="btn-sm-delete h-10"
+                        onClick={() => removeVisitItem(index)}
+                        title="Remove service"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {editVisitItems.length === 0 ? (
+                <div className="text-xs-slate-500-base">No services on this visit yet.</div>
+              ) : null}
+
+              <button
+                className="btn btn-sm btn-ghost w-full mt-2"
+                onClick={addVisitItem}
+              >
+                + Add Service/Add-on
+              </button>
+            </div>
+
+            {/* Delete Entire Visit */}
+            {visitModalMode === "edit" && (
+              <div className="delete-confirmation">
+                <div className="delete-confirmation-title-red">Delete entire visit?</div>
+                <div className="delete-confirmation-hint">
+                  Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion of this visit
+                </div>
+                <input
+                  type="text"
+                  className="delete-confirmation-input"
+                  placeholder="DELETE"
+                  value={deleteConfirmationText}
+                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                />
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="modal-actions">
+              <div className="modal-actions-left">
+                {visitModalMode === "edit" && (
+                  <button
+                    className="delete-btn"
+                    disabled={busy || deleteConfirmationText !== "DELETE"}
+                    onClick={async () => {
+                      setBusy(true);
+                      setErr(null);
+                      const res = await supabase.from("ortho_entries").delete().eq("id", editVisitId);
+                      if (res.error) {
+                        setBusy(false);
+                        return setErr(res.error.message);
+                      }
+                      setBusy(false);
+                      setVisitModalOpen(false);
+                      setDeleteConfirmationText("");
+                      await loadEntries();
+                    }}
+                  >
+                    {busy ? "Deleting…" : "Delete Visit"}
+                  </button>
+                )}
+              </div>
+              <div className="modal-actions-right">
                 <button
-                  className="btn-danger-lg"
+                  className="cancel-btn"
+                  onClick={() => {
+                    setVisitModalOpen(false);
+                    setDeleteConfirmationText("");
+                  }}
                   disabled={busy}
-                  onClick={() => setDeleteConfirmEntry(editEntryId)}
                 >
-                  Delete
-                </button>
-              )}
-              <div className="modal-footer-buttons">
-                <button className="btn-secondary-outlined" onClick={() => setEntryModalOpen(false)}>
                   Cancel
                 </button>
                 <button
-                  className="h-10 save-btn"
+                  className="save-btn"
                   disabled={busy}
-                  onClick={saveEntry}
+                  onClick={saveVisit}
                 >
-                  {busy ? "Saving…" : entryModalMode === "create" ? "Add" : "Save"}
+                  {busy ? "Saving…" : "Save Visit"}
                 </button>
               </div>
             </div>
           </div>
         </EditModal>
-      )}
-
-      {/* Delete Entry Confirmation Modal */}
-      {deleteConfirmEntry && (
-        <div className="modal-overlay" onClick={() => setDeleteConfirmEntry(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">Delete Entry?</div>
-            </div>
-            <div className="modal-body">
-              <div className="delete-warning">
-                <div className="delete-warning-title">Are you sure?</div>
-                <div className="delete-warning-text">This action cannot be undone.</div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary-outlined" onClick={() => setDeleteConfirmEntry(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn-danger-lg"
-                disabled={busy}
-                onClick={() => deleteEntry(deleteConfirmEntry)}
-              >
-                {busy ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </>
   );
