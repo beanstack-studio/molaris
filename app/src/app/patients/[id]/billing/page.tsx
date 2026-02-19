@@ -12,6 +12,9 @@ import type {
   ServicePriceRow,
   Patient,
   PaymentMode,
+  OrthoEntry,
+  OrthoEntryItem,
+  OrthoCase,
 } from "@/lib/types";
 import { formatMoney, formatDatePH, todayLocalISO, combineFullName, splitFullName, generateInvoiceNumber, generateReceiptNumber } from "@/lib/helpers";
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
@@ -56,8 +59,13 @@ export default function BillingPage() {
 
   // Visit date selection and treatments
   const [visitDates, setVisitDates] = useState<string[]>([]);
+  const [orthoDateSet, setOrthoDateSet] = useState<Set<string>>(new Set());
   const [selectedVisitDate, setSelectedVisitDate] = useState<string>("");
+  const [selectedVisitType, setSelectedVisitType] = useState<"treatment" | "ortho" | "">("");
   const [visitTreatments, setVisitTreatments] = useState<Treatment[]>([]);
+  const [orthoVisits, setOrthoVisits] = useState<OrthoEntry[]>([]);
+  const [orthoVisitItems, setOrthoVisitItems] = useState<OrthoEntryItem[]>([]);
+  const [orthoCase, setOrthoCase] = useState<OrthoCase | null>(null);
   const [servicePrices, setServicePrices] = useState<ServicePriceRow[]>([]);
   const [discountAmount, setDiscountAmount] = useState("");
   const [discountDescription, setDiscountDescription] = useState("");
@@ -69,11 +77,36 @@ export default function BillingPage() {
 
   const subtotal = useMemo(() => {
     if (!selectedVisitDate) return 0;
-    return visitTreatments.reduce((sum, t: Treatment) => {
-      const price = servicePrices.find((sp) => sp.id === t.service_price_id);
-      return sum + num(price?.default_price || 0);
-    }, 0);
-  }, [selectedVisitDate, visitTreatments, servicePrices]);
+    
+    let total = 0;
+    
+    // Calculate from treatments
+    if (selectedVisitType === "treatment") {
+      total = visitTreatments.reduce((sum, t: Treatment) => {
+        const price = servicePrices.find((sp) => sp.id === t.service_price_id);
+        return sum + num(price?.default_price || 0);
+      }, 0);
+    }
+    
+    // Calculate from ortho visits
+    if (selectedVisitType === "ortho") {
+      orthoVisits.forEach((entry: OrthoEntry) => {
+        const items = orthoVisitItems.filter((item) => item.ortho_entry_id === entry.id);
+        const chargedItems = items.filter((item) => item.is_charged);
+        
+        chargedItems.forEach((item) => {
+          const svc = servicePrices.find((s) => s.id === item.service_id);
+          total += num(svc?.default_price || 0);
+        });
+        
+        if (entry.invoice_package && orthoCase?.package_fee) {
+          total += num(orthoCase.package_fee);
+        }
+      });
+    }
+    
+    return total;
+  }, [selectedVisitDate, selectedVisitType, visitTreatments, orthoVisits, orthoVisitItems, orthoCase, servicePrices]);
 
   const discountValue = useMemo(() => {
     if (!showDiscount) return 0;
@@ -224,11 +257,12 @@ export default function BillingPage() {
     loadInvoiceTotalsForInvoices(invoices.map((inv) => inv.id));
   }, [invoices, loadInvoiceTotalsForInvoices]);
 
-  // Load visit dates and service prices
+  // Load visit dates and service prices (both treatments and ortho visits)
   useEffect(() => {
     async function loadVisitData() {
       if (!id) return;
 
+      // Load treatment dates
       const { data: treatments, error: treatmentsError } = await supabase
         .from("treatments")
         .select("treatment_date")
@@ -236,37 +270,81 @@ export default function BillingPage() {
         .not("treatment_date", "is", null)
         .order("treatment_date", { ascending: false });
 
-      if (treatmentsError === null && treatments) {
-        const uniqueDates = [...new Set(treatments.map((t: any) => t.treatment_date))];
-        
-        // Get dates that already have invoices to exclude them
-        const { data: invoices, error: invoiceError } = await supabase
-          .from("invoices")
-          .select("invoice_date")
-          .eq("patient_id", id);
-        
-        let invoicedDates = new Set<string>();
-        if (invoiceError === null && invoices) {
-          invoicedDates = new Set(
-            invoices
-              .map((inv: any) => inv.invoice_date)
-              .filter((d: string | null) => d !== null)
-          );
-        }
-        
-        // Filter out dates that already have invoices
-        const availableDates = uniqueDates.filter(date => !invoicedDates.has(date));
-        
+      const treatmentDates = (treatments || []).map((t: any) => t.treatment_date);
+      console.log("Treatment dates loaded:", treatmentDates);
 
-        setVisitDates(availableDates);
+      // Load ortho entry dates (from ortho cases)
+      let orthoDates: string[] = [];
+      try {
+        // First, get all ortho cases for this patient
+        console.log("Loading ortho cases for patient:", id);
+        const { data: cases, error: casesError } = await supabase
+          .from("ortho_cases")
+          .select("*")
+          .eq("patient_id", id);
+
+        console.log("Ortho cases error:", casesError);
+        console.log("Ortho cases found:", cases?.length ?? 0, cases);
+
+        if (!casesError && cases && cases.length > 0) {
+          const caseIds = (cases as any[]).map((c: any) => c.id);
+          console.log("Ortho case IDs:", caseIds);
+          
+          // Then get all entries for those cases
+          const { data: entries, error: entriesError } = await supabase
+            .from("ortho_entries")
+            .select("entry_date")
+            .in("ortho_case_id", caseIds)
+            .order("entry_date", { ascending: false });
+
+          console.log("Ortho entries error:", entriesError);
+          console.log("Ortho entries found:", entries?.length ?? 0, entries);
+
+          if (!entriesError && entries) {
+            orthoDates = (entries as any[]).map((e: any) => e.entry_date);
+          }
+        }
+      } catch (e) {
+        console.error("Error loading ortho dates:", e);
       }
+
+      console.log("Ortho dates loaded:", orthoDates);
+
+      // Combine all dates
+      const allDates = [...new Set([...treatmentDates, ...orthoDates])];
+      console.log("All dates combined:", allDates);
+      
+      // Get dates that already have invoices to exclude them
+      const { data: invoices, error: invoiceError } = await supabase
+        .from("invoices")
+        .select("invoice_date")
+        .eq("patient_id", id);
+      
+      let invoicedDates = new Set<string>();
+      if (!invoiceError && invoices) {
+        invoicedDates = new Set(
+          (invoices as any[])
+            .map((inv: any) => inv.invoice_date)
+            .filter((d: string | null) => d !== null)
+        );
+      }
+      
+      // Filter out dates that already have invoices and sort
+      const availableDates = allDates
+        .filter(date => !invoicedDates.has(date))
+        .sort()
+        .reverse();
+      
+      console.log("Available dates to invoice:", availableDates);
+      setVisitDates(availableDates);
+      setOrthoDateSet(new Set(orthoDates));
 
       const { data: prices, error: pricesError } = await supabase
         .from("service_prices")
         .select("*")
         .order("service_name", { ascending: true });
 
-      if (pricesError === null && prices) {
+      if (!pricesError && prices) {
         setServicePrices(prices as ServicePriceRow[]);
       }
     }
@@ -287,22 +365,27 @@ export default function BillingPage() {
     loadModes();
   }, []);
 
-  // Load treatments for selected visit date
+  // Load treatments or ortho entries for selected visit date
   useEffect(() => {
-    async function loadTreatmentsForDate() {
+    async function loadDataForDate() {
       if (!id || !selectedVisitDate) {
         setVisitTreatments([]);
+        setOrthoVisits([]);
+        setOrthoVisitItems([]);
+        setOrthoCase(null);
+        setSelectedVisitType("");
         return;
       }
 
-      const { data: treatments, error } = await supabase
+      // Check if this date has treatments
+      const { data: treatments, error: treatmentsError } = await supabase
         .from("treatments")
         .select("id, treatment_date, procedure, tooth_number, notes, dentist_id, dentist_name, service_price_id, created_at")
         .eq("patient_id", id)
         .eq("treatment_date", selectedVisitDate)
         .order("created_at", { ascending: true });
 
-      if (error === null && treatments) {
+      if (treatmentsError === null && treatments && treatments.length > 0) {
         const mapped = treatments.map((t: any) => ({
           id: t.id,
           visit_date: t.treatment_date,
@@ -317,12 +400,60 @@ export default function BillingPage() {
           created_at: t.created_at,
         }));
         setVisitTreatments(mapped);
-      } else {
-        setVisitTreatments([]);
+        setOrthoVisits([]);
+        setOrthoVisitItems([]);
+        setOrthoCase(null);
+        setSelectedVisitType("treatment");
+        return;
       }
+
+      // Check if this date has ortho entries
+      const { data: cases, error: casesError } = await supabase
+        .from("ortho_cases")
+        .select("*")
+        .eq("patient_id", id);
+
+      if (casesError === null && cases && cases.length > 0) {
+        const caseIds = cases.map((c: any) => c.id);
+        const { data: entries, error: entriesError } = await supabase
+          .from("ortho_entries")
+          .select("*")
+          .in("ortho_case_id", caseIds)
+          .eq("entry_date", selectedVisitDate);
+
+        if (entriesError === null && entries && entries.length > 0) {
+          setOrthoVisits(entries as OrthoEntry[]);
+          
+          // Load ortho entry items for all entries on this date
+          const entryIds = entries.map((e: any) => e.id);
+          const { data: items, error: itemsError } = await supabase
+            .from("ortho_entry_items")
+            .select("*")
+            .in("ortho_entry_id", entryIds);
+          
+          if (itemsError === null && items) {
+            setOrthoVisitItems(items as OrthoEntryItem[]);
+          }
+          
+          // Load the ortho case for package info
+          const orthoCase = cases[0] as OrthoCase;
+          setOrthoCase(orthoCase);
+          
+          setVisitTreatments([]);
+          setSelectedVisitType("ortho");
+          return;
+        }
+      }
+
+      // No data found for this date
+      setVisitTreatments([]);
+      setOrthoVisits([]);
+      setOrthoVisitItems([]);
+      setOrthoCase(null);
+      setSelectedVisitType("");
     }
 
-    loadTreatmentsForDate();
+    loadDataForDate();
   }, [id, selectedVisitDate]);
 
   // Don't auto-populate items - let user decide what to add
@@ -332,21 +463,31 @@ export default function BillingPage() {
     setErr(null);
 
     if (!selectedVisitDate) return setErr("Select a visit date.");
-    if (visitTreatments.length === 0) return setErr("Add at least one treatment.");
+    
+    // Check which type of invoice to create
+    if (selectedVisitType === "treatment") {
+      if (visitTreatments.length === 0) return setErr("No treatments found for this visit.");
+    } else if (selectedVisitType === "ortho") {
+      if (orthoVisits.length === 0) return setErr("No ortho visits found for this date.");
+    } else {
+      return setErr("No visit data found for the selected date.");
+    }
 
     setBusy(true);
 
     try {
-      // PART 6: Regular invoice for treatments (category='general')
       const invoiceNumber = await getNextInvoiceNumber();
 
+      // Create invoice with appropriate type
+      const invoiceType = selectedVisitType === "ortho" ? "ortho" : "regular";
+      
       const ins = await supabase.from("invoices").insert({
         patient_id: id,
         invoice_number: invoiceNumber,
         invoice_date: invoiceDate,
         total: invoiceTotal,
         status: "unpaid",
-        invoice_type: "regular", // PART 6: Default to regular
+        invoice_type: invoiceType,
       });
 
       if (ins.error) {
@@ -355,7 +496,13 @@ export default function BillingPage() {
       }
 
       const invoiceId = (ins as any).data?.[0]?.id;
-      if (invoiceId) {
+      if (!invoiceId) {
+        setBusy(false);
+        return setErr("Failed to create invoice.");
+      }
+
+      // Handle treatment items
+      if (selectedVisitType === "treatment") {
         const itemsToInsert = visitTreatments
           .filter((t) => t.visit_date === selectedVisitDate)
           .map((treatment) => {
@@ -370,127 +517,80 @@ export default function BillingPage() {
               line_total: unitPrice,
               tooth_number: treatment.tooth_number,
               dentist_name: treatment.dentist_name,
-              source_type: "treatment", // PART 6: Track source
-              source_id: treatment.id, // PART 6: Track source ID
+              source_type: "treatment",
+              source_id: treatment.id,
             };
           });
 
         const itemsIns = await supabase.from("invoice_items").insert(itemsToInsert);
-
         if (itemsIns.error) {
           setBusy(false);
           return setErr(itemsIns.error.message);
         }
-
-        await supabase.rpc("recalc_invoice", { invoice_id: invoiceId });
       }
+      // Handle ortho items
+      else if (selectedVisitType === "ortho") {
+        const orthoItems = [];
 
-      // PART 6: Check for ortho invoicing needs on same patient + date
-      // 1) If ortho case starts on this date, add package to ortho invoice
-      // 2) If ortho entries on this date are billable, add to ortho invoice
-      const { data: orthoCases, error: orthoError } = await supabase
-        .from("ortho_cases")
-        .select("*")
-        .eq("patient_id", id)
-        .eq("status", "active");
-
-      const activeOrthoCase = orthoCases?.[0]; // Most recent active case
-      let hasOrthoItems = false;
-      let orthoInvoiceId: string | null = null;
-
-      if (activeOrthoCase) {
-        // Check if package starts on this date
-        const packageStartsToday = activeOrthoCase.start_date === selectedVisitDate;
-
-        // Check for billable entries on this date
-        const { data: billableEntries, error: entriesError } = await supabase
-          .from("ortho_entries")
-          .select("*")
-          .eq("ortho_case_id", activeOrthoCase.id)
-          .eq("entry_date", selectedVisitDate)
-          .eq("is_billable", true);
-
-        const billableCount = billableEntries?.length || 0;
-        hasOrthoItems = packageStartsToday || billableCount > 0;
-
-        if (hasOrthoItems) {
-          // Create ortho invoice for same date
-          const orthoInvoiceNumber = await getNextInvoiceNumber();
-
-          const orthoIns = await supabase.from("invoices").insert({
-            patient_id: id,
-            invoice_number: orthoInvoiceNumber,
-            invoice_date: invoiceDate,
-            total: 0, // Will recalculate after items
-            status: "unpaid",
-            invoice_type: "ortho", // PART 6: Mark as ortho
-          });
-
-          if (!orthoIns.error && (orthoIns as any).data?.[0]?.id) {
-            orthoInvoiceId = (orthoIns as any).data[0].id;
-            const orthoItems = [];
-
-            // Add package item if case starts today
-            if (packageStartsToday && activeOrthoCase.package_service_id) {
-              const packageService = servicePrices.find(
-                (sp) => sp.id === activeOrthoCase.package_service_id
-              );
-              if (packageService) {
-                orthoItems.push({
-                  invoice_id: orthoInvoiceId,
-                  service_name: packageService.service_name,
-                  description: `Ortho Package - ${activeOrthoCase.appliance_type || "Braces"}`,
-                  qty: 1,
-                  unit_price: (packageService as any)?.default_price || 0,
-                  line_total: (packageService as any)?.default_price || 0,
-                  source_type: "ortho_package", // PART 6: Track source
-                  source_id: activeOrthoCase.id, // PART 6: Track source ID
-                });
-              }
-            }
-
-            // Add billable entry items
-            if (billableEntries) {
-              billableEntries.forEach((entry) => {
-                const chargeAmount = entry.amount_override || (
-                  entry.addon_service_id
-                    ? servicePrices.find((sp) => sp.id === entry.addon_service_id)?. default_price
-                    : undefined
-                );
-                if (chargeAmount) {
-                  orthoItems.push({
-                    invoice_id: orthoInvoiceId,
-                    service_name:  servicePrices.find((sp) => sp.id === entry.addon_service_id)?.service_name || "Ortho Service",
-                    description: `Ortho ${entry.visit_type || "Visit"} - ${entry.note || ""}`.trim(),
-                    qty: 1,
-                    unit_price: chargeAmount,
-                    line_total: chargeAmount,
-                    source_type: "ortho_entry", // PART 6: Track source
-                    source_id: entry.id, // PART 6: Track source ID
-                  });
-                }
+        // Process each ortho entry
+        for (const entry of orthoVisits) {
+          // Add charged services
+          const chargedItems = orthoVisitItems.filter((item) => item.ortho_entry_id === entry.id && item.is_charged);
+          
+          for (const item of chargedItems) {
+            const svc = servicePrices.find((s) => s.id === item.service_id);
+            if (svc) {
+              orthoItems.push({
+                invoice_id: invoiceId,
+                service_name: svc.service_name,
+                description: item.service_detail || `Ortho Service`,
+                qty: 1,
+                unit_price: (svc as any)?.default_price || 0,
+                line_total: (svc as any)?.default_price || 0,
+                source_type: "ortho_addon",
+                source_id: item.id,
               });
             }
+          }
 
-            // Insert all ortho items
-            if (orthoItems.length > 0) {
-              const orthoItemsIns = await supabase.from("invoice_items").insert(orthoItems);
-              if (!orthoItemsIns.error) {
-                await supabase.rpc("recalc_invoice", { invoice_id: orthoInvoiceId });
-              }
-            } else {
-              // Delete empty ortho invoice
-              await supabase.from("invoices").delete().eq("id", orthoInvoiceId);
-              orthoInvoiceId = null;
+          // Add package if invoice_package is true
+          if (entry.invoice_package && orthoCase?.package_service_id) {
+            const packageService = servicePrices.find((s) => s.id === orthoCase.package_service_id);
+            if (packageService) {
+              orthoItems.push({
+                invoice_id: invoiceId,
+                service_name: packageService.service_name,
+                description: "Ortho Package",
+                qty: 1,
+                unit_price: (packageService as any)?.default_price || orthoCase.package_fee || 0,
+                line_total: (packageService as any)?.default_price || orthoCase.package_fee || 0,
+                source_type: "ortho_package",
+                source_id: entry.id,
+              });
             }
+          }
+        }
+
+        if (orthoItems.length > 0) {
+          const itemsIns = await supabase.from("invoice_items").insert(orthoItems);
+          if (itemsIns.error) {
+            setBusy(false);
+            return setErr(itemsIns.error.message);
           }
         }
       }
 
+      // Recalculate invoice totals
+      await supabase.rpc("recalc_invoice", { invoice_id: invoiceId });
+
       setBusy(false);
       setShowCreateInvoice(false);
       setSelectedVisitDate("");
+      setSelectedVisitType("");
       setVisitTreatments([]);
+      setOrthoVisits([]);
+      setOrthoVisitItems([]);
+      setOrthoCase(null);
       setDiscountAmount("");
       setDiscountDescription("");
       setShowDiscount(false);
@@ -970,7 +1070,7 @@ export default function BillingPage() {
                       <option value="">Select a visit date</option>
                       {visitDates.map((d) => (
                         <option key={d} value={d}>
-                          {formatDatePH(d)}
+                          {formatDatePH(d)}{orthoDateSet.has(d) ? " (ORTHO)" : ""}
                         </option>
                       ))}
                     </select>
@@ -1008,6 +1108,66 @@ export default function BillingPage() {
                             );
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Ortho Visits section */}
+                    {orthoVisits.length > 0 && (
+                      <div className="mb-4">
+                        {(() => {
+                          // Calculate total treatment/service/addon/package count
+                          let totalItemCount = 0;
+                          orthoVisits.forEach((entry: OrthoEntry) => {
+                            const items = orthoVisitItems.filter((item) => item.ortho_entry_id === entry.id);
+                            const chargedItems = items.filter((item) => item.is_charged);
+                            if (entry.invoice_package && orthoCase?.package_service_id) {
+                              totalItemCount++;
+                            }
+                            totalItemCount += chargedItems.length;
+                          });
+                          
+                          return (
+                            <>
+                              <div className="text-sm font-semibold mb-2">Treatments on {formatDatePH(selectedVisitDate)} ({totalItemCount}) - ORTHO</div>
+                              <div className="space-y-2 mb-4 pb-4 border-b">
+                                {orthoVisits.map((entry: OrthoEntry) => {
+                                  const items = orthoVisitItems.filter((item) => item.ortho_entry_id === entry.id);
+                                  const chargedItems = items.filter((item) => item.is_charged);
+                                  
+                                  return (
+                                    <div key={entry.id} className="space-y-2">
+                                      {/* Package row (if invoice_package is true) */}
+                                      {entry.invoice_package && orthoCase?.package_service_id && (
+                                        <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                                          <div className="flex-1">
+                                            <div className="text-sm">{servicePrices.find((s) => s.id === orthoCase.package_service_id)?.service_name || "Ortho Package"}</div>
+                                          </div>
+                                          <div className="text-sm font-semibold text-slate-900">{formatMoney(num(orthoCase.package_fee || 0))}</div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Charged services rows */}
+                                      {chargedItems.map((item: OrthoEntryItem) => {
+                                        const svc = servicePrices.find((s) => s.id === item.service_id);
+                                        const price = (svc as any)?.default_price || 0;
+                                        
+                                        return (
+                                          <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                                            <div className="flex-1">
+                                              <div className="text-sm">{svc?.service_name || "Service"}</div>
+                                              {item.service_detail && <div className="text-xs text-slate-500">{item.service_detail}</div>}
+                                            </div>
+                                            <div className="text-sm font-semibold text-slate-900">{formatMoney(price)}</div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
 
