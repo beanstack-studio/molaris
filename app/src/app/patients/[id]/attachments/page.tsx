@@ -6,18 +6,10 @@ import PatientTabs from "@/components/PatientTabs";
 import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
 import type { Attachment, Patient } from "@/lib/types";
-import { formatDatePH, safeFileName, combineFullName, splitFullName } from "@/lib/helpers";
+import { formatDatePH, formatDateStandard, safeFileName, combineFullName, splitFullName } from "@/lib/helpers";
 
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
 type AttachmentType = (typeof attachmentTypes)[number];
-
-function formatDateCompact(dateStr: string): string {
-  const date = new Date(dateStr);
-  const month = date.toLocaleString("en-US", { month: "short" });
-  const day = date.getDate();
-  const year = date.getFullYear();
-  return `${month} ${day}, ${year}`;
-}
 
 export default function AttachmentsPage() {
   const params = useParams();
@@ -292,7 +284,7 @@ export default function AttachmentsPage() {
                 <tbody>
                   {displayedAttachments.map((a, index) => (
                     <tr key={a.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                      <td className="data-table-cell">{formatDateCompact(a.created_at)}</td>
+                      <td className="data-table-cell">{formatDateStandard(a.created_at.split('T')[0])}</td>
                       <td className="data-table-cell">{a.type}</td>
                       <td className="data-table-cell">
                         <div className="truncate">

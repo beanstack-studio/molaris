@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { formatMoney, formatDatePH } from "@/lib/helpers";
+import { formatMoney, formatDatePH, formatDateStandard } from "@/lib/helpers";
 
 export default function PaymentReportsPage() {
   const [loading, setLoading] = useState(true);
@@ -201,7 +201,7 @@ export default function PaymentReportsPage() {
                   <tr key={payment.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                     <td className="data-table-cell">{payment.invoice_id}</td>
                     <td className="data-table-cell-right font-semibold">{formatMoney(payment.amount)}</td>
-                    <td className="data-table-cell text-sm">{formatDatePH(payment.payment_date)}</td>
+                    <td className="data-table-cell text-sm">{formatDateStandard(payment.payment_date)}</td>
                     <td className="data-table-cell">
                       <span
                         className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${

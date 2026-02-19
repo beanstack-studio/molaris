@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { calcAge, formatGenderShort, formatDatePH, formatMoney } from "@/lib/helpers";
+import { calcAge, formatGenderShort, formatDatePH, formatDateStandard, formatMoney } from "@/lib/helpers";
 import type { GenderDB } from "@/lib/types";
 
 type PatientRow = {
@@ -416,7 +416,7 @@ export default function PatientsPage() {
                   <td className="table-td">{calcAge(p.birth_date)}</td>
                   <td className="table-td">{formatGenderShort(p.gender)}</td>
                   <td className="table-td">{p.phone ?? "-"}</td>
-                  <td className="table-td">{formatDatePH(p.last_visit_date)}</td>
+                  <td className="table-td">{formatDateStandard(p.last_visit_date)}</td>
                   <td className="table-td-right num">{formatMoney(p.balance ?? 0)}</td>
                 </tr>
               ))}
@@ -458,7 +458,7 @@ export default function PatientsPage() {
                 </div>
 
                 <div className="mt-1">
-                  <span className="card-label">Last visit:</span> {formatDatePH(p.last_visit_date)}
+                  <span className="card-label">Last visit:</span> {formatDateStandard(p.last_visit_date)}
                 </div>
 
                 <div className="mt-1">

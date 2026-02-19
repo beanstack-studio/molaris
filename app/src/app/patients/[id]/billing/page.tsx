@@ -16,7 +16,7 @@ import type {
   OrthoEntryItem,
   OrthoCase,
 } from "@/lib/types";
-import { formatMoney, formatDatePH, todayLocalISO, combineFullName, splitFullName, generateInvoiceNumber, generateReceiptNumber } from "@/lib/helpers";
+import { formatMoney, formatDatePH, formatDateStandard, todayLocalISO, combineFullName, splitFullName, generateInvoiceNumber, generateReceiptNumber } from "@/lib/helpers";
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
 import { generateReceipt, voidPayment } from "@/lib/receiptHelpers";
 import { getNextTransactionNumber, getNextInvoiceNumber } from "@/lib/numberGenerationHelpers";
@@ -890,7 +890,7 @@ export default function BillingPage() {
                               )}
                             </div>
                           </td>
-                          <td className="data-table-cell">{formatDatePH(inv.invoice_date)}</td>
+                          <td className="data-table-cell">{formatDateStandard(inv.invoice_date)}</td>
                           <td className="data-table-cell-right">{formatMoney(invoiceAmount)}</td>
                           <td className="data-table-cell-right text-green-700 font-semibold">{formatMoney(paidAmount)}</td>
                           <td className="data-table-cell-right font-semibold" style={{ color: balance > 0 ? "#dc2626" : "#16a34a" }}>
@@ -986,7 +986,7 @@ export default function BillingPage() {
                           <tr key={pay.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                             <td className="data-table-cell">{pay.transaction_id || "—"}</td>
                             <td className="data-table-cell">{(pay as any).invoices?.invoice_number ?? "—"}</td>
-                            <td className="data-table-cell">{formatDatePH(pay.payment_date)}</td>
+                            <td className="data-table-cell">{formatDateStandard(pay.payment_date)}</td>
                             <td className="data-table-cell-right text-green-700 font-semibold">{formatMoney(pay.amount)}</td>
                             <td className="data-table-cell">
                               {modeData?.name || pay.details?.payment_mode_name || "—"}
@@ -1070,7 +1070,7 @@ export default function BillingPage() {
                       <option value="">Select a visit date</option>
                       {visitDates.map((d) => (
                         <option key={d} value={d}>
-                          {formatDatePH(d)}{orthoDateSet.has(d) ? " (ORTHO)" : ""}
+                          {formatDateStandard(d)}{orthoDateSet.has(d) ? " (ORTHO)" : ""}
                         </option>
                       ))}
                     </select>
@@ -1090,7 +1090,7 @@ export default function BillingPage() {
                     {/* Treatments section */}
                     {visitTreatments.length > 0 && (
                       <div className="mb-4">
-                        <div className="text-sm font-semibold mb-2">Treatments on {formatDatePH(selectedVisitDate)} ({visitTreatments.length})</div>
+                        <div className="text-sm font-semibold mb-2">Treatments on {formatDateStandard(selectedVisitDate)} ({visitTreatments.length})</div>
                         <div className="space-y-2 mb-4 pb-4 border-b">
                           {visitTreatments.map((t: any) => {
                             const servicePrice = servicePrices.find((sp) => sp.id === t.service_price_id);
@@ -1128,7 +1128,7 @@ export default function BillingPage() {
                           
                           return (
                             <>
-                              <div className="text-sm font-semibold mb-2">Treatments on {formatDatePH(selectedVisitDate)} ({totalItemCount}) - ORTHO</div>
+                              <div className="text-sm font-semibold mb-2">Treatments on {formatDateStandard(selectedVisitDate)} ({totalItemCount}) - ORTHO</div>
                               <div className="space-y-2 mb-4 pb-4 border-b">
                                 {orthoVisits.map((entry: OrthoEntry) => {
                                   const items = orthoVisitItems.filter((item) => item.ortho_entry_id === entry.id);
@@ -1264,7 +1264,7 @@ export default function BillingPage() {
                             />
                             <span className="text-sm">
                               <span className="font-bold">{inv.invoice_number}</span>
-                              {' '}— {formatDatePH(inv.invoice_date)} — Bal: {formatMoney(balance)}
+                              {' '}— {formatDateStandard(inv.invoice_date)} — Bal: {formatMoney(balance)}
                             </span>
                           </label>
                         );
@@ -1496,7 +1496,7 @@ export default function BillingPage() {
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div>
                     <div className="text-xs text-slate-600">Invoice date</div>
-                    <div className="text-sm font-semibold">{formatDatePH(viewingInvoice.invoice_date)}</div>
+                    <div className="text-sm font-semibold">{formatDateStandard(viewingInvoice.invoice_date)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-600">Status</div>
@@ -1553,7 +1553,7 @@ export default function BillingPage() {
                       <tbody>
                         {payments.filter((p: any) => p.invoice_id === viewingInvoice.id).map((payment: any, i: number) => (
                           <tr key={payment.id} className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}>
-                            <td className="py-2 px-3">{formatDatePH(payment.payment_date)}</td>
+                            <td className="py-2 px-3">{formatDateStandard(payment.payment_date)}</td>
                             <td className="py-2 px-3 font-semibold">{formatMoney(payment.amount)}</td>
                             <td className="py-2 px-3">{payment.mode || "—"}</td>
                           </tr>

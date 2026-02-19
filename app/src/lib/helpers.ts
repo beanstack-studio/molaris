@@ -60,6 +60,19 @@ export function formatDatePH(isoDate: string | null | undefined) {
   return dt.toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "2-digit" });
 }
 
+export function formatDateStandard(isoDate: string | null | undefined) {
+  if (!isoDate) return "—";
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return isoDate;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!y || !m || !d) return isoDate;
+  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const monthStr = months[m - 1] || "";
+  return `${String(d).padStart(2, "0")}-${monthStr}-${y}`;
+}
+
 export function formatDateTimePH(iso: string | null | undefined) {
   if (!iso) return "—";
   const dt = new Date(iso);

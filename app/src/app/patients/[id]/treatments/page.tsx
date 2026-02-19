@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import PatientTabs from "@/components/PatientTabs";
 import { EditModal } from "@/components/EditModal";
+import { DatePickerField } from "@/components/DatePickerField";
 import { supabase } from "@/lib/supabaseClient";
 import type { Treatment, DentistRow, ServicePriceRow, DraftLine, Patient } from "@/lib/types";
-import { todayLocalISO, formatDatePH, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
+import { todayLocalISO, formatDatePH, formatDateTimePH, combineFullName, splitFullName, formatDateStandard } from "@/lib/helpers";
 
 export default function TreatmentsPage() {
   const params = useParams();
@@ -31,6 +32,9 @@ export default function TreatmentsPage() {
   const [txServiceId, setTxServiceId] = useState<string>("");
   const [txServiceName, setTxServiceName] = useState<string>("");
   const [lineNote, setLineNote] = useState("");
+
+  // Date picker refs
+  const visitDateRef = useRef<HTMLInputElement | null>(null);
 
   // Add visit modal state
   const [showAddVisitModal, setShowAddVisitModal] = useState(false);
@@ -337,7 +341,7 @@ export default function TreatmentsPage() {
                     <tbody>
                       {groupedTreatmentHistory.map(([date, txs], index) => (
                         <tr key={date} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                          <td className="data-table-cell">{formatDatePH(date)}</td>
+                          <td className="data-table-cell">{formatDateStandard(date)}</td>
                           <td className="data-table-cell">{txs[0]?.dentist_name || "—"}</td>
                           <td className="data-table-cell">
                             <div className="space-y-1">
@@ -398,25 +402,14 @@ export default function TreatmentsPage() {
           {/* Visit Date and Dentist - Side by Side */}
           <div className="flex gap-4">
             {/* Visit Date */}
-            <div className="grid-gap-1" style={{ width: "40%" }}>
-              <label className="text-sm-medium-slate-700">Visit date</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  className="input-h10-border-white w-full pr-10 pointer-events-none"
-                  value={visitDate ? formatDatePH(visitDate) : ""}
-                  readOnly
-                />
-                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <input
-                  type="date"
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  value={visitDate}
-                  onChange={(e) => setVisitDate(e.target.value)}
-                />
-              </div>
+            <div style={{ width: "40%" }}>
+              <DatePickerField
+                label="Visit date"
+                value={visitDate}
+                onChange={setVisitDate}
+                inputRef={visitDateRef}
+                variant="visit-modal"
+              />
             </div>
 
             {/* Dentist Dropdown */}
@@ -577,7 +570,7 @@ export default function TreatmentsPage() {
       {/* Edit Visit Modal */}
       <EditModal
         open={editingVisitDate !== null}
-        title={`Edit Visit - ${editingVisitDate ? formatDatePH(editingVisitDate) : ""}`}
+        title={`Edit Visit - ${editingVisitDate ? formatDateStandard(editingVisitDate) : ""}`}
         onClose={() => {
           setEditingVisitDate(null);
           setEditingVisitDentistId("");

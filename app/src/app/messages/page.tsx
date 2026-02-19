@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { formatDatePH } from "@/lib/helpers";
+import { formatDatePH, formatDateStandard } from "@/lib/helpers";
 import { MessageThread, Patient } from "@/lib/types";
 import ChatWindow from "./ChatWindow";
 
@@ -105,7 +105,7 @@ export default function MessagesPage() {
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
                       {thread.last_message_at
-                        ? formatDatePH(thread.last_message_at.split('T')[0])
+                        ? formatDateStandard(thread.last_message_at.split('T')[0])
                         : "No messages"}
                     </p>
                   </div>

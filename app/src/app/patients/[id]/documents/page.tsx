@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
 import type { DocTemplate, GeneratedDoc, DentistRow, Patient } from "@/lib/types";
-import { todayLocalISO, formatDateTimePH, renderTemplate, splitFullName } from "@/lib/helpers";
+import { todayLocalISO, formatDateTimePH, formatDateStandard, renderTemplate, splitFullName } from "@/lib/helpers";
 
 function printHtml(html: string) {
   const w = window.open("", "", "width=800,height=600");
@@ -261,7 +261,7 @@ export default function DocumentsPage() {
                 <tbody>
                   {displayedGeneratedDocs.map((d, index) => (
                     <tr key={d.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                      <td className="data-table-cell">{formatDateTimePH(d.created_at)}</td>
+                      <td className="data-table-cell">{formatDateStandard(d.created_at.split('T')[0])}</td>
                       <td className="data-table-cell">{d.doc_type}</td>
                       <td className="data-table-cell">{d.doc_number ?? "—"}</td>
                       <td className="data-table-cell-right">

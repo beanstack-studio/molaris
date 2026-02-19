@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureSessionRestored } from "@/lib/initializeAuth";
-import { formatMoney, formatDatePH } from "@/lib/helpers";
+import { formatMoney, formatDatePH, formatDateStandard } from "@/lib/helpers";
 
 interface DashboardStats {
   totalInvoiced: number;
@@ -576,7 +576,7 @@ export default function DashboardPage() {
                           {recent.invoices.map((invoice) => (
                             <tr key={invoice.id} className="hover:bg-slate-50">
                               <td className="px-4 py-2">{invoice.invoice_number}</td>
-                              <td className="px-4 py-2">{formatDatePH(invoice.invoice_date)}</td>
+                              <td className="px-4 py-2">{formatDateStandard(invoice.invoice_date)}</td>
                               <td className="px-4 py-2 text-right font-semibold">
                                 {formatMoney(invoice.total)}
                               </td>

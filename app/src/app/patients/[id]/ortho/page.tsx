@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
+import { DatePickerField } from "@/components/DatePickerField";
 import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow } from "@/lib/types";
-import { formatDatePH } from "@/lib/helpers";
+import { formatDatePH, formatDateStandard } from "@/lib/helpers";
 
 export default function OrthoPage() {
   const params = useParams();
@@ -44,6 +45,11 @@ export default function OrthoPage() {
     xray: false,
     retainer: false,
   });
+
+  // Refs for date pickers
+  const startDateRef = useRef<HTMLInputElement | null>(null);
+  const endDateRef = useRef<HTMLInputElement | null>(null);
+  const visitDateRef = useRef<HTMLInputElement | null>(null);
 
   // Visit log modal
   const [entries, setEntries] = useState<OrthoEntry[]>([]);
@@ -421,11 +427,11 @@ export default function OrthoPage() {
                 <div className="grid gap-3 grid-cols-4">
                   <label className="field-label">
                     <span className="field-label-text">Start Date</span>
-                    <input className="field-input-readonly" value={orthoCase.start_date ? formatDatePH(orthoCase.start_date) : ""} readOnly />
+                    <input className="field-input-readonly" value={orthoCase.start_date ? formatDateStandard(orthoCase.start_date) : ""} readOnly />
                   </label>
                   <label className="field-label">
                     <span className="field-label-text">End Date</span>
-                    <input className="field-input-readonly" value={orthoCase.end_date ? formatDatePH(orthoCase.end_date) : ""} readOnly />
+                    <input className="field-input-readonly" value={orthoCase.end_date ? formatDateStandard(orthoCase.end_date) : ""} readOnly />
                   </label>
                   <label className="field-label">
                     <span className="field-label-text">Status</span>
@@ -463,7 +469,7 @@ export default function OrthoPage() {
                     <span className="field-label-text">Next Appointment</span>
                     <input 
                       className="field-input-readonly" 
-                      value={nextAppointment ? formatDatePH(nextAppointment.appointment_date) : "Use Appointments tool to schedule"} 
+                      value={nextAppointment ? formatDateStandard(nextAppointment.appointment_date) : "Use Appointments tool to schedule"} 
                       readOnly 
                     />
                   </label>
@@ -614,7 +620,7 @@ export default function OrthoPage() {
 
                         return (
                           <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                            <td className="data-table-cell">{formatDatePH(entry.entry_date)}</td>
+                            <td className="data-table-cell">{formatDateStandard(entry.entry_date)}</td>
                             <td className="data-table-cell">
                               <span className="badge badge-secondary">{visitTypeDisplay}</span>
                             </td>
@@ -664,24 +670,20 @@ export default function OrthoPage() {
           <div className="spacing-vertical-lg">
             {/* Row 1: Start Date, End Date */}
             <div className="grid-gap-4-cols-2">
-              <div className="field-label">
-                <span className="field-label-text">Start Date</span>
-                <input
-                  type="date"
-                  className="field-input"
-                  value={editStartDate}
-                  onChange={(e) => setEditStartDate(e.target.value)}
-                />
-              </div>
-              <div className="field-label">
-                <span className="field-label-text">End Date</span>
-                <input
-                  type="date"
-                  className="field-input"
-                  value={editEndDate}
-                  onChange={(e) => setEditEndDate(e.target.value)}
-                />
-              </div>
+              <DatePickerField
+                label="Start Date"
+                value={editStartDate}
+                onChange={setEditStartDate}
+                inputRef={startDateRef}
+                variant="case-modal"
+              />
+              <DatePickerField
+                label="End Date"
+                value={editEndDate}
+                onChange={setEditEndDate}
+                inputRef={endDateRef}
+                variant="case-modal"
+              />
             </div>
 
             {/* Row 2: Status, Phase */}
@@ -818,26 +820,15 @@ export default function OrthoPage() {
           <div className="spacing-vertical-lg">
             {/* Visit Date and Visit Type - Side by Side */}
             <div className="flex gap-4">
-              <div className="grid-gap-1" style={{ width: "40%" }}>
-                <label className="text-sm-medium-slate-700">Visit date</label>
-                <div className="relative" style={{ height: "2.5rem" }}>
-                  <input
-                    type="text"
-                    className="input-h10-border-white w-full pr-10 pointer-events-none"
-                    value={editVisitDate ? formatDatePH(editVisitDate) : ""}
-                    readOnly
-                  />
-                  <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <input
-                    type="date"
-                    className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                    style={{ zIndex: 50 }}
-                    value={editVisitDate}
-                    onChange={(e) => setEditVisitDate(e.target.value)}
-                  />
-                </div>
+              <div style={{ width: "40%" }}>
+                <DatePickerField
+                  label="Visit date"
+                  value={editVisitDate}
+                  onChange={setEditVisitDate}
+                  inputRef={visitDateRef}
+                  variant="visit-modal"
+                  wrapperClassName="grid-gap-1"
+                />
               </div>
 
               <div className="grid-gap-1" style={{ width: "60%" }}>

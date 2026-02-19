@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
+import { DatePickerField } from "@/components/DatePickerField";
 import type { Patient } from "@/lib/types";
 import {
   splitFullName,
@@ -11,6 +12,7 @@ import {
   formatGenderLabel,
   normalizeGenderInput,
   formatDatePH,
+  formatDateStandard,
   calcAge,
 } from "@/lib/helpers";
 
@@ -75,6 +77,9 @@ export default function Page() {
   const [editAddress, setEditAddress] = useState("");
   const [editOrtho, setEditOrtho] = useState(false);
   const [deletePatientText, setDeletePatientText] = useState("");
+
+  // Date picker refs
+  const birthDateRef = useRef<HTMLInputElement | null>(null);
 
   const loadPatient = useCallback(async () => {
     setLoading(true);
@@ -252,7 +257,7 @@ export default function Page() {
               <div className="grid-gap-4-cols-3">
                 <label className="field-label">
                   <span className="field-label-text">Date of birth</span>
-                  <input className="field-input-readonly" value={formatDatePH(patient.birth_date)} readOnly />
+                  <input className="field-input-readonly" value={formatDateStandard(patient.birth_date)} readOnly />
                 </label>
                 <label className="field-label">
                   <span className="field-label-text">Age</span>
@@ -286,7 +291,7 @@ export default function Page() {
             <div className="card-grid-3">
               <label className="field-label">
                 <span className="field-label-text">Date</span>
-                <input className="field-input-white" value={lastVisitDate ? formatDatePH(lastVisitDate) : ""} readOnly />
+                <input className="field-input-white" value={lastVisitDate ? formatDateStandard(lastVisitDate) : ""} readOnly />
               </label>
               <label className="field-label">
                 <span className="field-label-text">Dentist</span>
@@ -312,23 +317,13 @@ export default function Page() {
 
           {/* R2: Birth date, Gender */}
           <div className="grid-gap-4-cols-2">
-            <div className="field-label">
-              <span className="field-label-text">Birth date</span>
-              <input
-                type="text"
-                className="field-input"
-                value={editBirthDate ? formatDatePH(editBirthDate) : ""}
-                readOnly
-                placeholder="Click to select date"
-                onFocus={(e) => {
-                  const picker = document.createElement("input");
-                  picker.type = "date";
-                  picker.value = editBirthDate;
-                  picker.onchange = () => setEditBirthDate(picker.value);
-                  picker.click();
-                }}
-              />
-            </div>
+            <DatePickerField
+              label="Birth date"
+              value={editBirthDate}
+              onChange={setEditBirthDate}
+              inputRef={birthDateRef}
+              variant="case-modal"
+            />
             <div className="field-label">
               <span className="field-label-text">Gender</span>
               <div className="gender-selector">

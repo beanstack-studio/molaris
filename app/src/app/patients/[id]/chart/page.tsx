@@ -6,7 +6,7 @@ import ToothChart, { ToothStatus, getStatusTheme } from "@/components/ToothChart
 import PatientTabs from "@/components/PatientTabs";
 import { supabase } from "@/lib/supabaseClient";
 import type { ChartEntry, ToothStatusRow, Patient } from "@/lib/types";
-import { formatDatePH, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
+import { formatDatePH, formatDateStandard, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
 
 export default function ChartPage() {
   const params = useParams();
@@ -429,8 +429,8 @@ export default function ChartPage() {
                         <table className="data-table w-full">
                           <thead className="data-table-head">
                             <tr>
-                              <th className="data-table-head-cell text-left">Finding</th>
                               <th className="data-table-head-cell text-left">Date</th>
+                              <th className="data-table-head-cell text-left">Finding</th>
                               <th className="data-table-head-cell-right">Action</th>
                             </tr>
                           </thead>
@@ -439,10 +439,10 @@ export default function ChartPage() {
                               .filter((e) => e.tooth_number === selectedTooth)
                               .map((entry, idx) => (
                                 <tr key={entry.id} className={`data-table-row ${idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                                  <td className="data-table-cell">{entry.finding_code}</td>
                                   <td className="data-table-cell text-xs">
-                                    {entry.recorded_at ? formatDatePH(entry.recorded_at.split('T')[0]) : "—"}
+                                    {entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}
                                   </td>
+                                  <td className="data-table-cell">{entry.finding_code}</td>
                                   <td className="data-table-cell-right">
                                     <button
                                       onClick={() => editChartEntry(entry)}
@@ -474,14 +474,16 @@ export default function ChartPage() {
               <div className="table-wrapper">
                 <table className="data-table">
                   <colgroup>
+                    <col className="col-15" />
                     <col className="col-12" />
                     <col className="col-18" />
                     <col className="col-15" />
-                    <col className="col-35" />
-                    <col className="col-20" />
+                    <col className="col-25" />
+                    <col className="col-15" />
                   </colgroup>
                   <thead className="data-table-head">
                     <tr>
+                      <th className="data-table-head-cell">Date</th>
                       <th className="data-table-head-cell">Tooth</th>
                       <th className="data-table-head-cell">Finding</th>
                       <th className="data-table-head-cell">Surfaces</th>
@@ -492,6 +494,7 @@ export default function ChartPage() {
                   <tbody>
                     {chart.map((entry, index) => (
                       <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                        <td className="data-table-cell">{entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}</td>
                         <td className="data-table-cell">{entry.tooth_number}</td>
                         <td className="data-table-cell">{entry.finding_code}</td>
                         <td className="data-table-cell">{entry.surfaces ?? "—"}</td>
@@ -508,7 +511,7 @@ export default function ChartPage() {
                     ))}
                     {chart.length === 0 ? (
                       <tr>
-                        <td className="data-table-empty" colSpan={5}>
+                        <td className="data-table-empty" colSpan={6}>
                           No chart entries yet.
                         </td>
                       </tr>
