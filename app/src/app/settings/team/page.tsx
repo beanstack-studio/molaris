@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { formatDateStandard } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
+import { DatePickerField } from "@/components/DatePickerField";
 
 function TogglePill({
   checked,
@@ -74,6 +76,7 @@ export default function TeamSettingsPage() {
   const [dentistPrc, setDentistPrc] = useState("");
   const [dentistPtr, setDentistPtr] = useState("");
   const [editingDentist, setEditingDentist] = useState<DentistRow | null>(null);
+  const dentistDobRef = useRef<HTMLInputElement | null>(null);
 
   // Staff form & modal
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
@@ -81,6 +84,7 @@ export default function TeamSettingsPage() {
   const [staffRole, setStaffRole] = useState("");
   const [staffDob, setStaffDob] = useState("");
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null);
+  const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -470,7 +474,7 @@ export default function TeamSettingsPage() {
                         <td className="data-table-cell">{d.full_name}</td>
                         <td className="data-table-cell">
                           {d.date_of_birth
-                            ? new Date(d.date_of_birth).toLocaleDateString("en-PH")
+                            ? formatDateStandard(d.date_of_birth.split('T')[0])
                             : "—"}
                         </td>
                         <td className="data-table-cell">{d.prc_number || "—"}</td>
@@ -560,7 +564,7 @@ export default function TeamSettingsPage() {
                         <td className="data-table-cell">{s.role}</td>
                         <td className="data-table-cell">
                           {s.date_of_birth
-                            ? new Date(s.date_of_birth).toLocaleDateString("en-PH")
+                            ? formatDateStandard(s.date_of_birth.split('T')[0])
                             : "—"}
                         </td>
                         <td className="data-table-cell">
@@ -618,16 +622,13 @@ export default function TeamSettingsPage() {
               disabled={busy}
             />
           </label>
-          <label className="field-label">
-            <span className="field-label-text">Date of Birth</span>
-            <input
-              type="date"
-              className="field-input"
-              value={dentistDob}
-              onChange={(e) => setDentistDob(e.target.value)}
-              disabled={busy}
-            />
-          </label>
+          <DatePickerField
+            label="Date of Birth"
+            value={dentistDob}
+            onChange={(val) => setDentistDob(val)}
+            inputRef={dentistDobRef}
+            variant="case-modal"
+          />
           <label className="field-label">
             <span className="field-label-text">PRC Number</span>
             <input
@@ -729,16 +730,13 @@ export default function TeamSettingsPage() {
               <option value="Other">Other</option>
             </select>
           </label>
-          <label className="field-label">
-            <span className="field-label-text">Date of Birth</span>
-            <input
-              type="date"
-              className="field-input"
-              value={staffDob}
-              onChange={(e) => setStaffDob(e.target.value)}
-              disabled={busy}
-            />
-          </label>
+          <DatePickerField
+            label="Date of Birth"
+            value={staffDob}
+            onChange={(val) => setStaffDob(val)}
+            inputRef={staffDobRef}
+            variant="case-modal"
+          />
           <div className="modal-actions">
             {editingStaff && (
               <button

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { formatDateStandard } from "@/lib/helpers";
 import { Appointment, Patient, DentistRow } from "@/lib/types";
+import { DatePickerField } from "@/components/DatePickerField";
 
 interface AppointmentWithRelations extends Appointment {
   patients?: Patient;
@@ -54,6 +56,8 @@ export default function AppointmentsPage() {
   const [patientSearchInput, setPatientSearchInput] = useState("");
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [sundayEndHour, setSundayEndHour] = useState(11);
+  const createAppointmentDateRef = useRef<HTMLInputElement | null>(null);
+  const editAppointmentDateRef = useRef<HTMLInputElement | null>(null);
   const [editFormData, setEditFormData] = useState({
     patientId: "",
     appointmentDate: "",
@@ -131,15 +135,28 @@ export default function AppointmentsPage() {
 
   const loadPatients = async () => {
     try {
-      const { data, error: err } = await supabase
-        .from("patients")
-        .select("id, full_name, first_name, last_name, phone, birth_date, address, occupation, email, gender, notes")
-        .order("full_name");
+      const { data, error: err, count } = await supabase
+        .from('patients')
+        .select('id, full_name', { count: 'exact' })
+        .order('full_name')
+        .limit(10000); // Fetch up to 10k records
 
-      if (err) throw err;
+      if (err) {
+        console.error('Error loading patients:', err);
+        throw err;
+      }
+      
+      if (!data) {
+        console.error('No data returned from patients query');
+        setPatients([]);
+        return;
+      }
+      
+      console.log(`Loaded ${data.length} patients from database (total count: ${count})`);
       setPatients((data || []) as Patient[]);
     } catch (err) {
-      console.error("Error loading patients:", err);
+      console.error('Failed to load patients:', err);
+      setPatients([]);
     }
   };
 
@@ -288,7 +305,17 @@ export default function AppointmentsPage() {
           <div className="app-section-subtitle">Manage patient appointments and calendar</div>
         </div>
 
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+        <button className="btn btn-primary" onClick={() => {
+          setShowCreateModal(true);
+          setPatientSearchInput("");
+          setFormData({
+            patientId: "",
+            appointmentDate: selectedDate || new Date().toISOString().split("T")[0],
+            appointmentTime: "08:00",
+            dentistId: "",
+            concerns: "",
+          });
+        }}>
           + New Appointment
         </button>
       </div>
@@ -464,7 +491,7 @@ export default function AppointmentsPage() {
                       : "bg-slate-50 border-slate-100"
                   }`}
                 >
-                  <div className={`text-xs md:text-sm font-bold mb-0.5 md:mb-1 ${
+                  <div className={`text-xs md:text-sm font-bold mb-0.5 md:mb-1 flex justify-between items-center ${
                     isCurrentMonth
                       ? isPast
                         ? "text-slate-400"
@@ -475,8 +502,26 @@ export default function AppointmentsPage() {
                         : "text-slate-900"
                       : "text-slate-400"
                   }`}>
-                    {isCurrentMonth ? dayNum : ""}
-                    {isHoliday && <div className="text-xs text-red-600 font-semibold">🇵🇭</div>}
+                    <span>{isCurrentMonth ? dayNum : ""}</span>
+                    {isHoliday && (
+                      <svg className="w-4 h-4" viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">
+                        {/* Yellow sun */}
+                        <circle cx="300" cy="300" r="60" fill="#FCD116" />
+                        {/* Sun rays */}
+                        <g fill="#FCD116">
+                          <polygon points="300,140 320,220 280,220" />
+                          <polygon points="300,460 280,380 320,380" />
+                          <polygon points="140,300 220,280 220,320" />
+                          <polygon points="460,300 380,320 380,280" />
+                        </g>
+                        {/* Blue stripe */}
+                        <rect x="0" y="0" width="900" height="300" fill="#0066B2" />
+                        {/* Red stripe */}
+                        <rect x="0" y="300" width="900" height="300" fill="#CE1126" />
+                        {/* White triangle */}
+                        <polygon points="0,0 450,300 0,600" fill="#FFFFFF" />
+                      </svg>
+                    )}
                   </div>
                   
                   {dayAppointments.length > 0 && (
@@ -587,18 +632,20 @@ export default function AppointmentsPage() {
                     setPatientSearchInput(e.target.value);
                     setShowPatientDropdown(e.target.value.length >= 3);
                   }}
-                  onFocus={() => patientSearchInput.length >= 3 && setShowPatientDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowPatientDropdown(false), 200)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Start typing to search"
                 />
                 {showPatientDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                    {patients.filter((p) => p.full_name?.toLowerCase().includes(patientSearchInput.toLowerCase())).length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-slate-600">No patients found</div>
-                    ) : (
-                      patients
-                        .filter((p) => p.full_name?.toLowerCase().includes(patientSearchInput.toLowerCase()))
-                        .map((p) => (
+                    {(() => {
+                      if (patientSearchInput.length < 3) return null;
+                      const filtered = patients.filter((p) => p.full_name?.toLowerCase().includes(patientSearchInput.toLowerCase()));
+                      
+                      return filtered.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">No matches for {patientSearchInput}</div>
+                      ) : (
+                        filtered.map((p) => (
                           <button
                             key={p.id}
                             type="button"
@@ -612,24 +659,20 @@ export default function AppointmentsPage() {
                             {p.full_name}
                           </button>
                         ))
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
               </div>
 
               {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={formData.appointmentDate}
-                  onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
-                  min={new Date().toISOString().split("T")[0]}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+              <DatePickerField
+                label="Date *"
+                value={formData.appointmentDate}
+                onChange={(val) => setFormData({ ...formData, appointmentDate: val })}
+                inputRef={createAppointmentDateRef}
+                variant="case-modal"
+              />
 
               {/* Time */}
               <div>
@@ -743,17 +786,13 @@ export default function AppointmentsPage() {
               </div>
 
               {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  value={editFormData.appointmentDate}
-                  onChange={(e) => setEditFormData({ ...editFormData, appointmentDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+              <DatePickerField
+                label="Date"
+                value={editFormData.appointmentDate}
+                onChange={(val) => setEditFormData({ ...editFormData, appointmentDate: val })}
+                inputRef={editAppointmentDateRef}
+                variant="case-modal"
+              />
 
               {/* Time */}
               <div>

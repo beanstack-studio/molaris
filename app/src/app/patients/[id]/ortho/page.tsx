@@ -23,6 +23,7 @@ export default function OrthoPage() {
   const [orthoServices, setOrthoServices] = useState<ServicePriceRow[]>([]);
   const [orthoPaid, setOrthoPaid] = useState(0); // Total paid on ortho invoices
   const [orthoOutstanding, setOrthoOutstanding] = useState(0); // Outstanding balance on ortho invoices
+  const [orthoTotalPackageFee, setOrthoTotalPackageFee] = useState(0); // Total package fee including add-ons
 
   // Case edit modal
   const [caseModalOpen, setCaseModalOpen] = useState(false);
@@ -142,6 +143,8 @@ export default function OrthoPage() {
 
       // Load items for each entry
       const itemsMap = new Map<string, OrthoEntryItem[]>();
+      let totalAddOns = 0;
+      
       for (const entry of entriesRes.data) {
         const itemsRes = await supabase
           .from("ortho_entry_items")
@@ -151,9 +154,21 @@ export default function OrthoPage() {
 
         if (!itemsRes.error && itemsRes.data) {
           itemsMap.set(entry.id, itemsRes.data as OrthoEntryItem[]);
+          
+          // Sum up charged add-ons
+          const chargedItems = (itemsRes.data as OrthoEntryItem[]).filter(item => item.is_charged);
+          for (const item of chargedItems) {
+            const amount = item.amount_override || 
+              orthoServices.find(s => s.id === item.service_id)?.default_price || 0;
+            totalAddOns += Number(amount);
+          }
         }
       }
       setEntryItems(itemsMap);
+      
+      // Calculate total package fee including add-ons
+      const baseAmount = orthoCase?.package_fee ? Number(orthoCase.package_fee) : 0;
+      setOrthoTotalPackageFee(baseAmount + totalAddOns);
     }
 
     setEntriesLoading(false);
@@ -519,10 +534,10 @@ export default function OrthoPage() {
                 {/* Row 4: Package Fee, Paid, Outstanding */}
                 <div className="grid gap-3 grid-cols-3 border-t pt-3">
                   <label className="field-label">
-                    <span className="field-label-text">Package Fee</span>
+                    <span className="field-label-text">Total Package Fee</span>
                     <input 
                       className="field-input-readonly" 
-                      value={orthoCase.package_fee ? `₱ ${Number(orthoCase.package_fee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""} 
+                      value={orthoTotalPackageFee ? `₱ ${Number(orthoTotalPackageFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""} 
                       readOnly 
                     />
                   </label>
