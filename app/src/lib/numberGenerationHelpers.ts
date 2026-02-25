@@ -6,7 +6,7 @@
 import { supabase } from "./supabaseClient";
 
 /**
- * Get next sequential invoice number (I26-0001, I26-0002, etc.)
+ * Get next sequential invoice number (INV26-0001, INV26-0002, etc.)
  */
 export async function getNextInvoiceNumber(): Promise<string> {
   try {
@@ -20,15 +20,15 @@ export async function getNextInvoiceNumber(): Promise<string> {
     if (error) throw error;
     
     const nextNumber = (count || 0) + 1;
-    return `I${year}-${String(nextNumber).padStart(4, "0")}`;
+    return `INV${year}-${String(nextNumber).padStart(4, "0")}`;
   } catch (error) {
     console.error("Error generating invoice number:", error);
-    return "I26-0001";
+    return "INV26-0001";
   }
 }
 
 /**
- * Get next sequential transaction number (T26-0001, T26-0002, etc.)
+ * Get next sequential payment number (PAY26-0001, PAY26-0002, etc.)
  */
 export async function getNextTransactionNumber(): Promise<string> {
   try {
@@ -42,10 +42,10 @@ export async function getNextTransactionNumber(): Promise<string> {
     if (error) throw error;
     
     const nextNumber = (count || 0) + 1;
-    return `T${year}-${String(nextNumber).padStart(4, "0")}`;
+    return `PAY${year}-${String(nextNumber).padStart(4, "0")}`;
   } catch (error) {
-    console.error("Error generating transaction number:", error);
-    return "T26-0001";
+    console.error("Error generating payment number:", error);
+    return "PAY26-0001";
   }
 }
 

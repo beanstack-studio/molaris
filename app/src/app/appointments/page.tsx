@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
+import { VISIT_REASONS, VisitReasonType, getOrthoOnlyReasons, getVisitReasonLabel, isOrthoReason } from "@/lib/visitReasonHelpers";
 import { Appointment, Patient, DentistRow } from "@/lib/types";
 import { DatePickerField } from "@/components/DatePickerField";
 
@@ -63,7 +64,7 @@ export default function AppointmentsPage() {
     appointmentDate: "",
     appointmentTime: "",
     dentistId: "",
-    concerns: "",
+    concernType: "" as VisitReasonType | "",
     status: "confirmed",
   });
 
@@ -72,7 +73,7 @@ export default function AppointmentsPage() {
     appointmentDate: new Date().toISOString().split("T")[0],
     appointmentTime: "08:00",
     dentistId: "",
-    concerns: "",
+    concernType: "" as VisitReasonType | "",
   });
 
   useEffect(() => {
@@ -184,7 +185,7 @@ export default function AppointmentsPage() {
         appointment_date: formData.appointmentDate,
         appointment_time: formData.appointmentTime,
         dentist_id: formData.dentistId || null,
-        concerns: formData.concerns || null,
+        concern_type: formData.concernType || null,
         status: "confirmed",
         notes: "Created manually",
       });
@@ -197,7 +198,7 @@ export default function AppointmentsPage() {
         appointmentDate: new Date().toISOString().split("T")[0],
         appointmentTime: "08:00",
         dentistId: "",
-        concerns: "",
+        concernType: "",
       });
       await loadAppointments();
     } catch (err) {
@@ -213,7 +214,7 @@ export default function AppointmentsPage() {
       appointmentDate: apt.appointment_date,
       appointmentTime: apt.appointment_time,
       dentistId: apt.dentist_id || "",
-      concerns: apt.concerns || "",
+      concernType: (apt as any).concern_type || "",
       status: apt.status,
     });
     setDeleteConfirmText("");
@@ -235,7 +236,7 @@ export default function AppointmentsPage() {
           appointment_date: editFormData.appointmentDate,
           appointment_time: editFormData.appointmentTime,
           dentist_id: editFormData.dentistId || null,
-          concerns: editFormData.concerns || null,
+          concern_type: editFormData.concernType || null,
           status: editFormData.status,
         })
         .eq("id", editingAppointment.id);
@@ -325,7 +326,7 @@ export default function AppointmentsPage() {
             appointmentDate: selectedDate || new Date().toISOString().split("T")[0],
             appointmentTime: "08:00",
             dentistId: "",
-            concerns: "",
+            concernType: "",
           });
         }}>
           + New Appointment
@@ -408,9 +409,14 @@ export default function AppointmentsPage() {
                               🦷 Dr. {apt.dentists.full_name}
                             </p>
                           )}
-                          {apt.concerns && (
+                          {(apt as any).concern_type && (
                             <p className="text-sm text-slate-700 mt-2 italic bg-amber-50 p-2 rounded">
-                              Concern: {apt.concerns}
+                              📋 {getVisitReasonLabel((apt as any).concern_type)}
+                            </p>
+                          )}
+                          {apt.concerns && !(apt as any).concern_type && (
+                            <p className="text-sm text-slate-700 mt-2 italic bg-amber-50 p-2 rounded">
+                              📋 {apt.concerns}
                             </p>
                           )}
                         </div>
@@ -586,7 +592,8 @@ export default function AppointmentsPage() {
                         <p className="font-semibold text-slate-800 text-sm md:text-base">{apt.patients?.full_name}</p>
                         <p className="text-xs md:text-sm text-slate-600">📞 {apt.patients?.phone}</p>
                         {apt.dentists && <p className="text-xs md:text-sm text-slate-600">🦷 Dr. {apt.dentists.full_name}</p>}
-                        {apt.concerns && <p className="text-xs md:text-sm text-slate-700 mt-2 italic bg-amber-50 p-2 rounded">💭 {apt.concerns}</p>}
+                        {(apt as any).concern_type && <p className="text-xs md:text-sm text-slate-700 mt-2 italic bg-amber-50 p-2 rounded">📋 {getVisitReasonLabel((apt as any).concern_type)}</p>}
+                        {apt.concerns && !(apt as any).concern_type && <p className="text-xs md:text-sm text-slate-700 mt-2 italic bg-amber-50 p-2 rounded">📋 {apt.concerns}</p>}
                       </div>
                       <div className="flex flex-row md:flex-col gap-2">
                         <span className={`text-xs px-3 py-1 rounded-full font-medium ${
@@ -732,18 +739,27 @@ export default function AppointmentsPage() {
                 </select>
               </div>
 
-              {/* Concerns */}
+              {/* Concern Type */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Concern / Reason for Visit (Optional)
                 </label>
-                <textarea
-                  value={formData.concerns}
-                  onChange={(e) => setFormData({ ...formData, concerns: e.target.value })}
-                  placeholder="e.g., Toothache, cleaning, checkup..."
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                  rows={3}
-                />
+                <select
+                  value={formData.concernType}
+                  onChange={(e) => setFormData({ ...formData, concernType: e.target.value as VisitReasonType | "" })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">-- Select a reason --</option>
+                  {VISIT_REASONS.map((group) => (
+                    <optgroup key={group.group} label={group.group}>
+                      {group.reasons.map((reason) => (
+                        <option key={reason.value} value={reason.value}>
+                          {reason.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -868,17 +884,27 @@ export default function AppointmentsPage() {
                 </select>
               </div>
 
-              {/* Concerns */}
+              {/* Concern Type */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Concern / Reason (Optional)
                 </label>
-                <textarea
-                  value={editFormData.concerns}
-                  onChange={(e) => setEditFormData({ ...editFormData, concerns: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                  rows={2}
-                />
+                <select
+                  value={editFormData.concernType}
+                  onChange={(e) => setEditFormData({ ...editFormData, concernType: e.target.value as VisitReasonType | "" })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">-- Select a reason --</option>
+                  {VISIT_REASONS.map((group) => (
+                    <optgroup key={group.group} label={group.group}>
+                      {group.reasons.map((reason) => (
+                        <option key={reason.value} value={reason.value}>
+                          {reason.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
               </div>
 
               {/* Delete Section */}

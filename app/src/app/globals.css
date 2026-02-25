@@ -1295,6 +1295,10 @@
 }
 
 /* Flex layouts */
+.flex-between {
+  @apply flex items-center justify-between;
+}
+
 .flex-between-gap-2 {
   @apply flex items-center justify-between gap-2;
 }

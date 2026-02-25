@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureSessionRestored } from "@/lib/initializeAuth";
 import { formatMoney, formatDatePH, formatDateStandard } from "@/lib/helpers";
+import { DashboardCard } from "@/components/DashboardCard";
 
 interface DashboardStats {
   totalInvoiced: number;
@@ -128,18 +129,18 @@ export default function DashboardPage() {
       }
       const patients = allPatients;
 
-      // Load appointments (this week only) - if table exists
+      // Load appointments (upcoming) - if table exists
       const today = new Date().toISOString().split('T')[0];
-      const endOfWeek = new Date();
-      endOfWeek.setDate(endOfWeek.getDate() + 7);
-      const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+      const endOfMonth = new Date();
+      endOfMonth.setDate(endOfMonth.getDate() + 30);
+      const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
       let appointments: any[] = [];
       try {
         const { data: apptData, error: appointmentsError } = await supabase
           .from("appointments")
           .select("id, appointment_date, status")
           .gte("appointment_date", today)
-          .lte("appointment_date", endOfWeekStr)
+          .lte("appointment_date", endOfMonthStr)
           .is("deleted_at", null)
           .order("appointment_date", { ascending: true });
         
@@ -151,19 +152,19 @@ export default function DashboardPage() {
         appointments = [];
       }
 
-      // Load orthodontic patients - try to get patients with ortho treatments
+      // Load orthodontic patients - use ortho_patient flag from patients table
       let orthoPatientIds = new Set<string>();
       try {
-        const { data: orthoData, error: orthoError } = await supabase
-          .from("treatments")
-          .select("patient_id")
-          .ilike("procedure", "%ortho%");
+        const { data: orthoPatients, error: orthoError } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("ortho_patient", true);
         
-        if (!orthoError && orthoData) {
-          orthoPatientIds = new Set(orthoData.map((t: any) => t.patient_id));
+        if (!orthoError && orthoPatients) {
+          orthoPatientIds = new Set(orthoPatients.map((p: any) => p.id));
         }
       } catch {
-        // Treatments table or ortho data may not be available
+        // Ortho data may not be available
       }
 
       // Load payment modes with stats
@@ -386,107 +387,64 @@ export default function DashboardPage() {
           <div className="space-y-6">
             {/* Key Metrics - Row 1 */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-between">
-                  <div>
-                    <p className="text-muted-sm">Total Invoiced</p>
-                    <p className="text-3xl font-bold text-slate-900">
-                      {formatMoney(stats.totalInvoiced)}
-                    </p>
-                  </div>
-                  <div className="text-4xl">📋</div>
-                </div>
-                <p className="mt-2-text-xs-slate">{stats.totalInvoices} invoices</p>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-between">
-                  <div>
-                    <p className="text-muted-sm">Total Collected</p>
-                    <p className="text-3xl font-bold text-green-700">
-                      {formatMoney(stats.totalPaid)}
-                    </p>
-                  </div>
-                  <div className="text-4xl">✓</div>
-                </div>
-                <p className="mt-2-text-xs-slate">{collectionRate}% collection rate</p>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-between">
-                  <div>
-                    <p className="text-muted-sm">Outstanding</p>
-                    <p className="text-3xl font-bold text-orange-700">
-                      {formatMoney(stats.totalOutstanding)}
-                    </p>
-                  </div>
-                  <div className="text-4xl">⏳</div>
-                </div>
-                <p className="mt-2-text-xs-slate">Requires payment</p>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-between">
-                  <div>
-                    <p className="text-muted-sm">Today's Payments</p>
-                    <p className="text-3xl font-bold text-blue-700">
-                      {formatMoney(
-                        todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
-                      )}
-                    </p>
-                  </div>
-                  <div className="text-4xl">💳</div>
-                </div>
-                <p className="mt-2-text-xs-slate">
-                  {todayPayments.length} payment{todayPayments.length !== 1 ? 's' : ''}
-                </p>
-              </div>
+              <DashboardCard
+                title="Total Invoiced"
+                value={formatMoney(stats.totalInvoiced)}
+                icon="📋"
+                subtext={`${stats.totalInvoices} invoices`}
+              />
+              <DashboardCard
+                title="Total Collected"
+                value={formatMoney(stats.totalPaid)}
+                icon="✓"
+                subtext={`${collectionRate}% collection rate`}
+                valueClassName="text-3xl font-bold text-green-700"
+              />
+              <DashboardCard
+                title="Outstanding"
+                value={formatMoney(stats.totalOutstanding)}
+                icon="⏳"
+                subtext="Requires payment"
+                valueClassName="text-3xl font-bold text-orange-700"
+              />
+              <DashboardCard
+                title="Today's Payments"
+                value={formatMoney(
+                  todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+                )}
+                icon="💳"
+                subtext={`${todayPayments.length} payment${todayPayments.length !== 1 ? 's' : ''}`}
+                valueClassName="text-3xl font-bold text-blue-700"
+              />
             </div>
 
             {/* Key Metrics - Row 2 */}
             <div className="grid gap-4 md:grid-cols-4">
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-between">
-                  <div>
-                    <p className="text-muted-sm">Total Patients</p>
-                    <p className="text-3xl font-bold text-slate-900">{stats.totalPatients}</p>
-                  </div>
-                  <div className="text-4xl">👥</div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-between">
-                  <div>
-                    <p className="text-muted-sm">Active Ortho Patients</p>
-                    <p className="text-3xl font-bold text-blue-600">{orthoPatientCount}</p>
-                  </div>
-                  <div className="text-4xl">😁</div>
-                </div>
-                <p className="mt-2-text-xs-slate">Braces & aligners</p>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-between">
-                  <div>
-                    <p className="text-muted-sm">Upcoming Appointments</p>
-                    <p className="text-3xl font-bold text-slate-900">{stats.activeDentists}</p>
-                  </div>
-                  <div className="text-4xl">📅</div>
-                </div>
-                <p className="mt-2-text-xs-slate">This week</p>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-between">
-                  <div>
-                    <p className="text-muted-sm">New Patients</p>
-                    <p className="text-3xl font-bold text-purple-600">{(recent.patients || []).length}</p>
-                  </div>
-                  <div className="text-4xl">⭐</div>
-                </div>
-                <p className="mt-2-text-xs-slate">This month</p>
-              </div>
+              <DashboardCard
+                title="Total Patients"
+                value={stats.totalPatients}
+                icon="👥"
+              />
+              <DashboardCard
+                title="Active Ortho Patients"
+                value={orthoPatientCount}
+                icon="😁"
+                subtext="Braces & aligners"
+                valueClassName="text-3xl font-bold text-blue-600"
+              />
+              <DashboardCard
+                title="Upcoming Appointments"
+                value={stats.activeDentists}
+                icon="📅"
+                subtext="This week"
+              />
+              <DashboardCard
+                title="New Patients"
+                value={(recent.patients || []).length}
+                icon="⭐"
+                subtext="This month"
+                valueClassName="text-3xl font-bold text-purple-600"
+              />
             </div>
 
             {/* Content Grid */}

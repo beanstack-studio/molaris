@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
+import { VISIT_REASONS, VisitReasonType, getOrthoOnlyReasons, getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow } from "@/lib/types";
 import { formatDatePH, formatDateStandard } from "@/lib/helpers";
 
@@ -60,7 +61,7 @@ export default function OrthoPage() {
   const [visitModalMode, setVisitModalMode] = useState<"create" | "edit">("create");
   const [editVisitId, setEditVisitId] = useState("");
   const [editVisitDate, setEditVisitDate] = useState("");
-  const [editVisitType, setEditVisitType] = useState<"adjustment" | "consultation" | "emergency" | "debond" | "retainer_delivery">("adjustment");
+  const [editVisitType, setEditVisitType] = useState<VisitReasonType>("adjustment");
   const [editVisitNote, setEditVisitNote] = useState("");
   const [editVisitItems, setEditVisitItems] = useState<Partial<OrthoEntryItem>[]>([]);
   const [editPackageInvoice, setEditPackageInvoice] = useState(false);
@@ -281,7 +282,7 @@ export default function OrthoPage() {
     const visitData: Partial<OrthoEntry> = {
       ortho_case_id: orthoCase.id,
       entry_date: editVisitDate,
-      visit_type: editVisitType,
+      concern_type: editVisitType,
       note: editVisitNote.trim() || null,
       invoice_package: editPackageInvoice,
     };
@@ -385,7 +386,7 @@ export default function OrthoPage() {
     setVisitModalMode("edit");
     setEditVisitId(entry.id);
     setEditVisitDate(entry.entry_date);
-    setEditVisitType((entry.visit_type as "adjustment" | "consultation" | "emergency" | "debond" | "retainer_delivery") || "adjustment");
+    setEditVisitType((entry.concern_type as VisitReasonType) || "adjustment");
     setEditVisitNote(entry.note || "");
     setEditPackageInvoice(entry.invoice_package || false);
     const items = entryItems.get(entry.id) || [];
@@ -851,13 +852,14 @@ export default function OrthoPage() {
                 <select
                   className="input-h10-border-white w-full"
                   value={editVisitType}
-                  onChange={(e) => setEditVisitType(e.target.value as any)}
+                  onChange={(e) => setEditVisitType(e.target.value as VisitReasonType)}
                 >
-                  <option value="adjustment">Adjustment</option>
-                  <option value="consultation">Consultation</option>
-                  <option value="emergency">Emergency</option>
-                  <option value="debond">Debond</option>
-                  <option value="retainer_delivery">Retainer Delivery</option>
+                  <option value="">-- Select a visit type --</option>
+                  {getOrthoOnlyReasons().map((reason) => (
+                    <option key={reason.value} value={reason.value}>
+                      {reason.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

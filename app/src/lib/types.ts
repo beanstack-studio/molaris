@@ -329,6 +329,7 @@ export type OrthoEntry = {
   ortho_case_id: string;
   entry_date: string;
   visit_type: "adjustment" | "emergency" | "consultation" | "debond" | "retainer_delivery" | null;
+  concern_type: string | null; // VisitReasonType, more flexible than visit_type
   note: string | null;
   invoice_package: boolean;
   created_at: string;

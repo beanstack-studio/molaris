@@ -26,7 +26,6 @@ export default function PatientTabs({ activeTab }: { activeTab: Tab }) {
         .single();
       
       if (isMounted && data && !error) {
-        console.log("PatientTabs: Loaded ortho_patient =", Boolean(data.ortho_patient));
         setOrthoPatient(Boolean(data.ortho_patient));
       }
       if (isMounted) {
@@ -49,16 +48,12 @@ export default function PatientTabs({ activeTab }: { activeTab: Tab }) {
           filter: `id=eq.${id}`,
         },
         (payload) => {
-          console.log("PatientTabs: Real-time update received", payload);
           if (isMounted && payload.new.ortho_patient !== undefined) {
-            console.log("PatientTabs: Setting ortho_patient to", Boolean(payload.new.ortho_patient));
             setOrthoPatient(Boolean(payload.new.ortho_patient));
           }
         }
       )
-      .subscribe((status) => {
-        console.log("PatientTabs: Channel subscription status:", status);
-      });
+      .subscribe();
 
     // Fallback: Poll every 1 second for updates (catches missed real-time events)
     pollInterval = setInterval(() => {
