@@ -135,25 +135,34 @@ export default function AppointmentsPage() {
 
   const loadPatients = async () => {
     try {
-      const { data, error: err, count } = await supabase
-        .from('patients')
-        .select('id, full_name', { count: 'exact' })
-        .order('full_name')
-        .limit(10000); // Fetch up to 10k records
+      let allPatients: { id: string; full_name: string }[] = [];
+      let offset = 0;
+      const pageSize = 10000;
+      let hasMore = true;
 
-      if (err) {
-        console.error('Error loading patients:', err);
-        throw err;
+      // Fetch all patients in batches of 10000
+      while (hasMore) {
+        const { data, error: err, count } = await supabase
+          .from('patients')
+          .select('id, full_name', { count: 'exact' })
+          .order('full_name')
+          .range(offset, offset + pageSize - 1);
+
+        if (err) {
+          console.error('Error loading patients:', err);
+          throw err;
+        }
+
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allPatients = [...allPatients, ...data];
+          offset += pageSize;
+          hasMore = data.length === pageSize; // If we got less than pageSize, we've reached the end
+        }
       }
-      
-      if (!data) {
-        console.error('No data returned from patients query');
-        setPatients([]);
-        return;
-      }
-      
-      console.log(`Loaded ${data.length} patients from database (total count: ${count})`);
-      setPatients((data || []) as Patient[]);
+
+      setPatients((allPatients || []) as Patient[]);
     } catch (err) {
       console.error('Failed to load patients:', err);
       setPatients([]);
@@ -643,7 +652,7 @@ export default function AppointmentsPage() {
                       const filtered = patients.filter((p) => p.full_name?.toLowerCase().includes(patientSearchInput.toLowerCase()));
                       
                       return filtered.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-slate-500">No matches for {patientSearchInput}</div>
+                        <div className="px-3 py-2 text-sm text-slate-500">No matches for "{patientSearchInput}"</div>
                       ) : (
                         filtered.map((p) => (
                           <button

@@ -116,11 +116,11 @@ export default function PatientsPage() {
     try {
       // Load all patients with pagination (Supabase defaults to 1000 rows per response)
       const allPatients: any[] = [];
-      const BATCH_SIZE = 1000;
+      const BATCH_SIZE = 10000;
       let offset = 0;
       let hasMore = true;
 
-      while (hasMore && allPatients.length < 7500) {
+      while (hasMore && allPatients.length < 10000) {
         const { data, error: patientsError } = await supabase
           .from("patients")
           .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
