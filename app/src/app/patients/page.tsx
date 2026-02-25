@@ -120,7 +120,7 @@ export default function PatientsPage() {
       let offset = 0;
       let hasMore = true;
 
-      while (hasMore && allPatients.length < 10000) {
+      while (hasMore) {
         const { data, error: patientsError } = await supabase
           .from("patients")
           .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
@@ -133,10 +133,8 @@ export default function PatientsPage() {
           hasMore = false;
         } else {
           allPatients.push(...data);
-          if (data.length < BATCH_SIZE) {
-            hasMore = false;
-          }
-          offset += BATCH_SIZE;
+          offset += data.length; // Increment by actual records returned
+          hasMore = data.length > 0; // Continue if we got any data
         }
       }
 

@@ -155,14 +155,17 @@ export default function AppointmentsPage() {
 
         if (!data || data.length === 0) {
           hasMore = false;
+          console.log(`Pagination batch ${Math.floor(offset / pageSize)}: No data, stopping`);
         } else {
+          console.log(`Pagination batch ${Math.floor(offset / pageSize)}: Fetched ${data.length} records (offset: ${offset})`);
           allPatients = [...allPatients, ...data];
-          offset += pageSize;
-          hasMore = data.length === pageSize; // If we got less than pageSize, we've reached the end
+          offset += data.length; // Increment by actual records returned, not pageSize
+          hasMore = data.length > 0; // Continue if we got any data
         }
       }
 
       setPatients((allPatients || []) as Patient[]);
+      console.log(`Loaded ${allPatients.length} patients from database`);
     } catch (err) {
       console.error('Failed to load patients:', err);
       setPatients([]);
