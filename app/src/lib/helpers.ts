@@ -147,7 +147,7 @@ export function generateTransactionNumber(): string {
 }
 
 /**
- * Generate formatted receipt number: R26-0001, R26-0002, etc.
+ * Generate formatted receipt number: PMT26-0001, PMT26-0002, etc.
  * Note: For proper sequential numbers, call getNextReceiptNumber() from the page
  * This fallback generates a deterministic number based on timestamp
  */
@@ -155,7 +155,7 @@ export function generateReceiptNumber(): string {
   const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
   const timestamp = Date.now();
   const sequence = (timestamp % 10000).toString().padStart(4, "0");
-  return `R${year}-${sequence}`;
+  return `PMT${year}-${sequence}`;
 }
 
 /**
@@ -191,19 +191,19 @@ export async function getNextTransactionNumber(supabaseClient: any): Promise<str
 }
 
 /**
- * Get next sequential receipt number from database: R26-0001, R26-0002, etc.
+ * Get next sequential receipt number from database: PMT26-0001, PMT26-0002, etc.
  * Queries the receipts table to get count and generates next number
  */
 export async function getNextReceiptNumber(supabaseClient: any): Promise<string> {
   const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
   
-  const { data, error } = await supabaseClient
+  const { data, error } = supabaseClient
     .from("receipts")
     .select("id", { count: "exact" });
   
   const count = (data?.length || 0) + 1;
   const sequence = count.toString().padStart(4, "0");
-  return `R${year}-${sequence}`;
+  return `PMT${year}-${sequence}`;
 }
 
 export function renderTemplate(template: string, data: Record<string, any>) {

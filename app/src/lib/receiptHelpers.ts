@@ -16,58 +16,100 @@ export async function generateReceipt(
   staffId: string,
   currentUserId: string
 ) {
-  // Fetch payment with related data
-  const { data: payment, error: paymentError } = await supabase
-    .from("payments")
-    .select(`
-      *,
-      patient_id,
-      invoice_id,
-      payment_modes(name, code),
-      patients(first_name, last_name),
-      staff(full_name)
-    `)
-    .eq("id", paymentId)
-    .single();
+  try {
+    console.log("[generateReceipt] Starting with paymentId:", paymentId, "staffId:", staffId, "currentUserId:", currentUserId);
 
-  if (paymentError) throw paymentError;
+    // Fetch payment
+    const { data: payment, error: paymentError } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("id", paymentId)
+      .single();
 
-  // Guard: only verified payments
-  if (payment.status !== "verified") {
-    throw new Error("Payment must be verified before issuing receipt");
-  }
+    if (paymentError) {
+      console.error("[generateReceipt] Error fetching payment:", paymentError);
+      throw paymentError;
+    }
 
-  // Generate sequential receipt number (R26-0001, R26-0002, etc.)
-  const receiptNumber = await getNextReceiptNumber();
-
-  // Create immutable snapshot of payment data
-  const snapshot = {
-    amount: payment.amount,
-    payment_mode_code: payment.payment_modes.code,
-    payment_mode_name: payment.payment_modes.name,
-    reference_number: payment.reference_number || null,
-    paid_by: `${payment.patients.first_name} ${payment.patients.last_name}`,
-    payment_date: payment.payment_date,
-    received_by_staff: payment.staff?.full_name || null,
-  };
-
-  // Insert receipt
-  const { data, error } = await supabase
-    .from("receipts")
-    .insert({
-      receipt_number: receiptNumber,
-      payment_id: paymentId,
-      invoice_id: payment.invoice_id,
+    console.log("[generateReceipt] Fetched payment:", {
+      id: payment.id,
+      amount: payment.amount,
+      status: payment.status,
       patient_id: payment.patient_id,
-      issued_by: staffId,
-      snapshot,
-      created_by: currentUserId,
-    })
-    .select();
+      invoice_id: payment.invoice_id,
+    });
 
-  if (error) throw error;
+    // Guard: only verified payments
+    if (payment.status !== "verified") {
+      throw new Error(`Payment must be verified before issuing receipt (current status: ${payment.status})`);
+    }
 
-  return data[0];
+    // Fetch patient name separately
+    const { data: patientData, error: patientError } = await supabase
+      .from("patients")
+      .select("first_name, last_name")
+      .eq("id", payment.patient_id)
+      .single();
+
+    const patientName = patientError
+      ? "Unknown Patient"
+      : `${patientData?.first_name || ""} ${patientData?.last_name || ""}`.trim();
+
+    // Generate sequential receipt number (PMT26-0001, PMT26-0002, etc.)
+    const receiptNumber = await getNextReceiptNumber();
+    console.log("[generateReceipt] Generated receipt number:", receiptNumber);
+
+    // Create immutable snapshot of payment data
+    // Extract payment mode from details JSONB (not from foreign key)
+    const snapshot = {
+      amount: payment.amount,
+      payment_mode_code: payment.details?.payment_mode_code || "UNKNOWN",
+      payment_mode_name: payment.details?.payment_mode_name || "Unknown",
+      reference_number: payment.details?.reference_number || null,
+      paid_by: patientName,
+      payment_date: payment.payment_date,
+      received_by_staff: payment.details?.received_by || null,
+    };
+
+    console.log("[generateReceipt] Snapshot:", snapshot);
+
+    // Insert receipt
+    // Note: issued_by can be null if the user is not registered in staff table
+    const { data, error } = await supabase
+      .from("receipts")
+      .insert({
+        receipt_number: receiptNumber,
+        payment_id: paymentId,
+        invoice_id: payment.invoice_id,
+        patient_id: payment.patient_id,
+        issued_by: null, // Optional staff reference
+        snapshot,
+        created_by: currentUserId,
+      })
+      .select();
+
+    if (error) {
+      console.error("[generateReceipt] Insert error details:", {
+        message: error.message,
+        code: error.code,
+        hint: error.hint,
+        details: error.details,
+      });
+      throw error;
+    }
+
+    console.log("[generateReceipt] Receipt created successfully:", data?.[0]);
+    return data?.[0];
+  } catch (error) {
+    const errorMsg =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error
+        ? JSON.stringify(error)
+        : String(error);
+    console.error("[generateReceipt] Fatal error:", errorMsg, "Stack:", error instanceof Error ? error.stack : "");
+    throw error;
+  }
 }
 
 /**

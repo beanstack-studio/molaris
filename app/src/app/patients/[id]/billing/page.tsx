@@ -20,6 +20,7 @@ import { formatMoney, formatDatePH, formatDateStandard, todayLocalISO, combineFu
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
 import { generateReceipt, voidPayment } from "@/lib/receiptHelpers";
 import { getNextTransactionNumber, getNextInvoiceNumber } from "@/lib/numberGenerationHelpers";
+import { generateInvoiceDocument, generatePaymentReceiptDocument, openDocumentInNewTab } from "@/lib/invoiceReceiptGenerators";
 
 /* Helpers */
 function num(n: unknown) {
@@ -50,9 +51,12 @@ export default function BillingPage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => todayLocalISO());
   const [paymentReference, setPaymentReference] = useState<string>("");
+  const [paymentReceivedBy, setPaymentReceivedBy] = useState<string>("");
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
 
   const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
+  const [verifyingPaymentDetails, setVerifyingPaymentDetails] = useState<any | null>(null);
+  const [verificationConfirmation, setVerificationConfirmation] = useState("");
   const [voidingPaymentId, setVoidingPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -610,6 +614,7 @@ export default function BillingPage() {
       }
 
       console.log("[createInvoice] Invoice creation completed successfully");
+      
       setBusy(false);
       setShowCreateInvoice(false);
       setSelectedVisitDate("");
@@ -636,6 +641,13 @@ export default function BillingPage() {
 
   async function verifyPayment() {
     if (!verifyingPaymentId) return;
+    
+    // Require confirmation phrase
+    if (verificationConfirmation.toUpperCase() !== "VERIFY") {
+      setErr('Type "VERIFY" to confirm payment');
+      return;
+    }
+
     setErr(null);
     setBusy(true);
 
@@ -652,7 +664,21 @@ export default function BillingPage() {
 
       if (error) throw error;
 
+      // Auto-generate receipt for verified payment
+      const userSession = await supabase.auth.getSession();
+      const userId = userSession.data?.session?.user?.id;
+      if (userId) {
+        try {
+          await generateReceipt(verifyingPaymentId, userId, userId);
+          console.log("[verifyPayment] Receipt auto-generated for payment:", verifyingPaymentId);
+        } catch (receiptError) {
+          console.error("[verifyPayment] Warning: Receipt generation failed (non-fatal):", receiptError);
+        }
+      }
+
       setVerifyingPaymentId(null);
+      setVerifyingPaymentDetails(null);
+      setVerificationConfirmation("");
       await loadData();
     } catch (error) {
       setErr(error instanceof Error ? error.message : "Failed to verify payment");
@@ -692,7 +718,9 @@ export default function BillingPage() {
     setBusy(true);
 
     try {
-      const userId = (await supabase.auth.getSession()).data?.session?.user?.id;
+      const userSession = await supabase.auth.getSession();
+      const userId = userSession.data?.session?.user?.id;
+      const userEmail = userSession.data?.session?.user?.email ?? "Unknown";
       if (!userId) throw new Error("User not authenticated");
 
       // For now, use current user as both staff and issuer
@@ -751,8 +779,26 @@ export default function BillingPage() {
         paymentDetails.reference_number = paymentReference;
       }
 
-      // Set status based on mode auto-verify
-      const status = selectedPaymentMode.auto_verifies ? "verified" : "pending";
+      // Add "received_by" for cash payments
+      if (selectedPaymentMode.code === "CASH" && paymentReceivedBy) {
+        paymentDetails.received_by = paymentReceivedBy;
+      }
+
+      // Store proof file as data URL if provided
+      if (paymentProofFile && selectedPaymentMode.requires_proof) {
+        await new Promise<void>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            paymentDetails.proof_file_data = reader.result as string; // Data URL as string
+            paymentDetails.proof_file_name = paymentProofFile.name;
+            resolve();
+          };
+          reader.onerror = () => reject(new Error("Failed to read proof file"));
+          reader.readAsDataURL(paymentProofFile);
+        });
+      }
+
+      const status = selectedPaymentMode.auto_verifies || selectedPaymentMode.code === "CASH" ? "verified" : "pending";
       const userId = (await supabase.auth.getSession()).data?.session?.user?.id || null;
 
       // Create a payment record for each selected invoice
@@ -800,10 +846,35 @@ export default function BillingPage() {
         throw new Error("No valid invoices to apply payment to.");
       }
 
-      const ins = await supabase.from("payments").insert(paymentRecords);
+      const ins = await supabase.from("payments").insert(paymentRecords).select();
 
       if (ins.error) {
         throw ins.error;
+      }
+
+      // Auto-generate receipts for verified payments
+      if (status === "verified" && ins.data && userId) {
+        try {
+          const paymentData = ins.data as any[];
+          if (Array.isArray(paymentData) && paymentData.length > 0) {
+            for (const payment of paymentData) {
+              try {
+                console.log("[addPayment] Generating receipt for payment:", payment.id);
+                await generateReceipt(payment.id, userId, userId);
+                console.log("[addPayment] Receipt generated successfully for payment:", payment.id);
+              } catch (singleReceiptError) {
+                console.error("[addPayment] Failed to generate receipt for payment", payment.id, ":", singleReceiptError);
+              }
+            }
+            console.log("[addPayment] Receipts auto-generation completed");
+          } else {
+            console.warn("[addPayment] No payment data returned from insert");
+          }
+        } catch (receiptError) {
+          console.error("[addPayment] Error in receipt generation block:", receiptError);
+        }
+      } else {
+        console.log("[addPayment] Receipt generation skipped:", { status, hasData: !!ins.data, userId });
       }
 
       // Recalculate all affected invoices
@@ -815,6 +886,7 @@ export default function BillingPage() {
       setSelectedInvoiceIds([]);
       setPaymentAmount("");
       setPaymentReference("");
+      setPaymentReceivedBy("");
       setPaymentProofFile(null);
       setSelectedPaymentMode(null);
       await loadData();
@@ -884,9 +956,9 @@ export default function BillingPage() {
                 <div className="mt-3">
                   <table className="data-table">
                     <colgroup>
+                      <col style={{ width: "16%" }} />
                       <col style={{ width: "15%" }} />
                       <col style={{ width: "12%" }} />
-                      <col style={{ width: "16%" }} />
                       <col style={{ width: "14%" }} />
                       <col style={{ width: "14%" }} />
                       <col style={{ width: "11%" }} />
@@ -894,8 +966,8 @@ export default function BillingPage() {
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
-                        <th className="data-table-head-cell">Invoice #</th>
                         <th className="data-table-head-cell">Date</th>
+                        <th className="data-table-head-cell">Invoice #</th>
                         <th className="data-table-head-cell-right">Invoice Amount</th>
                         <th className="data-table-head-cell-right">Paid</th>
                         <th className="data-table-head-cell-right">Balance</th>
@@ -912,10 +984,11 @@ export default function BillingPage() {
                         const balance = invoiceAmount - paidAmount;
                         return (
                         <tr key={inv.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                          <td className="data-table-cell">{formatDateStandard(inv.invoice_date)}</td>
                           <td className="data-table-cell">
                             <div className="flex items-center gap-2">
                               <span>{inv.invoice_number}</span>
-                              {/* PART 7: Show Ortho badge only for ortho invoices */}
+                              {/* Show Ortho badge only for ortho invoices */}
                               {inv.invoice_type === "ortho" && (
                                 <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
                                   Ortho
@@ -923,7 +996,6 @@ export default function BillingPage() {
                               )}
                             </div>
                           </td>
-                          <td className="data-table-cell">{formatDateStandard(inv.invoice_date)}</td>
                           <td className="data-table-cell-right">{formatMoney(invoiceAmount)}</td>
                           <td className="data-table-cell-right text-green-700 font-semibold">{formatMoney(paidAmount)}</td>
                           <td className="data-table-cell-right font-semibold" style={{ color: balance > 0 ? "#dc2626" : "#16a34a" }}>
@@ -947,16 +1019,25 @@ export default function BillingPage() {
                           <td className="data-table-cell-right">
                             <button
                               className="data-table-btn"
+                              title="Open invoice document"
                               onClick={async () => {
-                                const { data: items, error } = await supabase
-                                  .from("invoice_items")
-                                  .select("*")
-                                  .eq("invoice_id", inv.id);
-                                setViewingInvoice({
-                                  ...inv,
-                                  invoice_items: error === null && items ? items : [],
-                                });
+                                try {
+                                  setBusy(true);
+                                  const html = await generateInvoiceDocument(
+                                    inv.id,
+                                    patient?.full_name || "Patient",
+                                    inv.invoice_number,
+                                    formatDateStandard(inv.invoice_date)
+                                  );
+                                  openDocumentInNewTab(html, `Invoice-${inv.invoice_number}`);
+                                } catch (error) {
+                                  console.error("Error generating invoice document:", error);
+                                  alert("Failed to generate invoice document");
+                                } finally {
+                                  setBusy(false);
+                                }
                               }}
+                              disabled={busy}
                             >
                               Open
                             </button>
@@ -988,19 +1069,17 @@ export default function BillingPage() {
                 <div className="mt-3">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "13%" }} />
-                      <col style={{ width: "12%" }} />
                       <col style={{ width: "14%" }} />
+                      <col style={{ width: "15%" }} />
                       <col style={{ width: "16%" }} />
-                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "13%" }} />
                       <col style={{ width: "16%" }} />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
-                        <th className="data-table-head-cell">Transaction ID</th>
-                        <th className="data-table-head-cell">Invoice #</th>
                         <th className="data-table-head-cell">Date</th>
+                        <th className="data-table-head-cell">Transaction ID</th>
                         <th className="data-table-head-cell-right">Amount</th>
                         <th className="data-table-head-cell">Mode</th>
                         <th className="data-table-head-cell">Status</th>
@@ -1017,9 +1096,8 @@ export default function BillingPage() {
                         
                         return (
                           <tr key={pay.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                            <td className="data-table-cell">{pay.transaction_id || "—"}</td>
-                            <td className="data-table-cell">{(pay as any).invoices?.invoice_number ?? "—"}</td>
                             <td className="data-table-cell">{formatDateStandard(pay.payment_date)}</td>
+                            <td className="data-table-cell">{pay.transaction_id || "—"}</td>
                             <td className="data-table-cell-right text-green-700 font-semibold">{formatMoney(pay.amount)}</td>
                             <td className="data-table-cell">
                               {modeData?.name || pay.details?.payment_mode_name || "—"}
@@ -1031,24 +1109,57 @@ export default function BillingPage() {
                             </td>
                             <td className="data-table-cell-right">
                               <div className="flex gap-1 justify-end">
-                                {pay.status === 'verified' && !isVoided && (
-                                  <button 
-                                    className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                    title="Issue receipt for verified payment"
-                                    onClick={() => handleGenerateReceipt(pay.id)}
-                                    disabled={busy}
-                                  >
-                                    Receipt
-                                  </button>
-                                )}
                                 {pay.status === 'pending' && !isVoided && (
                                   <button 
                                     className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                                     title="Verify this pending payment"
-                                    onClick={() => setVerifyingPaymentId(pay.id)}
+                                    onClick={async () => {
+                                      try {
+                                        // Fetch full payment details
+                                        const { data: fullPayment, error } = await supabase
+                                          .from("payments")
+                                          .select("*")
+                                          .eq("id", pay.id)
+                                          .single();
+                                        
+                                        if (error) throw error;
+                                        
+                                        setVerifyingPaymentDetails(fullPayment);
+                                        setVerifyingPaymentId(pay.id);
+                                        setVerificationConfirmation("");
+                                      } catch (error) {
+                                        console.error("Error fetching payment details:", error);
+                                        setErr("Failed to load payment details");
+                                      }
+                                    }}
                                     disabled={busy}
                                   >
                                     Verify
+                                  </button>
+                                )}
+                                {pay.status === 'verified' && !isVoided && (
+                                  <button 
+                                    className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
+                                    title="View payment receipt"
+                                    onClick={async () => {
+                                      try {
+                                        setBusy(true);
+                                        const html = await generatePaymentReceiptDocument(
+                                          pay.id,
+                                          patient?.full_name || "Patient",
+                                          pay.transaction_id || "PMT00000"
+                                        );
+                                        openDocumentInNewTab(html, `Receipt-${pay.transaction_id}`);
+                                      } catch (error) {
+                                        console.error("Error generating receipt:", error);
+                                        alert("Failed to generate receipt");
+                                      } finally {
+                                        setBusy(false);
+                                      }
+                                    }}
+                                    disabled={busy}
+                                  >
+                                    View
                                   </button>
                                 )}
                                 {!isVoided && (
@@ -1068,7 +1179,7 @@ export default function BillingPage() {
                       })}
                       {payments.length === 0 ? (
                         <tr>
-                          <td className="data-table-empty" colSpan={7}>
+                          <td className="data-table-empty" colSpan={6}>
                             No payments yet.
                           </td>
                         </tr>
@@ -1379,6 +1490,19 @@ export default function BillingPage() {
                   </select>
                 </label>
 
+                {selectedPaymentMode?.code === "CASH" && (
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">Received by</span>
+                    <input
+                      type="text"
+                      className="h-10 rounded-lg border px-3"
+                      value={paymentReceivedBy}
+                      onChange={(e) => setPaymentReceivedBy(e.target.value)}
+                      placeholder="Name of person receiving cash"
+                    />
+                  </label>
+                )}
+
                 {selectedPaymentMode?.requires_reference && (
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-700">Reference number *</span>
@@ -1463,21 +1587,114 @@ export default function BillingPage() {
         ) : null}
 
         {/* Verify payment modal */}
-        {verifyingPaymentId ? (
+        {verifyingPaymentId && verifyingPaymentDetails ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setVerifyingPaymentId(null)} onDoubleClick={(e) => e.target === e.currentTarget && setVerifyingPaymentId(null)}>
             <div className="w-full max-w-md rounded-2xl border bg-white p-6">
               <h2 className="text-lg font-semibold">Verify Payment</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Are you sure you want to mark this payment as verified?
-              </p>
 
-              <div className="mt-6 flex justify-end gap-2">
-                <button className="cancel-btn" onClick={() => setVerifyingPaymentId(null)} disabled={busy}>
-                  Cancel
-                </button>
-                <button className="save-btn" disabled={busy} onClick={verifyPayment}>
-                  {busy ? "Verifying..." : "Verify"}
-                </button>
+              <div className="mt-4 grid gap-4">
+                {/* Payment Details Display */}
+                <div className="rounded-lg bg-slate-50 p-4 border grid gap-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Amount:</span>
+                    <span className="font-semibold text-green-700">{formatMoney(verifyingPaymentDetails.amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Payment Date:</span>
+                    <span>{formatDateStandard(verifyingPaymentDetails.payment_date)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Payment Mode:</span>
+                    <span>{verifyingPaymentDetails.details?.payment_mode_name || "—"}</span>
+                  </div>
+                  {verifyingPaymentDetails.details?.reference_number && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Reference:</span>
+                      <span className="font-mono text-xs">{verifyingPaymentDetails.details.reference_number}</span>
+                    </div>
+                  )}
+                  {verifyingPaymentDetails.details?.received_by && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Received By:</span>
+                      <span>{verifyingPaymentDetails.details.received_by}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Proof File View Button (for GCash, Bank Transfer, etc.) */}
+                {verifyingPaymentDetails.details?.proof_file_data && (
+                  <div className="rounded-lg border bg-slate-50 p-3 flex items-center justify-between">
+                    <span className="text-sm text-slate-700 font-medium">
+                      📎 {verifyingPaymentDetails.details?.proof_file_name || "Proof attached"}
+                    </span>
+                    <button
+                      className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
+                      onClick={() => {
+                        const window_obj = window.open();
+                        if (window_obj) {
+                          window_obj.document.write(`
+                            <html>
+                              <head>
+                                <title>Payment Proof - ${verifyingPaymentDetails.details?.proof_file_name || 'proof'}</title>
+                                <style>
+                                  body { margin: 0; display: flex; align-items: center; justify-content: center; background: #f5f5f5; }
+                                  img { max-width: 95%; max-height: 95vh; object-fit: contain; }
+                                </style>
+                              </head>
+                              <body>
+                                <img src="${verifyingPaymentDetails.details?.proof_file_data}" alt="Payment proof" />
+                              </body>
+                            </html>
+                          `);
+                        }
+                      }}
+                    >
+                      View Proof
+                    </button>
+                  </div>
+                )}
+
+                {/* Type to Verify Input */}
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700 font-medium">Type "VERIFY" to confirm *</span>
+                  <input
+                    type="text"
+                    className="h-10 rounded-lg border px-3 uppercase"
+                    value={verificationConfirmation}
+                    onChange={(e) => {
+                      setVerificationConfirmation(e.target.value);
+                      setErr(null);
+                    }}
+                    placeholder="Type VERIFY"
+                    disabled={busy}
+                  />
+                  {verificationConfirmation.toUpperCase() === "VERIFY" && (
+                    <span className="text-xs text-green-700 font-semibold">✓ Ready to verify</span>
+                  )}
+                </label>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 mt-2">
+                  <button 
+                    className="cancel-btn" 
+                    onClick={() => {
+                      setVerifyingPaymentId(null);
+                      setVerifyingPaymentDetails(null);
+                      setVerificationConfirmation("");
+                      setErr(null);
+                    }} 
+                    disabled={busy}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="save-btn" 
+                    disabled={busy || verificationConfirmation.toUpperCase() !== "VERIFY"} 
+                    onClick={verifyPayment}
+                  >
+                    {busy ? "Verifying..." : "Verify Payment"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

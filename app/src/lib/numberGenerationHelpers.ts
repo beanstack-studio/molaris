@@ -50,7 +50,7 @@ export async function getNextTransactionNumber(): Promise<string> {
 }
 
 /**
- * Get next sequential receipt number (R26-0001, R26-0002, etc.)
+ * Get next sequential receipt number (PMT26-0001, PMT26-0002, etc.)
  */
 export async function getNextReceiptNumber(): Promise<string> {
   try {
@@ -64,9 +64,9 @@ export async function getNextReceiptNumber(): Promise<string> {
     if (error) throw error;
     
     const nextNumber = (count || 0) + 1;
-    return `R${year}-${String(nextNumber).padStart(4, "0")}`;
+    return `PMT${year}-${String(nextNumber).padStart(4, "0")}`;
   } catch (error) {
     console.error("Error generating receipt number:", error);
-    return "R26-0001";
+    return "PMT26-0001";
   }
 }

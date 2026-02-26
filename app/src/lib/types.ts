@@ -235,6 +235,27 @@ export type GeneratedDoc = {
   created_at: string;
 };
 
+export type Document = {
+  id: string;
+  patient_id?: string;
+  patient_name?: string;
+  invoice_id?: string;
+  payment_id?: string;
+  visit_id?: string;
+  doc_type: string; // INVOICE, PAYMENT_RECEIPT, ACCOUNT_STATEMENT, PRESCRIPTION, DENTAL_CERTIFICATE, REFERRAL_LETTER
+  doc_code: string; // INV, PMT, SOA, RX, CER, REF
+  doc_no: string; // INV26-0001, PMT26-0001, etc.
+  payload: Record<string, any>; // Immutable snapshot
+  clinic_meta?: Record<string, any>;
+  dentist_name?: string;
+  dentist_prc?: string;
+  dentist_ptr?: string;
+  issued_at: string;
+  issued_by?: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type DraftLine = {
   id: string;
   tooth_number: number | null;
