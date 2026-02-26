@@ -466,17 +466,13 @@ export default function BillingPage() {
     if (!id) return;
     setErr(null);
 
-    console.log("[createInvoice] Started - visitType:", selectedVisitType, "visitDate:", selectedVisitDate);
-
     if (!selectedVisitDate) return setErr("Select a visit date.");
     
     // Check which type of invoice to create
     if (selectedVisitType === "treatment") {
       if (visitTreatments.length === 0) return setErr("No treatments found for this visit.");
-      console.log("[createInvoice] Treatment invoice - treatments count:", visitTreatments.length);
     } else if (selectedVisitType === "ortho") {
       if (orthoVisits.length === 0) return setErr("No ortho visits found for this date.");
-      console.log("[createInvoice] Ortho invoice - ortho visits count:", orthoVisits.length);
     } else {
       return setErr("No visit data found for the selected date.");
     }
@@ -484,14 +480,11 @@ export default function BillingPage() {
     setBusy(true);
 
     try {
-      console.log("[createInvoice] Getting invoice number...");
       const invoiceNumber = await getNextInvoiceNumber();
-      console.log("[createInvoice] Generated invoice number:", invoiceNumber);
 
       // Create invoice with appropriate type
       const invoiceType = selectedVisitType === "ortho" ? "ortho" : "regular";
       
-      console.log("[createInvoice] Inserting invoice:", { patientId: id, invoiceNumber, invoiceType, total: invoiceTotal });
       const ins = await supabase.from("invoices").insert({
         patient_id: id,
         invoice_number: invoiceNumber,
@@ -502,16 +495,13 @@ export default function BillingPage() {
       }).select().single();
 
       if (ins.error) {
-        console.error("[createInvoice] Invoice insert error:", ins.error);
         setBusy(false);
         return setErr(ins.error.message);
       }
 
       const invoiceId = ins.data?.id;
-      console.log("[createInvoice] Invoice created successfully:", { invoiceId, invoiceNumber });
       
       if (!invoiceId) {
-        console.error("[createInvoice] No invoiceId returned from insert");
         setBusy(false);
         return setErr("Failed to create invoice.");
       }
@@ -537,14 +527,11 @@ export default function BillingPage() {
             };
           });
 
-        console.log("[createInvoice] Inserting treatment items:", itemsToInsert.length);
         const itemsIns = await supabase.from("invoice_items").insert(itemsToInsert);
         if (itemsIns.error) {
-          console.error("[createInvoice] Invoice items insert error:", itemsIns.error);
           setBusy(false);
           return setErr(itemsIns.error.message);
         }
-        console.log("[createInvoice] Treatment items inserted successfully");
       }
       // Handle ortho items
       else if (selectedVisitType === "ortho") {
@@ -590,30 +577,20 @@ export default function BillingPage() {
         }
 
         if (orthoItems.length > 0) {
-          console.log("[createInvoice] Inserting ortho items:", orthoItems.length);
           const itemsIns = await supabase.from("invoice_items").insert(orthoItems);
           if (itemsIns.error) {
-            console.error("[createInvoice] Ortho items insert error:", itemsIns.error);
             setBusy(false);
             return setErr(itemsIns.error.message);
           }
-          console.log("[createInvoice] Ortho items inserted successfully");
         }
       }
 
       // Recalculate invoice totals
-      console.log("[createInvoice] Calling recalc_invoice RPC for invoiceId:", invoiceId);
       const rpcResult = await supabase.rpc("recalc_invoice", { invoice_id: invoiceId });
       if (rpcResult.error) {
         const errorMsg = rpcResult.error?.message || JSON.stringify(rpcResult.error) || "Unknown RPC error";
-        console.error("[createInvoice] RPC recalc_invoice error:", errorMsg);
-        console.error("[createInvoice] Full error object:", rpcResult.error);
         throw new Error(`Failed to recalculate invoice: ${errorMsg}`);
-      } else {
-        console.log("[createInvoice] RPC recalc_invoice succeeded");
       }
-
-      console.log("[createInvoice] Invoice creation completed successfully");
       
       setBusy(false);
       setShowCreateInvoice(false);
@@ -859,22 +836,15 @@ export default function BillingPage() {
           if (Array.isArray(paymentData) && paymentData.length > 0) {
             for (const payment of paymentData) {
               try {
-                console.log("[addPayment] Generating receipt for payment:", payment.id);
                 await generateReceipt(payment.id, userId, userId);
-                console.log("[addPayment] Receipt generated successfully for payment:", payment.id);
               } catch (singleReceiptError) {
-                console.error("[addPayment] Failed to generate receipt for payment", payment.id, ":", singleReceiptError);
+                // Receipt generation failed silently
               }
             }
-            console.log("[addPayment] Receipts auto-generation completed");
-          } else {
-            console.warn("[addPayment] No payment data returned from insert");
           }
         } catch (receiptError) {
-          console.error("[addPayment] Error in receipt generation block:", receiptError);
+          // Receipt generation block error
         }
-      } else {
-        console.log("[addPayment] Receipt generation skipped:", { status, hasData: !!ins.data, userId });
       }
 
       // Recalculate all affected invoices

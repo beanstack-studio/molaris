@@ -8,6 +8,8 @@ interface DatePickerFieldProps {
   inputRef: React.RefObject<HTMLInputElement | null>;
   wrapperClassName?: string;
   variant?: "case-modal" | "visit-modal"; // Different styling contexts
+  min?: string; // Minimum date in ISO format (YYYY-MM-DD)
+  max?: string; // Maximum date in ISO format (YYYY-MM-DD)
 }
 
 /**
@@ -31,6 +33,8 @@ export function DatePickerField({
   inputRef,
   wrapperClassName,
   variant = "case-modal",
+  min,
+  max,
 }: DatePickerFieldProps) {
   const handleWrapperClick = () => {
     if (inputRef.current) {
@@ -75,6 +79,8 @@ export function DatePickerField({
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer rounded-lg"
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            min={min}
+            max={max}
           />
         </div>
       </div>
@@ -114,6 +120,8 @@ export function DatePickerField({
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          min={min}
+          max={max}
         />
       </div>
     </div>

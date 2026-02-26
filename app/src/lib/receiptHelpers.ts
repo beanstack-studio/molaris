@@ -17,8 +17,6 @@ export async function generateReceipt(
   currentUserId: string
 ) {
   try {
-    console.log("[generateReceipt] Starting with paymentId:", paymentId, "staffId:", staffId, "currentUserId:", currentUserId);
-
     // Fetch payment
     const { data: payment, error: paymentError } = await supabase
       .from("payments")
@@ -27,17 +25,8 @@ export async function generateReceipt(
       .single();
 
     if (paymentError) {
-      console.error("[generateReceipt] Error fetching payment:", paymentError);
       throw paymentError;
     }
-
-    console.log("[generateReceipt] Fetched payment:", {
-      id: payment.id,
-      amount: payment.amount,
-      status: payment.status,
-      patient_id: payment.patient_id,
-      invoice_id: payment.invoice_id,
-    });
 
     // Guard: only verified payments
     if (payment.status !== "verified") {
@@ -57,7 +46,6 @@ export async function generateReceipt(
 
     // Generate sequential receipt number (PMT26-0001, PMT26-0002, etc.)
     const receiptNumber = await getNextReceiptNumber();
-    console.log("[generateReceipt] Generated receipt number:", receiptNumber);
 
     // Create immutable snapshot of payment data
     // Extract payment mode from details JSONB (not from foreign key)
@@ -70,8 +58,6 @@ export async function generateReceipt(
       payment_date: payment.payment_date,
       received_by_staff: payment.details?.received_by || null,
     };
-
-    console.log("[generateReceipt] Snapshot:", snapshot);
 
     // Insert receipt
     // Note: issued_by can be null if the user is not registered in staff table
@@ -89,25 +75,11 @@ export async function generateReceipt(
       .select();
 
     if (error) {
-      console.error("[generateReceipt] Insert error details:", {
-        message: error.message,
-        code: error.code,
-        hint: error.hint,
-        details: error.details,
-      });
       throw error;
     }
 
-    console.log("[generateReceipt] Receipt created successfully:", data?.[0]);
     return data?.[0];
   } catch (error) {
-    const errorMsg =
-      error instanceof Error
-        ? error.message
-        : typeof error === "object" && error
-        ? JSON.stringify(error)
-        : String(error);
-    console.error("[generateReceipt] Fatal error:", errorMsg, "Stack:", error instanceof Error ? error.stack : "");
     throw error;
   }
 }

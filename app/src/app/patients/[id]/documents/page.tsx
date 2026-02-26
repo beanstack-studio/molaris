@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { EditModal } from "@/components/EditModal";
+import { DatePickerField } from "@/components/DatePickerField";
 import { supabase } from "@/lib/supabaseClient";
 import type { Patient, DentistRow, Document } from "@/lib/types";
 import {
@@ -26,6 +27,7 @@ import {
   generatePaymentReceiptDocument,
   openDocumentInNewTab,
 } from "@/lib/invoiceReceiptGenerators";
+import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 
 function printHtml(html: string) {
   const w = window.open("", "", "width=800,height=600");
@@ -66,12 +68,19 @@ export default function DocumentsPage() {
   const [docVisitDate, setDocVisitDate] = useState(() => todayLocalISO());
   const [docDentistId, setDocDentistId] = useState<string>("");
   const [docIssuedBy, setDocIssuedBy] = useState("");
+  const docVisitDateRef = useRef<HTMLInputElement>(null);
 
   // Prescription fields
-  const [rxMedications, setRxMedications] = useState("");
-  const [rxDosage, setRxDosage] = useState("");
-  const [rxDuration, setRxDuration] = useState("");
+  const [rxMedications, setRxMedications] = useState<Array<{
+    id: string;
+    medication: string;
+    dosage: string;
+    duration: string;
+    instructions?: string;
+  }>>([]);
   const [rxRemarks, setRxRemarks] = useState("");
+  const [rxNextCheckup, setRxNextCheckup] = useState(""); // Next check-up date (optional)
+  const rxNextCheckupRef = useRef<HTMLInputElement>(null);
 
   // Certificate fields
   const [cerFindings, setCerFindings] = useState("");
@@ -166,7 +175,7 @@ export default function DocumentsPage() {
    * Generate document with type-first UX
    */
   async function generateDocument() {
-    if (!id) return;
+    if (!id || !patient) return;
     setErr(null);
 
     if (!selectedDocType) return setErr("Select a document type.");
@@ -178,6 +187,44 @@ export default function DocumentsPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const userEmail = sessionData.session?.user?.email ?? "Unknown";
 
+      let renderedHtml = previewHtml;
+
+      // Generate HTML for prescriptions
+      if (selectedDocType === DOC_TYPES.PRESCRIPTION) {
+        // Calculate age from DOB if available
+        let age: number | undefined;
+        if (patient.birth_date) {
+          const dob = new Date(patient.birth_date);
+          const today = new Date();
+          age = today.getFullYear() - dob.getFullYear();
+          if (today.getMonth() < dob.getMonth() || 
+              (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
+            age--;
+          }
+        }
+
+        // Remove id field from medications for prescription data
+        const cleanMedications = rxMedications.map(({ id, ...med }) => med);
+
+        renderedHtml = generatePrescriptionHTML({
+          patientName: patient.full_name || "Unknown Patient",
+          patientAge: age,
+          patientAddress: patient.address || "",
+          patientGender: patient.gender || "",
+          visitDate: docVisitDate,
+          dentistName: dentistNameById[docDentistId] ?? "Dentist",
+          medications: cleanMedications,
+          remarks: rxRemarks || "",
+          docNo: "RX26-0000", // Will be replaced by generateDocument
+          clinicMeta: {
+            name: "MATIRA DENTAL STUDIO",
+            address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
+            licenseNo: "[Placeholder]",
+            ptrNo: "[Placeholder]",
+          },
+        });
+      }
+
       // Build payload based on doc type
       let payload: Record<string, any> = {
         doc_type: selectedDocType,
@@ -185,15 +232,22 @@ export default function DocumentsPage() {
         dentist_id: docDentistId,
         dentist_name: dentistNameById[docDentistId] ?? null,
         issued_by: docIssuedBy || userEmail,
-        rendered_html: previewHtml,
+        rendered_html: renderedHtml,
+        clinic_meta: {
+          name: "MATIRA DENTAL STUDIO",
+          address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
+          licenseNo: "[Placeholder]",
+          ptrNo: "[Placeholder]",
+        },
       };
 
       if (selectedDocType === DOC_TYPES.PRESCRIPTION) {
+        // Clean medications (remove id field) before storing to payload
+        const cleanMedications = rxMedications.map(({ id, ...med }) => med);
         payload.fields = {
-          medications: rxMedications || null,
-          dosage: rxDosage || null,
-          duration: rxDuration || null,
+          medications: cleanMedications,
           remarks: rxRemarks || null,
+          next_checkup_date: rxNextCheckup || null,
         };
       } else if (selectedDocType === DOC_TYPES.DENTAL_CERTIFICATE) {
         payload.fields = {
@@ -220,6 +274,24 @@ export default function DocumentsPage() {
         issuedBy: docIssuedBy || userEmail,
       });
 
+      // If prescription has a next checkup date, create an appointment
+      if (selectedDocType === DOC_TYPES.PRESCRIPTION && rxNextCheckup) {
+        try {
+          await supabase.from("appointments").insert({
+            patient_id: id,
+            appointment_date: rxNextCheckup,
+            appointment_time: "09:00", // Default morning time
+            appointment_type: "CHECKUP",
+            status: "SCHEDULED",
+            notes: `Follow-up checkup from prescription dated ${formatDateStandard(docVisitDate)}`,
+            created_by: sessionData.session?.user?.id,
+          });
+        } catch (appointmentError) {
+          // Don't fail the entire document generation, just log the appointment error
+          console.warn("Failed to create appointment for next checkup:", appointmentError);
+        }
+      }
+
       setBusy(false);
       setShowGenerateModal(false);
       resetGenerateForm();
@@ -236,10 +308,9 @@ export default function DocumentsPage() {
     setDocVisitDate(todayLocalISO());
     setDocDentistId("");
     setDocIssuedBy("");
-    setRxMedications("");
-    setRxDosage("");
-    setRxDuration("");
+    setRxMedications([]);
     setRxRemarks("");
+    setRxNextCheckup("");
     setCerFindings("");
     setCerTreatmentDone("");
     setCerRemarks("");
@@ -516,13 +587,13 @@ export default function DocumentsPage() {
           {selectedDocType && (
             <>
               <div className="flex gap-4">
-                <div className="grid-gap-1" style={{ width: "50%" }}>
-                  <label className="text-sm-medium-slate-700">Visit date</label>
-                  <input
-                    type="date"
-                    className="input-h10-border-white w-full"
+                <div style={{ width: "50%" }}>
+                  <DatePickerField
+                    label="Visit date"
                     value={docVisitDate}
-                    onChange={(e) => setDocVisitDate(e.target.value)}
+                    onChange={setDocVisitDate}
+                    inputRef={docVisitDateRef}
+                    variant="visit-modal"
                   />
                 </div>
 
@@ -559,43 +630,119 @@ export default function DocumentsPage() {
               {/* Prescription */}
               {selectedDocType === DOC_TYPES.PRESCRIPTION && (
                 <>
-                  <div className="flex gap-4">
-                    <div className="grid-gap-1" style={{ width: "50%" }}>
-                      <label className="text-sm-medium-slate-700">Medications</label>
-                      <textarea
-                        className="input-h10-border-white w-full resize-none"
-                        style={{ minHeight: "80px" }}
-                        value={rxMedications}
-                        onChange={(e) => setRxMedications(e.target.value)}
-                        placeholder="List medications and instructions"
-                      />
-                    </div>
+                  {/* Medications List */}
+                  <div className="space-y-2">
+                    <div className="text-sm-medium-slate-700">Medications ({rxMedications.length})</div>
+                    {rxMedications.map((med, index) => (
+                      <div key={med.id} className="form-section">
+                        {/* Row 1: Medication Name (75%) | Dosage (12.5%) | Duration (12.5%) - Grid with equal distribution */}
+                        <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr", gap: "8px", overflow: "hidden" }}>
+                          <div className="grid gap-1 min-w-0" style={{ overflow: "hidden" }}>
+                            <label className="text-xs-semibold-slate-700">Medication name</label>
+                            <input
+                              type="text"
+                              className="input-h10-border-white"
+                              value={med.medication}
+                              onChange={(e) => {
+                                const updated = rxMedications.map(m =>
+                                  m.id === med.id ? { ...m, medication: e.target.value } : m
+                                );
+                                setRxMedications(updated);
+                              }}
+                              placeholder="Medication name"
+                              style={{ minWidth: 0, width: "100%" }}
+                            />
+                          </div>
 
-                    <div className="grid-gap-1" style={{ width: "25%" }}>
-                      <label className="text-sm-medium-slate-700">Dosage</label>
-                      <input
-                        type="text"
-                        className="input-h10-border-white w-full"
-                        value={rxDosage}
-                        onChange={(e) => setRxDosage(e.target.value)}
-                        placeholder="e.g., 500mg"
-                      />
-                    </div>
+                          <div className="grid gap-1 min-w-0" style={{ overflow: "hidden" }}>
+                            <label className="text-xs-semibold-slate-700">Dosage</label>
+                            <input
+                              type="text"
+                              className="input-h10-border-white"
+                              value={med.dosage}
+                              onChange={(e) => {
+                                const updated = rxMedications.map(m =>
+                                  m.id === med.id ? { ...m, dosage: e.target.value } : m
+                                );
+                                setRxMedications(updated);
+                              }}
+                              placeholder="500mg"
+                              style={{ minWidth: 0, width: "100%" }}
+                            />
+                          </div>
 
-                    <div className="grid-gap-1" style={{ width: "25%" }}>
-                      <label className="text-sm-medium-slate-700">Duration</label>
-                      <input
-                        type="text"
-                        className="input-h10-border-white w-full"
-                        value={rxDuration}
-                        onChange={(e) => setRxDuration(e.target.value)}
-                        placeholder="e.g., 7 days"
-                      />
-                    </div>
+                          <div className="grid gap-1 min-w-0" style={{ overflow: "hidden" }}>
+                            <label className="text-xs-semibold-slate-700">Duration</label>
+                            <input
+                              type="text"
+                              className="input-h10-border-white"
+                              value={med.duration}
+                              onChange={(e) => {
+                                const updated = rxMedications.map(m =>
+                                  m.id === med.id ? { ...m, duration: e.target.value } : m
+                                );
+                                setRxMedications(updated);
+                              }}
+                              placeholder="7 days"
+                              style={{ minWidth: 0, width: "100%" }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Row 2: Instructions Input + Delete Button */}
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1 grid gap-1 min-w-0">
+                            <label className="text-xs-semibold-slate-700">Instructions</label>
+                            <input
+                              type="text"
+                              className="input-h10-border-white"
+                              value={med.instructions || ""}
+                              onChange={(e) => {
+                                const updated = rxMedications.map(m =>
+                                  m.id === med.id ? { ...m, instructions: e.target.value } : m
+                                );
+                                setRxMedications(updated);
+                              }}
+                              placeholder="e.g., Take with food, Before sleep"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            className="btn-sm-delete h-10 flex-shrink-0"
+                            onClick={() => {
+                              setRxMedications(rxMedications.filter(m => m.id !== med.id));
+                            }}
+                            title="Remove medication"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {rxMedications.length === 0 && (
+                      <div className="text-xs-slate-500-base">No medications yet. Add one below.</div>
+                    )}
                   </div>
 
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-ghost w-full mt-2"
+                    onClick={() => {
+                      setRxMedications([...rxMedications, {
+                        id: Math.random().toString(36),
+                        medication: "",
+                        dosage: "",
+                        duration: "",
+                        instructions: "",
+                      }]);
+                    }}
+                  >
+                    + Add Medication
+                  </button>
+
                   <div className="grid-gap-1">
-                    <label className="text-sm-medium-slate-700">Remarks</label>
+                    <label className="text-sm-medium-slate-700">Patient Instructions</label>
                     <textarea
                       className="input-h10-border-white w-full resize-none"
                       style={{ minHeight: "60px" }}
@@ -603,6 +750,27 @@ export default function DocumentsPage() {
                       onChange={(e) => setRxRemarks(e.target.value)}
                       placeholder="Optional notes or warnings"
                     />
+                  </div>
+
+                  <div>
+                    {(() => {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      const minDate = tomorrow.toISOString().split("T")[0];
+                      return (
+                        <DatePickerField
+                          label="Next check-up date (optional)"
+                          value={rxNextCheckup}
+                          onChange={setRxNextCheckup}
+                          inputRef={rxNextCheckupRef}
+                          variant="visit-modal"
+                          min={minDate}
+                        />
+                      );
+                    })()}
+                    <div className="text-xs-medium-slate-500" style={{ marginTop: "4px" }}>
+                      If provided, an appointment will be automatically created
+                    </div>
                   </div>
                 </>
               )}
