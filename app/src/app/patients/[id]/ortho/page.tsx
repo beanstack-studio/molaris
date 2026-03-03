@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType, getOrthoOnlyReasons, getVisitReasonLabel } from "@/lib/visitReasonHelpers";
-import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow } from "@/lib/types";
+import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow, Invoice } from "@/lib/types";
 import { formatDatePH, formatDateStandard } from "@/lib/helpers";
+
+/* Helpers */
+function num(n: unknown) {
+  const v = Number(n);
+  return Number.isFinite(v) ? v : 0;
+}
 
 export default function OrthoPage() {
   const params = useParams();
@@ -22,6 +28,8 @@ export default function OrthoPage() {
   const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [orthoServices, setOrthoServices] = useState<ServicePriceRow[]>([]);
+  const [orthoInvoices, setOrthoInvoices] = useState<Invoice[]>([]);
+  const [orthoPayments, setOrthoPayments] = useState<any[]>([]);
   const [orthoPaid, setOrthoPaid] = useState(0); // Total paid on ortho invoices
   const [orthoOutstanding, setOrthoOutstanding] = useState(0); // Outstanding balance on ortho invoices
   const [orthoTotalPackageFee, setOrthoTotalPackageFee] = useState(0); // Total package fee including add-ons
@@ -80,9 +88,11 @@ export default function OrthoPage() {
       .order("created_at", { ascending: false })
       .limit(1);
 
+    let currentOrthoCase: OrthoCase | null = null;
     if (!caseRes.error && caseRes.data?.length) {
       const c = caseRes.data[0] as OrthoCase;
       setOrthoCase(c);
+      currentOrthoCase = c;
     } else {
       setOrthoCase(null);
     }
@@ -109,6 +119,34 @@ export default function OrthoPage() {
       setOrthoServices(servicesRes.data as ServicePriceRow[]);
     }
 
+    // Load ortho entries and items early so we can calculate charged extras
+    if (currentOrthoCase) {
+      const entriesRes = await supabase
+        .from("ortho_entries")
+        .select("*")
+        .eq("ortho_case_id", currentOrthoCase.id)
+        .order("entry_date", { ascending: false });
+
+      if (!entriesRes.error && entriesRes.data) {
+        setEntries(entriesRes.data as OrthoEntry[]);
+
+        // Load items for each entry
+        const itemsMap = new Map<string, OrthoEntryItem[]>();
+        for (const entry of entriesRes.data) {
+          const itemsRes = await supabase
+            .from("ortho_entry_items")
+            .select("*")
+            .eq("ortho_entry_id", entry.id)
+            .order("created_at", { ascending: true });
+
+          if (!itemsRes.error && itemsRes.data) {
+            itemsMap.set(entry.id, itemsRes.data as OrthoEntryItem[]);
+          }
+        }
+        setEntryItems(itemsMap);
+      }
+    }
+
     // Load next appointment
     const appointmentsRes = await supabase
       .from("appointments")
@@ -123,6 +161,35 @@ export default function OrthoPage() {
       setNextAppointment(appointmentsRes.data[0] as Appointment);
     } else {
       setNextAppointment(null);
+    }
+
+    // Load ortho invoices
+    const orthoInvoicesRes = await supabase
+      .from("invoices")
+      .select("id, invoice_number, invoice_date, status, total, created_at")
+      .eq("patient_id", id)
+      .eq("invoice_type", "ortho")
+      .order("created_at", { ascending: false });
+
+    if (!orthoInvoicesRes.error && orthoInvoicesRes.data) {
+      setOrthoInvoices(orthoInvoicesRes.data as Invoice[]);
+
+      // Load all payments for these invoices
+      const orthoInvoiceIds = (orthoInvoicesRes.data as Invoice[]).map((inv) => inv.id);
+      if (orthoInvoiceIds.length > 0) {
+        const orthoPayRes = await supabase
+          .from("payments")
+          .select("id, invoice_id, amount, payment_date, status, voided_at, created_at")
+          .in("invoice_id", orthoInvoiceIds)
+          .order("created_at", { ascending: false });
+
+        if (!orthoPayRes.error && orthoPayRes.data) {
+          setOrthoPayments(orthoPayRes.data);
+        }
+      }
+    } else {
+      setOrthoInvoices([]);
+      setOrthoPayments([]);
     }
 
     setLoading(false);
@@ -144,7 +211,6 @@ export default function OrthoPage() {
 
       // Load items for each entry
       const itemsMap = new Map<string, OrthoEntryItem[]>();
-      let totalAddOns = 0;
       
       for (const entry of entriesRes.data) {
         const itemsRes = await supabase
@@ -155,63 +221,13 @@ export default function OrthoPage() {
 
         if (!itemsRes.error && itemsRes.data) {
           itemsMap.set(entry.id, itemsRes.data as OrthoEntryItem[]);
-          
-          // Sum up ONLY charged extra add-ons (NOT the base package)
-          const chargedItems = (itemsRes.data as OrthoEntryItem[]).filter(item => item.is_charged);
-          for (const item of chargedItems) {
-            const service = orthoServices.find(s => s.id === item.service_id);
-            // Only add to total if it's not a package service (packages are base, not extras)
-            if (service && service.ortho_kind !== "package") {
-              const amount = item.amount_override || service.default_price || 0;
-              totalAddOns += Number(amount);
-            }
-          }
         }
       }
       setEntryItems(itemsMap);
-      
-      // Load all ortho invoices for this case and calculate paid/outstanding
-      const invoicesRes = await supabase
-        .from("invoices")
-        .select("id, total_amount")
-        .eq("ortho_case_id", orthoCase.id);
-
-      if (!invoicesRes.error && invoicesRes.data) {
-        let totalPaid = 0;
-        let totalInvoiced = 0;
-
-        for (const inv of invoicesRes.data) {
-          totalInvoiced += Number(inv.total_amount || 0);
-
-          // Get all payments for this invoice
-          const paymentsRes = await supabase
-            .from("payments")
-            .select("amount")
-            .eq("invoice_id", inv.id)
-            .eq("status", "verified");
-
-          if (!paymentsRes.error && paymentsRes.data) {
-            for (const payment of paymentsRes.data) {
-              totalPaid += Number(payment.amount || 0);
-            }
-          }
-        }
-
-        // Total package fee is sum of all invoices, not calculated from entries
-        setOrthoTotalPackageFee(totalInvoiced);
-        setOrthoPaid(totalPaid);
-        setOrthoOutstanding(Math.max(0, totalInvoiced - totalPaid));
-      } else {
-        // If no invoices, fall back to calculated fee from package + add-ons
-        const baseAmount = orthoCase?.package_fee ? Number(orthoCase.package_fee) : 0;
-        setOrthoTotalPackageFee(baseAmount + totalAddOns);
-        setOrthoPaid(0);
-        setOrthoOutstanding(0);
-      }
     }
 
     setEntriesLoading(false);
-  }, [orthoCase, orthoServices]);
+  }, [orthoCase]);
 
   useEffect(() => {
     loadData();
@@ -222,6 +238,43 @@ export default function OrthoPage() {
       loadEntries();
     }
   }, [orthoCase, loadEntries]);
+
+  // Calculate ortho billing overview reactively from invoices, payments, and charged entries
+  const orthoBillingOverview = useMemo(() => {
+    const totalInvoiced = orthoInvoices.reduce((sum, inv: Invoice) => {
+      return sum + num(inv.total);
+    }, 0);
+
+    // Add charged extras from entries (those with is_charged=true and not package services)
+    let chargedExtras = 0;
+    entries.forEach((entry: OrthoEntry) => {
+      const itemsForEntry = entryItems.get(entry.id) || [];
+      itemsForEntry.forEach((item: OrthoEntryItem) => {
+        if (item.is_charged) {
+          const service = orthoServices.find((s) => s.id === item.service_id);
+          // Only add if it's not a package service (packages are base components of invoice total)
+          if (service && service.ortho_kind !== "package") {
+            const amount = item.amount_override || service.default_price || 0;
+            chargedExtras += num(amount);
+          }
+        }
+      });
+    });
+
+    const totalPaid = orthoPayments
+      .filter((p: any) => !p.voided_at)
+      .reduce((sum, p) => sum + num(p.amount), 0);
+    
+    const totalChargeable = totalInvoiced + chargedExtras;
+    return { totalInvoiced: totalChargeable, totalPaid, outstanding: totalChargeable - totalPaid };
+  }, [orthoInvoices, orthoPayments, entries, entryItems, orthoServices]);
+
+  // Sync calculation results to display state
+  useEffect(() => {
+    setOrthoTotalPackageFee(orthoBillingOverview.totalInvoiced);
+    setOrthoPaid(orthoBillingOverview.totalPaid);
+    setOrthoOutstanding(Math.max(0, orthoBillingOverview.outstanding));
+  }, [orthoBillingOverview]);
 
   async function saveCase() {
     if (!id) return;
