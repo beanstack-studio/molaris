@@ -6,6 +6,17 @@
 import { supabase } from "./supabaseClient";
 
 /**
+ * Format money with peso sign, comma separators, and 2 decimals
+ * Example: formatMoney(50000) => "₱ 50,000.00"
+ */
+function formatMoney(amount: number): string {
+  return `₱ ${(amount || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/**
  * Generate invoice HTML document
  */
 export async function generateInvoiceDocument(
@@ -254,8 +265,8 @@ export async function generateInvoiceDocument(
         <tr>
           <td>${item.service_name || "—"}</td>
           <td style="text-align: center;">${item.quantity || 1}</td>
-          <td class="amount-cell">₱${(item.unit_price || 0).toFixed(2)}</td>
-          <td class="amount-cell">₱${(item.amount || 0).toFixed(2)}</td>
+          <td class="amount-cell">${formatMoney(item.unit_price || 0)}</td>
+          <td class="amount-cell">${formatMoney(item.amount || 0)}</td>
         </tr>
         `
           )
@@ -267,15 +278,15 @@ export async function generateInvoiceDocument(
       <table class="totals-table">
         <tr>
           <td>Subtotal:</td>
-          <td>₱${(invoiceData.subtotal || 0).toFixed(2)}</td>
+          <td>${formatMoney(invoiceData.subtotal || 0)}</td>
         </tr>
         <tr>
           <td>Tax/Discount:</td>
-          <td>₱${(invoiceData.tax || 0).toFixed(2)}</td>
+          <td>${formatMoney(invoiceData.tax || 0)}</td>
         </tr>
         <tr class="total-row">
           <td>Total Amount:</td>
-          <td>₱${(invoiceData.total_amount || 0).toFixed(2)}</td>
+          <td>${formatMoney(invoiceData.total_amount || 0)}</td>
         </tr>
       </table>
     </div>
@@ -497,7 +508,7 @@ export async function generatePaymentReceiptDocument(
     
     <div class="amount-box">
       <span class="amount-box-label">Amount Paid</span>
-      <div class="amount-box-value">₱${(payment.amount || 0).toFixed(2)}</div>
+      <div class="amount-box-value">${formatMoney(payment.amount || 0)}</div>
     </div>
     
     <div class="footer">
