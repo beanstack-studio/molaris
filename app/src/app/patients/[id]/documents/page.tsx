@@ -25,26 +25,11 @@ import {
 import {
   generateInvoiceDocument,
   generatePaymentReceiptDocument,
-  openDocumentInNewTab,
 } from "@/lib/invoiceReceiptGenerators";
 import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
-
-function printHtml(html: string) {
-  const w = window.open("", "", "width=800,height=600");
-  if (w) {
-    w.document.write(html);
-    w.document.close();
-    w.print();
-  }
-}
-
-function openHtml(html: string) {
-  const w = window.open("", "", "width=900,height=700");
-  if (w) {
-    w.document.write(html);
-    w.document.close();
-  }
-}
+import { generateCertificateHTML } from "@/lib/certificateGenerator";
+import { generateReferralHTML } from "@/lib/referralGenerator";
+import { openDocumentViewer } from "@/components/DocumentViewer";
 
 export default function DocumentsPage() {
   const params = useParams();
@@ -465,6 +450,69 @@ export default function DocumentsPage() {
                                     d.doc_no || "—"
                                   );
                                 }
+                                // For dental certificates, generate from payload
+                                else if (d.doc_type === DOC_TYPES.DENTAL_CERTIFICATE) {
+                                  let age: number | undefined;
+                                  if (patient?.birth_date) {
+                                    const dob = new Date(patient.birth_date);
+                                    const today = new Date();
+                                    age = today.getFullYear() - dob.getFullYear();
+                                    if (today.getMonth() < dob.getMonth() || 
+                                        (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
+                                      age--;
+                                    }
+                                  }
+                                  html = generateCertificateHTML({
+                                    patientName: patient?.full_name || "Unknown Patient",
+                                    patientAge: age,
+                                    patientAddress: patient?.address || "",
+                                    patientGender: patient?.gender || "",
+                                    visitDate: d.payload?.visit_date || "",
+                                    dentistName: d.payload?.dentist_name || "Dentist",
+                                    findings: (d.payload?.fields as any)?.findings || "",
+                                    treatmentDone: (d.payload?.fields as any)?.treatment_done || "",
+                                    remarks: (d.payload?.fields as any)?.remarks || "",
+                                    docNo: d.doc_no || "—",
+                                    clinicMeta: d.payload?.clinic_meta || {
+                                      name: "MATIRA DENTAL STUDIO",
+                                      address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
+                                      licenseNo: "[Placeholder]",
+                                      ptrNo: "[Placeholder]",
+                                    },
+                                  });
+                                }
+                                // For referral letters, generate from payload
+                                else if (d.doc_type === DOC_TYPES.REFERRAL_LETTER) {
+                                  let age: number | undefined;
+                                  if (patient?.birth_date) {
+                                    const dob = new Date(patient.birth_date);
+                                    const today = new Date();
+                                    age = today.getFullYear() - dob.getFullYear();
+                                    if (today.getMonth() < dob.getMonth() || 
+                                        (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
+                                      age--;
+                                    }
+                                  }
+                                  html = generateReferralHTML({
+                                    patientName: patient?.full_name || "Unknown Patient",
+                                    patientAge: age,
+                                    patientAddress: patient?.address || "",
+                                    patientGender: patient?.gender || "",
+                                    visitDate: d.payload?.visit_date || "",
+                                    dentistName: d.payload?.dentist_name || "Dentist",
+                                    reason: (d.payload?.fields as any)?.reason || "",
+                                    clinic: (d.payload?.fields as any)?.clinic || "",
+                                    doctor: (d.payload?.fields as any)?.doctor || "",
+                                    remarks: (d.payload?.fields as any)?.remarks || "",
+                                    docNo: d.doc_no || "—",
+                                    clinicMeta: d.payload?.clinic_meta || {
+                                      name: "MATIRA DENTAL STUDIO",
+                                      address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
+                                      licenseNo: "[Placeholder]",
+                                      ptrNo: "[Placeholder]",
+                                    },
+                                  });
+                                }
                                 // For other documents, use stored HTML
                                 else {
                                   html =
@@ -474,10 +522,11 @@ export default function DocumentsPage() {
                                 }
 
                                 if (html) {
-                                  openDocumentInNewTab(
+                                  openDocumentViewer({
                                     html,
-                                    `${getDocTypeLabel(d.doc_type)}-${d.doc_no}`
-                                  );
+                                    docType: d.doc_type || "INVOICE",
+                                    docNumber: d.doc_no || "—",
+                                  });
                                 } else if (d.doc_type !== DOC_TYPES.INVOICE && d.doc_type !== DOC_TYPES.PAYMENT_RECEIPT) {
                                   alert("No document content available for this document.");
                                 }
@@ -491,54 +540,6 @@ export default function DocumentsPage() {
                             disabled={busy}
                           >
                             Open
-                          </button>
-                          <button
-                            className="data-table-btn"
-                            onClick={async () => {
-                              try {
-                                setBusy(true);
-                                let html = "";
-
-                                // For invoices, generate HTML from invoice table
-                                if (d.doc_type === DOC_TYPES.INVOICE) {
-                                  html = await generateInvoiceDocument(
-                                    d.id,
-                                    patient?.full_name || "Patient",
-                                    d.doc_no || "—",
-                                    formatDateStandard(d.created_at?.split("T")[0] || "")
-                                  );
-                                }
-                                // For payment receipts, generate HTML from receipts table
-                                else if (d.doc_type === DOC_TYPES.PAYMENT_RECEIPT) {
-                                  html = await generatePaymentReceiptDocument(
-                                    (d as any).payload?.payment_id || d.id,
-                                    patient?.full_name || "Patient",
-                                    d.doc_no || "—"
-                                  );
-                                }
-                                // For other documents, use stored HTML
-                                else {
-                                  html =
-                                    d.payload?.rendered_html ||
-                                    (d as any).payload?.renderedHtml ||
-                                    "";
-                                }
-
-                                if (html) {
-                                  printHtml(html);
-                                } else if (d.doc_type !== DOC_TYPES.INVOICE && d.doc_type !== DOC_TYPES.PAYMENT_RECEIPT) {
-                                  alert("No document content available for this document.");
-                                }
-                              } catch (error) {
-                                console.error("Error printing document:", error);
-                                alert("Failed to print document");
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                            disabled={busy}
-                          >
-                            Print
                           </button>
                           <button
                             className="data-table-btn data-table-btn-danger"

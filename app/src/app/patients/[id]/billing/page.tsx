@@ -20,7 +20,8 @@ import { formatMoney, formatDatePH, formatDateStandard, todayLocalISO, combineFu
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
 import { generateReceipt, voidPayment } from "@/lib/receiptHelpers";
 import { getNextTransactionNumber, getNextInvoiceNumber } from "@/lib/numberGenerationHelpers";
-import { generateInvoiceDocument, generatePaymentReceiptDocument, openDocumentInNewTab } from "@/lib/invoiceReceiptGenerators";
+import { generateInvoiceDocument, generatePaymentReceiptDocument } from "@/lib/invoiceReceiptGenerators";
+import { openDocumentViewer } from "@/components/DocumentViewer";
 
 /* Helpers */
 function num(n: unknown) {
@@ -999,7 +1000,11 @@ export default function BillingPage() {
                                     inv.invoice_number,
                                     formatDateStandard(inv.invoice_date)
                                   );
-                                  openDocumentInNewTab(html, `Invoice-${inv.invoice_number}`);
+                                  openDocumentViewer({
+                                    html,
+                                    docType: "INVOICE",
+                                    docNumber: inv.invoice_number,
+                                  });
                                 } catch (error) {
                                   console.error("Error generating invoice document:", error);
                                   alert("Failed to generate invoice document");
@@ -1119,7 +1124,11 @@ export default function BillingPage() {
                                           patient?.full_name || "Patient",
                                           pay.transaction_id || "PMT00000"
                                         );
-                                        openDocumentInNewTab(html, `Receipt-${pay.transaction_id}`);
+                                        openDocumentViewer({
+                                          html,
+                                          docType: "PAYMENT_RECEIPT",
+                                          docNumber: pay.transaction_id || "PMT00000",
+                                        });
                                       } catch (error) {
                                         console.error("Error generating receipt:", error);
                                         alert("Failed to generate receipt");

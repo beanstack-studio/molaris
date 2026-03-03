@@ -1,5 +1,3 @@
-import { Patient } from "./types";
-
 export interface PrescriptionData {
   patientName: string;
   patientAge?: number;
@@ -69,11 +67,11 @@ export function generatePrescriptionHTML(data: PrescriptionData): string {
     }
     
     .page {
-      width: 8.27in;
-      height: 11.69in;
+      width: 5.83in;
+      height: 8.27in;
       background: white;
       margin: 20px auto;
-      padding: 20px;
+      padding: 15px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       page-break-after: always;
     }
