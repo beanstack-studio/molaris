@@ -17,6 +17,24 @@ function formatMoney(amount: number): string {
 }
 
 /**
+ * Format date consistently across documents
+ * Example: "February 24, 2026" (matches prescription/certificate/referral format)
+ */
+function formatDateDocument(isoDate: string): string {
+  if (!isoDate) return "—";
+  try {
+    const date = new Date(isoDate);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return isoDate;
+  }
+}
+
+/**
  * Generate invoice HTML document
  */
 export async function generateInvoiceDocument(
@@ -231,7 +249,7 @@ export async function generateInvoiceDocument(
     </div>
     
     <div class="disclaimer">
-      <strong>Invoice #${invoiceNumber}</strong> | Date: ${new Date(invoiceData.created_at || new Date()).toLocaleDateString("en-PH")}
+      <strong>Invoice #${invoiceNumber}</strong> | Date: ${formatDateDocument(invoiceData.created_at || new Date().toISOString())}
     </div>
     
     <div class="invoice-details">
@@ -483,7 +501,7 @@ export async function generatePaymentReceiptDocument(
       </div>
       <div class="receipt-details-item">
         <div class="receipt-details-label">Date</div>
-        <div class="receipt-details-value">${new Date(payment.payment_date).toLocaleDateString("en-PH")}</div>
+        <div class="receipt-details-value">${formatDateDocument(payment.payment_date)}</div>
       </div>
       <div class="receipt-details-item">
         <div class="receipt-details-label">Patient</div>
