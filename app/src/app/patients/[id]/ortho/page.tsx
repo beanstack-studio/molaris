@@ -170,9 +170,44 @@ export default function OrthoPage() {
       }
       setEntryItems(itemsMap);
       
-      // Calculate total package fee including add-ons
-      const baseAmount = orthoCase?.package_fee ? Number(orthoCase.package_fee) : 0;
-      setOrthoTotalPackageFee(baseAmount + totalAddOns);
+      // Load all ortho invoices for this case and calculate paid/outstanding
+      const invoicesRes = await supabase
+        .from("invoices")
+        .select("id, total_amount")
+        .eq("ortho_case_id", orthoCase.id);
+
+      if (!invoicesRes.error && invoicesRes.data) {
+        let totalPaid = 0;
+        let totalInvoiced = 0;
+
+        for (const inv of invoicesRes.data) {
+          totalInvoiced += Number(inv.total_amount || 0);
+
+          // Get all payments for this invoice
+          const paymentsRes = await supabase
+            .from("payments")
+            .select("amount")
+            .eq("invoice_id", inv.id)
+            .eq("status", "verified");
+
+          if (!paymentsRes.error && paymentsRes.data) {
+            for (const payment of paymentsRes.data) {
+              totalPaid += Number(payment.amount || 0);
+            }
+          }
+        }
+
+        // Total package fee is sum of all invoices, not calculated from entries
+        setOrthoTotalPackageFee(totalInvoiced);
+        setOrthoPaid(totalPaid);
+        setOrthoOutstanding(Math.max(0, totalInvoiced - totalPaid));
+      } else {
+        // If no invoices, fall back to calculated fee from package + add-ons
+        const baseAmount = orthoCase?.package_fee ? Number(orthoCase.package_fee) : 0;
+        setOrthoTotalPackageFee(baseAmount + totalAddOns);
+        setOrthoPaid(0);
+        setOrthoOutstanding(0);
+      }
     }
 
     setEntriesLoading(false);
@@ -541,7 +576,7 @@ export default function OrthoPage() {
                     <span className="field-label-text">Total Package Fee</span>
                     <input 
                       className="field-input-readonly" 
-                      value={orthoTotalPackageFee ? `₱ ${Number(orthoTotalPackageFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""} 
+                      value={orthoTotalPackageFee ? `₱ ${Number(orthoTotalPackageFee).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""} 
                       readOnly 
                     />
                   </label>
@@ -549,7 +584,7 @@ export default function OrthoPage() {
                     <span className="field-label-text">Paid</span>
                     <input 
                       className="field-input-readonly" 
-                      value={`₱ ${Number(orthoPaid).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
+                      value={`₱ ${Number(orthoPaid).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
                       readOnly 
                     />
                   </label>
@@ -557,7 +592,7 @@ export default function OrthoPage() {
                     <span className="field-label-text">Outstanding</span>
                     <input 
                       className="field-input-readonly" 
-                      value={`₱ ${Number(orthoOutstanding).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
+                      value={`₱ ${Number(orthoOutstanding).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
                       readOnly 
                     />
                   </label>
