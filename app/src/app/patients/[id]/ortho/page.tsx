@@ -156,12 +156,15 @@ export default function OrthoPage() {
         if (!itemsRes.error && itemsRes.data) {
           itemsMap.set(entry.id, itemsRes.data as OrthoEntryItem[]);
           
-          // Sum up charged add-ons
+          // Sum up ONLY charged extra add-ons (NOT the base package)
           const chargedItems = (itemsRes.data as OrthoEntryItem[]).filter(item => item.is_charged);
           for (const item of chargedItems) {
-            const amount = item.amount_override || 
-              orthoServices.find(s => s.id === item.service_id)?.default_price || 0;
-            totalAddOns += Number(amount);
+            const service = orthoServices.find(s => s.id === item.service_id);
+            // Only add to total if it's not a package service (packages are base, not extras)
+            if (service && service.ortho_kind !== "package") {
+              const amount = item.amount_override || service.default_price || 0;
+              totalAddOns += Number(amount);
+            }
           }
         }
       }
@@ -173,7 +176,7 @@ export default function OrthoPage() {
     }
 
     setEntriesLoading(false);
-  }, [orthoCase]);
+  }, [orthoCase, orthoServices]);
 
   useEffect(() => {
     loadData();

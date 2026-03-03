@@ -244,10 +244,27 @@ export default function DocumentsPage() {
       if (selectedDocType === DOC_TYPES.PRESCRIPTION) {
         // Clean medications (remove id field) before storing to payload
         const cleanMedications = rxMedications.map(({ id, ...med }) => med);
+        
+        // Calculate age from DOB if available
+        let age: number | undefined;
+        if (patient.birth_date) {
+          const dob = new Date(patient.birth_date);
+          const today = new Date();
+          age = today.getFullYear() - dob.getFullYear();
+          if (today.getMonth() < dob.getMonth() || 
+              (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
+            age--;
+          }
+        }
+        
         payload.fields = {
           medications: cleanMedications,
           remarks: rxRemarks || null,
           next_checkup_date: rxNextCheckup || null,
+          patient_age: age,
+          patient_address: patient.address || "",
+          patient_gender: patient.gender || "",
+          visit_date: docVisitDate,
         };
       } else if (selectedDocType === DOC_TYPES.DENTAL_CERTIFICATE) {
         payload.fields = {

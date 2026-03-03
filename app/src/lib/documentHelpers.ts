@@ -4,6 +4,7 @@
  */
 
 import { supabase } from "./supabaseClient";
+import { generatePrescriptionHTML } from "./prescriptionGenerator";
 
 /**
  * Document Type Constants
@@ -154,17 +155,33 @@ export async function createDocument(input: CreateDocumentInput) {
     const docNo = await getNextDocNo(input.docType);
     const docCode = getDocCode(input.docType);
 
+    let payload: any = { ...input.payload, doc_no: docNo, doc_code: docCode };
+
+    // For PRESCRIPTION documents, regenerate HTML with the correct doc_no
+    if (input.docType === DOC_TYPES.PRESCRIPTION && input.payload?.fields?.medications) {
+      const prescriptionData = {
+        patientName: input.patientName || "",
+        patientAge: input.payload?.fields?.patient_age,
+        patientAddress: input.payload?.fields?.patient_address,
+        patientGender: input.payload?.fields?.patient_gender,
+        visitDate: input.payload?.fields?.visit_date || new Date().toISOString().split("T")[0],
+        dentistName: input.dentistName || "",
+        medications: input.payload?.fields?.medications || [],
+        remarks: input.payload?.fields?.remarks || "",
+        docNo: docNo,
+        clinicMeta: input.payload?.clinic_meta,
+      };
+      const regeneratedHtml = generatePrescriptionHTML(prescriptionData);
+      payload.rendered_html = regeneratedHtml;
+    }
+
     const documentRecord = {
       patient_id: input.patientId || null,
       patient_name: input.patientName || null,
       doc_type: input.docType,
       doc_code: docCode,
       doc_no: docNo,
-      payload: {
-        ...input.payload,
-        doc_no: docNo,
-        doc_code: docCode,
-      },
+      payload,
       clinic_meta: input.payload?.clinic_meta || {},
       dentist_name: input.dentistName || null,
       dentist_prc: input.payload?.dentist_prc || null,

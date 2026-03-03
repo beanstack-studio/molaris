@@ -25,7 +25,7 @@ export interface PrescriptionData {
 }
 
 /**
- * Generate prescription HTML (half A4 page)
+ * Generate prescription HTML (full A4 page)
  */
 export function generatePrescriptionHTML(data: PrescriptionData): string {
   const {
@@ -69,8 +69,8 @@ export function generatePrescriptionHTML(data: PrescriptionData): string {
     }
     
     .page {
-      width: 5.83in;
-      height: 8.27in;
+      width: 8.27in;
+      height: 11.69in;
       background: white;
       margin: 20px auto;
       padding: 20px;
