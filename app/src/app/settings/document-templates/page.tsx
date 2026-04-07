@@ -3,8 +3,6 @@
 export default function DocumentTemplatesSettingsPage() {
   return (
     <>
-      <div className="page-content">
-        <div className="page-sections">
           <div className="card">
             <div className="card-header">
               <div className="card-title">Document Templates</div>
@@ -18,8 +16,6 @@ export default function DocumentTemplatesSettingsPage() {
               <p className="empty-state-hint">We'll connect this to your document_templates table and add logo support.</p>
             </div>
           </div>
-        </div>
-      </div>
     </>
   );
 }

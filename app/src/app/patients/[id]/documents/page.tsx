@@ -361,214 +361,210 @@ export default function DocumentsPage() {
     <>
       {error ? <div className="error-banner">{error}</div> : null}
 
-      <div className="page-content">
-        <div className="page-sections">
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">Documents</div>
-              <div className="inline-row">
-                <select
-                  className="form-select-standard"
-                  value={docSort}
-                  onChange={(e) => setDocSort(e.target.value as any)}
-                >
-                  <option value="DATE_DESC">Newest</option>
-                  <option value="DATE_ASC">Oldest</option>
-                  <option value="TYPE_ASC">Type A–Z</option>
-                </select>
-                <button
-                  className="save-btn"
-                  onClick={() => setShowGenerateModal(true)}
-                >
-                  Generate document
-                </button>
-              </div>
-            </div>
-
-            {/* Generated Documents List */}
-            <div className="table-wrapper">
-              <table className="data-table">
-                <colgroup>
-                  <col className="col-20" />
-                  <col className="col-20" />
-                  <col className="col-20" />
-                  <col className="col-25" />
-                  <col className="col-15" />
-                </colgroup>
-                <thead className="data-table-head">
-                  <tr>
-                    <th className="data-table-head-cell">Date</th>
-                    <th className="data-table-head-cell">Type</th>
-                    <th className="data-table-head-cell">Doc No.</th>
-                    <th className="data-table-head-cell">Issued By</th>
-                    <th className="data-table-head-cell-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedDocuments.map((d, index) => (
-                    <tr
-                      key={d.id}
-                      className={`data-table-row ${
-                        index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
-                      }`}
-                    >
-                      <td className="data-table-cell">
-                        {formatDateStandard(d.created_at?.split("T")[0] || "")}
-                      </td>
-                      <td className="data-table-cell">
-                        {getDocTypeLabel(d.doc_type)}
-                      </td>
-                      <td className="data-table-cell">
-                        {d.doc_no || (d as any).doc_number || "—"}
-                      </td>
-                      <td className="data-table-cell">
-                        {d.issued_by ?? (d as any).issued_by ?? "—"}
-                      </td>
-                      <td className="data-table-cell-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="data-table-btn"
-                            onClick={async () => {
-                              try {
-                                setBusy(true);
-                                let html = "";
-
-                                // For invoices, generate HTML from invoice table
-                                if (d.doc_type === DOC_TYPES.INVOICE) {
-                                  html = await generateInvoiceDocument(
-                                    d.id,
-                                    patient?.full_name || "Patient",
-                                    d.doc_no || "—",
-                                    formatDateStandard(d.created_at?.split("T")[0] || "")
-                                  );
-                                }
-                                // For payment receipts, generate HTML from receipts table
-                                else if (d.doc_type === DOC_TYPES.PAYMENT_RECEIPT) {
-                                  html = await generatePaymentReceiptDocument(
-                                    (d as any).payload?.payment_id || d.id,
-                                    patient?.full_name || "Patient",
-                                    d.doc_no || "—"
-                                  );
-                                }
-                                // For dental certificates, generate from payload
-                                else if (d.doc_type === DOC_TYPES.DENTAL_CERTIFICATE) {
-                                  let age: number | undefined;
-                                  if (patient?.birth_date) {
-                                    const dob = new Date(patient.birth_date);
-                                    const today = new Date();
-                                    age = today.getFullYear() - dob.getFullYear();
-                                    if (today.getMonth() < dob.getMonth() || 
-                                        (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
-                                      age--;
-                                    }
-                                  }
-                                  html = generateCertificateHTML({
-                                    patientName: patient?.full_name || "Unknown Patient",
-                                    patientAge: age,
-                                    patientAddress: patient?.address || "",
-                                    patientGender: patient?.gender || "",
-                                    visitDate: d.payload?.visit_date || "",
-                                    dentistName: d.payload?.dentist_name || "Dentist",
-                                    findings: (d.payload?.fields as any)?.findings || "",
-                                    treatmentDone: (d.payload?.fields as any)?.treatment_done || "",
-                                    remarks: (d.payload?.fields as any)?.remarks || "",
-                                    docNo: d.doc_no || "—",
-                                    clinicMeta: d.payload?.clinic_meta || {
-                                      name: "MATIRA DENTAL STUDIO",
-                                      address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
-                                      licenseNo: "[Placeholder]",
-                                      ptrNo: "[Placeholder]",
-                                    },
-                                  });
-                                }
-                                // For referral letters, generate from payload
-                                else if (d.doc_type === DOC_TYPES.REFERRAL_LETTER) {
-                                  let age: number | undefined;
-                                  if (patient?.birth_date) {
-                                    const dob = new Date(patient.birth_date);
-                                    const today = new Date();
-                                    age = today.getFullYear() - dob.getFullYear();
-                                    if (today.getMonth() < dob.getMonth() || 
-                                        (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
-                                      age--;
-                                    }
-                                  }
-                                  html = generateReferralHTML({
-                                    patientName: patient?.full_name || "Unknown Patient",
-                                    patientAge: age,
-                                    patientAddress: patient?.address || "",
-                                    patientGender: patient?.gender || "",
-                                    visitDate: d.payload?.visit_date || "",
-                                    dentistName: d.payload?.dentist_name || "Dentist",
-                                    reason: (d.payload?.fields as any)?.reason || "",
-                                    clinic: (d.payload?.fields as any)?.clinic || "",
-                                    doctor: (d.payload?.fields as any)?.doctor || "",
-                                    remarks: (d.payload?.fields as any)?.remarks || "",
-                                    docNo: d.doc_no || "—",
-                                    clinicMeta: d.payload?.clinic_meta || {
-                                      name: "MATIRA DENTAL STUDIO",
-                                      address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
-                                      licenseNo: "[Placeholder]",
-                                      ptrNo: "[Placeholder]",
-                                    },
-                                  });
-                                }
-                                // For other documents, use stored HTML
-                                else {
-                                  html =
-                                    d.payload?.rendered_html ||
-                                    (d as any).payload?.renderedHtml ||
-                                    "";
-                                }
-
-                                if (html) {
-                                  openDocumentViewer({
-                                    html,
-                                    docType: d.doc_type || "INVOICE",
-                                    docNumber: d.doc_no || "—",
-                                  });
-                                } else if (d.doc_type !== DOC_TYPES.INVOICE && d.doc_type !== DOC_TYPES.PAYMENT_RECEIPT) {
-                                  alert("No document content available for this document.");
-                                }
-                              } catch (error) {
-                                console.error("Error opening document:", error);
-                                alert("Failed to open document");
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                            disabled={busy}
-                          >
-                            Open
-                          </button>
-                          <button
-                            className="data-table-btn data-table-btn-danger"
-                            onClick={() => {
-                              setDeleteDocId(d.id);
-                              setDeleteConfirmation("");
-                              setShowDeleteModal(true);
-                            }}
-                            disabled={busy}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {displayedDocuments.length === 0 ? (
-                    <tr>
-                      <td className="data-table-empty" colSpan={5}>
-                        No documents yet.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Documents</div>
+            <div className="inline-row">
+              <select
+                className="form-select-standard"
+                value={docSort}
+                onChange={(e) => setDocSort(e.target.value as any)}
+              >
+                <option value="DATE_DESC">Newest</option>
+                <option value="DATE_ASC">Oldest</option>
+                <option value="TYPE_ASC">Type A–Z</option>
+              </select>
+              <button
+                className="save-btn"
+                onClick={() => setShowGenerateModal(true)}
+              >
+                Generate document
+              </button>
             </div>
           </div>
+
+          {/* Generated Documents List */}
+          <div className="table-wrapper">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-20" />
+                <col className="col-20" />
+                <col className="col-20" />
+                <col className="col-25" />
+                <col className="col-15" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Date</th>
+                  <th className="data-table-head-cell">Type</th>
+                  <th className="data-table-head-cell">Doc No.</th>
+                  <th className="data-table-head-cell">Issued By</th>
+                  <th className="data-table-head-cell-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedDocuments.map((d, index) => (
+                  <tr
+                    key={d.id}
+                    className={`data-table-row ${
+                      index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
+                    }`}
+                  >
+                    <td className="data-table-cell">
+                      {formatDateStandard(d.created_at?.split("T")[0] || "")}
+                    </td>
+                    <td className="data-table-cell">
+                      {getDocTypeLabel(d.doc_type)}
+                    </td>
+                    <td className="data-table-cell">
+                      {d.doc_no || (d as any).doc_number || "—"}
+                    </td>
+                    <td className="data-table-cell">
+                      {d.issued_by ?? (d as any).issued_by ?? "—"}
+                    </td>
+                    <td className="data-table-cell-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          className="data-table-btn"
+                          onClick={async () => {
+                            try {
+                              setBusy(true);
+                              let html = "";
+
+                              // For invoices, generate HTML from invoice table
+                              if (d.doc_type === DOC_TYPES.INVOICE) {
+                                html = await generateInvoiceDocument(
+                                  d.id,
+                                  patient?.full_name || "Patient",
+                                  d.doc_no || "—",
+                                  formatDateStandard(d.created_at?.split("T")[0] || "")
+                                );
+                              }
+                              // For payment receipts, generate HTML from receipts table
+                              else if (d.doc_type === DOC_TYPES.PAYMENT_RECEIPT) {
+                                html = await generatePaymentReceiptDocument(
+                                  (d as any).payload?.payment_id || d.id,
+                                  patient?.full_name || "Patient",
+                                  d.doc_no || "—"
+                                );
+                              }
+                              // For dental certificates, generate from payload
+                              else if (d.doc_type === DOC_TYPES.DENTAL_CERTIFICATE) {
+                                let age: number | undefined;
+                                if (patient?.birth_date) {
+                                  const dob = new Date(patient.birth_date);
+                                  const today = new Date();
+                                  age = today.getFullYear() - dob.getFullYear();
+                                  if (today.getMonth() < dob.getMonth() || 
+                                      (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
+                                    age--;
+                                  }
+                                }
+                                html = generateCertificateHTML({
+                                  patientName: patient?.full_name || "Unknown Patient",
+                                  patientAge: age,
+                                  patientAddress: patient?.address || "",
+                                  patientGender: patient?.gender || "",
+                                  visitDate: d.payload?.visit_date || "",
+                                  dentistName: d.payload?.dentist_name || "Dentist",
+                                  findings: (d.payload?.fields as any)?.findings || "",
+                                  treatmentDone: (d.payload?.fields as any)?.treatment_done || "",
+                                  remarks: (d.payload?.fields as any)?.remarks || "",
+                                  docNo: d.doc_no || "—",
+                                  clinicMeta: d.payload?.clinic_meta || {
+                                    name: "MATIRA DENTAL STUDIO",
+                                    address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
+                                    licenseNo: "[Placeholder]",
+                                    ptrNo: "[Placeholder]",
+                                  },
+                                });
+                              }
+                              // For referral letters, generate from payload
+                              else if (d.doc_type === DOC_TYPES.REFERRAL_LETTER) {
+                                let age: number | undefined;
+                                if (patient?.birth_date) {
+                                  const dob = new Date(patient.birth_date);
+                                  const today = new Date();
+                                  age = today.getFullYear() - dob.getFullYear();
+                                  if (today.getMonth() < dob.getMonth() || 
+                                      (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
+                                    age--;
+                                  }
+                                }
+                                html = generateReferralHTML({
+                                  patientName: patient?.full_name || "Unknown Patient",
+                                  patientAge: age,
+                                  patientAddress: patient?.address || "",
+                                  patientGender: patient?.gender || "",
+                                  visitDate: d.payload?.visit_date || "",
+                                  dentistName: d.payload?.dentist_name || "Dentist",
+                                  reason: (d.payload?.fields as any)?.reason || "",
+                                  clinic: (d.payload?.fields as any)?.clinic || "",
+                                  doctor: (d.payload?.fields as any)?.doctor || "",
+                                  remarks: (d.payload?.fields as any)?.remarks || "",
+                                  docNo: d.doc_no || "—",
+                                  clinicMeta: d.payload?.clinic_meta || {
+                                    name: "MATIRA DENTAL STUDIO",
+                                    address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
+                                    licenseNo: "[Placeholder]",
+                                    ptrNo: "[Placeholder]",
+                                  },
+                                });
+                              }
+                              // For other documents, use stored HTML
+                              else {
+                                html =
+                                  d.payload?.rendered_html ||
+                                  (d as any).payload?.renderedHtml ||
+                                  "";
+                              }
+
+                              if (html) {
+                                openDocumentViewer({
+                                  html,
+                                  docType: d.doc_type || "INVOICE",
+                                  docNumber: d.doc_no || "—",
+                                });
+                              } else if (d.doc_type !== DOC_TYPES.INVOICE && d.doc_type !== DOC_TYPES.PAYMENT_RECEIPT) {
+                                alert("No document content available for this document.");
+                              }
+                            } catch (error) {
+                              console.error("Error opening document:", error);
+                              alert("Failed to open document");
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                          disabled={busy}
+                        >
+                          Open
+                        </button>
+                        <button
+                          className="data-table-btn data-table-btn-danger"
+                          onClick={() => {
+                            setDeleteDocId(d.id);
+                            setDeleteConfirmation("");
+                            setShowDeleteModal(true);
+                          }}
+                          disabled={busy}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {displayedDocuments.length === 0 ? (
+                  <tr>
+                    <td className="data-table-empty" colSpan={5}>
+                      No documents yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
       {/* Generate Document Modal - Type-First UX */}
       <EditModal

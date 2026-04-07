@@ -875,8 +875,6 @@ export default function BillingPage() {
     <>
       {error ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{error}</div> : null}
 
-      <div className="page-content">
-        <div className="page-sections">
             {/* Billing Overview (MUST COME FIRST) */}
             <div className="card">
               <div className="card-header">
@@ -1158,8 +1156,6 @@ export default function BillingPage() {
                 </div>
               </div>
 
-            </div>
-        </div>
 
         <CreateInvoiceModal
           open={showCreateInvoice}

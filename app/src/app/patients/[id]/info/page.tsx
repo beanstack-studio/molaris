@@ -227,81 +227,78 @@ export default function Page() {
     <>
       {error ? <div className="error-banner">{error}</div> : null}
 
-      <div className="page-content">
-        <div className="page-sections">
-          {/* Patient Information Box */}
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">Patient Information</div>
-              <button className="save-btn" onClick={() => setEditOpen(true)}>
-                Edit
-              </button>
-            </div>
-            <div className="spacing-vertical-lg">
-              {/* Row 1: Last name, First name - 50/50 */}
-              <div className="two-col-grid">
-                <label className="field-label">
-                  <span className="field-label-text">Last name</span>
-                  <input className="field-input-readonly" value={patient.last_name ?? ""} readOnly />
-                </label>
-                <label className="field-label">
-                  <span className="field-label-text">First name</span>
-                  <input className="field-input-readonly" value={patient.first_name ?? ""} readOnly />
-                </label>
-              </div>
-
-              {/* Row 2: Birthday, Age, Gender - 33/33/33 */}
-              <div className="grid-gap-4-cols-3">
-                <label className="field-label">
-                  <span className="field-label-text">Date of birth</span>
-                  <input className="field-input-readonly" value={formatDateStandard(patient.birth_date)} readOnly />
-                </label>
-                <label className="field-label">
-                  <span className="field-label-text">Age</span>
-                  <input className="field-input-readonly" value={calcAge(patient.birth_date)?.toString() ?? ""} readOnly />
-                </label>
-                <label className="field-label">
-                  <span className="field-label-text">Gender</span>
-                  <input className="field-input-readonly" value={formatGenderLabel(patient.gender)} readOnly />
-                </label>
-              </div>
-
-              {/* Row 3: Phone 25%, Address 75% */}
-              <div className="grid-gap-4-cols-4">
-                <label className="field-label">
-                  <span className="field-label-text">Phone number</span>
-                  <input className="field-input-readonly" value={formatPhoneLocal(patient.phone ?? "")} readOnly />
-                </label>
-                <label className="field-label col-span-3">
-                  <span className="field-label-text">Address</span>
-                  <input className="field-input-readonly" value={patient.address ?? ""} readOnly />
-                </label>
-              </div>
-            </div>
+        {/* Patient Information Box */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Patient Information</div>
+            <button className="save-btn" onClick={() => setEditOpen(true)}>
+              Edit
+            </button>
           </div>
-
-          {/* Last Visit Box */}
-          <div className="card-muted">
-            <div className="card-header">
-              <div className="card-title">Last visit</div>
+          <div className="spacing-vertical-lg">
+            {/* Row 1: Last name, First name - 50/50 */}
+            <div className="two-col-grid">
+              <label className="field-label">
+                <span className="field-label-text">Last name</span>
+                <input className="field-input-readonly" value={patient.last_name ?? ""} readOnly />
+              </label>
+              <label className="field-label">
+                <span className="field-label-text">First name</span>
+                <input className="field-input-readonly" value={patient.first_name ?? ""} readOnly />
+              </label>
             </div>
-            <div className="card-grid-3">
+
+            {/* Row 2: Birthday, Age, Gender - 33/33/33 */}
+            <div className="grid-gap-4-cols-3">
               <label className="field-label">
-                <span className="field-label-text">Date</span>
-                <input className="field-input-white" value={lastVisitDate ? formatDateStandard(lastVisitDate) : ""} readOnly />
+                <span className="field-label-text">Date of birth</span>
+                <input className="field-input-readonly" value={formatDateStandard(patient.birth_date)} readOnly />
               </label>
               <label className="field-label">
-                <span className="field-label-text">Dentist</span>
-                <input className="field-input-white" value={lastVisitDentist || ""} readOnly />
+                <span className="field-label-text">Age</span>
+                <input className="field-input-readonly" value={calcAge(patient.birth_date)?.toString() ?? ""} readOnly />
               </label>
               <label className="field-label">
-                <span className="field-label-text">Concern</span>
-                <input className="field-input-white" value={lastVisitConcern || ""} readOnly />
+                <span className="field-label-text">Gender</span>
+                <input className="field-input-readonly" value={formatGenderLabel(patient.gender)} readOnly />
+              </label>
+            </div>
+
+            {/* Row 3: Phone 25%, Address 75% */}
+            <div className="grid-gap-4-cols-4">
+              <label className="field-label">
+                <span className="field-label-text">Phone number</span>
+                <input className="field-input-readonly" value={formatPhoneLocal(patient.phone ?? "")} readOnly />
+              </label>
+              <label className="field-label col-span-3">
+                <span className="field-label-text">Address</span>
+                <input className="field-input-readonly" value={patient.address ?? ""} readOnly />
               </label>
             </div>
           </div>
         </div>
-      </div>
+
+        {/* Last Visit Box */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Last visit</div>
+          </div>
+          <div className="grid-gap-4-cols-3">
+            <label className="field-label">
+              <span className="field-label-text">Date</span>
+              <input className="field-input-readonly" value={lastVisitDate ? formatDateStandard(lastVisitDate) : ""} readOnly />
+            </label>
+            <label className="field-label">
+              <span className="field-label-text">Dentist</span>
+              <input className="field-input-readonly" value={lastVisitDentist || ""} readOnly />
+            </label>
+            <label className="field-label">
+              <span className="field-label-text">Concern</span>
+              <input className="field-input-readonly" value={lastVisitConcern || ""} readOnly />
+            </label>
+          </div>
+        </div>
+      
 
       {/* Edit Modal */}
       <EditModal open={editOpen} title="Edit patient" onClose={() => setEditOpen(false)}>

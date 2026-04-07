@@ -2,9 +2,7 @@
 
 export default function ReportsOverviewPage() {
   return (
-    <div className="page-content">
-      <div className="page-sections">
-      <div className="card">
+    <div className="card">
         <div className="card-header">
           <div className="card-title">Welcome to Reports</div>
         </div>
@@ -43,8 +41,6 @@ export default function ReportsOverviewPage() {
             <p className="text-sm text-rose-700 mt-2">Overall KPIs and clinic health metrics</p>
           </div>
         </div>
-      </div>
-      </div>
     </div>
   );
 }

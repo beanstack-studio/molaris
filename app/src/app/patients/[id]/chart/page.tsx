@@ -271,257 +271,255 @@ export default function ChartPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-      <div className="page-content">
-        <div className="page-sections">
-          <div className="card">
-            <ToothChart
-              entries={chart ?? []}
-              statuses={toothStatuses}
-              selectedTooth={selectedTooth}
-              previewStatus={selectedTooth ? pendingStatus : null}
-              onSelectTooth={(n) => {
-                setSelectedTooth(n);
-                setToothNote(toothStatuses[n]?.note ?? "");
-                setPendingStatus(toothStatuses[n]?.status ?? "HEALTHY");
-                setSurfaceSel([]);
-                setFindingDetail("");
-              }}
-            />
+    
+        <div className="card">
+          <ToothChart
+            entries={chart ?? []}
+            statuses={toothStatuses}
+            selectedTooth={selectedTooth}
+            previewStatus={selectedTooth ? pendingStatus : null}
+            onSelectTooth={(n) => {
+              setSelectedTooth(n);
+              setToothNote(toothStatuses[n]?.note ?? "");
+              setPendingStatus(toothStatuses[n]?.status ?? "HEALTHY");
+              setSurfaceSel([]);
+              setFindingDetail("");
+            }}
+          />
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Tooth tools</div>
+          </div>
+
+          <div className="mt-2 text-left text-sm text-slate-700">
+            Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
+          </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              {/* LEFT COLUMN - Add/Update Status */}
+              <div>
+                <div className="text-xs-semibold-slate-600-uppercase">Set Status</div>
+                
+                <div className="flex-wrap-gap-2-mt-2">
+                  {(
+                    [
+                      "HEALTHY",
+                      "CARIES",
+                      "FILLED",
+                      "MISSING",
+                      "IMPLANT",
+                      "CROWN",
+                      "DENTURE",
+                      "RCT",
+                      "EXTRACTED",
+                    ] as const
+                  ).map((status) => {
+                    const theme = getStatusTheme(status);
+                    const isSelected = pendingStatus === status;
+                    const primaryClass = (() => {
+                      if (status === "HEALTHY") return "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200 hover:border-slate-400 hover:shadow-sm";
+                      if (status === "CARIES") return "bg-rose-100 border-rose-300 text-rose-800 hover:bg-rose-200 hover:border-rose-400 hover:shadow-sm";
+                      if (status === "FILLED") return "bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200 hover:border-emerald-400 hover:shadow-sm";
+                      if (status === "MISSING") return "bg-slate-200 border-slate-400 text-slate-800 hover:bg-slate-300 hover:border-slate-500 hover:shadow-sm";
+                      if (status === "EXTRACTED") return "bg-orange-100 border-orange-300 text-orange-800 hover:bg-orange-200 hover:border-orange-400 hover:shadow-sm";
+                      if (status === "RCT") return "bg-indigo-100 border-indigo-300 text-indigo-800 hover:bg-indigo-200 hover:border-indigo-400 hover:shadow-sm";
+                      if (status === "CROWN") return "bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200 hover:border-amber-400 hover:shadow-sm";
+                      if (status === "DENTURE") return "bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-200 hover:border-purple-400 hover:shadow-sm";
+                      if (status === "IMPLANT") return "bg-cyan-100 border-cyan-300 text-cyan-800 hover:bg-cyan-200 hover:border-cyan-400 hover:shadow-sm";
+                      return "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200 hover:border-slate-400 hover:shadow-sm";
+                    })();
+                    const selectedClass = (() => {
+                      if (status === "HEALTHY") return "bg-slate-800 border-slate-900 text-white shadow-lg ring-2 ring-slate-300";
+                      if (status === "CARIES") return "bg-rose-600 border-rose-700 text-white shadow-lg ring-2 ring-rose-200";
+                      if (status === "FILLED") return "bg-emerald-600 border-emerald-700 text-white shadow-lg ring-2 ring-emerald-200";
+                      if (status === "MISSING") return "bg-slate-700 border-slate-800 text-white shadow-lg ring-2 ring-slate-200";
+                      if (status === "EXTRACTED") return "bg-orange-600 border-orange-700 text-white shadow-lg ring-2 ring-orange-200";
+                      if (status === "RCT") return "bg-indigo-600 border-indigo-700 text-white shadow-lg ring-2 ring-indigo-200";
+                      if (status === "CROWN") return "bg-amber-600 border-amber-700 text-white shadow-lg ring-2 ring-amber-200";
+                      if (status === "DENTURE") return "bg-purple-600 border-purple-700 text-white shadow-lg ring-2 ring-purple-200";
+                      if (status === "IMPLANT") return "bg-cyan-600 border-cyan-700 text-white shadow-lg ring-2 ring-cyan-200";
+                      return "bg-slate-800 border-slate-900 text-white shadow-lg ring-2 ring-slate-300";
+                    })();
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setPendingStatus(status)}
+                        className={[
+                          "rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200",
+                          isSelected ? selectedClass : primaryClass,
+                        ].join(" ")}
+                      >
+                        {status.replace("_", " ")}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {(pendingStatus === "CARIES" || pendingStatus === "FILLED") && (
+                  <div className="mt-3">
+                    <div className="text-xs font-semibold text-slate-700">Surfaces</div>
+                    <div className="flex-wrap-gap-2-mt-2">
+                      {["O", "M", "D", "B", "L", "F"].map((surf) => (
+                        <button
+                          key={surf}
+                          type="button"
+                          onClick={() => {
+                            setSurfaceSel((prev) =>
+                              prev.includes(surf) ? prev.filter((x) => x !== surf) : [...prev, surf]
+                            );
+                          }}
+                          className={[
+                            "h-7 w-7 rounded border text-xs font-semibold transition-colors",
+                            surfaceSel.includes(surf)
+                              ? "bg-slate-900 text-white border-slate-900"
+                              : "bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400",
+                          ].join(" ")}
+                        >
+                          {surf}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-3">
+                  <label className="form-field-wrapper">
+                    <span className="text-xs font-semibold text-slate-700">Finding detail</span>
+                    <input
+                      className="input-sm-text-sm"
+                      value={findingDetail}
+                      onChange={(e) => setFindingDetail(e.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-3">
+                  <label className="form-field-wrapper">
+                    <span className="text-xs font-semibold text-slate-700">Notes</span>
+                    <textarea
+                      className="textarea-sm"
+                      value={toothNote}
+                      onChange={(e) => setToothNote(e.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-3 flex justify-center">
+                  <button
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    disabled={busy || selectedTooth === null}
+                    onClick={() => pendingStatus && saveToothStatus(pendingStatus)}
+                  >
+                    {busy ? "Saving…" : "Save status"}
+                  </button>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN - Tooth History */}
+              <div>
+                <div className="text-xs-semibold-slate-600-uppercase">Tooth History</div>
+                
+                <div className="overflow-scroll-bordered">
+                  {selectedTooth ? (
+                    chart.filter((e) => e.tooth_number === selectedTooth).length > 0 ? (
+                      <table className="data-table">
+                        <thead className="data-table-head">
+                          <tr>
+                            <th className="data-table-head-cell text-left">Date</th>
+                            <th className="data-table-head-cell text-left">Finding</th>
+                            <th className="data-table-head-cell-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {chart
+                            .filter((e) => e.tooth_number === selectedTooth)
+                            .map((entry, idx) => (
+                              <tr key={entry.id} className={`data-table-row ${idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                                <td className="data-table-cell text-xs">
+                                  {entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}
+                                </td>
+                                <td className="data-table-cell">{entry.finding_code}</td>
+                                <td className="data-table-cell-right">
+                                  <button
+                                    onClick={() => editChartEntry(entry)}
+                                    className="data-table-btn"
+                                  >
+                                    Edit
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="container-center-sm-slate-500">No history for this tooth</div>
+                    )
+                  ) : (
+                    <div className="container-center-sm-slate-500">Select a tooth</div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="card">
             <div className="card-header">
-              <div className="card-title">Tooth tools</div>
+              <div className="card-title">Chart history</div>
             </div>
 
-            <div className="mt-2 text-left text-sm text-slate-700">
-              Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
-            </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                {/* LEFT COLUMN - Add/Update Status */}
-                <div>
-                  <div className="text-xs-semibold-slate-600-uppercase">Set Status</div>
-                  
-                  <div className="flex-wrap-gap-2-mt-2">
-                    {(
-                      [
-                        "HEALTHY",
-                        "CARIES",
-                        "FILLED",
-                        "MISSING",
-                        "IMPLANT",
-                        "CROWN",
-                        "DENTURE",
-                        "RCT",
-                        "EXTRACTED",
-                      ] as const
-                    ).map((status) => {
-                      const theme = getStatusTheme(status);
-                      const isSelected = pendingStatus === status;
-                      const primaryClass = (() => {
-                        if (status === "HEALTHY") return "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200 hover:border-slate-400 hover:shadow-sm";
-                        if (status === "CARIES") return "bg-rose-100 border-rose-300 text-rose-800 hover:bg-rose-200 hover:border-rose-400 hover:shadow-sm";
-                        if (status === "FILLED") return "bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200 hover:border-emerald-400 hover:shadow-sm";
-                        if (status === "MISSING") return "bg-slate-200 border-slate-400 text-slate-800 hover:bg-slate-300 hover:border-slate-500 hover:shadow-sm";
-                        if (status === "EXTRACTED") return "bg-orange-100 border-orange-300 text-orange-800 hover:bg-orange-200 hover:border-orange-400 hover:shadow-sm";
-                        if (status === "RCT") return "bg-indigo-100 border-indigo-300 text-indigo-800 hover:bg-indigo-200 hover:border-indigo-400 hover:shadow-sm";
-                        if (status === "CROWN") return "bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200 hover:border-amber-400 hover:shadow-sm";
-                        if (status === "DENTURE") return "bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-200 hover:border-purple-400 hover:shadow-sm";
-                        if (status === "IMPLANT") return "bg-cyan-100 border-cyan-300 text-cyan-800 hover:bg-cyan-200 hover:border-cyan-400 hover:shadow-sm";
-                        return "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200 hover:border-slate-400 hover:shadow-sm";
-                      })();
-                      const selectedClass = (() => {
-                        if (status === "HEALTHY") return "bg-slate-800 border-slate-900 text-white shadow-lg ring-2 ring-slate-300";
-                        if (status === "CARIES") return "bg-rose-600 border-rose-700 text-white shadow-lg ring-2 ring-rose-200";
-                        if (status === "FILLED") return "bg-emerald-600 border-emerald-700 text-white shadow-lg ring-2 ring-emerald-200";
-                        if (status === "MISSING") return "bg-slate-700 border-slate-800 text-white shadow-lg ring-2 ring-slate-200";
-                        if (status === "EXTRACTED") return "bg-orange-600 border-orange-700 text-white shadow-lg ring-2 ring-orange-200";
-                        if (status === "RCT") return "bg-indigo-600 border-indigo-700 text-white shadow-lg ring-2 ring-indigo-200";
-                        if (status === "CROWN") return "bg-amber-600 border-amber-700 text-white shadow-lg ring-2 ring-amber-200";
-                        if (status === "DENTURE") return "bg-purple-600 border-purple-700 text-white shadow-lg ring-2 ring-purple-200";
-                        if (status === "IMPLANT") return "bg-cyan-600 border-cyan-700 text-white shadow-lg ring-2 ring-cyan-200";
-                        return "bg-slate-800 border-slate-900 text-white shadow-lg ring-2 ring-slate-300";
-                      })();
-                      return (
+            <div className="table-wrapper">
+              <table className="data-table">
+                <colgroup>
+                  <col className="col-15" />
+                  <col className="col-12" />
+                  <col className="col-18" />
+                  <col className="col-15" />
+                  <col className="col-25" />
+                  <col className="col-15" />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Date</th>
+                    <th className="data-table-head-cell">Tooth</th>
+                    <th className="data-table-head-cell">Finding</th>
+                    <th className="data-table-head-cell">Surfaces</th>
+                    <th className="data-table-head-cell">Detail</th>
+                    <th className="data-table-head-cell-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chart.map((entry, index) => (
+                    <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                      <td className="data-table-cell">{entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}</td>
+                      <td className="data-table-cell">{entry.tooth_number}</td>
+                      <td className="data-table-cell">{entry.finding_code}</td>
+                      <td className="data-table-cell">{entry.surfaces ?? "—"}</td>
+                      <td className="data-table-cell-truncate">{entry.finding_detail ?? "—"}</td>
+                      <td className="data-table-cell-right">
                         <button
-                          key={status}
-                          type="button"
-                          onClick={() => setPendingStatus(status)}
-                          className={[
-                            "rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200",
-                            isSelected ? selectedClass : primaryClass,
-                          ].join(" ")}
+                          onClick={() => editChartEntry(entry)}
+                          className="data-table-btn"
                         >
-                          {status.replace("_", " ")}
+                          Edit
                         </button>
-                      );
-                    })}
-                  </div>
-
-                  {(pendingStatus === "CARIES" || pendingStatus === "FILLED") && (
-                    <div className="mt-3">
-                      <div className="text-xs font-semibold text-slate-700">Surfaces</div>
-                      <div className="flex-wrap-gap-2-mt-2">
-                        {["O", "M", "D", "B", "L", "F"].map((surf) => (
-                          <button
-                            key={surf}
-                            type="button"
-                            onClick={() => {
-                              setSurfaceSel((prev) =>
-                                prev.includes(surf) ? prev.filter((x) => x !== surf) : [...prev, surf]
-                              );
-                            }}
-                            className={[
-                              "h-7 w-7 rounded border text-xs font-semibold transition-colors",
-                              surfaceSel.includes(surf)
-                                ? "bg-slate-900 text-white border-slate-900"
-                                : "bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400",
-                            ].join(" ")}
-                          >
-                            {surf}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-3">
-                    <label className="form-field-wrapper">
-                      <span className="text-xs font-semibold text-slate-700">Finding detail</span>
-                      <input
-                        className="input-sm-text-sm"
-                        value={findingDetail}
-                        onChange={(e) => setFindingDetail(e.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="mt-3">
-                    <label className="form-field-wrapper">
-                      <span className="text-xs font-semibold text-slate-700">Notes</span>
-                      <textarea
-                        className="textarea-sm"
-                        value={toothNote}
-                        onChange={(e) => setToothNote(e.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="mt-3 flex justify-center">
-                    <button
-                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                      disabled={busy || selectedTooth === null}
-                      onClick={() => pendingStatus && saveToothStatus(pendingStatus)}
-                    >
-                      {busy ? "Saving…" : "Save status"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* RIGHT COLUMN - Tooth History */}
-                <div>
-                  <div className="text-xs-semibold-slate-600-uppercase">Tooth History</div>
-                  
-                  <div className="overflow-scroll-bordered">
-                    {selectedTooth ? (
-                      chart.filter((e) => e.tooth_number === selectedTooth).length > 0 ? (
-                        <table className="data-table">
-                          <thead className="data-table-head">
-                            <tr>
-                              <th className="data-table-head-cell text-left">Date</th>
-                              <th className="data-table-head-cell text-left">Finding</th>
-                              <th className="data-table-head-cell-right">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {chart
-                              .filter((e) => e.tooth_number === selectedTooth)
-                              .map((entry, idx) => (
-                                <tr key={entry.id} className={`data-table-row ${idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                                  <td className="data-table-cell text-xs">
-                                    {entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}
-                                  </td>
-                                  <td className="data-table-cell">{entry.finding_code}</td>
-                                  <td className="data-table-cell-right">
-                                    <button
-                                      onClick={() => editChartEntry(entry)}
-                                      className="data-table-btn"
-                                    >
-                                      Edit
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <div className="container-center-sm-slate-500">No history for this tooth</div>
-                      )
-                    ) : (
-                      <div className="container-center-sm-slate-500">Select a tooth</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="card-header">
-                <div className="card-title">Chart history</div>
-              </div>
-
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <colgroup>
-                    <col className="col-15" />
-                    <col className="col-12" />
-                    <col className="col-18" />
-                    <col className="col-15" />
-                    <col className="col-25" />
-                    <col className="col-15" />
-                  </colgroup>
-                  <thead className="data-table-head">
-                    <tr>
-                      <th className="data-table-head-cell">Date</th>
-                      <th className="data-table-head-cell">Tooth</th>
-                      <th className="data-table-head-cell">Finding</th>
-                      <th className="data-table-head-cell">Surfaces</th>
-                      <th className="data-table-head-cell">Detail</th>
-                      <th className="data-table-head-cell-right">Actions</th>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {chart.map((entry, index) => (
-                      <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                        <td className="data-table-cell">{entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}</td>
-                        <td className="data-table-cell">{entry.tooth_number}</td>
-                        <td className="data-table-cell">{entry.finding_code}</td>
-                        <td className="data-table-cell">{entry.surfaces ?? "—"}</td>
-                        <td className="data-table-cell-truncate">{entry.finding_detail ?? "—"}</td>
-                        <td className="data-table-cell-right">
-                          <button
-                            onClick={() => editChartEntry(entry)}
-                            className="data-table-btn"
-                          >
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {chart.length === 0 ? (
-                      <tr>
-                        <td className="data-table-empty" colSpan={6}>
-                          No chart entries yet.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                  {chart.length === 0 ? (
+                    <tr>
+                      <td className="data-table-empty" colSpan={6}>
+                        No chart entries yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
           </div>
-      </div>
+      
 
       {editingEntry ? (
         <div className="modal-container" onDoubleClick={() => setEditingEntry(null)}>

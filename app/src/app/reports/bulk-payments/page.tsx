@@ -198,9 +198,7 @@ export default function BulkPaymentsPage() {
   };
 
   return (
-    <div className="page-content">
-      <div className="page-sections">
-        <div className="card">
+    <div className="card">
           <div className="card-header">
             <div className="card-title">Bulk Payments</div>
             <Link href="/reports/payments" className="save-btn">← Back</Link>
@@ -622,8 +620,6 @@ export default function BulkPaymentsPage() {
             </div>
           )}
         </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -12,9 +12,8 @@ export default function AppointmentsReportPage() {
   };
 
   return (
-    <div className="page-content">
-      <div className="page-sections">
-        <div className="card">
+    <>
+      <div className="card">
           <div className="card-header">
             <div className="card-title">Appointment Reports</div>
             <button onClick={() => setShowModal(true)} className="save-btn">
@@ -96,7 +95,6 @@ export default function AppointmentsReportPage() {
           </div>
         </div>
       )}
-      </div>
-    </div>
+    </>
   );
 }

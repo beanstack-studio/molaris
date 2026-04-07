@@ -150,8 +150,6 @@ export default function PaymentModesSettingsPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-      <div className="page-content">
-        <div className="page-sections">
             {/* Payment modes table */}
             <div className="card">
               <div className="card-header">
@@ -382,8 +380,6 @@ export default function PaymentModesSettingsPage() {
                 </div>
               </div>
             </div>
-        </div>
-      </div>
     </>
   );
 }

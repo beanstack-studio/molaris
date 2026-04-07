@@ -315,8 +315,7 @@ export default function PatientsPage() {
         </button>
       </div>
 
-      <div className="app-section-body">
-        <div className="p-4">
+      <div className="card">
           <div className="page-toolbar">
             <input
               className="form-input w-full sm:max-w-md"
@@ -498,7 +497,6 @@ export default function PatientsPage() {
             </div>
           </div>
         )}
-        </div>
       </div>
 
       {/* Add Patient Modal */}

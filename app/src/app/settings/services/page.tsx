@@ -359,12 +359,8 @@ export default function ServicesSettingsPage() {
 
   return (
     <>
-      <div className="page-content">
-        <div className="page-sections">
-          <Table title="Services" data={services} onAdd={() => openAdd('SERVICE')} addLabel="Add Service" />
-          <Table title="Extras" data={addOns} onAdd={() => openAdd('ADD_ON')} addLabel="Add Extra" />
-        </div>
-      </div>
+        <Table title="Services" data={services} onAdd={() => openAdd('SERVICE')} addLabel="Add Service" />
+        <Table title="Extras" data={addOns} onAdd={() => openAdd('ADD_ON')} addLabel="Add Extra" />
 
       <EditModal
         open={addOpen}

@@ -109,8 +109,7 @@ export default function PaymentReportsPage() {
   }
 
   return (
-    <div className="page-content">
-      <div className="page-sections">
+    <>
       {error ? <div className="error-banner">{error}</div> : null}
 
       {/* Summary Cards */}
@@ -222,7 +221,6 @@ export default function PaymentReportsPage() {
           <p className="text-center text-slate-500 py-4">No payments</p>
         )}
       </div>
-      </div>
-    </div>
+    </>
   );
 }

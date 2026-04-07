@@ -170,12 +170,11 @@ export default function AppointmentsPage() {
         </button>
       </div>
 
-      <div className="app-section-body">
-        <div className="p-4">
-          <div className="grid gap-4">
-            {error && (
-              <div className="error-msg">{error}</div>
-            )}
+      <div className="card">
+        <div className="flex flex-col gap-4">
+          {error && (
+            <div className="error-msg">{error}</div>
+          )}
 
             {/* View mode toggle */}
             <div className="action-row">
@@ -430,7 +429,6 @@ export default function AppointmentsPage() {
                 )}
               </div>
             )}
-          </div>
         </div>
       </div>
 

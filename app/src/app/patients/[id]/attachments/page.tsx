@@ -238,93 +238,90 @@ export default function AttachmentsPage() {
     <>
       {error ? <div className="error-banner">{error}</div> : null}
 
-      <div className="page-content">
-        <div className="page-sections">
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">Attachments</div>
-              <div className="inline-row">
-                <select
-                  className="form-select-standard"
-                  value={attachmentSort}
-                  onChange={(e) => setAttachmentSort(e.target.value as any)}
-                >
-                  <option value="DATE_DESC">Newest</option>
-                  <option value="DATE_ASC">Oldest</option>
-                  <option value="NAME_ASC">Name A–Z</option>
-                </select>
-                <button
-                  className="save-btn"
-                  onClick={openUploadModal}
-                  disabled={busy}
-                >
-                  Add attachment
-                </button>
-              </div>
-            </div>
-
-            <div className="table-wrapper">
-              <table className="data-table">
-                <colgroup>
-                  <col className="col-15" />
-                  <col className="col-10" />
-                  <col className="col-30" />
-                  <col className="col-30" />
-                  <col className="col-15" />
-                </colgroup>
-                <thead className="data-table-head">
-                  <tr>
-                    <th className="data-table-head-cell">Date</th>
-                    <th className="data-table-head-cell">Type</th>
-                    <th className="data-table-head-cell">File</th>
-                    <th className="data-table-head-cell">Notes</th>
-                    <th className="data-table-head-cell-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedAttachments.map((a, index) => (
-                    <tr key={a.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                      <td className="data-table-cell">{formatDateStandard(a.created_at.split('T')[0])}</td>
-                      <td className="data-table-cell">{a.type}</td>
-                      <td className="data-table-cell">
-                        <div className="truncate">
-                          {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
-                        </div>
-                      </td>
-                      <td className="data-table-cell text-xs text-slate-600 truncate">
-                        {(a as any).notes || "—"}
-                      </td>
-                      <td className="data-table-cell-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="data-table-btn"
-                            onClick={() => openAttachment(a)}
-                          >
-                            Open
-                          </button>
-                          <button
-                            className="data-table-btn"
-                            onClick={() => openEditModal(a)}
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {displayedAttachments.length === 0 ? (
-                    <tr>
-                      <td className="data-table-empty" colSpan={5}>
-                        No attachments yet.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Attachments</div>
+            <div className="inline-row">
+              <select
+                className="form-select-standard"
+                value={attachmentSort}
+                onChange={(e) => setAttachmentSort(e.target.value as any)}
+              >
+                <option value="DATE_DESC">Newest</option>
+                <option value="DATE_ASC">Oldest</option>
+                <option value="NAME_ASC">Name A–Z</option>
+              </select>
+              <button
+                className="save-btn"
+                onClick={openUploadModal}
+                disabled={busy}
+              >
+                Add attachment
+              </button>
             </div>
           </div>
+
+          <div className="table-wrapper">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-15" />
+                <col className="col-10" />
+                <col className="col-30" />
+                <col className="col-30" />
+                <col className="col-15" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Date</th>
+                  <th className="data-table-head-cell">Type</th>
+                  <th className="data-table-head-cell">File</th>
+                  <th className="data-table-head-cell">Notes</th>
+                  <th className="data-table-head-cell-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedAttachments.map((a, index) => (
+                  <tr key={a.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                    <td className="data-table-cell">{formatDateStandard(a.created_at.split('T')[0])}</td>
+                    <td className="data-table-cell">{a.type}</td>
+                    <td className="data-table-cell">
+                      <div className="truncate">
+                        {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
+                      </div>
+                    </td>
+                    <td className="data-table-cell text-xs text-slate-600 truncate">
+                      {(a as any).notes || "—"}
+                    </td>
+                    <td className="data-table-cell-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          className="data-table-btn"
+                          onClick={() => openAttachment(a)}
+                        >
+                          Open
+                        </button>
+                        <button
+                          className="data-table-btn"
+                          onClick={() => openEditModal(a)}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {displayedAttachments.length === 0 ? (
+                  <tr>
+                    <td className="data-table-empty" colSpan={5}>
+                      No attachments yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      
 
       {showEditModal && editingAttachment ? (
         <EditModal

@@ -25,7 +25,7 @@
 }
 
 .app-section-body {
-  @apply bg-white/80 backdrop-blur-sm rounded-2xl border border-white/70 shadow-md;
+  @apply flex flex-col gap-5 md:gap-6 pt-4;
 }
 
 /* =========================
@@ -407,7 +407,7 @@
 }
 
 .page-sections {
-  @apply grid gap-5 md:gap-6;
+  @apply grid gap-5 md:gap-6 p-4 md:p-6;
 }
 
 /* Primary card — glass morphism */

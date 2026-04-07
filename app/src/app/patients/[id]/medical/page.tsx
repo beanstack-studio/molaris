@@ -132,8 +132,6 @@ export default function Page() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-      <div className="page-content">
-        <div className="page-sections">
           <div className="card">
           <div className="card-header">
             <div className="card-title">Medical Information</div>
@@ -179,8 +177,6 @@ export default function Page() {
               </div>
             )}
           </div>
-        </div>
-      </div>
       {/* Edit Medical History Modal */}
       <EditModal
         open={editOpen}

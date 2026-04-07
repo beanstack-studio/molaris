@@ -290,8 +290,6 @@ export default function ClinicProfileSettingsPage() {
       {error ? <div className="error-banner">{error}</div> : null}
       {success ? <div className="success-banner">Saved successfully</div> : null}
 
-      <div className="page-content">
-        <div className="page-sections">
 
           {/* Clinic Information Card */}
           <div className="card">
@@ -436,8 +434,6 @@ export default function ClinicProfileSettingsPage() {
               ))}
             </div>
           </div>
-        </div>
-      </div>
 
       {/* Edit Clinic Information Modal */}
       <EditModal open={editInfoOpen} title="Edit Clinic Information" onClose={closeEditInfo}>

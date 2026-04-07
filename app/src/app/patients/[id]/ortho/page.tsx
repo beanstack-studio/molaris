@@ -510,8 +510,6 @@ export default function OrthoPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-      <div className="page-content">
-        <div className="page-sections">
 
           {/* Case Overview Box - Like Patient Information */}
           <div className="card">
@@ -764,8 +762,6 @@ export default function OrthoPage() {
             </div>
           )}
 
-        </div>
-      </div>
 
       {/* Create/Edit Case Modal */}
       {caseModalOpen && (

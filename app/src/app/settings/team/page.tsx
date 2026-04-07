@@ -398,8 +398,6 @@ export default function TeamSettingsPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-      <div className="page-content">
-        <div className="page-sections">
             {/* DENTISTS SECTION */}
             <div className="card">
               <div className="card-header">
@@ -578,8 +576,6 @@ export default function TeamSettingsPage() {
               </table>
             </div>
             </div>
-        </div>
-      </div>
 
       {/* ADD/EDIT DENTIST MODAL */}
       <EditModal

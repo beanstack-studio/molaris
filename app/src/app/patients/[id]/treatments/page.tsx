@@ -145,8 +145,6 @@ export default function TreatmentsPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-      <div className="page-content">
-        <div className="page-sections">
           <div className="card">
             <div className="flex-wrap-items-center-justify-between">
               <div className="card-title">Treatment history</div>
@@ -220,8 +218,6 @@ export default function TreatmentsPage() {
               </table>
             </div>
           </div>
-        </div>
-      </div>
 
       <AddVisitModal
         open={showAddVisitModal}
