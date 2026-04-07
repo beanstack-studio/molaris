@@ -7,7 +7,7 @@ import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType, getOrthoOnlyReasons, getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow, Invoice } from "@/lib/types";
-import { formatDatePH, formatDateStandard } from "@/lib/helpers";
+import { formatDateStandard } from "@/lib/helpers";
 
 /* Helpers */
 function num(n: unknown) {
@@ -21,7 +21,7 @@ export default function OrthoPage() {
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Case data
   const [orthoCase, setOrthoCase] = useState<OrthoCase | null>(null);
@@ -78,7 +78,7 @@ export default function OrthoPage() {
   const loadData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     // Load ortho case
     const caseRes = await supabase
@@ -278,7 +278,7 @@ export default function OrthoPage() {
 
   async function saveCase() {
     if (!id) return;
-    setErr(null);
+    setError(null);
 
     const data: Partial<OrthoCase> = {
       patient_id: id,
@@ -308,7 +308,7 @@ export default function OrthoPage() {
     setBusy(false);
 
     if (res.error) {
-      setErr(res.error.message);
+      setError(res.error.message);
     } else {
       setCaseModalOpen(false);
       await loadData();
@@ -364,10 +364,10 @@ export default function OrthoPage() {
 
   async function saveVisit() {
     if (!orthoCase) return;
-    setErr(null);
+    setError(null);
 
     if (!editVisitDate.trim()) {
-      return setErr("Visit date is required.");
+      return setError("Visit date is required.");
     }
 
     const visitData: Partial<OrthoEntry> = {
@@ -385,7 +385,7 @@ export default function OrthoPage() {
       const res = await supabase.from("ortho_entries").insert([visitData]).select("id");
       if (res.error) {
         setBusy(false);
-        return setErr(res.error.message);
+        return setError(res.error.message);
       }
       entryId = res.data?.[0]?.id;
     } else if (visitModalMode === "edit") {
@@ -393,7 +393,7 @@ export default function OrthoPage() {
       const res = await supabase.from("ortho_entries").update(visitData).eq("id", entryId);
       if (res.error) {
         setBusy(false);
-        return setErr(res.error.message);
+        return setError(res.error.message);
       }
     } else {
       setBusy(false);
@@ -405,7 +405,7 @@ export default function OrthoPage() {
       const deleteRes = await supabase.from("ortho_entry_items").delete().eq("ortho_entry_id", entryId);
       if (deleteRes.error) {
         setBusy(false);
-        return setErr(deleteRes.error.message);
+        return setError(deleteRes.error.message);
       }
     }
 
@@ -431,7 +431,7 @@ export default function OrthoPage() {
 
           if (isAlreadyBilled && visitModalMode === "create") {
             setBusy(false);
-            return setErr("This ortho package has already been billed for this case.");
+            return setError("This ortho package has already been billed for this case.");
           }
         }
       }
@@ -452,7 +452,7 @@ export default function OrthoPage() {
       const itemsRes = await supabase.from("ortho_entry_items").insert(itemsToInsert);
       if (itemsRes.error) {
         setBusy(false);
-        return setErr(itemsRes.error.message);
+        return setError(itemsRes.error.message);
       }
     }
 
@@ -509,7 +509,7 @@ export default function OrthoPage() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
       <div className="page-content">
         <div className="page-sections">
 
@@ -518,11 +518,11 @@ export default function OrthoPage() {
             <div className="card-header">
               <div className="card-title">Case Overview</div>
               {orthoCase ? (
-                <button className="btn-primary-dark" disabled={busy} onClick={openEditCaseModal}>
+                <button className="save-btn" disabled={busy} onClick={openEditCaseModal}>
                   Edit
                 </button>
               ) : (
-                <button className="btn-secondary-dark" disabled={busy} onClick={openCreateCaseModal}>
+                <button className="save-btn" disabled={busy} onClick={openCreateCaseModal}>
                   Create Case
                 </button>
               )}
@@ -587,7 +587,7 @@ export default function OrthoPage() {
                   <div className="field-label flex flex-col">
                     <span className="field-label-text">Inclusions</span>
                     {orthoCase.inclusions && Object.values(orthoCase.inclusions).some(v => v) ? (
-                      <div className="rounded-lg border bg-slate-50 p-3">
+                      <div className="card-light">
                         <div className="grid grid-cols-2 gap-1">
                           {[
                             { key: "case_analysis", label: "Case Analysis & Diagnostics" },
@@ -661,7 +661,7 @@ export default function OrthoPage() {
             <div className="card">
               <div className="card-header">
                 <div className="card-title">Ortho Visit Log</div>
-                <button className="btn-secondary-dark" disabled={busy || entriesLoading} onClick={openCreateVisitModal}>
+                <button className="save-btn" disabled={busy || entriesLoading} onClick={openCreateVisitModal}>
                   Add Visit
                 </button>
               </div>
@@ -674,11 +674,11 @@ export default function OrthoPage() {
                 <div className="table-wrapper">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "50%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "10%" }} />
+                      <col className="col-12" />
+                      <col className="col-14" />
+                      <col className="col-50" />
+                      <col className="col-14" />
+                      <col className="col-10" />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
@@ -720,9 +720,9 @@ export default function OrthoPage() {
                           }
                         });
 
-                        // Format visit type (capitalize and replace underscores)
-                        const visitTypeDisplay = entry.visit_type
-                          ? entry.visit_type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')
+                        // Format concern type (capitalize and replace underscores)
+                        const visitTypeDisplay = entry.concern_type
+                          ? entry.concern_type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')
                           : '—';
 
                         return (
@@ -772,11 +772,11 @@ export default function OrthoPage() {
         <EditModal 
           open={caseModalOpen} 
           title={`${caseModalMode === "create" ? "Create" : "Edit"} Ortho Case`} 
-          onClose={() => { setCaseModalOpen(false); setErr(null); }}
+          onClose={() => { setCaseModalOpen(false); setError(null); }}
         >
           <div className="spacing-vertical-lg">
             {/* Row 1: Start Date, End Date */}
-            <div className="grid-gap-4-cols-2">
+            <div className="two-col-grid">
               <DatePickerField
                 label="Start Date"
                 value={editStartDate}
@@ -794,7 +794,7 @@ export default function OrthoPage() {
             </div>
 
             {/* Row 2: Status, Phase */}
-            <div className="grid-gap-4-cols-2">
+            <div className="two-col-grid">
               <div className="field-label">
                 <span className="field-label-text">Status</span>
                 <select
@@ -875,7 +875,7 @@ export default function OrthoPage() {
                   { key: "consultations", label: "Ortho Consultations" },
                   { key: "retainer", label: "Retainer" },
                 ].map((inc) => (
-                  <label key={inc.key} className="flex items-center gap-2">
+                  <label key={inc.key} className="inline-row">
                     <input 
                       type="checkbox" 
                       checked={editInclusions[inc.key] || false}
@@ -901,12 +901,12 @@ export default function OrthoPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="modal-footer-buttons flex justify-end gap-2">
-              <button className="btn-secondary-outlined" onClick={() => setCaseModalOpen(false)}>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={() => setCaseModalOpen(false)}>
                 Cancel
               </button>
               <button
-                className="h-10 save-btn"
+                className="save-btn"
                 disabled={busy}
                 onClick={saveCase}
               >
@@ -922,12 +922,12 @@ export default function OrthoPage() {
         <EditModal 
           open={visitModalOpen} 
           title={visitModalMode === "create" ? "Add Visit" : "Edit Visit"} 
-          onClose={() => { setVisitModalOpen(false); setErr(null); }}
+          onClose={() => { setVisitModalOpen(false); setError(null); }}
         >
           <div className="spacing-vertical-lg">
             {/* Visit Date and Visit Type - Side by Side */}
-            <div className="flex gap-4">
-              <div style={{ width: "40%" }}>
+            <div className="section-columns">
+              <div className="w-[40%]">
                 <DatePickerField
                   label="Visit date"
                   value={editVisitDate}
@@ -938,10 +938,10 @@ export default function OrthoPage() {
                 />
               </div>
 
-              <div className="grid-gap-1" style={{ width: "60%" }}>
-                <label className="text-sm-medium-slate-700">Visit Type</label>
+              <div className="grid-gap-1 w-[60%]">
+                <label className="text-field-label">Visit Type</label>
                 <select
-                  className="input-h10-border-white w-full"
+                  className="input-full"
                   value={editVisitType}
                   onChange={(e) => setEditVisitType(e.target.value as VisitReasonType)}
                 >
@@ -957,10 +957,10 @@ export default function OrthoPage() {
 
             {/* Visit Notes */}
             <div className="grid-gap-1">
-              <label className="text-sm-medium-slate-700">Notes</label>
+              <label className="text-field-label">Notes</label>
               <input
                 type="text"
-                className="input-h10-border-white"
+                className="input-standard"
                 value={editVisitNote}
                 onChange={(e) => setEditVisitNote(e.target.value)}
                 placeholder="Incidents, observations…"
@@ -971,9 +971,9 @@ export default function OrthoPage() {
             {visitModalMode === "edit" && orthoCase?.package_service_id && !entries.some(entry => entry.id !== editVisitId && entry.invoice_package) && (
               <div className="form-section">
                 {/* 2-Column Layout: 5% Checkbox + 95% Fields */}
-                <div className="flex gap-3" style={{ display: "flex" }}>
+                <div className="flex gap-3">
                   {/* Column 1: Checkbox (5%) */}
-                  <div className="flex items-center" style={{ width: "5%", minWidth: "2rem" }}>
+                  <div className="flex items-center w-[5%] min-w-8">
                     <input
                       type="checkbox"
                       checked={editPackageInvoice}
@@ -983,22 +983,20 @@ export default function OrthoPage() {
                   </div>
 
                   {/* Column 2: Fields (95%) */}
-                  <div className="flex-1" style={{ width: "95%" }}>
+                  <div className="flex-1 w-[95%]">
                     {/* Row 1: Package (70%) + Fee (30%) */}
                     <div className="flex gap-3 mb-2">
                       <input
                         type="text"
-                        className="field-input-readonly"
+                        className="field-input-readonly w-[70%]"
                         value={orthoServices.find(s => s.id === orthoCase.package_service_id)?.service_name || ""}
                         readOnly
-                        style={{ width: "70%" }}
                       />
                       <input
                         type="text"
-                        className="field-input-readonly"
+                        className="field-input-readonly w-[30%]"
                         value={`₱ ${Number(orthoCase.package_fee || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         readOnly
-                        style={{ width: "30%" }}
                       />
                     </div>
 
@@ -1033,7 +1031,7 @@ export default function OrthoPage() {
 
             {/* Service/Add-ons Items */}
             <div className="space-y-2">
-              <div className="text-sm-medium-slate-700">Service/Add-ons ({editVisitItems.length})</div>
+              <div className="text-field-label">Service/Add-ons ({editVisitItems.length})</div>
               {editVisitItems.map((item, index) => {
                 // Filter services to show: Only ADD_ONs tagged 'ortho'
                 const availableServices = orthoServices.filter(s => {
@@ -1051,9 +1049,9 @@ export default function OrthoPage() {
                     {/* Row 1: Service Dropdown + Charge Extra Toggle */}
                     <div className="flex gap-2 items-start">
                       <div className="flex-1 grid gap-1">
-                        <label className="text-xs-semibold-slate-700">Service/Add-ons</label>
+                        <label className="field-sublabel">Service/Add-ons</label>
                         <select
-                          className="input-h10-border-white"
+                          className="input-standard"
                           value={item.service_id || ""}
                           onChange={(e) => updateVisitItem(index, { service_id: e.target.value })}
                         >
@@ -1068,20 +1066,14 @@ export default function OrthoPage() {
                       
                       {/* Charge Extra Toggle */}
                       <div className="flex flex-col gap-2">
-                        <label className="text-xs-semibold-slate-700">Charge extra?</label>
+                        <label className="field-sublabel">Charge extra?</label>
                         <button
                           type="button"
                           onClick={() => updateVisitItem(index, { is_charged: !item.is_charged })}
-                          className={`h-8 w-12 rounded-full transition-colors flex items-center ${
-                            item.is_charged ? 'bg-emerald-500' : 'bg-slate-300'
-                          }`}
+                          className={`switch-btn ${item.is_charged ? 'switch-btn-on' : 'switch-btn-off'}`}
                           aria-label={item.is_charged ? 'Charge extra enabled' : 'Charge extra disabled'}
                         >
-                          <span
-                            className={`h-6 w-6 rounded-full bg-white transition transform ${
-                              item.is_charged ? 'translate-x-[22px]' : 'translate-x-[2px]'
-                            }`}
-                          />
+                          <span className={`switch-thumb ${item.is_charged ? 'switch-thumb-on' : 'switch-thumb-off'}`} />
                         </button>
                       </div>
                     </div>
@@ -1089,10 +1081,10 @@ export default function OrthoPage() {
                     {/* Row 2: Details + Delete Button */}
                     <div className="flex gap-2 items-end">
                       <div className="flex-1 grid gap-1">
-                        <label className="text-xs-semibold-slate-700">Details</label>
+                        <label className="field-sublabel">Details</label>
                         <input
                           type="text"
-                          className="input-h10-border-white"
+                          className="input-standard"
                           value={item.service_detail || ""}
                           onChange={(e) => updateVisitItem(index, { service_detail: e.target.value })}
                           placeholder="Wire, arc, teeth..."
@@ -1102,7 +1094,7 @@ export default function OrthoPage() {
                       {/* Delete Button */}
                       <button
                         type="button"
-                        className="btn-sm-delete h-10"
+                        className="item-delete-btn h-10"
                         onClick={() => removeVisitItem(index)}
                         title="Remove service"
                       >
@@ -1113,11 +1105,11 @@ export default function OrthoPage() {
                 );
               })}
               {editVisitItems.length === 0 ? (
-                <div className="text-xs-slate-500-base">No services on this visit yet.</div>
+                <div className="hint-text">No services on this visit yet.</div>
               ) : null}
 
               <button
-                className="btn btn-sm btn-ghost w-full mt-2"
+                className="add-row-btn"
                 onClick={addVisitItem}
               >
                 + Add Service/Add-on
@@ -1127,7 +1119,7 @@ export default function OrthoPage() {
             {/* Delete Entire Visit */}
             {visitModalMode === "edit" && (
               <div className="delete-confirmation">
-                <div className="delete-confirmation-title-red">Delete entire visit?</div>
+                <div className="delete-confirmation-title">Delete entire visit?</div>
                 <div className="delete-confirmation-hint">
                   Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion of this visit
                 </div>
@@ -1150,11 +1142,11 @@ export default function OrthoPage() {
                     disabled={busy || deleteConfirmationText !== "DELETE"}
                     onClick={async () => {
                       setBusy(true);
-                      setErr(null);
+                      setError(null);
                       const res = await supabase.from("ortho_entries").delete().eq("id", editVisitId);
                       if (res.error) {
                         setBusy(false);
-                        return setErr(res.error.message);
+                        return setError(res.error.message);
                       }
                       setBusy(false);
                       setVisitModalOpen(false);

@@ -22,44 +22,65 @@ export default function TopNav({
   const router = useRouter();
   const pathname = usePathname();
   const [busy, setBusy] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [clinicName, setClinicName] = useState(title);
+
+  // Fetch clinic logo and name on mount
+  useEffect(() => {
+    supabase
+      .from("clinic_profile")
+      .select("logo_url, clinic_name")
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          if (data[0].logo_url) setLogoUrl(data[0].logo_url);
+          if (data[0].clinic_name) setClinicName(data[0].clinic_name);
+        }
+      });
+  }, []);
+
+  // Listen for clinic profile saves — more reliable than realtime subscriptions
+  useEffect(() => {
+    function handleProfileUpdate(e: Event) {
+      const { logoUrl: newLogo, clinicName: newName } = (e as CustomEvent).detail ?? {};
+      if (newLogo) setLogoUrl(newLogo);
+      if (newName) setClinicName(newName);
+    }
+    window.addEventListener("clinicProfileUpdated", handleProfileUpdate);
+    return () => window.removeEventListener("clinicProfileUpdated", handleProfileUpdate);
+  }, []);
+
+  // Update browser favicon — bust cache so re-uploads reflect immediately
+  useEffect(() => {
+    if (!logoUrl) return;
+    let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = logoUrl;
+  }, [logoUrl]);
 
   async function signOut() {
     setBusy(true);
-    console.log("Sign out started");
     try {
-      console.log("Calling supabase.auth.signOut()");
-      
-      // Create a timeout promise
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Sign out timeout")), 2000)
       );
-      
-      // Race: whichever completes first
       await Promise.race([supabase.auth.signOut(), timeoutPromise]);
-      
-      console.log("Supabase signOut successful");
     } catch (err) {
       console.error("Sign out error (continuing anyway):", err);
     }
-    console.log("About to redirect to /login");
-    // Use hard redirect to ensure navigation happens
     window.location.href = "/login";
   }
 
   useEffect(() => {
-    // If the browser has a stale/invalid refresh token stored,
-    // Supabase may throw "Invalid Refresh Token: Refresh Token Not Found".
-    // We recover by clearing auth and pushing to /login.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // If user is already on /login, don't bounce again.
       if (pathname?.startsWith("/login")) return;
-
-      // No session means signed out/expired. Route to login.
-      // This handles cases where refresh token is missing/invalid.
       if (!session) {
-        // Clear any lingering local session data, just in case.
         try {
           await supabase.auth.signOut();
         } catch {
@@ -75,7 +96,6 @@ export default function TopNav({
     };
   }, [router, pathname]);
 
-  // Optional: proactive check on mount for an invalid session.
   useEffect(() => {
     let cancelled = false;
 
@@ -99,7 +119,6 @@ export default function TopNav({
         }
       } catch (e) {
         if (cancelled) return;
-        // If anything auth-related fails unexpectedly, fail safe to login.
         if (!pathname?.startsWith("/login")) {
           router.push("/login");
           router.refresh();
@@ -115,7 +134,6 @@ export default function TopNav({
   const isPatients = pathname?.startsWith("/patients");
   const isReports = pathname?.startsWith("/reports");
   const isSettings = pathname?.startsWith("/settings");
-  const isMessages = pathname?.startsWith("/messages");
   const isAppointments = pathname?.startsWith("/appointments");
 
   return (
@@ -124,61 +142,41 @@ export default function TopNav({
         <div className="topnav-inner">
           {/* Logo/Home */}
           <Link href="/dashboard" className="topnav-logo">
-            🦷 {title}
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt="Clinic logo"
+                className="h-8 w-8 rounded-lg object-contain"
+              />
+            ) : (
+              <span>🦷</span>
+            )}
+            {clinicName}
           </Link>
 
           {/* Right Navigation & Actions */}
           <div className="topnav-links">
-            {/* Messages tab temporarily hidden - will reopen after holidays */}
-            {/* 
-            <Link
-              href="/messages"
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                isMessages
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              💬 Messages
-            </Link>
-            */}
             <Link
               href="/appointments"
-              className={`topnav-link ${
-                isAppointments
-                  ? "topnav-link-active"
-                  : "topnav-link-inactive"
-              }`}
+              className={`topnav-link ${isAppointments ? "topnav-link-active" : "topnav-link-inactive"}`}
             >
               Appointments
             </Link>
             <Link
               href="/patients"
-              className={`topnav-link ${
-                isPatients
-                  ? "topnav-link-active"
-                  : "topnav-link-inactive"
-              }`}
+              className={`topnav-link ${isPatients ? "topnav-link-active" : "topnav-link-inactive"}`}
             >
               Patients
             </Link>
             <Link
               href="/reports/payments"
-              className={`topnav-link ${
-                isReports
-                  ? "topnav-link-active"
-                  : "topnav-link-inactive"
-              }`}
+              className={`topnav-link ${isReports ? "topnav-link-active" : "topnav-link-inactive"}`}
             >
               Reports
             </Link>
             <Link
               href="/settings/clinic-profile"
-              className={`topnav-link ${
-                isSettings
-                  ? "topnav-link-active"
-                  : "topnav-link-inactive"
-              }`}
+              className={`topnav-link ${isSettings ? "topnav-link-active" : "topnav-link-inactive"}`}
             >
               Settings
             </Link>

@@ -11,9 +11,9 @@ import {
   combineFullName,
   formatGenderLabel,
   normalizeGenderInput,
-  formatDatePH,
   formatDateStandard,
   calcAge,
+  formatPhoneLocal,
 } from "@/lib/helpers";
 
 function Field({
@@ -58,7 +58,7 @@ export default function Page() {
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<Patient | null>(null);
 
@@ -83,12 +83,12 @@ export default function Page() {
 
   const loadPatient = useCallback(async () => {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     const p = await supabase.from("patients").select("*").eq("id", id).single();
 
     if (p.error) {
-      setErr(p.error.message);
+      setError(p.error.message);
       setLoading(false);
       return;
     }
@@ -120,7 +120,7 @@ export default function Page() {
 
     setEditFirstName(pat.first_name ?? "");
     setEditLastName(pat.last_name ?? "");
-    setEditPhone(pat.phone ?? "");
+    setEditPhone(formatPhoneLocal(pat.phone ?? ""));
     setEditBirthDate(pat.birth_date ?? "");
     setEditGender((pat.gender ?? "") as any);
     setEditAddress(pat.address ?? "");
@@ -155,7 +155,7 @@ export default function Page() {
 
   async function savePatient() {
     if (!patient) return;
-    setErr(null);
+    setError(null);
 
     const first = editFirstName.trim();
     const last = editLastName.trim();
@@ -164,11 +164,9 @@ export default function Page() {
     const gender = editGender || null;
     const address = editAddress.trim();
 
-    if (!first || !last) return setErr("First and last name are required.");
+    if (!first || !last) return setError("First and last name are required.");
 
     setBusy(true);
-    console.log("Saving patient with ortho_patient =", editOrtho);
-    
     const res = await supabase
       .from("patients")
       .update({
@@ -182,9 +180,8 @@ export default function Page() {
       })
       .eq("id", patient.id);
 
-    console.log("Save result:", res);
     setBusy(false);
-    if (res.error) return setErr(res.error.message);
+    if (res.error) return setError(res.error.message);
 
     // Small delay to ensure real-time subscription processes the update
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -196,7 +193,7 @@ export default function Page() {
   async function deletePatient() {
     if (!patient) return;
     if (deletePatientText.trim().toUpperCase() !== "DELETE") {
-      setErr("Type DELETE to confirm.");
+      setError("Type DELETE to confirm.");
       return;
     }
 
@@ -204,7 +201,7 @@ export default function Page() {
     const res = await supabase.from("patients").delete().eq("id", patient.id);
 
     setBusy(false);
-    if (res.error) return setErr(res.error.message);
+    if (res.error) return setError(res.error.message);
 
     router.push("/patients");
   }
@@ -228,7 +225,7 @@ export default function Page() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
 
       <div className="page-content">
         <div className="page-sections">
@@ -236,13 +233,13 @@ export default function Page() {
           <div className="card">
             <div className="card-header">
               <div className="card-title">Patient Information</div>
-              <button className="btn-primary-dark" onClick={() => setEditOpen(true)}>
+              <button className="save-btn" onClick={() => setEditOpen(true)}>
                 Edit
               </button>
             </div>
             <div className="spacing-vertical-lg">
               {/* Row 1: Last name, First name - 50/50 */}
-              <div className="grid-gap-4-cols-2">
+              <div className="two-col-grid">
                 <label className="field-label">
                   <span className="field-label-text">Last name</span>
                   <input className="field-input-readonly" value={patient.last_name ?? ""} readOnly />
@@ -273,7 +270,7 @@ export default function Page() {
               <div className="grid-gap-4-cols-4">
                 <label className="field-label">
                   <span className="field-label-text">Phone number</span>
-                  <input className="field-input-readonly" value={patient.phone ?? ""} readOnly />
+                  <input className="field-input-readonly" value={formatPhoneLocal(patient.phone ?? "")} readOnly />
                 </label>
                 <label className="field-label col-span-3">
                   <span className="field-label-text">Address</span>
@@ -310,13 +307,13 @@ export default function Page() {
       <EditModal open={editOpen} title="Edit patient" onClose={() => setEditOpen(false)}>
         <div className="grid-gap-4">
           {/* R1: Last name, First name */}
-          <div className="grid-gap-4-cols-2">
+          <div className="two-col-grid">
             <Field label="Last name" value={editLastName} onChange={setEditLastName} placeholder="Last name" />
             <Field label="First name" value={editFirstName} onChange={setEditFirstName} placeholder="First name" />
           </div>
 
           {/* R2: Birth date, Gender */}
-          <div className="grid-gap-4-cols-2">
+          <div className="two-col-grid">
             <DatePickerField
               label="Birth date"
               value={editBirthDate}
@@ -352,7 +349,7 @@ export default function Page() {
           </div>
 
           {/* R3: Phone number full width */}
-          <Field label="Phone number" value={editPhone} onChange={setEditPhone} placeholder="e.g., 09123456789" />
+          <Field label="Phone number" value={editPhone} onChange={(v) => setEditPhone(formatPhoneLocal(v))} placeholder="09XX XXX XXXX" />
 
           {/* R4: Address full width */}
           <div className="field-label">
@@ -391,7 +388,7 @@ export default function Page() {
           </div>
 
           <div className="delete-confirmation">
-            <div className="delete-confirmation-title-red">Delete Patient?</div>
+            <div className="delete-confirmation-title">Delete Patient?</div>
             <div className="delete-confirmation-hint">
               Type <span className="delete-confirmation-code">DELETE</span> to confirm permanent deletion
             </div>
@@ -406,7 +403,7 @@ export default function Page() {
 
           <div className="modal-footer-spread">
             <button
-              className="btn-danger-lg"
+              className="delete-btn"
               disabled={busy || deletePatientText.trim().toUpperCase() !== "DELETE"}
               onClick={deletePatient}
             >
@@ -414,13 +411,13 @@ export default function Page() {
             </button>
             <div className="modal-footer-buttons">
               <button
-                className="btn-secondary-outlined"
+                className="cancel-btn"
                 onClick={() => setEditOpen(false)}
               >
                 Cancel
               </button>
               <button
-                className="h-10 save-btn"
+                className="save-btn"
                 disabled={busy}
                 onClick={savePatient}
               >

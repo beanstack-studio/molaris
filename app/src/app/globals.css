@@ -48,30 +48,6 @@
    Patient tabs: sticky + mobile horizontal scroll (behavior only)
 ========================= */
 
-.patient-tabs-sticky {
-  @apply sticky top-0 z-40 bg-white/95 backdrop-blur;
-}
-
-/* keep the same border and spacing as .tabs (so it looks identical) */
-.patient-tabs-sticky {
-  @apply border-b border-slate-200 mb-4;
-}
-
-/* horizontal scroll area */
-.tabs-scroll {
-  @apply flex gap-2 overflow-x-auto overflow-y-hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Firefox */
-}
-
-.tabs-scroll::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
-}
-
-/* prevent wrapping/shrinking */
-.tabs-scroll .tab-item {
-  @apply whitespace-nowrap flex-none;
-}
 
 /* hide scrollbars while keeping scroll functionality */
 .scrollbar-hide {
@@ -120,7 +96,22 @@
 }
 
 .form-input {
-  @apply h-10 rounded-lg border border-slate-200 px-3 text-sm;
+  @apply h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm;
+}
+
+/* Label that sits directly above an input (block + bottom gap) */
+.input-label {
+  @apply block text-sm font-medium text-slate-700 mb-1;
+}
+
+/* Full-width input with indigo focus ring */
+.form-input-full-focus {
+  @apply w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500;
+}
+
+/* Modal panel with drop shadow (used by appointment modals) */
+.modal-panel-raised {
+  @apply bg-white rounded-lg shadow-xl p-6 w-full max-w-md;
 }
 
 .form-textarea {
@@ -128,7 +119,7 @@
 }
 
 .form-select {
-  @apply h-10 rounded-lg border border-slate-200 px-3 text-sm;
+  @apply h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm;
 }
 
 .form-error {
@@ -225,6 +216,14 @@
   @apply inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors cursor-pointer whitespace-nowrap;
 }
 
+.data-table-btn-danger {
+  @apply inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded transition-colors cursor-pointer whitespace-nowrap;
+}
+
+.data-table-btn-warning {
+  @apply inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-yellow-700 bg-yellow-100 hover:bg-yellow-200 rounded transition-colors cursor-pointer whitespace-nowrap;
+}
+
 /* Table Column Width Utilities */
 .col-10 { width: 10%; }
 .col-11 { width: 11%; }
@@ -242,64 +241,9 @@
 .col-40 { width: 40%; }
 .col-50 { width: 50%; }
 
-/* Old table classes (deprecated - map to data-table for backwards compatibility) */
-.table-shell {
-  @apply overflow-hidden rounded-xl border border-slate-200 bg-white;
-}
-
-.table {
-  @apply w-full text-sm;
-}
-
-.table-head {
-  @apply bg-slate-100 text-slate-700;
-}
-
-.table-th {
-  @apply px-4 py-3 text-left font-medium;
-}
-
-.table-th-right {
-  @apply px-4 py-3 text-right font-medium;
-}
-
-.table-col-money {
-  @apply w-44;
-}
-
-.table-td {
-  @apply px-4 py-3;
-}
-
-.table-td-right {
-  @apply px-4 py-3 text-right;
-}
-
-.table-row {
-  @apply cursor-pointer border-t border-slate-200 hover:bg-slate-100;
-}
-
-.table-row-even {
-  @apply bg-white/60;
-}
-
-.table-row-odd {
-  @apply bg-slate-50/60;
-}
-
-/* Underlined clickable cell style */
-.table-link {
-  @apply font-medium underline decoration-slate-300;
-}
-
 /* Numeric alignment (money, ids, counts) */
 .num {
   @apply tabular-nums;
-}
-
-/* Empty state inside tables */
-.table-empty {
-  @apply px-4 py-6 text-center text-slate-600;
 }
 
 /* =========================
@@ -312,7 +256,7 @@
 }
 
 .delete-confirmation-title {
-  @apply text-sm font-semibold text-slate-700 mb-2;
+  @apply text-sm font-semibold text-red-700 mb-2;
 }
 
 .delete-confirmation-hint {
@@ -327,21 +271,44 @@
   @apply w-full h-10 rounded-lg border bg-white px-3 py-2 text-sm font-mono;
 }
 
-.delete-btn {
-  @apply rounded-lg bg-red-600 text-white hover:bg-red-700 px-4 py-2 text-sm font-semibold disabled:opacity-60 transition-colors;
-}
-
-.btn-sm-delete {
+/* Small inline delete button (e.g. remove a list item row) */
+.item-delete-btn {
   @apply rounded-lg bg-red-500 text-white hover:bg-red-600 px-3 py-1 text-sm font-semibold disabled:opacity-50 opacity-60 transition-colors;
 }
 
-.cancel-btn {
-  @apply rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 text-sm font-medium disabled:opacity-60 transition-colors;
+/* Full-width ghost button to add a new row/item inside a modal */
+.add-row-btn {
+  @apply inline-flex items-center justify-center w-full h-10 px-4 rounded-lg text-sm font-medium transition border border-dashed border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-400 mt-2;
 }
 
-.save-btn {
-  @apply rounded-lg bg-slate-900 text-white hover:bg-slate-800 px-4 py-2 text-sm font-semibold disabled:opacity-60 transition-colors;
+/* Entry row: flex container for dropdown + input + delete (phone/contact/service rows) */
+.entry-row {
+  @apply flex gap-2 items-center;
 }
+
+/* Entry row: type/category select (~25%) */
+.entry-row-select {
+  @apply w-1/4 flex-shrink-0 h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm;
+}
+
+/* Entry row: value input (takes remaining width) */
+.entry-row-input {
+  @apply flex-1 min-w-0 h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm;
+}
+
+/* Toggle switch button (e.g. "Charge extra?") */
+.switch-btn {
+  @apply h-8 w-12 rounded-full transition-colors flex items-center;
+}
+.switch-btn-on  { @apply bg-emerald-500; }
+.switch-btn-off { @apply bg-slate-300; }
+
+/* Toggle switch thumb (white circle) */
+.switch-thumb {
+  @apply h-6 w-6 rounded-full bg-white transition transform;
+}
+.switch-thumb-on  { transform: translateX(22px); }
+.switch-thumb-off { transform: translateX(2px); }
 
 /* Modal button layout */
 .modal-actions {
@@ -356,13 +323,9 @@
   @apply flex gap-2;
 }
 
-/* Modal buttons */
-.modal-btn-primary {
-  @apply rounded-lg bg-slate-900 text-white hover:bg-slate-800 px-4 py-2 text-sm font-semibold disabled:opacity-60 transition-colors;
-}
-
-.modal-btn-secondary {
-  @apply rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 text-sm font-medium disabled:opacity-60 transition-colors;
+/* Modal footer button row */
+.button-group {
+  @apply flex gap-2 mt-4;
 }
 
 /* =========================
@@ -396,33 +359,34 @@
 /* Patient tabs: sticky + mobile horizontal scroll */
 .patient-tabs-sticky {
   position: sticky;
-    top: 0;
-      z-index: 40;
-        background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(8px);
-            border-bottom: 1px solid rgb(226 232 240); /* slate-200 */
-            }
+  top: 0;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgb(226 232 240); /* slate-200 */
+  margin-bottom: 1rem;
+}
 
-            /* horizontal scroll container */
-            .tabs-scroll {
-              display: flex;
-                gap: 0.5rem;
-                  overflow-x: auto;
-                    overflow-y: hidden;
-                      -webkit-overflow-scrolling: touch;
-                        padding: 0.5rem 0.25rem;
-                          scrollbar-width: none; /* Firefox */
-                          }
+/* horizontal scroll container */
+.tabs-scroll {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.5rem 0.25rem;
+  scrollbar-width: none; /* Firefox */
+}
 
-                          .tabs-scroll::-webkit-scrollbar {
-                            display: none; /* Chrome/Safari */
-                            }
+.tabs-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
 
-                            /* prevent tab labels from shrinking/wrapping */
-                            .tabs-scroll .tab-item {
-                              flex: 0 0 auto;
-                                white-space: nowrap;
-                                }
+/* prevent tab labels from shrinking/wrapping */
+.tabs-scroll .tab-item {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 
 /* ========================================
    PAGE STRUCTURE - Unified wrappers
@@ -467,16 +431,26 @@
 
 /* Main content wrapper */
 .page-content {
-  @apply p-4;
+  @apply p-4 md:p-6;
 }
 
 .page-sections {
-  @apply grid gap-4;
+  @apply grid gap-4 md:gap-6;
 }
 
 /* Info boxes */
 .card {
   @apply rounded-xl border bg-white px-4 pt-3 pb-6;
+}
+
+/* Stat/summary card (dashboard panels with shadow) */
+.stat-card {
+  @apply rounded-lg border border-slate-200 bg-white p-6 shadow-sm;
+}
+
+/* Label above a value in a detail/read-only view */
+.detail-label {
+  @apply text-xs text-slate-600;
 }
 
 .card-muted {
@@ -514,7 +488,7 @@
 
 /* Inputs */
 .field-input {
-  @apply h-10 rounded-lg border px-3;
+  @apply h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm;
 }
 
 .field-textarea {
@@ -529,18 +503,6 @@
   @apply rounded-lg border bg-white px-3 py-2;
 }
 
-/* Buttons */
-.btn-primary-dark {
-  @apply rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white;
-}
-
-.btn-danger-lg {
-  @apply h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors;
-}
-
-.btn-secondary-outlined {
-  @apply h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-colors;
-}
 
 /* Modal footer */
 .modal-footer-spread {
@@ -564,136 +526,6 @@
   @apply inline-flex items-center gap-2;
 }
 
-/* Delete confirmation */
-.delete-warning {
-  @apply mt-4;
-}
-
-.delete-warning-title {
-  @apply text-red-700;
-}
-
-.delete-warning-hint {
-  @apply mt-1 text-xs text-slate-600;
-}
-
-.delete-warning-code {
-  @apply font-mono bg-slate-100 px-1 py-0.5 rounded;
-}
-
-.delete-warning-input {
-  @apply mt-2 w-full h-10 rounded-lg border px-3 text-sm;
-}
-
-/* Helper text */
-.helper-text-muted {
-  @apply mt-2 text-xs text-slate-500;
-}
-
-/* ========================================
-   PATIENT PAGES - Billing Tab
-   ======================================== */
-
-/* Modal overlay */
-.modal-overlay {
-  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4;
-}
-
-.modal-box {
-  @apply w-full max-w-md rounded-2xl border bg-white p-6;
-}
-
-/* Billing section box */
-.section-box {
-  @apply rounded-2xl border bg-white p-4;
-}
-
-.section-grid {
-  @apply mt-4 grid gap-4;
-}
-
-/* Stat cards */
-.stat-card {
-  @apply rounded-lg border bg-blue-50 p-3;
-}
-
-.stat-label {
-  @apply text-xs text-blue-600 font-medium;
-}
-
-.stat-value {
-  @apply text-sm font-semibold text-slate-800;
-}
-
-/* Text utilities */
-.text-hint-xs {
-  @apply text-xs text-slate-600;
-}
-
-.text-secondary-xs {
-  @apply text-xs text-slate-500;
-}
-
-.text-bold-lg {
-  @apply text-lg font-semibold;
-}
-
-.text-bold-sm {
-  @apply text-sm font-semibold;
-}
-
-.text-green-success {
-  @apply text-xs text-green-700 font-semibold;
-}
-
-.text-blue-info {
-  @apply font-semibold text-blue-700;
-}
-
-/* ========================================
-   DATA TABLES
-   ======================================== */
-
-.data-table {
-  @apply w-full;
-}
-
-.data-table-head {
-  @apply border-b bg-slate-50 text-slate-600 text-left text-sm;
-}
-
-.data-table-head-cell {
-  @apply px-3 py-2 text-sm font-semibold text-slate-700;
-}
-
-.data-table-head-cell-right {
-  @apply text-right px-3 py-2 text-sm font-semibold text-slate-700;
-}
-
-.data-table-row {
-  @apply border-b hover:bg-slate-50 transition-colors;
-}
-
-.data-table-row-even {
-  @apply bg-white;
-}
-
-.data-table-row-odd {
-  @apply bg-slate-50;
-}
-
-.data-table-cell {
-  @apply px-3 py-2 text-sm text-slate-700;
-}
-
-.data-table-cell-right {
-  @apply px-3 py-2 text-sm text-right text-slate-700;
-}
-
-.data-table-empty {
-  @apply px-3 py-4 text-center text-sm text-slate-500;
-}
-
 /* ========================================
    BUTTONS - Action & State
    ======================================== */
@@ -706,222 +538,12 @@
   @apply h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-colors;
 }
 
-.btn-sm-action {
-  @apply h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors;
-}
-
-.btn-badge-blue {
-  @apply text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors;
-}
-
-.btn-badge-yellow {
-  @apply text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors;
-}
-
-.btn-badge-red {
-  @apply text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors;
-}
-
-/* ========================================
-   FORM INPUTS - Billing
-   ======================================== */
-
-.input-sm {
-  @apply h-9 rounded-lg border bg-white px-2 text-sm;
-}
-
-.input-sm-flex {
-  @apply h-9 rounded-lg border bg-white px-2 text-sm flex-1;
-}
-
-.input-sm-width {
-  @apply h-9 rounded-lg border bg-white px-2 text-sm w-24;
-}
-
-/* ========================================
-   CONTAINERS - Sections & Boxes
-   ======================================== */
-
-.section-header {
-  @apply flex items-center justify-between gap-3 mb-4;
-}
-
-.section-label {
-  @apply text-sm font-semibold;
-}
-
-.discount-box {
-  @apply p-3 bg-red-50 rounded-lg border border-red-200;
-}
-
 .total-row {
   @apply flex justify-between items-center pt-2 text-base font-bold;
 }
 
-.balance-info {
-  @apply text-xs bg-blue-50 border border-blue-200 rounded p-2;
-}
-
-.invoice-checkbox {
-  @apply flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer transition;
-}
-
-.invoice-checkbox-input {
-  @apply w-4 h-4 rounded;
-}
-
-.sticky-header {
-  @apply sticky top-0 border-b bg-white p-4;
-}
-
 .form-section {
   @apply space-y-2 border rounded-lg bg-slate-50 p-3;
-}
-
-.form-grid {
-  @apply grid gap-2 text-sm;
-}
-
-.form-grid-2 {
-  @apply grid gap-2 sm:grid-cols-2;
-}
-
-/* Status & Info boxes */
-.info-error {
-  @apply rounded-lg bg-red-50 border border-red-200 p-2 text-xs text-red-700;
-}
-
-.info-warning {
-  @apply rounded-lg border-t pt-4;
-}
-
-.info-status {
-  @apply inline-block px-2 py-1 rounded-full text-xs font-semibold;
-}
-
-.status-verified {
-  @apply bg-green-100 text-green-800;
-}
-
-.status-pending {
-  @apply bg-yellow-100 text-yellow-800;
-}
-
-.status-voided {
-  @apply bg-gray-100 text-gray-800 line-through opacity-60;
-}
-
-/* Payment reference display */
-.payment-ref {
-  @apply relative;
-}
-
-/* ========================================
-   TYPOGRAPHY - Billing Specific
-   ======================================== */
-
-.text-label {
-  @apply text-slate-700 font-medium;
-}
-
-.text-sm-capitalize {
-  @apply text-sm font-semibold capitalize;
-}
-
-.text-amount-green {
-  @apply text-sm text-green-700 font-semibold;
-}
-
-.text-amount-red {
-  @apply text-sm text-red-900;
-}
-
-.text-lg-blue {
-  @apply text-lg font-semibold text-blue-900;
-}
-
-.text-lg-green {
-  @apply text-lg font-semibold text-green-900;
-}
-
-.text-amount-total {
-  @apply text-lg font-bold;
-}
-
-/* ========================================
-   TREATMENTS & MODAL PAGES
-   ======================================== */
-
-/* Draft item cards */
-.draft-item {
-  @apply flex items-center justify-between rounded-lg bg-white p-2;
-}
-
-.draft-list-container {
-  @apply mt-3 rounded-xl border bg-slate-50 p-3;
-}
-
-.draft-list-title {
-  @apply text-sm font-semibold text-slate-700;
-}
-
-.draft-list-items {
-  @apply mt-2 space-y-2;
-}
-
-/* Treatment/Visit grids */
-.visit-date-row {
-  @apply mt-3 grid gap-3 sm:grid-cols-3;
-}
-
-.procedure-input-row {
-  @apply mt-3 grid gap-3 sm:grid-cols-4;
-}
-
-.treatment-item {
-  @apply rounded-lg bg-white p-3;
-}
-
-.treatment-item-bordered {
-  @apply rounded-lg border bg-slate-50 p-3 space-y-2;
-}
-
-.treatment-list-section {
-  @apply mt-3 space-y-4;
-}
-
-.visit-date-header {
-  @apply rounded-xl border bg-slate-50 p-4;
-}
-
-.visit-date-title {
-  @apply flex items-center justify-between mb-3;
-}
-
-.visit-date-label {
-  @apply text-sm font-semibold text-slate-800;
-}
-
-/* Treatment detail display */
-.treatment-detail-title {
-  @apply text-sm font-semibold;
-}
-
-.treatment-detail-tooth {
-  @apply text-sm font-semibold;
-}
-
-.treatment-detail-notes {
-  @apply text-xs text-slate-500;
-}
-
-/* Modal footer actions */
-.modal-actions {
-  @apply flex justify-end gap-2 pt-4;
-}
-
-.modal-actions-right {
-  @apply flex gap-2;
 }
 
 /* Delete button styling */
@@ -929,235 +551,24 @@
   @apply h-10 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors;
 }
 
-.delete-modal-close-btn {
-  @apply text-red-600 hover:text-red-800 font-semibold h-6 w-6 rounded flex items-center justify-center hover:bg-red-50 transition-colors;
+/* View/mode toggle button — inactive state */
+.toggle-btn {
+  @apply h-10 rounded-lg bg-slate-100 px-4 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors;
 }
 
-/* Form inputs */
-.input-inline-small {
-  @apply h-9 rounded-lg border bg-white px-2 text-sm;
+/* View/mode toggle button — active state */
+.toggle-btn-active {
+  @apply h-10 rounded-lg bg-blue-100 px-4 text-sm font-medium text-blue-700 transition-colors;
 }
 
-.input-treatment-notes {
-  @apply w-full h-9 rounded-lg border bg-white px-2 text-sm;
+/* Pagination number button — active page */
+.page-btn-active {
+  @apply min-w-[32px] h-8 rounded px-2 text-sm font-medium bg-slate-900 text-white transition-colors;
 }
 
-/* Add/Remove buttons */
-.btn-add {
-  @apply h-10 rounded-lg border bg-white px-3 text-sm font-semibold disabled:opacity-60;
-}
-
-.btn-remove {
-  @apply rounded border bg-white px-2 py-1 text-sm;
-}
-
-.btn-remove-inline {
-  @apply rounded border bg-white px-2 py-1 text-sm font-semibold text-slate-700;
-}
-
-/* Edit Visit button styling */
-.btn-edit-visit {
-  @apply inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors cursor-pointer whitespace-nowrap;
-}
-
-/* Treatment container items */
-.treatment-item-flex {
-  @apply grid gap-1 flex-1 text-sm;
-}
-
-.treatment-item-flex-start {
-  @apply flex items-start justify-between gap-2;
-}
-
-/* Form spacing */
-.form-action-row {
-  @apply flex items-end;
-}
-
-.form-full-width {
-  @apply grid gap-1;
-}
-
-.form-label-readonly {
-  @apply h-10 rounded-lg border bg-white px-3 text-sm;
-}
-
-/* Delete confirmation section */
-.delete-confirmation {
-  @apply mt-4;
-}
-
-/* Treatment section titles */
-.treatment-section-title {
-  @apply text-sm font-medium text-slate-700;
-}
-
-/* ========================================
-   CHART & SPECIALIZED PAGES
-   ======================================== */
-
-/* Modal for charts */
-.chart-modal-overlay {
-  @apply fixed inset-0 flex items-center justify-center bg-black/50 z-50;
-}
-
-.chart-modal-box {
-  @apply bg-white rounded-xl shadow-lg w-full max-w-md mx-4 p-6;
-}
-
-/* Tooth chart specific */
-.tooth-chart-container {
-  @apply rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 px-4 py-2 transition-colors;
-}
-
-.tooth-status-button {
-  @apply rounded-lg bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 px-3 py-2 transition-colors;
-}
-
-.tooth-status-cancel {
-  @apply rounded-lg bg-slate-200 text-sm font-medium text-slate-800 hover:bg-slate-300 px-4 py-2 transition-colors;
-}
-
-.tooth-notes-input {
-  @apply w-full h-8 rounded-lg border px-3 text-sm mb-2;
-}
-
-.tooth-status-label {
-  @apply text-xs font-semibold text-slate-600 uppercase mb-2;
-}
-
-.tooth-note-label {
-  @apply text-sm font-medium text-slate-700 mb-1;
-}
-
-.tooth-note-input {
-  @apply min-h-[72px] rounded-lg border px-2 py-1 text-sm;
-}
-
-/* List controls */
-.list-control-wrapper {
-  @apply overflow-y-auto max-h-96 rounded-lg border bg-white;
-}
-
-.list-control-item {
-  @apply p-3 text-center text-sm text-slate-500;
-}
-
-.list-actions {
-  @apply mt-2 flex flex-wrap gap-2;
-}
-
-/* Form input variants */
-.input-readonly-bg {
-  @apply h-10 rounded-lg border px-3 bg-slate-50;
-}
-
-.input-status-select {
-  @apply h-8 rounded-lg border px-2 text-sm;
-}
-
-/* Button variants */
-.btn-primary-action {
-  @apply rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60;
-}
-
-.btn-secondary-slate {
-  @apply px-3 py-2 rounded-lg bg-slate-50 text-sm text-slate-600;
-}
-
-/* Section dividers and layouts */
-.section-divider {
-  @apply mt-4 border-t pt-3;
-}
-
-.section-grid-2 {
-  @apply mt-4 grid grid-cols-2 gap-4;
-}
-
-.section-flex-actions {
-  @apply mt-3 flex justify-center;
-}
-
-/* Typography and text helpers */
-.text-mono-semibold {
-  @apply font-mono font-semibold;
-}
-
-.text-lg-semibold-mb {
-  @apply text-lg font-semibold mb-4;
-}
-
-.text-sm-uppercase {
-  @apply text-xs font-semibold text-slate-700;
-}
-
-.text-slate-600-uppercase {
-  @apply text-xs font-semibold text-slate-600 uppercase;
-}
-
-/* Container layouts */
-.container-overflow-x {
-  @apply mt-3 overflow-x-auto;
-}
-
-.container-flex-actions {
-  @apply flex gap-2;
-}
-
-.container-flex-between {
-  @apply flex items-center justify-between gap-2 mt-4;
-}
-
-.container-flex-start {
-  @apply flex items-center justify-start;
-}
-
-/* Data table cell variants */
-.data-table-cell-text-xs {
-  @apply px-3 py-2 text-xs text-slate-700;
-}
-
+/* Data table cell truncated */
 .data-table-cell-truncate {
   @apply px-3 py-2 text-sm text-slate-700 truncate;
-}
-
-/* Error/info boxes */
-.error-box-sm {
-  @apply mb-3 rounded-lg border bg-red-50 p-3 text-sm text-red-600;
-}
-
-/* Attachments & documents specific */
-.file-upload-wrapper {
-  @apply mt-3;
-}
-
-.file-upload-label {
-  @apply text-sm font-medium text-slate-700 mb-1;
-}
-
-.file-item-row {
-  @apply flex items-center justify-between gap-2 mt-4;
-}
-
-.file-action-cell {
-  @apply flex gap-2;
-}
-
-/* Chart section styling */
-.chart-section {
-  @apply mt-4 rounded-xl border bg-white p-4;
-}
-
-.chart-section-header {
-  @apply mt-2 text-left text-sm text-slate-700;
-}
-
-.chart-info-text {
-  @apply text-sm text-slate-600;
-}
-
-.divide-y {
-  @apply divide-y;
 }
 
 /* ========================================
@@ -1177,7 +588,7 @@
 }
 
 .topnav-logo {
-  @apply text-sm font-bold text-slate-900 hover:text-slate-700 transition-colors;
+  @apply flex items-center gap-2 text-sm font-bold text-slate-900 hover:text-slate-700 transition-colors;
 }
 
 .topnav-links {
@@ -1204,53 +615,44 @@
    STANDARDIZED LAYOUT CONTAINERS
    ======================================== */
 
-/* Info box grid layout - 2 columns on sm */
-.card-grid {
-  @apply grid gap-3 sm:grid-cols-2;
-}
-
-/* Spacing container for metric/stat cards */
-.stat-cards-grid {
-  @apply mt-3 grid gap-4 sm:grid-cols-3;
-}
-
-/* Stat card variants */
-.stat-card-blue {
-  @apply rounded-lg border bg-blue-50 p-3;
-}
-
-.stat-card-green {
-  @apply rounded-lg border bg-green-50 p-3;
-}
-
-.stat-card-red {
-  @apply rounded-lg border bg-red-50 p-3;
-}
-
-.stat-card-gray {
-  @apply rounded-lg border bg-gray-50 p-3;
-}
-
-/* Modal container base */
+/* Modal overlay backdrop */
 .modal-container {
   @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4;
 }
 
-.modal-box-base {
-  @apply w-full rounded-2xl border bg-white p-6;
+/* Generic modal inner panel (messages modals) — alias of modal-panel-raised */
+.modal-wrapper {
+  @apply bg-white rounded-lg shadow-xl p-6 w-full max-w-md;
 }
 
-.modal-box-md {
-  @apply max-w-md;
+/* Modal panel — medium (max-w-md) */
+.modal-panel {
+  @apply w-full max-w-md rounded-2xl border bg-white p-6;
 }
 
-.modal-box-2xl {
-  @apply max-w-2xl;
+/* Modal panel — wide (max-w-2xl), for multi-column content */
+.modal-panel-wide {
+  @apply w-full max-w-2xl rounded-2xl border bg-white p-6;
 }
 
-/* Scrollable modal */
-.modal-scrollable {
-  @apply max-h-screen overflow-y-auto;
+/* Sticky title bar inside scrollable modals */
+.modal-sticky-header {
+  @apply sticky top-0 border-b bg-white p-4;
+}
+
+/* Form field wrapper: stacks label above input */
+.form-field {
+  @apply grid gap-1 text-sm;
+}
+
+/* Light bordered container (e.g. list items, read-only info blocks) */
+.card-light {
+  @apply rounded-lg border bg-slate-50 p-3;
+}
+
+/* Section divider with breathing room above */
+.section-divider {
+  @apply border-t pt-4;
 }
 
 /* Grid layouts */
@@ -1258,32 +660,8 @@
   @apply grid gap-3;
 }
 
-.grid-gap-3-sm-2col {
-  @apply grid gap-3 sm:grid-cols-2;
-}
-
-.grid-gap-3-sm-3col {
-  @apply grid gap-3 sm:grid-cols-3;
-}
-
-.grid-gap-3-sm-4col {
-  @apply grid gap-3 sm:grid-cols-4;
-}
-
 .grid-gap-4 {
   @apply grid gap-4;
-}
-
-.grid-gap-4-md-2col {
-  @apply grid gap-4 md:grid-cols-2;
-}
-
-.grid-gap-4-md-3col {
-  @apply grid gap-4 md:grid-cols-3;
-}
-
-.grid-gap-4-md-4col {
-  @apply grid gap-4 md:grid-cols-4;
 }
 
 .grid-gap-1 {
@@ -1319,6 +697,9 @@
   @apply flex items-start justify-between gap-3;
 }
 
+.flex-center-gap {
+  @apply flex items-center gap-3;
+}
 .flex-center-gap-2 {
   @apply flex items-center gap-2;
 }
@@ -1369,11 +750,17 @@
 }
 
 .table-wrapper {
-  @apply mt-3 overflow-x-auto;
+  @apply mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white;
 }
 
 .form-grid-3 {
   @apply mt-3 grid gap-3 sm:grid-cols-3;
+}
+
+/* Address row: Street (50%) + City + Province + Zip (each ~16.7%) in one line */
+.address-grid {
+  @apply grid gap-3 mb-3;
+  grid-template-columns: 3fr 1fr 1fr 1fr;
 }
 
 .form-grid-2 {
@@ -1393,188 +780,18 @@
   @apply inline-block w-4 h-4 rounded;
 }
 
-.mt-4-grid-gap-4 {
-  @apply mt-4 grid gap-4;
-}
-
-.mt-4-rounded-xl-border-white {
-  @apply mt-4 rounded-xl border bg-white p-4;
-}
-
-/* Rounded border bg-white combinations */
-.rounded-xl-border-white-p-3 {
-  @apply rounded-xl border bg-white p-3;
-}
-
-.rounded-xl-border-white-p-4 {
-  @apply rounded-xl border bg-white p-4;
-}
-
-.rounded-2xl-border-white-p-4 {
-  @apply rounded-2xl border bg-white p-4;
-}
-
-.rounded-2xl-border-white-p-6 {
-  @apply rounded-2xl border bg-white p-6;
-}
-
-.rounded-lg-border-slate-50-p-3 {
-  @apply rounded-lg border bg-slate-50 p-3;
-}
-
-.rounded-lg-border-slate-50-p-4 {
-  @apply rounded-lg border bg-slate-50 p-4;
-}
-
-.rounded-lg-border-red-50-p-3 {
-  @apply rounded-lg border bg-red-50 p-3 text-sm text-red-600;
-}
-
-.rounded-lg-border-blue-50-p-3 {
-  @apply rounded-lg border bg-blue-50 p-3;
-}
-
-.rounded-lg-border-green-50-p-3 {
-  @apply rounded-lg border bg-green-50 p-3;
-}
-
-/* Form label sizing */
-.field-label-grid-gap-1 {
-  @apply grid gap-1 text-sm;
-}
-
-/* Input styling variants */
-.form-input {
-  @apply h-10 rounded-lg border bg-white px-3;
-}
-
-.form-input-select {
-  @apply h-10 rounded-lg border bg-white px-3 text-sm;
-}
-
-.input-h9-flex-1 {
-  @apply h-9 rounded-lg border bg-white px-2 text-sm flex-1;
-}
-
-.input-h9-w-24 {
-  @apply h-9 rounded-lg border bg-white px-2 text-sm w-24;
-}
-
-.input-h9-w-40 {
-  @apply h-9 w-40 rounded-lg border bg-white px-2 text-sm;
-}
-
-.input-readonly-slate-bg {
-  @apply h-10 rounded-lg border px-3 bg-slate-50;
-}
-
-.textarea-standard {
-  @apply rounded-lg border bg-white px-3 py-2 text-sm;
-}
-
-/* List and collection items */
-.list-item-rounded-flex {
-  @apply flex items-center justify-between rounded-lg bg-white p-2;
-}
-
-.list-item-flex-slate-50 {
-  @apply flex items-center justify-between p-2 bg-slate-50 rounded;
-}
-
-.list-item-mb-2-flex {
-  @apply flex items-center justify-between mb-2;
-}
-
-.list-item-pt-2-border-t {
-  @apply flex justify-between items-center pt-2 text-base font-bold;
-}
-
 /* Error messages */
 .error-message-red {
   @apply mb-3 rounded-lg border bg-red-50 p-3 text-sm text-red-600;
 }
 
 /* Text styling */
-.text-label-xs {
-  @apply text-xs text-blue-600 font-medium;
-}
-
-.text-value-sm-bold {
-  @apply text-sm font-semibold text-slate-800;
-}
-
-/* Spacing helpers */
-.mt-3 {
-  @apply mt-3;
-}
-
-.mt-4 {
-  @apply mt-4;
-}
-
-.mb-4 {
-  @apply mb-4;
-}
-
-.mb-3 {
-  @apply mb-3;
-}
-
-.mb-2 {
-  @apply mb-2;
-}
-
-.pb-2 {
-  @apply pb-2;
-}
-
-.pt-2 {
-  @apply pt-2;
-}
-
-.pt-4 {
-  @apply pt-4;
-}
-
-/* ========================================
-   BADGE & STATUS COMPONENTS
-   ======================================== */
-
-/* Status badge - generic inline pill-style */
-.status-badge-base {
-  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold;
-}
-
-.status-badge-green {
-  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-green-100 text-green-800;
-}
-
-.status-badge-yellow {
-  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800;
-}
-
-.status-badge-red {
-  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-red-100 text-red-800;
-}
-
-.status-badge-gray {
-  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800;
-}
-
-.status-badge-blue {
-  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700;
-}
-
-.status-badge-voided {
-  @apply inline-block rounded-full px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800 line-through opacity-60;
-}
-
 /* ========================================
    GRID VARIANTS (Direct replacements)
    ======================================== */
 
-/* Grid with gap-4 and responsive columns */
-.grid-gap-4-cols-2 {
+/* Two-column form/detail grid */
+.two-col-grid {
   @apply grid gap-4 grid-cols-2;
 }
 
@@ -1586,142 +803,26 @@
   @apply grid gap-4 grid-cols-4;
 }
 
-.grid-gap-4-cols-5 {
-  @apply grid gap-4 grid-cols-5;
+/* Form field wrapper */
+.form-field-wrapper {
+  @apply grid gap-1 text-sm;
 }
-
-/* Responsive grids sm:col-span */
-.col-span-2 {
-  @apply sm:col-span-2;
-}
-
-.col-span-3 {
-  @apply sm:col-span-3;
-}
-
-.col-span-4 {
-  @apply sm:col-span-4;
-}
-
-/* ========================================
-   FLEX VARIANTS (Inline-flex patterns)
-   ======================================== */
 
 .inline-flex-items-center-gap-2 {
   @apply inline-flex items-center gap-2;
 }
 
-.inline-flex-items-center-gap-3 {
-  @apply inline-flex items-center gap-3;
-}
-
-.inline-flex-items-center-gap-4 {
-  @apply inline-flex items-center gap-4;
-}
-
-.flex-items-center-justify-start {
-  @apply flex items-center justify-start;
-}
-
-/* ========================================
-   FORM FIELD STYLING
-   ======================================== */
-
-/* Form field wrapper - commonly repeated */
-.form-field-wrapper {
-  @apply grid gap-1 text-sm;
-}
-
-/* Form field with label */
-.form-field-labeled {
-  @apply grid gap-1 text-sm;
-}
-
-/* ========================================
-   ACTION BUTTON ROWS
-   ======================================== */
-
-/* Flex row with items aligned at end */
-.button-group-row {
-  @apply flex items-end gap-2;
-}
-
-.flex-items-end-gap-3 {
-  @apply flex items-end gap-3;
-}
-
-/* ========================================
-   TEXT STYLING HELPERS
-   ======================================== */
-
-.text-sm-semibold {
-  @apply text-sm font-semibold;
-}
-
-.text-lg-semibold {
-  @apply text-lg font-semibold;
-}
-
-.text-sm-semibold-slate-700 {
-  @apply text-sm font-semibold text-slate-700;
-}
-
-.text-xs-slate-500 {
-  @apply text-xs text-slate-500;
-}
-
-.text-xs-slate-600 {
-  @apply text-xs text-slate-600;
-}
-
-.text-lg-semibold-blue-900 {
-  @apply text-lg font-semibold text-blue-900;
-}
-
-.text-lg-semibold-green-900 {
-  @apply text-lg font-semibold text-green-900;
-}
-
-/* ========================================
-   INFO BOX VARIANTS
-   ======================================== */
-
-/* Info box with specific styling */
-.card-white {
-  @apply rounded-xl border bg-white p-4;
-}
-
-.card-slate-50 {
-  @apply rounded-xl border bg-slate-50 p-4;
-}
-
-/* Helper text styling */
-.helper-text-muted-mt-4 {
-  @apply mt-4 text-xs text-slate-500;
-}
-
-/* ========================================
-   PRIMARY BUTTON STYLES
-   ======================================== */
-
-.btn-primary {
-  @apply h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60;
-}
 
 /* ========================================
    INPUT & FORM FIELD STYLES
    ======================================== */
 
 .input-standard {
-  @apply h-10 rounded-lg border px-3 bg-white text-sm;
+  @apply h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm;
 }
 
 .input-standard-sm {
   @apply h-9 rounded-lg border px-2 bg-white text-sm;
-}
-
-.input-standard-white {
-  @apply h-10 rounded-lg border bg-white px-3 text-sm;
 }
 
 .textarea-standard {
@@ -1736,24 +837,13 @@
   @apply text-xs font-semibold text-slate-600 uppercase mb-2;
 }
 
-.text-sm-medium-slate-700 {
+.text-field-label {
   @apply text-sm font-medium text-slate-700;
 }
 
-.text-sm-medium-slate-700-mb-1 {
-  @apply text-sm font-medium text-slate-700 mb-1;
-}
-
-.text-xs-semibold-slate-700 {
+/* Small bold label inside a form group (e.g. "Tooth #", "Treatment") */
+.field-sublabel {
   @apply text-xs font-semibold text-slate-700;
-}
-
-.text-medium-slate-700 {
-  @apply font-medium text-slate-700;
-}
-
-.text-semibold-slate-700 {
-  @apply font-semibold text-slate-700;
 }
 
 /* ========================================
@@ -1772,168 +862,9 @@
   @apply mt-2 flex flex-wrap gap-2;
 }
 
-.space-y-2-mt-2 {
-  @apply mt-2 space-y-2;
-}
-
-.error-box-sm {
-  @apply mb-4 rounded-lg border bg-white p-3 text-sm text-red-600;
-}
-
-.container-slate-50 {
-  @apply p-3 bg-slate-50 rounded-lg text-slate-600;
-}
-
-.header-sticky {
-  @apply sticky top-0 border-b bg-white p-4;
-}
-
-/* ========================================
-   BADGE STYLES
-   ======================================== */
-
-.badge-info-blue {
-  @apply inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700;
-}
-
-/* ========================================
-   SECONDARY BUTTON STYLES (DARK)
-   ======================================== */
-
-.btn-secondary-dark {
-  @apply h-10 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60;
-}
-
-.btn-secondary-light {
-  @apply h-10 rounded-lg border bg-white px-3 text-sm font-semibold disabled:opacity-60;
-}
-
-/* ========================================
-   ACTION BUTTON STYLES (COLORED BACKGROUNDS)
-   ======================================== */
-
-.btn-action-blue {
-  @apply rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 px-4 py-2 transition-colors;
-}
-
-.btn-action-red {
-  @apply rounded-lg bg-red-600 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 px-3 py-2 transition-colors;
-}
-
-.btn-action-blue-sm {
-  @apply flex-1 rounded-lg bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200;
-}
-
-.btn-action-red-sm {
-  @apply flex-1 rounded-lg bg-red-100 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-200;
-}
-
-/* ========================================
-   ADDITIONAL TEXT STYLES
-   ======================================== */
-
-.text-sm-text-slate-500 {
-  @apply text-sm text-slate-500;
-}
-
-.text-sm-text-slate-700-mb-2 {
-  @apply text-sm text-slate-700 mb-2;
-}
-
-.text-xs-text-slate-600 {
-  @apply text-xs text-slate-600;
-}
-
-.text-base-font-bold {
-  @apply text-base font-bold;
-}
-
-/* ========================================
-   FLEX LAYOUT COMBINATIONS
-   ======================================== */
-
-.flex-items-center-gap-2 {
-  @apply flex items-center gap-2;
-}
-
-.flex-items-center-gap-3 {
-  @apply flex items-center gap-3;
-}
-
-.flex-items-center-justify-between {
-  @apply flex items-center justify-between;
-}
-
-.flex-items-center-justify-end {
-  @apply flex items-center justify-end;
-}
-
-.flex-items-start-justify-between {
-  @apply flex items-start justify-between;
-}
-
-.flex-justify-between {
-  @apply flex justify-between;
-}
-
-.flex-justify-end {
-  @apply flex justify-end;
-}
-
-.flex-gap-1 {
-  @apply flex gap-1;
-}
-
-.flex-gap-2 {
-  @apply flex gap-2;
-}
-
-.flex-gap-3 {
-  @apply flex gap-3;
-}
-
-.flex-wrap-gap-3 {
-  @apply flex flex-wrap gap-3;
-}
 
 .flex-wrap-items-center-justify-between {
   @apply flex flex-wrap items-center justify-between gap-3;
-}
-
-/* ========================================
-   GRID LAYOUT COMBINATIONS
-   ======================================== */
-
-.grid-gap-4 {
-  @apply grid gap-4;
-}
-
-.grid-gap-3 {
-  @apply grid gap-3;
-}
-
-.grid-gap-1 {
-  @apply grid gap-1;
-}
-
-.grid-gap-2 {
-  @apply grid gap-2;
-}
-
-.grid-cols-2-gap-2 {
-  @apply grid grid-cols-2 gap-2;
-}
-
-.grid-cols-2-gap-4 {
-  @apply grid grid-cols-2 gap-4;
-}
-
-.grid-gap-3-text-sm {
-  @apply grid gap-3 text-sm;
-}
-
-.grid-gap-1-flex-1 {
-  @apply grid gap-1 flex-1 text-sm;
 }
 
 /* ========================================
@@ -1944,28 +875,12 @@
   @apply bg-white rounded-xl shadow-lg w-full max-w-md mx-4 p-6;
 }
 
-.container-slate-50-rounded-p-3 {
-  @apply rounded-lg bg-slate-50 p-3 grid grid-cols-2 gap-2;
-}
-
-.container-red-50-border-red {
-  @apply mb-4 p-3 bg-red-50 border border-red-200 rounded-lg;
-}
-
-.container-rounded-border-white {
-  @apply mt-3 rounded-xl border bg-white p-3;
-}
-
 /* ========================================
    FORM INPUT WITH TEXT
    ======================================== */
 
 .input-sm-text-sm {
   @apply h-8 rounded-lg border px-2 text-sm;
-}
-
-.input-bordered-sm {
-  @apply rounded border bg-white px-2 py-1 text-sm;
 }
 
 .textarea-sm {
@@ -1984,206 +899,9 @@
    TEXT ALIGNMENT & SPACING
    ======================================== */
 
-.text-left-mt-2-sm-slate-700 {
-  @apply mt-2 text-left text-sm text-slate-700;
-}
-
-.flex-center-text-sm {
-  @apply mt-3 flex justify-center;
-}
-
-/* ========================================
-   BORDER & SEPARATOR STYLES
-   ======================================== */
-
-.border-b-border-t-pt-2-text-sm-semibold {
-  @apply flex items-center justify-between text-sm font-semibold border-t pt-2;
-}
-
-.border-b-pb-2-flex-between {
-  @apply flex justify-between items-center pb-2 border-b;
-}
-
-.text-left-bg-slate-50 {
-  @apply border-b text-left text-slate-600 bg-slate-50;
-}
-
-/* ========================================
-   HIGH-FREQUENCY PATTERN CONSOLIDATION
-   ======================================== */
-
-/* Form labels and fields - appearing 5+ times each */
-.form-label-wrapper {
-  @apply grid gap-1 text-sm;
-}
-
-.form-label-text {
-  @apply text-sm text-slate-700;
-}
-
-.form-label-text-medium {
-  @apply text-sm font-medium text-slate-700;
-}
-
-.form-label-xs-medium {
-  @apply text-xs font-medium text-slate-700;
-}
-
-/* Input fields - appearing 7+ times as inline */
-.input-h10-border-white {
-  @apply h-10 rounded-lg border bg-white px-3 text-sm;
-}
-
-.input-h10-border-white-semibold {
-  @apply h-10 rounded-lg border bg-white px-3 text-sm font-semibold disabled:opacity-60;
-}
-
-.input-px-py-standard {
-  @apply py-2 px-3;
-}
-
-.input-px-py-standard-right {
-  @apply py-2 px-3 text-right;
-}
-
-/* Text color - appearing 16+ times */
-.label-text {
-  @apply text-slate-700;
-}
-
-.text-slate-700-medium {
-  @apply text-slate-700 font-medium;
-}
-
-.text-slate-600-base {
-  @apply text-slate-600;
-}
-
-.text-xs-slate-500-base {
-  @apply text-xs text-slate-500;
-}
-
-.text-sm-medium-slate-700-base {
-  @apply text-sm font-medium text-slate-700;
-}
-
-/* Spacing and layout - appearing 3-5 times each */
-.space-y-2-mt-2 {
-  @apply space-y-2 mt-2;
-}
-
-.space-y-3-base {
-  @apply space-y-3;
-}
 
 .spacing-vertical-lg {
   @apply space-y-4;
-}
-
-.form-grid-2 {
-  @apply mt-3 grid gap-3 sm:grid-cols-2;
-}
-
-.form-grid-3 {
-  @apply mt-3 grid gap-3 sm:grid-cols-3;
-}
-
-.mt-4-grid-gap-4 {
-  @apply mt-4 grid gap-4;
-}
-
-.grid-gap-1-text-sm {
-  @apply grid gap-1 text-sm;
-}
-
-/* Button and action layouts - appearing 3+ times each */
-.flex-justify-end-gap-2 {
-  @apply flex justify-end gap-2;
-}
-
-.flex-between-gap-2-mt-4 {
-  @apply flex justify-between gap-2 mt-4;
-}
-
-.flex-between-gap-3-mb-4 {
-  @apply flex justify-between gap-3 mb-4;
-}
-
-/* Data table cells - appearing 3+ times combined - composed as combination */
-.data-table-cell-text-sm {
-  @apply text-sm;
-  @apply p-2 text-slate-700;
-}
-
-.data-table-btn-text-xs {
-  @apply text-xs;
-  @apply px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer transition;
-}
-
-/* Confirmation and status styling */
-.delete-confirmation-title-red {
-  @apply text-sm font-semibold text-red-700 mb-2;
-}
-
-/* Grid column combinations - appearing multiple times */
-.grid-gap-4-base {
-  @apply grid gap-4;
-}
-
-/* Additional combined patterns from comprehensive scan */
-.rounded-lg-border-p-3 {
-  @apply rounded-lg border p-3;
-}
-
-.text-slate-700-xs-semibold {
-  @apply text-slate-700 text-xs font-semibold;
-}
-
-.badge-xs-semibold-rounded-full {
-  @apply inline-block px-2 py-1 rounded-full text-xs font-semibold;
-}
-
-/* ========================================
-   COMPOSITE NESTING PATTERNS (Container + Header + Title)
-   ======================================== */
-
-/* Section container with header row and title */
-.section-container-with-header {
-  @apply rounded-2xl border border-white bg-white p-4;
-}
-
-.section-header-row {
-  @apply flex justify-between gap-3 mb-4;
-}
-
-.section-title-wrapper {
-  @apply flex items-start;
-}
-
-.section-title-text {
-  @apply text-sm font-semibold;
-}
-
-/* ========================================
-   ADDITIONAL RAW PATTERNS FOUND (appearing 2+ times)
-   ======================================== */
-
-/* Text styling combinations */
-.text-sm-semibold-mb-3 {
-  @apply text-sm font-semibold mb-3;
-}
-
-.flex-between-text-sm-mb-2 {
-  @apply flex items-center justify-between text-sm mb-2;
-}
-
-/* Textarea/Input field styling */
-.textarea-rounded-border-white {
-  @apply rounded-lg border bg-white px-3 py-2 text-sm;
-}
-
-.form-input-border-white {
-  @apply h-10 rounded-lg border bg-white px-3 py-2 text-sm;
 }
 
 /* Select/sort dropdown styling */
@@ -2191,40 +909,301 @@
   @apply h-9 w-40 rounded-lg border bg-white px-2 text-sm;
 }
 
-
-
-/* Form label text styling */
-.form-label-text-slate-700-semibold {
-  @apply text-slate-700 font-semibold;
+/* Empty / no-data placeholder container */
+.empty-state {
+  @apply rounded-lg bg-slate-50 border border-slate-200 p-8 text-center;
 }
 
-/* Text styling for paid amounts */
-.text-green-700-semibold {
-  @apply text-green-700 font-semibold;
+/* Blue informational callout box */
+.info-box {
+  @apply rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2;
 }
 
-/* Responsive grid with 2 cols on small screens */
-.responsive-grid-cols-2 {
-  @apply sm:grid-cols-2;
+/* Secondary / helper text */
+.text-muted {
+  @apply text-sm text-slate-600;
 }
 
-/* Table header row styling */
-.table-header-left-bg-slate-50 {
-  @apply text-left bg-slate-50;
+/* Muted text variants */
+.text-muted-sm {
+  @apply text-sm text-slate-500;
+}
+.text-muted-xs {
+  @apply text-xs text-slate-500;
 }
 
-/* Full width table styling */
-.table-full-width-text-sm {
-  @apply w-full text-sm;
+/* Caption / metadata text */
+.text-caption {
+  @apply text-xs text-slate-500;
 }
 
-/* Section divider with top border and padding */
-.section-divider-border-t-pt-4 {
-  @apply border-t pt-4;
+/* ========================================
+   TABLE CELL UTILITIES
+   ======================================== */
+
+/* Table header cell — left-aligned */
+.th-left {
+  @apply px-4 py-2 text-left font-semibold text-slate-700;
 }
 
-/* Flex justify end with gap */
-.flex-items-center-justify-end-gap-2 {
-  @apply flex items-center justify-end gap-2;
+/* Table header cell — right-aligned */
+.th-right {
+  @apply px-4 py-2 text-right font-semibold text-slate-700;
+}
+
+/* Standard table data cell padding */
+.td-cell {
+  @apply px-4 py-2;
+}
+
+/* ========================================
+   FLEX ROW UTILITIES
+   ======================================== */
+
+/* Centered flex cell (icon, boolean indicator) */
+.centered-cell {
+  @apply flex items-center justify-center;
+}
+
+/* Inline row with small gap (icon + text, action groups) */
+.inline-row {
+  @apply flex items-center gap-2;
+}
+
+/* ========================================
+   INPUT VARIANTS
+   ======================================== */
+
+/* Compact full-width inline edit input */
+.compact-input {
+  @apply w-full rounded border border-slate-300 px-2 py-1;
+}
+
+/* Read-only display input (shows a value, not editable) */
+.readonly-input {
+  @apply rounded border bg-white px-2 py-1 text-sm;
+}
+
+/* ========================================
+   TYPOGRAPHY & LAYOUT HELPERS
+   ======================================== */
+
+/* Subtitle text below an empty-state heading */
+.empty-state-hint {
+  @apply text-sm text-slate-500 mt-2;
+}
+
+/* Modal / panel title */
+.modal-title {
+  @apply text-lg font-semibold;
+}
+
+/* Form field that spans the full width of a grid row */
+.field-full-row {
+  @apply grid gap-1 col-span-2;
+}
+
+/* ========================================
+   PAGE & LAYOUT
+   ======================================== */
+
+/* Standard app page background */
+.page-bg {
+  @apply min-h-screen bg-slate-50;
+}
+
+/* ========================================
+   TABLE UTILITIES (compact / modal tables)
+   ======================================== */
+
+/* Compact table cell — left-aligned (used in modal inner tables) */
+.cell-sm {
+  @apply py-2 px-3;
+}
+
+/* Compact table cell — right-aligned */
+.cell-sm-right {
+  @apply py-2 px-3 text-right;
+}
+
+/* tbody with horizontal row dividers */
+.divider-rows {
+  @apply divide-y divide-slate-200;
+}
+
+/* ========================================
+   FLEX ROW VARIANTS
+   ======================================== */
+
+/* Tight button/action group */
+.action-row {
+  @apply flex gap-2;
+}
+
+/* Wider spaced side-by-side sections */
+.section-columns {
+  @apply flex gap-4;
+}
+
+/* Key/value pair row (label left, value right) */
+.detail-row {
+  @apply flex justify-between;
+}
+
+/* ========================================
+   TYPOGRAPHY
+   ======================================== */
+
+/* Modal heading — bold variant with bottom margin */
+.modal-heading {
+  @apply text-lg font-bold text-slate-900 mb-4;
+}
+
+/* Item price / value in a list */
+.item-value {
+  @apply text-sm font-semibold text-slate-900;
+}
+
+/* Small muted hint inside an empty list or container */
+.hint-text {
+  @apply text-xs text-slate-500;
+}
+
+/* ========================================
+   TOOTH CHART COMPONENTS
+   ======================================== */
+
+/* Dentition section label (Primary / Permanent) */
+.tooth-section-label {
+  @apply text-xs text-slate-500 text-center mt-0.5;
+}
+
+/* Vertical divider line between dentition groups */
+.tooth-divider {
+  @apply w-3 shrink-0 border-l-2 border-slate-300;
+}
+
+/* ========================================
+   FORM INPUTS (FULL WIDTH VARIANTS)
+   ======================================== */
+
+/* Full-width standard input */
+.input-full {
+  @apply h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm;
+}
+
+/* Full-width textarea — no auto-resize, no min-height */
+.textarea-input {
+  @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm resize-none;
+}
+
+/* Extra-small inline input (e.g. hour fields in clinic hours grid) */
+.input-xs {
+  @apply rounded border border-slate-200 px-2 py-1 text-sm bg-white;
+}
+
+/* Small expanding input inside a flex row */
+.input-flex-sm {
+  @apply h-9 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-sm;
+}
+
+/* ========================================
+   LAYOUT HELPERS
+   ======================================== */
+
+/* Page toolbar: stacks on mobile, single row on desktop */
+.page-toolbar {
+  @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+}
+
+/* Flex row for input + button pairs */
+.input-row {
+  @apply flex gap-2 items-center;
+}
+
+/* ========================================
+   MODAL STRUCTURE
+   ======================================== */
+
+/* Modal content body — standard vertical stack */
+.modal-body {
+  @apply mt-4 grid gap-4;
+}
+
+/* Modal footer — right-aligned button row */
+.modal-footer {
+  @apply flex justify-end gap-2;
+}
+
+/* ========================================
+   TYPOGRAPHY
+   ======================================== */
+
+/* Card / section heading (e.g. "Recent Payments") */
+.section-heading {
+  @apply mb-4 text-lg font-semibold text-slate-900;
+}
+
+/* ========================================
+   STATUS / ALERT BOXES
+   ======================================== */
+
+/* Prominent inline error (red background, inside modals/forms) */
+.error-msg {
+  @apply mb-4 rounded-lg bg-red-100 p-3 text-sm text-red-800;
+}
+
+/* Soft red error/alert box (larger sections) */
+.error-box {
+  @apply rounded-lg bg-red-50 p-4;
+}
+
+/* ========================================
+   BILLING / INVOICE COMPONENTS
+   ======================================== */
+
+/* Line item row in invoice preview */
+.invoice-line-item {
+  @apply flex items-center justify-between p-2 bg-slate-50 rounded;
+}
+
+/* ========================================
+   TREATMENT ENTRY FORM
+   ======================================== */
+
+/* Three-column grid row for tooth#, treatment, notes */
+.three-col-row {
+  @apply grid grid-cols-3 gap-2 mb-2;
+}
+
+/* ========================================
+   BADGES
+   ======================================== */
+
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+}
+.badge-secondary {
+  @apply bg-slate-100 text-slate-700;
+}
+.badge-success {
+  @apply bg-emerald-100 text-emerald-700;
+}
+.badge-warning {
+  @apply bg-amber-100 text-amber-700;
+}
+.badge-danger {
+  @apply bg-red-100 text-red-700;
+}
+.badge-info {
+  @apply bg-blue-100 text-blue-700;
+}
+
+/* ========================================
+   FORM TEXTAREA (full-width with focus ring)
+   ======================================== */
+
+.form-textarea-full-focus {
+  @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
 }
 

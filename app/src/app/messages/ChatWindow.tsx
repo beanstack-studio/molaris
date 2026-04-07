@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { formatDateTimePH } from "@/lib/helpers";
+import { formatDateTimePH, formatPhoneLocal } from "@/lib/helpers";
 import { Message, MessageThread, Patient, Appointment } from "@/lib/types";
 import {
   getMessageThread,
@@ -223,7 +223,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
                   {thread.patients?.full_name}
                 </h2>
                 <p className="text-muted-sm">
-                  {thread.channel.toUpperCase()} • {thread.patients?.phone}
+                  {thread.channel.toUpperCase()} • {thread.patients?.phone ? formatPhoneLocal(thread.patients.phone) : "—"}
                 </p>
               </>
             ) : (
@@ -274,7 +274,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
           {thread.patient_id && (
             <button
               onClick={() => setShowAppointmentModal(true)}
-              className="modal-btn-primary"
+              className="save-btn"
             >
               + Appointment
             </button>
@@ -334,7 +334,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
 
       {/* Reply Input - Sticky to bottom of screen (responsive to sidebar) */}
       <div className="fixed bottom-0 right-0 border-t border-slate-200 bg-white p-4 shadow-lg z-30 md:left-80 left-0">
-        <div className="flex gap-2">
+        <div className="action-row">
           <input
             type="text"
             value={replyText}
@@ -352,7 +352,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
           <button
             onClick={handleSendReply}
             disabled={!replyText.trim() || sending}
-            className="modal-btn-primary"
+            className="save-btn"
           >
             {sending ? "Sending..." : "Send"}
           </button>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Patient } from "@/lib/types";
 import { linkThreadToPatient } from "@/lib/messageHelpers";
+import { formatPhoneLocal } from "@/lib/helpers";
 
 interface LinkPatientModalProps {
   threadId: string;
@@ -70,12 +71,12 @@ export default function LinkPatientModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="modal-container">
       <div className="modal-wrapper">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Link to Patient</h3>
+        <h3 className="modal-heading">Link to Patient</h3>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg text-sm">
+          <div className="error-msg">
             {error}
           </div>
         )}
@@ -117,13 +118,13 @@ export default function LinkPatientModal({
                 <select
                   value={selectedPatient || ""}
                   onChange={(e) => setSelectedPatient(e.target.value || null)}
-                  className="form-input-full-focus"
+                  className="input-full"
                 >
                   <option value="">-- Select a patient --</option>
                   {patients.map((patient) => (
                     <option key={patient.id} value={patient.id}>
                       {patient.full_name}
-                      {patient.phone ? ` (${patient.phone})` : ""}
+                      {patient.phone ? ` (${formatPhoneLocal(patient.phone)})` : ""}
                     </option>
                   ))}
                 </select>
@@ -140,7 +141,7 @@ export default function LinkPatientModal({
               <button
                 onClick={() => setConfirmStep(true)}
                 disabled={!selectedPatient}
-                className="flex-1 modal-btn-primary"
+                className="flex-1 save-btn"
               >
                 Next
               </button>
@@ -164,7 +165,7 @@ export default function LinkPatientModal({
                       {selectedPatientData?.full_name}
                     </p>
                     <p className="text-muted-sm">
-                      {selectedPatientData?.phone || "No phone"}
+                      {selectedPatientData?.phone ? formatPhoneLocal(selectedPatientData.phone) : "No phone"}
                     </p>
                   </div>
                 </div>
@@ -189,7 +190,7 @@ export default function LinkPatientModal({
               <button
                 onClick={handleConfirm}
                 disabled={linking}
-                className="flex-1 modal-btn-primary"
+                className="flex-1 save-btn"
               >
                 {linking ? "Linking..." : "Confirm & Link"}
               </button>

@@ -115,47 +115,48 @@ export function escapeHtml(s: string) {
     .replaceAll("'", "&#039;");
 }
 
+/**
+ * Formats a PH phone number as the user types, choosing the right group pattern
+ * based on digit count:
+ *   11 digits → XXXX XXX XXXX  (4-3-4, PH mobile: 09XX XXX XXXX)
+ *   10 digits → XXX XXX XXXX   (3-3-4, landline with area code)
+ *    7 digits → XXX XXXX       (3-4, local landline)
+ *
+ * Also normalises:
+ *   +63 / 63 prefix (≥12 raw digits) → 0 prefix
+ *   10-digit number starting with 9  → prepend 0 (mobile shorthand)
+ */
+export function formatPhoneLocal(raw: string): string {
+  let d = raw.replace(/\D/g, "");
+
+  // International → local: +63XXXXXXXXXX or 63XXXXXXXXXX
+  if (d.startsWith("63") && d.length >= 12) d = "0" + d.slice(2);
+  // Mobile shorthand: 9XXXXXXXXX (10 digits) → 09XXXXXXXXX
+  if (d.length === 10 && d.startsWith("9")) d = "0" + d;
+
+  d = d.slice(0, 11);
+  const n = d.length;
+
+  if (n === 0) return "";
+  if (n <= 3) return d;
+
+  if (n <= 7) {
+    // 7-digit local landline: XXX XXXX
+    return `${d.slice(0, 3)} ${d.slice(3)}`;
+  }
+  if (n <= 10) {
+    // 10-digit landline with area code: XXX XXX XXXX
+    return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`;
+  }
+  // 11-digit mobile: XXXX XXX XXXX
+  return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+}
+
 export function formatMoney(amount: number) {
-  return "₱ " + Number(amount).toLocaleString('en-US', {
+  return '₱ ' + (amount || 0).toLocaleString('en-PH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-/**
- * Generate formatted invoice number: I26-0001, I26-0002, etc.
- * Note: For proper sequential numbers, call getNextInvoiceNumber() from the page
- * This fallback generates a deterministic number based on timestamp
- */
-export function generateInvoiceNumber(): string {
-  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
-  const timestamp = Date.now();
-  const sequence = (timestamp % 10000).toString().padStart(4, "0");
-  return `I${year}-${sequence}`;
-}
-
-/**
- * Generate formatted transaction number: T26-0001, T26-0002, etc.
- * Note: For proper sequential numbers, call getNextTransactionNumber() from the page
- * This fallback generates a deterministic number based on timestamp
- */
-export function generateTransactionNumber(): string {
-  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
-  const timestamp = Date.now();
-  const sequence = (timestamp % 10000).toString().padStart(4, "0");
-  return `T${year}-${sequence}`;
-}
-
-/**
- * Generate formatted receipt number: PMT26-0001, PMT26-0002, etc.
- * Note: For proper sequential numbers, call getNextReceiptNumber() from the page
- * This fallback generates a deterministic number based on timestamp
- */
-export function generateReceiptNumber(): string {
-  const year = new Date().getFullYear().toString().slice(-2); // "26" for 2026
-  const timestamp = Date.now();
-  const sequence = (timestamp % 10000).toString().padStart(4, "0");
-  return `PMT${year}-${sequence}`;
 }
 
 /**

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { calcAge, formatGenderShort, formatDatePH, formatDateStandard, formatMoney } from "@/lib/helpers";
+import { calcAge, formatGenderShort, formatDateStandard, formatMoney, formatPhoneLocal } from "@/lib/helpers";
 import type { GenderDB } from "@/lib/types";
 
 type PatientRow = {
@@ -34,37 +34,6 @@ type PatientSort =
 
 function onlyDigits(s: string) {
   return (s || "").replace(/\D/g, "");
-}
-
-/**
- * Formats PH mobile numbers as: 09XX XXX XXXX
- * - Accepts input with or without spaces
- * - Limits to 11 digits
- * - If user pastes 63XXXXXXXXXX, converts to 0XXXXXXXXXX
- * Returns both digits-only and formatted display.
- */
-function normalizePhonePH(input: string) {
-  let d = onlyDigits(input);
-
-  if (d.startsWith("63") && d.length >= 12) {
-    d = "0" + d.slice(2);
-  }
-
-  if (d.length === 10 && d.startsWith("9")) {
-    d = "0" + d;
-  }
-
-  d = d.slice(0, 11);
-
-  const p1 = d.slice(0, 4);
-  const p2 = d.slice(4, 7);
-  const p3 = d.slice(7, 11);
-
-  let formatted = p1;
-  if (d.length > 4) formatted += " " + p2;
-  if (d.length > 7) formatted += " " + p3;
-
-  return { digits: d, formatted };
 }
 
 function safeText(s: any) {
@@ -106,7 +75,7 @@ export default function PatientsPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadPatients() {
@@ -288,7 +257,7 @@ export default function PatientsPage() {
   }, [filtered, page]);
 
   async function addPatient() {
-    setSaving(true);
+    setBusy(true);
     setError(null);
 
     const { data: sessionData } = await supabase.auth.getSession();
@@ -299,26 +268,24 @@ export default function PatientsPage() {
     const full = combineFullName(fn, ln);
 
     if (fn.length < 1 || ln.length < 1) {
-      setSaving(false);
+      setBusy(false);
       setError("Please enter both First name and Last name.");
       return;
     }
-
-    const normalized = normalizePhonePH(phone);
 
     const { error } = await supabase.from("patients").insert({
       first_name: fn,
       last_name: ln,
       full_name: full,
       gender: gender || null,
-      phone: normalized.formatted.trim() || null,
+      phone: formatPhoneLocal(phone) || null,
       birth_date: birthDate || null,
       address: safeText(address) || null,
       created_by: userId,
       first_seen_on: new Date().toISOString().slice(0, 10),
     });
 
-    setSaving(false);
+    setBusy(false);
 
     if (error) {
       setError(error.message);
@@ -350,21 +317,21 @@ export default function PatientsPage() {
 
       <div className="app-section-body">
         <div className="p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="page-toolbar">
             <input
-              className="form-input w-full sm:max-w-md bg-white"
+              className="form-input w-full sm:max-w-md"
               placeholder="Search by name or phone"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
 
             <div className="flex-center-gap-3">
-              <div className="text-sm text-slate-600">
+              <div className="text-muted">
                 {loading ? "Loading..." : `${filtered.length} of ${patients.length} patients`}
               </div>
 
               <select
-                className="form-select w-56 bg-white"
+                className="form-select-standard w-48"
                 value={patientSort}
                 onChange={(e) => setPatientSort(e.target.value as PatientSort)}
               >
@@ -379,56 +346,55 @@ export default function PatientsPage() {
           </div>
 
           {/* TABLE (desktop) */}
-          {/* TABLE (desktop) */}
-          <div className="mt-4 hidden md:block table-shell">
-          <table className="table">
-            <thead className="table-head">
-              <tr>
-                <th className="table-th">Last name</th>
-                <th className="table-th">First name</th>
-                <th className="table-th">Age</th>
-                <th className="table-th">Gender</th>
-                <th className="table-th">Phone number</th>
-                <th className="table-th">Last visit</th>
-                <th className="table-th-right table-col-money">Balance</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {pageRows.map((p, index) => (
-                <tr
-                  key={p.id}
-                  className={`table-row ${index % 2 === 0 ? "table-row-even" : "table-row-odd"}`}
-                  onClick={() => router.push(`/patients/${p.id}/info`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      router.push(`/patients/${p.id}/info`);
-                    }
-                  }}
-                  tabIndex={0}
-                  role="link"
-                >
-                  <td className="table-td table-link">{p.last_name ?? "-"}</td>
-                  <td className="table-td">{p.first_name ?? "-"}</td>
-                  <td className="table-td">{calcAge(p.birth_date)}</td>
-                  <td className="table-td">{formatGenderShort(p.gender)}</td>
-                  <td className="table-td">{p.phone ?? "-"}</td>
-                  <td className="table-td">{formatDateStandard(p.last_visit_date)}</td>
-                  <td className="table-td-right num">{formatMoney(p.balance ?? 0)}</td>
-                </tr>
-              ))}
-
-              {!loading && filtered.length === 0 && (
+          <div className="table-wrapper hidden md:block">
+            <table className="data-table">
+              <thead className="data-table-head">
                 <tr>
-                  <td colSpan={7} className="table-empty">
-                    No patients found.
-                  </td>
+                  <th className="data-table-head-cell">Last name</th>
+                  <th className="data-table-head-cell">First name</th>
+                  <th className="data-table-head-cell">Age</th>
+                  <th className="data-table-head-cell">Gender</th>
+                  <th className="data-table-head-cell">Phone number</th>
+                  <th className="data-table-head-cell">Last visit</th>
+                  <th className="data-table-head-cell-right">Balance</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+
+              <tbody>
+                {pageRows.map((p, index) => (
+                  <tr
+                    key={p.id}
+                    className={`data-table-row cursor-pointer ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                    onClick={() => router.push(`/patients/${p.id}/info`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/patients/${p.id}/info`);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="link"
+                  >
+                    <td className="data-table-cell font-medium">{p.last_name ?? "-"}</td>
+                    <td className="data-table-cell">{p.first_name ?? "-"}</td>
+                    <td className="data-table-cell">{calcAge(p.birth_date)}</td>
+                    <td className="data-table-cell">{formatGenderShort(p.gender)}</td>
+                    <td className="data-table-cell">{p.phone ? formatPhoneLocal(p.phone) : "-"}</td>
+                    <td className="data-table-cell">{formatDateStandard(p.last_visit_date)}</td>
+                    <td className="data-table-cell-right num">{formatMoney(p.balance ?? 0)}</td>
+                  </tr>
+                ))}
+
+                {!loading && filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="data-table-empty">
+                      No patients found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
         {/* CARDS (mobile) */}
         <div className="mt-4 grid gap-3 md:hidden">
@@ -452,7 +418,7 @@ export default function PatientsPage() {
                 </div>
 
                 <div className="mt-1">
-                  <span className="card-label">Phone:</span> {p.phone ?? "-"}
+                  <span className="card-label">Phone:</span> {p.phone ? formatPhoneLocal(p.phone) : "-"}
                 </div>
 
                 <div className="mt-1">
@@ -468,33 +434,70 @@ export default function PatientsPage() {
           ))}
 
           {!loading && filtered.length === 0 && (
-            <div className="table-shell p-6 text-center text-slate-600">
+            <div className="empty-state">
               No patients found.
             </div>
           )}
         </div>
 
         {/* Pagination */}
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <div className="text-sm text-slate-600">
-            Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of{" "}
-            {filtered.length}
-          </div>
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="text-muted">
+              Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+            </div>
 
-          <div className="flex-center-gap-2">
-            <button className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-              Prev
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Prev */}
+              <button
+                className="btn btn-secondary"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                ‹
+              </button>
 
-            <button
-              className="btn btn-secondary"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </button>
+              {/* Page number buttons — windowed around current page */}
+              {(() => {
+                const pages: (number | "…")[] = [];
+                const delta = 2;
+                const left = page - delta;
+                const right = page + delta;
+
+                for (let i = 1; i <= totalPages; i++) {
+                  if (i === 1 || i === totalPages || (i >= left && i <= right)) {
+                    pages.push(i);
+                  } else if (pages[pages.length - 1] !== "…") {
+                    pages.push("…");
+                  }
+                }
+
+                return pages.map((p, i) =>
+                  p === "…" ? (
+                    <span key={`ellipsis-${i}`} className="px-1 text-slate-400 text-sm">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p as number)}
+                      className={p === page ? "page-btn-active" : "btn btn-secondary"}
+                    >
+                      {p}
+                    </button>
+                  )
+                );
+              })()}
+
+              {/* Next */}
+              <button
+                className="btn btn-secondary"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                ›
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         </div>
       </div>
 
@@ -503,8 +506,8 @@ export default function PatientsPage() {
         <div className="modal-container p-4" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
           <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg">
             <div>
-              <h2 className="text-lg font-semibold">Add patient</h2>
-              <p className="text-sm text-slate-600">Basic info now, details later</p>
+              <h2 className="modal-title">Add patient</h2>
+              <p className="text-muted">Basic info now, details later</p>
             </div>
 
             <div className="mt-4 grid gap-3">
@@ -559,10 +562,7 @@ export default function PatientsPage() {
                   <input
                     className="form-input"
                     value={phone}
-                    onChange={(e) => {
-                      const next = normalizePhonePH(e.target.value);
-                      setPhone(next.formatted);
-                    }}
+                    onChange={(e) => setPhone(formatPhoneLocal(e.target.value))}
                     placeholder="09XX XXX XXXX"
                     inputMode="numeric"
                   />
@@ -578,15 +578,15 @@ export default function PatientsPage() {
               {error ? <p className="form-error">{error}</p> : null}
 
               <div className="mt-2 flex flex-wrap justify-end gap-2">
-                <button className="btn btn-secondary" onClick={() => setShowAdd(false)} disabled={saving}>
+                <button className="btn btn-secondary" onClick={() => setShowAdd(false)} disabled={busy}>
                   Cancel
                 </button>
                 <button
                   className="btn btn-primary"
                   onClick={addPatient}
-                  disabled={saving || firstName.trim().length < 1 || lastName.trim().length < 1}
+                  disabled={busy || firstName.trim().length < 1 || lastName.trim().length < 1}
                 >
-                  {saving ? "Saving..." : "Save patient"}
+                  {busy ? "Saving..." : "Save patient"}
                 </button>
               </div>
             </div>
