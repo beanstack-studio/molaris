@@ -50,16 +50,15 @@ export default function TopNav({
     return () => window.removeEventListener("clinicProfileUpdated", handleProfileUpdate);
   }, []);
 
-  // Update browser favicon — bust cache so re-uploads reflect immediately
+  // Update browser favicon — remove and re-add to force Safari to refresh
   useEffect(() => {
     if (!logoUrl) return;
-    let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
-    if (!link) {
-      link = document.createElement("link");
-      link.rel = "icon";
-      document.head.appendChild(link);
-    }
+    // Remove all existing favicon links (Safari won't update unless element is replaced)
+    document.querySelectorAll("link[rel~='icon']").forEach((el) => el.remove());
+    const link = document.createElement("link");
+    link.rel = "icon";
     link.href = logoUrl;
+    document.head.appendChild(link);
   }, [logoUrl]);
 
   async function signOut() {
