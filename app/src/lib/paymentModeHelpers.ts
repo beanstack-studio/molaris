@@ -38,19 +38,3 @@ export async function getActivePaymentModes() {
   return data;
 }
 
-/**
- * Get payment mode by name (for backward compatibility)
- *
- * @example
- * const mode = await getPaymentModeByName('Cash');
- */
-export async function getPaymentModeByName(modeName: string) {
-  const { data, error } = await supabase
-    .from("payment_modes")
-    .select("*")
-    .ilike("name", modeName)
-    .single();
-
-  if (error) throw error;
-  return data;
-}

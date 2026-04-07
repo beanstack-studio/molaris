@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { formatDatePH, formatDateStandard } from "@/lib/helpers";
+import { formatDateStandard } from "@/lib/helpers";
 import { MessageThread, Patient } from "@/lib/types";
 import ChatWindow from "./ChatWindow";
 

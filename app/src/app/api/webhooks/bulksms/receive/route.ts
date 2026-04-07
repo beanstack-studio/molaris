@@ -33,7 +33,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (patientError || !patient) {
-      console.log(`Patient not found for phone: ${msisdn}`);
       return NextResponse.json(
         { error: "Patient not found", msisdn },
         { status: 404 }

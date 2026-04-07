@@ -33,18 +33,3 @@ export function getDefaultPaperSizeForDocType(docType: string): PaperSize {
   return DEFAULT_PAPER_SIZES[docType] || "A4";
 }
 
-/**
- * Get dimensions as CSS string (in mm)
- */
-export function getPaperSizeCSS(size: PaperSize): string {
-  const dims = PAPER_SIZE_DIMENSIONS[size];
-  return `${dims.width}mm ${dims.height}mm`;
-}
-
-/**
- * Get dimensions for @page rule
- */
-export function getPaperSizePageRule(size: PaperSize): string {
-  const dims = PAPER_SIZE_DIMENSIONS[size];
-  return `${dims.width}mm x ${dims.height}mm`;
-}

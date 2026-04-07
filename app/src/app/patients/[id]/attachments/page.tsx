@@ -6,7 +6,7 @@ import PatientTabs from "@/components/PatientTabs";
 import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
 import type { Attachment, Patient } from "@/lib/types";
-import { formatDatePH, formatDateStandard, safeFileName, combineFullName, splitFullName } from "@/lib/helpers";
+import { formatDateStandard, safeFileName, combineFullName, splitFullName } from "@/lib/helpers";
 
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
 type AttachmentType = (typeof attachmentTypes)[number];
@@ -17,7 +17,7 @@ export default function AttachmentsPage() {
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -53,7 +53,7 @@ export default function AttachmentsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     // Load patient info
     const p = await supabase.from("patients").select("*").eq("id", id).single();
@@ -100,11 +100,11 @@ export default function AttachmentsPage() {
     // Validate file size (5MB = 5,242,880 bytes)
     const MAX_FILE_SIZE = 5 * 1024 * 1024;
     if (fileToUpload.size > MAX_FILE_SIZE) {
-      return setErr("File size must not exceed 5MB");
+      return setError("File size must not exceed 5MB");
     }
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
@@ -118,7 +118,7 @@ export default function AttachmentsPage() {
 
     if (up.error) {
       setBusy(false);
-      return setErr(up.error.message);
+      return setError(up.error.message);
     }
 
     const ins = await supabase.from("attachments").insert({
@@ -133,7 +133,7 @@ export default function AttachmentsPage() {
     });
 
     setBusy(false);
-    if (ins.error) return setErr(ins.error.message);
+    if (ins.error) return setError(ins.error.message);
 
     setUploadType("");
     setFileToUpload(null);
@@ -150,7 +150,7 @@ export default function AttachmentsPage() {
   function openUploadModal() {
     setUploadType("");
     setFileToUpload(null);
-    setErr(null);
+    setError(null);
     setShowUploadModal(true);
   }
 
@@ -160,7 +160,7 @@ export default function AttachmentsPage() {
     setFileToUpload(null);
     setFileDisplayName("");
     setAttachmentNotes("");
-    setErr(null);
+    setError(null);
   }
 
   function openEditModal(att: Attachment) {
@@ -175,7 +175,7 @@ export default function AttachmentsPage() {
     if (!editingAttachment) return;
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     const { error } = await supabase
       .from("attachments")
@@ -184,7 +184,7 @@ export default function AttachmentsPage() {
 
     setBusy(false);
     if (error) {
-      return setErr(error.message);
+      return setError(error.message);
     }
 
     setShowEditModal(false);
@@ -198,20 +198,20 @@ export default function AttachmentsPage() {
     if (!editingAttachment) return;
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     // Delete from storage first
     const delStorage = await supabase.storage.from("patient-files").remove([editingAttachment.file_path]);
     if (delStorage.error) {
       setBusy(false);
-      return setErr(delStorage.error.message);
+      return setError(delStorage.error.message);
     }
 
     // Then delete from database
     const delDb = await supabase.from("attachments").delete().eq("id", editingAttachment.id);
     if (delDb.error) {
       setBusy(false);
-      return setErr(delDb.error.message);
+      return setError(delDb.error.message);
     }
 
     setBusy(false);
@@ -236,14 +236,14 @@ export default function AttachmentsPage() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
 
       <div className="page-content">
         <div className="page-sections">
           <div className="card">
             <div className="card-header">
               <div className="card-title">Attachments</div>
-              <div className="flex items-center gap-2">
+              <div className="inline-row">
                 <select
                   className="form-select-standard"
                   value={attachmentSort}
@@ -254,7 +254,7 @@ export default function AttachmentsPage() {
                   <option value="NAME_ASC">Name A–Z</option>
                 </select>
                 <button
-                  className="btn-secondary-dark"
+                  className="save-btn"
                   onClick={openUploadModal}
                   disabled={busy}
                 >
@@ -295,7 +295,7 @@ export default function AttachmentsPage() {
                         {(a as any).notes || "—"}
                       </td>
                       <td className="data-table-cell-right">
-                        <div className="flex-items-center-justify-end-gap-2">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             className="data-table-btn"
                             onClick={() => openAttachment(a)}
@@ -336,16 +336,16 @@ export default function AttachmentsPage() {
             setEditFileName("");
             setEditNotes("");
             setDeleteConfirmation("");
-            setErr(null);
+            setError(null);
           }}
         >
           <div className="spacing-vertical-lg">
             {/* Type and File - Side by Side */}
-            <div className="flex gap-4">
-              <div className="grid-gap-1" style={{ width: "25%" }}>
-                <label className="text-sm-medium-slate-700">Type</label>
+            <div className="section-columns">
+              <div className="grid-gap-1 w-1/4">
+                <label className="text-field-label">Type</label>
                 <select
-                  className="input-h10-border-white w-full"
+                  className="input-full"
                   value={editFileName.split(".")[0] === editingAttachment.type ? editingAttachment.type : ""}
                   onChange={(e) => setEditFileName(e.target.value)}
                 >
@@ -359,8 +359,8 @@ export default function AttachmentsPage() {
                 <div className="text-xs text-transparent">—</div>
               </div>
 
-              <div className="grid-gap-1" style={{ width: "75%" }}>
-                <label className="text-sm-medium-slate-700">File</label>
+              <div className="grid-gap-1 w-3/4">
+                <label className="text-field-label">File</label>
                 <div className="relative">
                   <input
                     type="file"
@@ -369,26 +369,26 @@ export default function AttachmentsPage() {
                       const file = e.target.files?.[0] ?? null;
                       setFileToUpload(file);
                       setEditFileName(file?.name ?? editFileName);
-                      setErr(null);
+                      setError(null);
                     }}
                   />
-                  <div className="input-h10-border-white w-full flex items-center py-2 px-3 text-sm gap-3">
+                  <div className="input-full flex items-center py-2 px-3 text-sm gap-3">
                     
                     <span className={`flex-1 truncate ${editFileName ? "text-slate-900" : "text-slate-500"}`}>
                       {editFileName || "no file chosen"}
                     </span>
                   </div>
                 </div>
-                <div className="text-xs text-slate-500">Maximum file size: 5MB</div>
+                <div className="text-caption">Maximum file size: 5MB</div>
               </div>
             </div>
 
             {/* Notes - Full Width */}
             <div className="grid-gap-1">
-              <label className="text-sm-medium-slate-700">Notes (optional)</label>
+              <label className="text-field-label">Notes (optional)</label>
               <input
                 type="text"
-                className="input-h10-border-white w-full"
+                className="input-full"
                 value={editNotes}
                 onChange={(e) => setEditNotes(e.target.value)}
                 placeholder="Add notes for this attachment"
@@ -429,7 +429,7 @@ export default function AttachmentsPage() {
                     setEditFileName("");
                     setEditNotes("");
                     setDeleteConfirmation("");
-                    setErr(null);
+                    setError(null);
                   }}
                 >
                   Cancel
@@ -455,11 +455,11 @@ export default function AttachmentsPage() {
       >
         <div className="spacing-vertical-lg">
           {/* Type and File - Side by Side */}
-          <div className="flex gap-4">
-            <div className="grid-gap-1" style={{ width: "25%" }}>
-              <label className="text-sm-medium-slate-700">Type</label>
+          <div className="section-columns">
+            <div className="grid-gap-1 w-1/4">
+              <label className="text-field-label">Type</label>
               <select
-                className="input-h10-border-white w-full"
+                className="input-full"
                 value={uploadType}
                 onChange={(e) => setUploadType(e.target.value as AttachmentType)}
               >
@@ -473,8 +473,8 @@ export default function AttachmentsPage() {
               <div className="text-xs text-transparent">—</div>
             </div>
 
-            <div className="grid-gap-1" style={{ width: "75%" }}>
-              <label className="text-sm-medium-slate-700">File</label>
+            <div className="grid-gap-1 w-3/4">
+              <label className="text-field-label">File</label>
               <div className="relative">
                 <input
                   type="file"
@@ -483,26 +483,26 @@ export default function AttachmentsPage() {
                     const file = e.target.files?.[0] ?? null;
                     setFileToUpload(file);
                     setFileDisplayName(file?.name ?? "");
-                    setErr(null);
+                    setError(null);
                   }}
                 />
-                <div className="input-h10-border-white w-full flex items-center py-2 px-3 text-sm gap-3">
+                <div className="input-full flex items-center py-2 px-3 text-sm gap-3">
                   
                   <span className={`flex-1 truncate ${fileDisplayName ? "text-slate-900" : "text-slate-500"}`}>
                     {fileDisplayName || "No file chosen."}
                   </span>
                 </div>
               </div>
-              <div className="text-xs text-slate-500">Maximum file size: 5MB</div>
+              <div className="text-caption">Maximum file size: 5MB</div>
             </div>
           </div>
         
           {/* Notes - Full Width */}
           <div className="grid-gap-1">
-            <label className="text-sm-medium-slate-700">Notes (optional)</label>
+            <label className="text-field-label">Notes (optional)</label>
             <input
               type="text"
-              className="input-h10-border-white w-full"
+              className="input-full"
               value={attachmentNotes}
               onChange={(e) => setAttachmentNotes(e.target.value)}
               placeholder="Add notes for this attachment"

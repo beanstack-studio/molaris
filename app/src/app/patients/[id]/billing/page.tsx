@@ -16,12 +16,17 @@ import type {
   OrthoEntryItem,
   OrthoCase,
 } from "@/lib/types";
-import { formatMoney, formatDatePH, formatDateStandard, todayLocalISO, combineFullName, splitFullName, generateInvoiceNumber, generateReceiptNumber } from "@/lib/helpers";
+import { formatMoney, formatDateStandard, todayLocalISO, combineFullName, splitFullName } from "@/lib/helpers";
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
 import { generateReceipt, voidPayment } from "@/lib/receiptHelpers";
 import { getNextTransactionNumber, getNextInvoiceNumber } from "@/lib/numberGenerationHelpers";
 import { generateInvoiceDocument, generatePaymentReceiptDocument } from "@/lib/invoiceReceiptGenerators";
 import { openDocumentViewer } from "@/components/DocumentViewer";
+import { CreateInvoiceModal } from "./CreateInvoiceModal";
+import { AddPaymentModal } from "./AddPaymentModal";
+import { VerifyPaymentModal } from "./VerifyPaymentModal";
+import { VoidPaymentModal } from "./VoidPaymentModal";
+import { ViewInvoiceModal } from "./ViewInvoiceModal";
 
 /* Helpers */
 function num(n: unknown) {
@@ -35,7 +40,7 @@ export default function BillingPage() {
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -127,7 +132,7 @@ export default function BillingPage() {
   const computeVisitTotalFromTreatments = useCallback(
     (visitDate: string) => {
       return visitTreatments
-        .filter((t) => t.visit_date === visitDate)
+        .filter((t) => t.treatment_date === visitDate)
         .reduce((sum, t) => {
           const price = servicePrices.find((sp) => sp.id === t.service_price_id);
           return sum + num(price?.default_price || 0);
@@ -196,7 +201,7 @@ export default function BillingPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     // Load patient info
     const p = await supabase.from("patients").select("*").eq("id", id).single();
@@ -276,24 +281,19 @@ export default function BillingPage() {
         .order("treatment_date", { ascending: false });
 
       const treatmentDates = (treatments || []).map((t: any) => t.treatment_date);
-      console.log("Treatment dates loaded:", treatmentDates);
 
       // Load ortho entry dates (from ortho cases)
       let orthoDates: string[] = [];
       try {
         // First, get all ortho cases for this patient
-        console.log("Loading ortho cases for patient:", id);
         const { data: cases, error: casesError } = await supabase
           .from("ortho_cases")
           .select("*")
           .eq("patient_id", id);
 
-        console.log("Ortho cases error:", casesError);
-        console.log("Ortho cases found:", cases?.length ?? 0, cases);
 
         if (!casesError && cases && cases.length > 0) {
           const caseIds = (cases as any[]).map((c: any) => c.id);
-          console.log("Ortho case IDs:", caseIds);
           
           // Then get all entries for those cases
           const { data: entries, error: entriesError } = await supabase
@@ -302,8 +302,6 @@ export default function BillingPage() {
             .in("ortho_case_id", caseIds)
             .order("entry_date", { ascending: false });
 
-          console.log("Ortho entries error:", entriesError);
-          console.log("Ortho entries found:", entries?.length ?? 0, entries);
 
           if (!entriesError && entries) {
             orthoDates = (entries as any[]).map((e: any) => e.entry_date);
@@ -313,11 +311,9 @@ export default function BillingPage() {
         console.error("Error loading ortho dates:", e);
       }
 
-      console.log("Ortho dates loaded:", orthoDates);
 
       // Combine all dates
       const allDates = [...new Set([...treatmentDates, ...orthoDates])];
-      console.log("All dates combined:", allDates);
       
       // Get dates that already have invoices to exclude them
       const { data: invoices, error: invoiceError } = await supabase
@@ -340,7 +336,6 @@ export default function BillingPage() {
         .sort()
         .reverse();
       
-      console.log("Available dates to invoice:", availableDates);
       setVisitDates(availableDates);
       setOrthoDateSet(new Set(orthoDates));
 
@@ -393,7 +388,6 @@ export default function BillingPage() {
       if (treatmentsError === null && treatments && treatments.length > 0) {
         const mapped = treatments.map((t: any) => ({
           id: t.id,
-          visit_date: t.treatment_date,
           treatment_date: t.treatment_date,
           procedure: t.procedure,
           tooth_number: t.tooth_number,
@@ -465,17 +459,17 @@ export default function BillingPage() {
 
   async function createInvoice() {
     if (!id) return;
-    setErr(null);
+    setError(null);
 
-    if (!selectedVisitDate) return setErr("Select a visit date.");
+    if (!selectedVisitDate) return setError("Select a visit date.");
     
     // Check which type of invoice to create
     if (selectedVisitType === "treatment") {
-      if (visitTreatments.length === 0) return setErr("No treatments found for this visit.");
+      if (visitTreatments.length === 0) return setError("No treatments found for this visit.");
     } else if (selectedVisitType === "ortho") {
-      if (orthoVisits.length === 0) return setErr("No ortho visits found for this date.");
+      if (orthoVisits.length === 0) return setError("No ortho visits found for this date.");
     } else {
-      return setErr("No visit data found for the selected date.");
+      return setError("No visit data found for the selected date.");
     }
 
     setBusy(true);
@@ -497,20 +491,20 @@ export default function BillingPage() {
 
       if (ins.error) {
         setBusy(false);
-        return setErr(ins.error.message);
+        return setError(ins.error.message);
       }
 
       const invoiceId = ins.data?.id;
       
       if (!invoiceId) {
         setBusy(false);
-        return setErr("Failed to create invoice.");
+        return setError("Failed to create invoice.");
       }
 
       // Handle treatment items
       if (selectedVisitType === "treatment") {
         const itemsToInsert = visitTreatments
-          .filter((t) => t.visit_date === selectedVisitDate)
+          .filter((t) => t.treatment_date === selectedVisitDate)
           .map((treatment) => {
             const servicePrice = servicePrices.find((sp) => sp.id === treatment.service_price_id);
             const unitPrice = (servicePrice as any)?.default_price || 0;
@@ -531,7 +525,7 @@ export default function BillingPage() {
         const itemsIns = await supabase.from("invoice_items").insert(itemsToInsert);
         if (itemsIns.error) {
           setBusy(false);
-          return setErr(itemsIns.error.message);
+          return setError(itemsIns.error.message);
         }
       }
       // Handle ortho items
@@ -581,7 +575,7 @@ export default function BillingPage() {
           const itemsIns = await supabase.from("invoice_items").insert(orthoItems);
           if (itemsIns.error) {
             setBusy(false);
-            return setErr(itemsIns.error.message);
+            return setError(itemsIns.error.message);
           }
         }
       }
@@ -613,7 +607,7 @@ export default function BillingPage() {
         stack: error instanceof Error ? error.stack : undefined,
       });
       setBusy(false);
-      setErr(error instanceof Error ? error.message : "Failed to create invoice");
+      setError(error instanceof Error ? error.message : "Failed to create invoice");
     }
   }
 
@@ -622,11 +616,11 @@ export default function BillingPage() {
     
     // Require confirmation phrase
     if (verificationConfirmation.toUpperCase() !== "VERIFY") {
-      setErr('Type "VERIFY" to confirm payment');
+      setError('Type "VERIFY" to confirm payment');
       return;
     }
 
-    setErr(null);
+    setError(null);
     setBusy(true);
 
     try {
@@ -648,7 +642,6 @@ export default function BillingPage() {
       if (userId) {
         try {
           await generateReceipt(verifyingPaymentId, userId, userId);
-          console.log("[verifyPayment] Receipt auto-generated for payment:", verifyingPaymentId);
         } catch (receiptError) {
           console.error("[verifyPayment] Warning: Receipt generation failed (non-fatal):", receiptError);
         }
@@ -659,7 +652,7 @@ export default function BillingPage() {
       setVerificationConfirmation("");
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to verify payment");
+      setError(error instanceof Error ? error.message : "Failed to verify payment");
     } finally {
       setBusy(false);
     }
@@ -667,11 +660,11 @@ export default function BillingPage() {
 
   async function handleVoidPayment() {
     if (!voidingPaymentId || !voidReason.trim()) {
-      setErr("Please provide a reason for voiding");
+      setError("Please provide a reason for voiding");
       return;
     }
 
-    setErr(null);
+    setError(null);
     setBusy(true);
 
     try {
@@ -685,14 +678,14 @@ export default function BillingPage() {
       setVoidReason("");
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to void payment");
+      setError(error instanceof Error ? error.message : "Failed to void payment");
     } finally {
       setBusy(false);
     }
   }
 
   async function handleGenerateReceipt(paymentId: string) {
-    setErr(null);
+    setError(null);
     setBusy(true);
 
     try {
@@ -707,7 +700,7 @@ export default function BillingPage() {
       alert(`Receipt ${receipt[0].receipt_number} generated successfully!`);
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to generate receipt");
+      setError(error instanceof Error ? error.message : "Failed to generate receipt");
     } finally {
       setBusy(false);
     }
@@ -715,18 +708,18 @@ export default function BillingPage() {
 
   async function addPayment() {
     if (!id) return;
-    setErr(null);
+    setError(null);
 
-    if (selectedInvoiceIds.length === 0) return setErr("Select at least one invoice.");
-    if (!paymentAmount) return setErr("Enter payment amount.");
-    if (!selectedPaymentMode) return setErr("Select payment mode.");
+    if (selectedInvoiceIds.length === 0) return setError("Select at least one invoice.");
+    if (!paymentAmount) return setError("Enter payment amount.");
+    if (!selectedPaymentMode) return setError("Select payment mode.");
 
     // Validate mode-specific requirements
     if (selectedPaymentMode.requires_reference && !paymentReference) {
-      return setErr(`${selectedPaymentMode.name} requires a reference number.`);
+      return setError(`${selectedPaymentMode.name} requires a reference number.`);
     }
     if (selectedPaymentMode.requires_proof && !paymentProofFile) {
-      return setErr(`${selectedPaymentMode.name} requires a proof file.`);
+      return setError(`${selectedPaymentMode.name} requires a proof file.`);
     }
 
     // Calculate total balance of selected invoices
@@ -741,7 +734,7 @@ export default function BillingPage() {
 
     const paymentAmountNum = parseFloat(paymentAmount);
     if (paymentAmountNum > totalAvailableBalance) {
-      return setErr(`Payment amount (${formatMoney(paymentAmountNum)}) exceeds total balance (${formatMoney(totalAvailableBalance)}) of selected invoices.`);
+      return setError(`Payment amount (${formatMoney(paymentAmountNum)}) exceeds total balance (${formatMoney(totalAvailableBalance)}) of selected invoices.`);
     }
 
     setBusy(true);
@@ -862,7 +855,7 @@ export default function BillingPage() {
       setSelectedPaymentMode(null);
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to add payment");
+      setError(error instanceof Error ? error.message : "Failed to add payment");
     } finally {
       setBusy(false);
     }
@@ -880,7 +873,7 @@ export default function BillingPage() {
 
   return (
     <>
-      {err ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{err}</div> : null}
+      {error ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{error}</div> : null}
 
       <div className="page-content">
         <div className="page-sections">
@@ -917,23 +910,23 @@ export default function BillingPage() {
                 <div className="card-header">
                   <div className="card-title">Invoices</div>
                   <button
-                    className="h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white"
+                    className="save-btn"
                     onClick={() => setShowCreateInvoice(true)}
                   >
                     Create invoice
                   </button>
                 </div>
 
-                <div className="mt-3">
+                <div className="table-wrapper">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "11%" }} />
-                      <col style={{ width: "10%" }} />
+                      <col className="col-16" />
+                      <col className="col-15" />
+                      <col className="col-16" />
+                      <col className="col-14" />
+                      <col className="col-14" />
+                      <col className="col-12" />
+                      <col className="col-13" />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
@@ -957,7 +950,7 @@ export default function BillingPage() {
                         <tr key={inv.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                           <td className="data-table-cell">{formatDateStandard(inv.invoice_date)}</td>
                           <td className="data-table-cell">
-                            <div className="flex items-center gap-2">
+                            <div className="inline-row">
                               <span>{inv.invoice_number}</span>
                               {/* Show Ortho badge only for ortho invoices */}
                               {inv.invoice_type === "ortho" && (
@@ -969,7 +962,7 @@ export default function BillingPage() {
                           </td>
                           <td className="data-table-cell-right">{formatMoney(invoiceAmount)}</td>
                           <td className="data-table-cell-right text-green-700 font-semibold">{formatMoney(paidAmount)}</td>
-                          <td className="data-table-cell-right font-semibold" style={{ color: balance > 0 ? "#dc2626" : "#16a34a" }}>
+                          <td className={`data-table-cell-right font-semibold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                             {formatMoney(Math.max(0, balance))}
                           </td>
                           <td className="data-table-cell">
@@ -1036,20 +1029,20 @@ export default function BillingPage() {
               <div className="card">
                 <div className="card-header">
                   <div className="card-title">Payments</div>
-                  <button className="h-9 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white" onClick={() => setShowAddPayment(true)}>
+                  <button className="save-btn" onClick={() => setShowAddPayment(true)}>
                     Add payment
                   </button>
                 </div>
 
-                <div className="mt-3">
+                <div className="table-wrapper">
                   <table className="data-table">
                     <colgroup>
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "13%" }} />
-                      <col style={{ width: "16%" }} />
+                      <col className="col-14" />
+                      <col className="col-18" />
+                      <col className="col-16" />
+                      <col className="col-14" />
+                      <col className="col-13" />
+                      <col className="col-25" />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
@@ -1085,26 +1078,23 @@ export default function BillingPage() {
                             <td className="data-table-cell-right">
                               <div className="flex gap-1 justify-end">
                                 {pay.status === 'pending' && !isVoided && (
-                                  <button 
-                                    className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                                  <button
+                                    className="data-table-btn-warning"
                                     title="Verify this pending payment"
                                     onClick={async () => {
                                       try {
-                                        // Fetch full payment details
                                         const { data: fullPayment, error } = await supabase
                                           .from("payments")
                                           .select("*")
                                           .eq("id", pay.id)
                                           .single();
-                                        
                                         if (error) throw error;
-                                        
                                         setVerifyingPaymentDetails(fullPayment);
                                         setVerifyingPaymentId(pay.id);
                                         setVerificationConfirmation("");
                                       } catch (error) {
                                         console.error("Error fetching payment details:", error);
-                                        setErr("Failed to load payment details");
+                                        setError("Failed to load payment details");
                                       }
                                     }}
                                     disabled={busy}
@@ -1113,8 +1103,8 @@ export default function BillingPage() {
                                   </button>
                                 )}
                                 {pay.status === 'verified' && !isVoided && (
-                                  <button 
-                                    className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
+                                  <button
+                                    className="data-table-btn"
                                     title="View payment receipt"
                                     onClick={async () => {
                                       try {
@@ -1142,8 +1132,8 @@ export default function BillingPage() {
                                   </button>
                                 )}
                                 {!isVoided && (
-                                  <button 
-                                    className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                  <button
+                                    className="data-table-btn-danger"
                                     title="Void this payment"
                                     onClick={() => setVoidingPaymentId(pay.id)}
                                     disabled={busy}
@@ -1171,664 +1161,85 @@ export default function BillingPage() {
             </div>
         </div>
 
-        {/* Create invoice modal */}
-        {showCreateInvoice ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateInvoice(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowCreateInvoice(false)}>
-            <div className="w-full max-w-2xl rounded-2xl border bg-white p-6">
-              <h2 className="text-lg font-semibold">Create invoice</h2>
+        <CreateInvoiceModal
+          open={showCreateInvoice}
+          onClose={() => setShowCreateInvoice(false)}
+          busy={busy}
+          selectedVisitDate={selectedVisitDate}
+          setSelectedVisitDate={setSelectedVisitDate}
+          invoiceDate={invoiceDate}
+          setInvoiceDate={setInvoiceDate}
+          visitDates={visitDates}
+          orthoDateSet={orthoDateSet}
+          visitTreatments={visitTreatments}
+          orthoVisits={orthoVisits}
+          orthoVisitItems={orthoVisitItems}
+          orthoCase={orthoCase}
+          servicePrices={servicePrices}
+          showDiscount={showDiscount}
+          setShowDiscount={setShowDiscount}
+          discountDescription={discountDescription}
+          setDiscountDescription={setDiscountDescription}
+          discountAmount={discountAmount}
+          setDiscountAmount={setDiscountAmount}
+          subtotal={subtotal}
+          invoiceTotal={invoiceTotal}
+          onCreateInvoice={createInvoice}
+        />
 
-              <div className="mt-4 grid gap-4">
-                {/* Visit date, Add Item and Add Discount on one row */}
-                <div className="flex gap-3 items-end">
-                  <label className="flex-1 grid gap-1 text-sm">
-                    <span className="text-slate-700">Visit date</span>
-                    <select
-                      className="h-10 rounded-lg border bg-white px-3"
-                      value={selectedVisitDate}
-                      onChange={(e) => {
-                        setSelectedVisitDate(e.target.value);
-                        setInvoiceDate(e.target.value || invoiceDate);
-                      }}
-                    >
-                      <option value="">Select a visit date</option>
-                      {visitDates.map((d) => (
-                        <option key={d} value={d}>
-                          {formatDateStandard(d)}{orthoDateSet.has(d) ? " (ORTHO)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button 
-                    className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white disabled:opacity-50"
-                    disabled={!selectedVisitDate}
-                    onClick={() => setShowDiscount(!showDiscount)}
-                  >
-                    {showDiscount ? "Remove discount" : "Add discount"}
-                  </button>
-                </div>
+        <AddPaymentModal
+          open={showAddPayment}
+          onClose={() => setShowAddPayment(false)}
+          busy={busy}
+          invoices={invoices}
+          payments={payments}
+          selectedInvoiceIds={selectedInvoiceIds}
+          setSelectedInvoiceIds={setSelectedInvoiceIds}
+          paymentAmount={paymentAmount}
+          setPaymentAmount={setPaymentAmount}
+          paymentDate={paymentDate}
+          setPaymentDate={setPaymentDate}
+          selectedPaymentMode={selectedPaymentMode}
+          setSelectedPaymentMode={setSelectedPaymentMode}
+          paymentModes={paymentModes}
+          paymentReceivedBy={paymentReceivedBy}
+          setPaymentReceivedBy={setPaymentReceivedBy}
+          paymentReference={paymentReference}
+          setPaymentReference={setPaymentReference}
+          paymentProofFile={paymentProofFile}
+          setPaymentProofFile={setPaymentProofFile}
+          onAddPayment={addPayment}
+        />
 
-                {/* Combined invoice table - only shown when visit date selected */}
-                {selectedVisitDate && (
-                  <div className="rounded-xl border bg-white p-4">
-                    {/* Treatments section */}
-                    {visitTreatments.length > 0 && (
-                      <div className="mb-4">
-                        <div className="text-sm font-semibold mb-2">Treatments on {formatDateStandard(selectedVisitDate)} ({visitTreatments.length})</div>
-                        <div className="space-y-2 mb-4 pb-4 border-b">
-                          {visitTreatments.map((t: any) => {
-                            const servicePrice = servicePrices.find((sp) => sp.id === t.service_price_id);
-                            // Use default_price since the alias didn't work
-                            const priceValue = (servicePrice as any)?.default_price ?? (servicePrice as any)?.price ?? 0;
-                            
-                            return (
-                              <div key={t.id} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                                <div className="flex-1">
-                                  <div className="text-sm">{servicePrice?.service_name || t.procedure || "Treatment"}</div>
-                                  {t.tooth_number && <div className="text-xs text-slate-500">Tooth {t.tooth_number}</div>}
-                                </div>
-                                <div className="text-sm font-semibold text-slate-900">{formatMoney(priceValue)}</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+        <VerifyPaymentModal
+          open={!!(verifyingPaymentId && verifyingPaymentDetails)}
+          onClose={() => {
+            setVerifyingPaymentId(null);
+            setVerifyingPaymentDetails(null);
+            setVerificationConfirmation("");
+            setError(null);
+          }}
+          busy={busy}
+          verifyingPaymentDetails={verifyingPaymentDetails}
+          verificationConfirmation={verificationConfirmation}
+          setVerificationConfirmation={setVerificationConfirmation}
+          onVerify={verifyPayment}
+        />
 
-                    {/* Ortho Visits section */}
-                    {orthoVisits.length > 0 && (
-                      <div className="mb-4">
-                        {(() => {
-                          // Calculate total treatment/service/addon/package count
-                          let totalItemCount = 0;
-                          orthoVisits.forEach((entry: OrthoEntry) => {
-                            const items = orthoVisitItems.filter((item) => item.ortho_entry_id === entry.id);
-                            const chargedItems = items.filter((item) => item.is_charged);
-                            if (entry.invoice_package && orthoCase?.package_service_id) {
-                              totalItemCount++;
-                            }
-                            totalItemCount += chargedItems.length;
-                          });
-                          
-                          return (
-                            <>
-                              <div className="text-sm font-semibold mb-2">Treatments on {formatDateStandard(selectedVisitDate)} ({totalItemCount}) - ORTHO</div>
-                              <div className="space-y-2 mb-4 pb-4 border-b">
-                                {orthoVisits.map((entry: OrthoEntry) => {
-                                  const items = orthoVisitItems.filter((item) => item.ortho_entry_id === entry.id);
-                                  const chargedItems = items.filter((item) => item.is_charged);
-                                  
-                                  return (
-                                    <div key={entry.id} className="space-y-2">
-                                      {/* Package row (if invoice_package is true) */}
-                                      {entry.invoice_package && orthoCase?.package_service_id && (
-                                        <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                                          <div className="flex-1">
-                                            <div className="text-sm">{servicePrices.find((s) => s.id === orthoCase.package_service_id)?.service_name || "Ortho Package"}</div>
-                                          </div>
-                                          <div className="text-sm font-semibold text-slate-900">{formatMoney(num(orthoCase.package_fee || 0))}</div>
-                                        </div>
-                                      )}
-                                      
-                                      {/* Charged services rows */}
-                                      {chargedItems.map((item: OrthoEntryItem) => {
-                                        const svc = servicePrices.find((s) => s.id === item.service_id);
-                                        const price = (svc as any)?.default_price || 0;
-                                        
-                                        return (
-                                          <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                                            <div className="flex-1">
-                                              <div className="text-sm">{svc?.service_name || "Service"}</div>
-                                              {item.service_detail && <div className="text-xs text-slate-500">{item.service_detail}</div>}
-                                            </div>
-                                            <div className="text-sm font-semibold text-slate-900">{formatMoney(price)}</div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
+        <VoidPaymentModal
+          open={!!voidingPaymentId}
+          onClose={() => setVoidingPaymentId(null)}
+          busy={busy}
+          voidReason={voidReason}
+          setVoidReason={setVoidReason}
+          onVoid={handleVoidPayment}
+        />
 
-                    {/* Summary totals */}
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between items-center pb-2 border-b">
-                        <span className="text-slate-600">Subtotal</span>
-                        <span className="font-semibold">{formatMoney(subtotal)}</span>
-                      </div>
-                      {showDiscount && (
-                        <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              placeholder="Discount code/description"
-                              className="h-9 rounded-lg border bg-white px-2 text-sm flex-1"
-                              value={discountDescription}
-                              onChange={(e) => setDiscountDescription(e.target.value)}
-                            />
-                            <span className="text-sm font-semibold text-red-600">−</span>
-                            <input
-                              type="number"
-                              placeholder="0.00"
-                              className="h-9 rounded-lg border bg-white px-2 text-sm w-24"
-                              value={discountAmount}
-                              onChange={(e) => setDiscountAmount(e.target.value)}
-                              step="0.01"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center pt-2 text-base font-bold">
-                        <span>Total</span>
-                        <span className="text-lg">
-                          {formatMoney(invoiceTotal)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <button className="cancel-btn" onClick={() => setShowCreateInvoice(false)}>
-                    Cancel
-                  </button>
-                  <button
-                    className="save-btn"
-                    disabled={busy || !selectedVisitDate}
-                    onClick={createInvoice}
-                  >
-                    Create
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Add payment modal */}
-        {showAddPayment ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setShowAddPayment(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowAddPayment(false)}>
-            <div className="w-full max-w-md rounded-2xl border bg-white p-6">
-              <h2 className="text-lg font-semibold">Add payment</h2>
-
-              <div className="mt-4 grid gap-4">
-                <div className="grid gap-2 text-sm">
-                  <label className="text-slate-700 font-medium">Invoices</label>
-                  
-                  {/* Individual checkboxes */}
-                  <div className="space-y-2 border rounded-lg bg-slate-50 p-3">
-                    {invoices
-                      .map((inv: any) => {
-                        const invoicePayments = payments.filter((p) => p.invoice_id === inv.id && !p.voided_at);
-                        const totalPaid = invoicePayments.reduce((sum, p) => sum + num(p.amount), 0);
-                        const balance = num(inv.total) - totalPaid;
-                        return { inv, balance };
-                      })
-                      .filter(({ balance }) => balance > 0)
-                      .map(({ inv, balance }) => {
-                        const isSelected = selectedInvoiceIds.includes(inv.id);
-                        return (
-                          <label key={inv.id} className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer transition">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedInvoiceIds([...selectedInvoiceIds, inv.id]);
-                                } else {
-                                  setSelectedInvoiceIds(selectedInvoiceIds.filter(id => id !== inv.id));
-                                }
-                              }}
-                              className="w-4 h-4 rounded"
-                            />
-                            <span className="text-sm">
-                              <span className="font-bold">{inv.invoice_number}</span>
-                              {' '}— {formatDateStandard(inv.invoice_date)} — Bal: {formatMoney(balance)}
-                            </span>
-                          </label>
-                        );
-                      })}
-                  </div>
-
-                  {/* Total balance display */}
-                  {selectedInvoiceIds.length > 0 && (
-                    <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
-                      <div className="font-semibold text-blue-700">Total balance: {formatMoney(
-                        selectedInvoiceIds.reduce((sum, invoiceId) => {
-                          const inv = invoices.find((i: any) => i.id === invoiceId);
-                          if (!inv) return sum;
-                          const invoicePayments = payments.filter((p) => p.invoice_id === invoiceId && !p.voided_at);
-                          const totalPaid = invoicePayments.reduce((s, p) => s + num(p.amount), 0);
-                          const balance = num(inv.total) - totalPaid;
-                          return sum + balance;
-                        }, 0)
-                      )}</div>
-                    </div>
-                  )}
-                </div>
-
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Amount</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="h-10 rounded-lg border px-3"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    placeholder="0.00"
-                  />
-                </label>
-
-                {/* Validation message for amount exceeding balance */}
-                {selectedInvoiceIds.length > 0 && paymentAmount && (() => {
-                  const totalAvailableBalance = selectedInvoiceIds.reduce((sum, invoiceId) => {
-                    const inv = invoices.find((i: any) => i.id === invoiceId);
-                    if (!inv) return sum;
-                    const invoicePayments = payments.filter((p) => p.invoice_id === invoiceId && !p.voided_at);
-                    const totalPaid = invoicePayments.reduce((s, p) => s + num(p.amount), 0);
-                    const balance = num(inv.total) - totalPaid;
-                    return sum + balance;
-                  }, 0);
-                  const paymentAmountNum = parseFloat(paymentAmount);
-                  if (paymentAmountNum > totalAvailableBalance) {
-                    return (
-                      <div className="rounded-lg bg-red-50 border border-red-200 p-2 text-xs text-red-700">
-                        Payment amount ({formatMoney(paymentAmountNum)}) exceeds total balance ({formatMoney(totalAvailableBalance)})
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Payment date</span>
-                  <input type="date" className="h-10 rounded-lg border px-3" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
-                </label>
-
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Payment mode</span>
-                  <select
-                    className="h-10 rounded-lg border bg-white px-3"
-                    value={selectedPaymentMode?.code || ""}
-                    onChange={(e) => {
-                      const mode = paymentModes.find(m => m.code === e.target.value) || null;
-                      setSelectedPaymentMode(mode);
-                    }}
-                  >
-                    <option value="">Select mode</option>
-                    {paymentModes.map((mode: PaymentMode) => (
-                      <option key={mode.id} value={mode.code}>
-                        {mode.name}
-                        {!mode.auto_verifies && " (needs verification)"}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {selectedPaymentMode?.code === "CASH" && (
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Received by</span>
-                    <input
-                      type="text"
-                      className="h-10 rounded-lg border px-3"
-                      value={paymentReceivedBy}
-                      onChange={(e) => setPaymentReceivedBy(e.target.value)}
-                      placeholder="Name of person receiving cash"
-                    />
-                  </label>
-                )}
-
-                {selectedPaymentMode?.requires_reference && (
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">Reference number *</span>
-                    <input
-                      type="text"
-                      className="h-10 rounded-lg border px-3"
-                      value={paymentReference}
-                      onChange={(e) => setPaymentReference(e.target.value)}
-                      placeholder={`Required for ${selectedPaymentMode.name}`}
-                    />
-                  </label>
-                )}
-
-                {selectedPaymentMode?.requires_proof && (
-                  <div className="grid gap-1">
-                    <span className="text-sm text-slate-700 font-medium">Proof file *</span>
-                    <label className="relative group">
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        className="hidden"
-                        onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
-                      />
-                      <div className={`
-                        flex items-center justify-center gap-3 p-4 rounded-lg border-2 border-dashed transition cursor-pointer
-                        ${paymentProofFile 
-                          ? 'border-green-300 bg-green-50 hover:bg-green-100' 
-                          : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-slate-400'
-                        }
-                      `}>
-                        <svg className={`w-5 h-5 flex-shrink-0 ${paymentProofFile ? 'text-green-600' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          {paymentProofFile ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          )}
-                        </svg>
-                        <div className="text-left">
-                          {paymentProofFile ? (
-                            <div>
-                              <div className={`text-sm font-medium ${paymentProofFile ? 'text-green-700' : 'text-slate-700'}`}>
-                                {paymentProofFile.name}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {(paymentProofFile.size / 1024).toFixed(0)} KB
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              <div className="text-sm font-medium text-slate-700">
-                                Drop file or click to select
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                JPG, PNG, PDF (max 10MB)
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <button className="cancel-btn" onClick={() => {
-                    setShowAddPayment(false);
-                    setSelectedInvoiceIds([]);
-                    setPaymentAmount("");
-                    setPaymentReference("");
-                    setPaymentProofFile(null);
-                    setSelectedPaymentMode(null);
-                  }}>
-                    Cancel
-                  </button>
-                  <button className="save-btn" disabled={busy} onClick={addPayment}>
-                    Add
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Verify payment modal */}
-        {verifyingPaymentId && verifyingPaymentDetails ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setVerifyingPaymentId(null)} onDoubleClick={(e) => e.target === e.currentTarget && setVerifyingPaymentId(null)}>
-            <div className="w-full max-w-md rounded-2xl border bg-white p-6">
-              <h2 className="text-lg font-semibold">Verify Payment</h2>
-
-              <div className="mt-4 grid gap-4">
-                {/* Payment Details Display */}
-                <div className="rounded-lg bg-slate-50 p-4 border grid gap-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Amount:</span>
-                    <span className="font-semibold text-green-700">{formatMoney(verifyingPaymentDetails.amount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Payment Date:</span>
-                    <span>{formatDateStandard(verifyingPaymentDetails.payment_date)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Payment Mode:</span>
-                    <span>{verifyingPaymentDetails.details?.payment_mode_name || "—"}</span>
-                  </div>
-                  {verifyingPaymentDetails.details?.reference_number && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Reference:</span>
-                      <span className="font-mono text-xs">{verifyingPaymentDetails.details.reference_number}</span>
-                    </div>
-                  )}
-                  {verifyingPaymentDetails.details?.received_by && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Received By:</span>
-                      <span>{verifyingPaymentDetails.details.received_by}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Proof File View Button (for GCash, Bank Transfer, etc.) */}
-                {verifyingPaymentDetails.details?.proof_file_data && (
-                  <div className="rounded-lg border bg-slate-50 p-3 flex items-center justify-between">
-                    <span className="text-sm text-slate-700 font-medium">
-                      📎 {verifyingPaymentDetails.details?.proof_file_name || "Proof attached"}
-                    </span>
-                    <button
-                      className="h-9 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
-                      onClick={() => {
-                        const window_obj = window.open();
-                        if (window_obj) {
-                          window_obj.document.write(`
-                            <html>
-                              <head>
-                                <title>Payment Proof - ${verifyingPaymentDetails.details?.proof_file_name || 'proof'}</title>
-                                <style>
-                                  body { margin: 0; display: flex; align-items: center; justify-content: center; background: #f5f5f5; }
-                                  img { max-width: 95%; max-height: 95vh; object-fit: contain; }
-                                </style>
-                              </head>
-                              <body>
-                                <img src="${verifyingPaymentDetails.details?.proof_file_data}" alt="Payment proof" />
-                              </body>
-                            </html>
-                          `);
-                        }
-                      }}
-                    >
-                      View Proof
-                    </button>
-                  </div>
-                )}
-
-                {/* Type to Verify Input */}
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700 font-medium">Type "VERIFY" to confirm *</span>
-                  <input
-                    type="text"
-                    className="h-10 rounded-lg border px-3 uppercase"
-                    value={verificationConfirmation}
-                    onChange={(e) => {
-                      setVerificationConfirmation(e.target.value);
-                      setErr(null);
-                    }}
-                    placeholder="Type VERIFY"
-                    disabled={busy}
-                  />
-                  {verificationConfirmation.toUpperCase() === "VERIFY" && (
-                    <span className="text-xs text-green-700 font-semibold">✓ Ready to verify</span>
-                  )}
-                </label>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-2 mt-2">
-                  <button 
-                    className="cancel-btn" 
-                    onClick={() => {
-                      setVerifyingPaymentId(null);
-                      setVerifyingPaymentDetails(null);
-                      setVerificationConfirmation("");
-                      setErr(null);
-                    }} 
-                    disabled={busy}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    className="save-btn" 
-                    disabled={busy || verificationConfirmation.toUpperCase() !== "VERIFY"} 
-                    onClick={verifyPayment}
-                  >
-                    {busy ? "Verifying..." : "Verify Payment"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Void payment modal */}
-        {voidingPaymentId ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && setVoidingPaymentId(null)} onDoubleClick={(e) => e.target === e.currentTarget && setVoidingPaymentId(null)}>
-            <div className="w-full max-w-md rounded-2xl border bg-white p-6">
-              <h2 className="text-lg font-semibold">Void Payment</h2>
-
-              <div className="mt-4 grid gap-4">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-slate-700">Reason for voiding *</span>
-                  <textarea
-                    className="min-h-[80px] rounded-lg border px-3 py-2"
-                    value={voidReason}
-                    onChange={(e) => setVoidReason(e.target.value)}
-                    placeholder="E.g., Duplicate payment, customer request, etc."
-                  />
-                </label>
-
-                <div className="flex justify-end gap-2">
-                  <button className="cancel-btn" onClick={() => {
-                    setVoidingPaymentId(null);
-                    setVoidReason("");
-                  }} disabled={busy}>
-                    Cancel
-                  </button>
-                  <button className="save-btn" disabled={busy || !voidReason.trim()} onClick={handleVoidPayment}>
-                    {busy ? "Voiding..." : "Void Payment"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-      {viewingInvoice ? (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 p-4 z-50" onClick={(e) => e.target === e.currentTarget && setViewingInvoice(null)} onDoubleClick={(e) => e.target === e.currentTarget && setViewingInvoice(null)}>
-          <div className="max-h-screen overflow-y-auto rounded-2xl border bg-white w-full max-w-2xl">
-            <div className="sticky top-0 border-b bg-white p-4">
-              <div className="text-lg font-semibold">Invoice {viewingInvoice.invoice_number}</div>
-            </div>
-
-            <div className="p-4">
-              <div className="grid gap-4">
-                {/* Header Info */}
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div>
-                    <div className="text-xs text-slate-600">Invoice date</div>
-                    <div className="text-sm font-semibold">{formatDateStandard(viewingInvoice.invoice_date)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-600">Status</div>
-                    <div className="text-sm font-semibold capitalize">{viewingInvoice.status}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-600">Total amount</div>
-                    <div className="text-sm font-semibold text-blue-900">{formatMoney(viewingInvoice.total ?? 0)}</div>
-                  </div>
-                </div>
-
-                {/* Invoice items table */}
-                <div className="border-t pt-4">
-                  <div className="text-sm font-semibold mb-3">Items</div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-slate-600 bg-slate-50">
-                        <th className="py-2 px-3">Description</th>
-                        <th className="py-2 px-3 text-right">Quantity</th>
-                        <th className="py-2 px-3 text-right">Unit price</th>
-                        <th className="py-2 px-3 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {((viewingInvoice as any).invoice_items || []).map((item: any, i: number) => {
-                        const qty = item.qty ?? item.quantity ?? 1;
-                        const unitPrice = item.unit_price ?? 0;
-                        const lineTotal = qty * unitPrice;
-                        return (
-                          <tr key={item.id || i} className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}>
-                            <td className="py-2 px-3">{item.description || item.service_name || "Service"}</td>
-                            <td className="py-2 px-3 text-right">{qty}</td>
-                            <td className="py-2 px-3 text-right">{formatMoney(unitPrice)}</td>
-                            <td className="py-2 px-3 text-right font-semibold">{formatMoney(lineTotal)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Payments applied */}
-                {payments.filter((p: any) => p.invoice_id === viewingInvoice.id).length > 0 ? (
-                  <div className="border-t pt-4">
-                    <div className="text-sm font-semibold mb-3">Payments</div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b text-left text-slate-600 bg-slate-50">
-                          <th className="py-2 px-3">Date</th>
-                          <th className="py-2 px-3">Amount</th>
-                          <th className="py-2 px-3">Mode</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {payments.filter((p: any) => p.invoice_id === viewingInvoice.id).map((payment: any, i: number) => (
-                          <tr key={payment.id} className={`border-b ${i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}>
-                            <td className="py-2 px-3">{formatDateStandard(payment.payment_date)}</td>
-                            <td className="py-2 px-3 font-semibold">{formatMoney(payment.amount)}</td>
-                            <td className="py-2 px-3">{payment.mode || "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : null}
-
-                {/* Summary */}
-                <div className="border-t pt-4">
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-slate-600">Total:</span>
-                    <span className="font-semibold">{formatMoney(viewingInvoice.total ?? 0)}</span>
-                  </div>
-                  {payments.filter((p: any) => p.invoice_id === viewingInvoice.id).length > 0 ? (
-                    <>
-                      <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-slate-600">Paid:</span>
-                        <span className="font-semibold text-green-900">
-                          {formatMoney(
-                            payments
-                              .filter((p: any) => p.invoice_id === viewingInvoice.id)
-                              .reduce((sum: number, p: any) => sum + num(p.amount), 0)
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm font-semibold border-t pt-2">
-                        <span className="text-slate-700">Remaining:</span>
-                        <span className="text-red-900">
-                          {formatMoney(
-                            num(viewingInvoice.total) -
-                              payments
-                                .filter((p: any) => p.invoice_id === viewingInvoice.id)
-                                .reduce((sum: number, p: any) => sum + num(p.amount), 0)
-                          )}
-                        </span>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ViewInvoiceModal
+          viewingInvoice={viewingInvoice}
+          payments={payments}
+          onClose={() => setViewingInvoice(null)}
+        />
     </>
   );
 }

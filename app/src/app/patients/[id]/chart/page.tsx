@@ -6,7 +6,7 @@ import ToothChart, { ToothStatus, getStatusTheme } from "@/components/ToothChart
 import PatientTabs from "@/components/PatientTabs";
 import { supabase } from "@/lib/supabaseClient";
 import type { ChartEntry, ToothStatusRow, Patient } from "@/lib/types";
-import { formatDatePH, formatDateStandard, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
+import { formatDateStandard, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
 
 export default function ChartPage() {
   const params = useParams();
@@ -14,7 +14,7 @@ export default function ChartPage() {
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [chart, setChart] = useState<ChartEntry[]>([]);
@@ -32,7 +32,7 @@ export default function ChartPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     // Load patient info
     const p = await supabase.from("patients").select("*").eq("id", id).single();
@@ -66,7 +66,7 @@ export default function ChartPage() {
       .order("recorded_at", { ascending: false });
 
     if (c.error) {
-      setErr(c.error.message);
+      setError(c.error.message);
       setLoading(false);
       return;
     }
@@ -102,7 +102,7 @@ export default function ChartPage() {
     if (!selectedTooth) return;
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
@@ -125,7 +125,7 @@ export default function ChartPage() {
     if (up.error) {
       console.error("Insert error:", up.error);
       setBusy(false);
-      setErr(`Error saving status: ${up.error?.message || JSON.stringify(up.error)}`);
+      setError(`Error saving status: ${up.error?.message || JSON.stringify(up.error)}`);
       return;
     }
 
@@ -147,7 +147,7 @@ export default function ChartPage() {
 
     setBusy(false);
     if (hist.error) {
-      setErr(`Error saving history: ${hist.error?.message || JSON.stringify(hist.error)}`);
+      setError(`Error saving history: ${hist.error?.message || JSON.stringify(hist.error)}`);
       return;
     }
 
@@ -164,7 +164,7 @@ export default function ChartPage() {
   async function saveChartEntryEdit() {
     if (!editingEntry) return;
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     const res = await supabase
       .from("dental_chart_entries")
@@ -172,7 +172,7 @@ export default function ChartPage() {
       .eq("id", editingEntry.id);
 
     setBusy(false);
-    if (res.error) return setErr(res.error.message);
+    if (res.error) return setError(res.error.message);
 
     setEditingEntry(null);
     await loadData();
@@ -180,12 +180,12 @@ export default function ChartPage() {
 
   async function deleteChartEntry() {
     if (!editingEntry || deleteConfirmation.trim().toUpperCase() !== "DELETE") {
-      setErr("Type DELETE to confirm deletion.");
+      setError("Type DELETE to confirm deletion.");
       return;
     }
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     // First, check how many entries exist for this tooth BEFORE deletion
     const countBefore = await supabase
@@ -204,7 +204,7 @@ export default function ChartPage() {
 
     if (res.error) {
       setBusy(false);
-      return setErr(res.error.message);
+      return setError(res.error.message);
     }
 
     // If this was the ONLY entry for this tooth, delete the status record
@@ -217,7 +217,7 @@ export default function ChartPage() {
 
       if (statusRes.error) {
         setBusy(false);
-        return setErr(statusRes.error.message);
+        return setError(statusRes.error.message);
       }
     } else if (totalEntries > 1) {
       // There are remaining entries - get the latest one and update status
@@ -240,7 +240,7 @@ export default function ChartPage() {
 
         if (statusRes.error) {
           setBusy(false);
-          return setErr(statusRes.error.message);
+          return setError(statusRes.error.message);
         }
       }
     }
@@ -270,7 +270,7 @@ export default function ChartPage() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
       <div className="page-content">
         <div className="page-sections">
           <div className="card">
@@ -294,7 +294,7 @@ export default function ChartPage() {
               <div className="card-title">Tooth tools</div>
             </div>
 
-            <div className="text-left-mt-2-sm-slate-700">
+            <div className="mt-2 text-left text-sm text-slate-700">
               Tooth# <span className="font-semibold text-slate-900">{selectedTooth ?? "—"}</span>
             </div>
 
@@ -388,7 +388,7 @@ export default function ChartPage() {
 
                   <div className="mt-3">
                     <label className="form-field-wrapper">
-                      <span className="text-slate-700-xs-semibold">Finding detail</span>
+                      <span className="text-xs font-semibold text-slate-700">Finding detail</span>
                       <input
                         className="input-sm-text-sm"
                         value={findingDetail}
@@ -399,7 +399,7 @@ export default function ChartPage() {
 
                   <div className="mt-3">
                     <label className="form-field-wrapper">
-                      <span className="text-slate-700-xs-semibold">Notes</span>
+                      <span className="text-xs font-semibold text-slate-700">Notes</span>
                       <textarea
                         className="textarea-sm"
                         value={toothNote}
@@ -408,7 +408,7 @@ export default function ChartPage() {
                     </label>
                   </div>
 
-                  <div className="flex-center-text-sm">
+                  <div className="mt-3 flex justify-center">
                     <button
                       className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                       disabled={busy || selectedTooth === null}
@@ -426,7 +426,7 @@ export default function ChartPage() {
                   <div className="overflow-scroll-bordered">
                     {selectedTooth ? (
                       chart.filter((e) => e.tooth_number === selectedTooth).length > 0 ? (
-                        <table className="data-table w-full">
+                        <table className="data-table">
                           <thead className="data-table-head">
                             <tr>
                               <th className="data-table-head-cell text-left">Date</th>
@@ -530,18 +530,18 @@ export default function ChartPage() {
               Edit Entry — Tooth #{editingEntry.tooth_number}
             </div>
 
-            {err && <div className="error-message-red">{err}</div>}
+            {error && <div className="error-message-red">{error}</div>}
 
-            <div className="space-y-3-base">
+            <div className="space-y-3">
               <div>
-                <div className="text-sm-medium-slate-700-mb-1">Finding</div>
+                <div className="text-field-label-mb-1">Finding</div>
                 <div className="container-input-slate-50">
                   {editingEntry.finding_code}
                 </div>
               </div>
 
               <div>
-                <div className="text-sm-medium-slate-700-mb-1">Surfaces</div>
+                <div className="text-field-label-mb-1">Surfaces</div>
                 <div className="container-input-slate-50">
                   {editingEntry.surfaces || "—"}
                 </div>
@@ -569,12 +569,14 @@ export default function ChartPage() {
                 </label>
               </div>
 
-              <div className="mt-4 border-t pt-3">
-                <div className="text-xs font-semibold text-slate-700 mb-2">Delete Entry</div>
-                <div className="text-xs text-slate-600 mb-2">Type <span className="font-mono font-semibold">DELETE</span> to confirm:</div>
+              <div className="delete-confirmation">
+                <div className="delete-confirmation-title">Delete Entry?</div>
+                <div className="delete-confirmation-hint">
+                  Type <span className="delete-confirmation-code">DELETE</span> to confirm
+                </div>
                 <input
                   type="text"
-                  className="w-full h-8 rounded-lg border px-3 text-sm mb-2"
+                  className="delete-confirmation-input mb-2"
                   placeholder="DELETE"
                   value={deleteConfirmation}
                   onChange={(e) => setDeleteConfirmation(e.target.value)}
@@ -585,18 +587,18 @@ export default function ChartPage() {
                 <button
                   onClick={() => deleteChartEntry()}
                   disabled={busy || deleteConfirmation.trim().toUpperCase() !== "DELETE"}
-                  className="btn-action-red"
+                  className="delete-btn"
                 >
                   {busy ? "Deleting…" : "Delete"}
                 </button>
-                <div className="flex-gap-2">
+                <div className="action-row">
                   <button
                     onClick={() => {
                       setEditingEntry(null);
-                      setErr(null);
+                      setError(null);
                       setDeleteConfirmation("");
                     }}
-                    className="rounded-lg bg-slate-200 text-sm font-medium text-slate-800 hover:bg-slate-300 px-4 py-2 transition-colors"
+                    className="cancel-btn"
                   >
                     Cancel
                   </button>

@@ -1,70 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import PatientTabs from "@/components/PatientTabs";
-import { EditModal } from "@/components/EditModal";
-import { DatePickerField } from "@/components/DatePickerField";
 import { supabase } from "@/lib/supabaseClient";
-import type { Treatment, DentistRow, ServicePriceRow, DraftLine, Patient } from "@/lib/types";
-import { todayLocalISO, formatDatePH, formatDateTimePH, combineFullName, splitFullName, formatDateStandard } from "@/lib/helpers";
+import type { Treatment, DentistRow, ServicePriceRow, Patient } from "@/lib/types";
+import { todayLocalISO, splitFullName, formatDateStandard } from "@/lib/helpers";
+import { AddVisitModal } from "./AddVisitModal";
+import { EditVisitModal } from "./EditVisitModal";
 
 export default function TreatmentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
 
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [serviceMenu, setServiceMenu] = useState<ServicePriceRow[]>([]);
   const [invoicedDates, setInvoicedDates] = useState<Set<string>>(new Set());
+  const [defaultAppointmentConcern, setDefaultAppointmentConcern] = useState("");
 
-  const [visitDate, setVisitDate] = useState(() => todayLocalISO());
-  const [visitDentistId, setVisitDentistId] = useState<string>("");
-  const [visitConcern, setVisitConcern] = useState<string>("");
-  const [defaultAppointmentConcern, setDefaultAppointmentConcern] = useState<string>("");
-  const [draftLines, setDraftLines] = useState<DraftLine[]>([]);
-  const [lineTooth, setLineTooth] = useState("");
-  const [txServiceId, setTxServiceId] = useState<string>("");
-  const [txServiceName, setTxServiceName] = useState<string>("");
-  const [lineNote, setLineNote] = useState("");
-
-  // Date picker refs
-  const visitDateRef = useRef<HTMLInputElement | null>(null);
-
-  // Add visit modal state
   const [showAddVisitModal, setShowAddVisitModal] = useState(false);
-  
-  // Edit/delete states
   const [editingVisitDate, setEditingVisitDate] = useState<string | null>(null);
-  const [editingVisitDentistId, setEditingVisitDentistId] = useState<string>("");
-  const [editingVisitConcern, setEditingVisitConcern] = useState<string>("");
-  const [editingTreatmentNotes, setEditingTreatmentNotes] = useState<Record<string, string>>({});
-  const [editingTreatmentTooth, setEditingTreatmentTooth] = useState<Record<string, string>>({});
-  const [editingTreatmentProcedure, setEditingTreatmentProcedure] = useState<Record<string, string>>({});
-  const [editingTreatmentServiceId, setEditingTreatmentServiceId] = useState<Record<string, string>>({});
-  const [newTreatmentsToAdd, setNewTreatmentsToAdd] = useState<DraftLine[]>([]);
-  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
   const [treatmentSort, setTreatmentSort] = useState<"DATE_DESC" | "DATE_ASC">("DATE_DESC");
-
-  const dentistNameById = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const d of dentists) m[d.id] = d.full_name;
-    return m;
-  }, [dentists]);
-
-  const treatmentsByDate = useMemo(() => {
-    const map = new Map<string, Treatment[]>();
-    for (const t of treatments) {
-      const k = t.treatment_date;
-      map.set(k, [...(map.get(k) ?? []), t]);
-    }
-    return map;
-  }, [treatments]);
 
   const groupedTreatmentHistory = useMemo(() => {
     const acc: Record<string, Treatment[]> = {};
@@ -74,7 +35,6 @@ export default function TreatmentsPage() {
     }
     for (const k of Object.keys(acc)) {
       acc[k] = acc[k].slice().sort((a, b) => {
-        // Sort by tooth number first (ascending), then by creation time (newest first)
         const toothA = a.tooth_number ?? 999;
         const toothB = b.tooth_number ?? 999;
         if (toothA !== toothB) return toothA - toothB;
@@ -84,31 +44,25 @@ export default function TreatmentsPage() {
       });
     }
     const list = Object.entries(acc);
-    if (treatmentSort === "DATE_ASC") {
-      return list.sort((a, b) => (a[0] > b[0] ? 1 : -1));
-    }
+    if (treatmentSort === "DATE_ASC") return list.sort((a, b) => (a[0] > b[0] ? 1 : -1));
     return list.sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [treatments, treatmentSort]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
-    // Load patient info
     const p = await supabase.from("patients").select("*").eq("id", id).single();
     if (!p.error && p.data) {
       const patRaw = p.data as any;
       const fallback = splitFullName(patRaw.full_name ?? "");
       const dbFirst = String(patRaw.first_name ?? "").trim();
       const dbLast = String(patRaw.last_name ?? "").trim();
-      const firstNameFinal = dbFirst || fallback.first;
-      const lastNameFinal = dbLast || fallback.last;
-
       setPatient({
         id: patRaw.id,
         full_name: patRaw.full_name,
-        first_name: firstNameFinal,
-        last_name: lastNameFinal,
+        first_name: dbFirst || fallback.first,
+        last_name: dbLast || fallback.last,
         phone: patRaw.phone,
         birth_date: patRaw.birth_date,
         address: patRaw.address,
@@ -129,7 +83,7 @@ export default function TreatmentsPage() {
     const sm = await supabase
       .from("service_prices")
       .select("id, service_name, default_price, item_type, sort_order, created_at, category")
-      .eq("category", "general") // PART 3: Filter to general services only (excludes ortho)
+      .eq("category", "general")
       .order("item_type", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("service_name", { ascending: true });
@@ -137,19 +91,13 @@ export default function TreatmentsPage() {
 
     const t = await supabase
       .from("treatments")
-      .select(
-        "id, treatment_date, procedure, tooth_number, notes, visit_concern, dentist_id, dentist_name, service_price_id, created_at"
-      )
+      .select("id, treatment_date, procedure, tooth_number, notes, visit_concern, dentist_id, dentist_name, service_price_id, created_at")
       .eq("patient_id", id)
       .order("treatment_date", { ascending: false })
       .order("created_at", { ascending: false });
     setTreatments(!t.error && t.data ? (t.data as Treatment[]) : []);
 
-    // Load invoices to track which dates are invoiced
-    const inv = await supabase
-      .from("invoices")
-      .select("invoice_date")
-      .eq("patient_id", id);
+    const inv = await supabase.from("invoices").select("invoice_date").eq("patient_id", id);
     const invoicedDateSet = new Set<string>();
     if (!inv.error && inv.data) {
       inv.data.forEach((record: any) => {
@@ -158,7 +106,6 @@ export default function TreatmentsPage() {
     }
     setInvoicedDates(invoicedDateSet);
 
-    // Load last appointment's concern to use as default
     const appt = await supabase
       .from("appointments")
       .select("concerns")
@@ -168,10 +115,8 @@ export default function TreatmentsPage() {
       .limit(1);
     if (!appt.error && appt.data?.length && appt.data[0].concerns) {
       setDefaultAppointmentConcern(appt.data[0].concerns);
-      setVisitConcern(appt.data[0].concerns); // Pre-fill on initial load
     } else {
       setDefaultAppointmentConcern("");
-      setVisitConcern(""); // Reset to empty/placeholder if no appointment
     }
 
     setLoading(false);
@@ -181,108 +126,10 @@ export default function TreatmentsPage() {
     loadData();
   }, [loadData]);
 
-  function addDraftLine() {
-    setErr(null);
-
-    if (!visitDate) return setErr("Select a visit date first.");
-    if (!visitDentistId) return setErr("Select the attending dentist first.");
-    if (!txServiceId || !txServiceName.trim()) return setErr("Select a procedure/service.");
-
-    const toothVal = lineTooth.trim() ? Number(lineTooth) : null;
-
-    const next: DraftLine = {
-      id: crypto.randomUUID(),
-      tooth_number: toothVal,
-      service_price_id: txServiceId || null,
-      procedure: txServiceName.trim(),
-      note: lineNote.trim(),
-    };
-
-    setDraftLines((prev) => [next, ...prev]);
-    setLineTooth("");
-    setTxServiceId("");
-    setTxServiceName("");
-    setLineNote("");
-  }
-
-  function removeDraftLine(id: string) {
-    setDraftLines((prev) => prev.filter((ln) => ln.id !== id));
-  }
-
-  async function saveVisit() {
-    if (!id) return;
-    setErr(null);
-
-    if (!visitDate) return setErr("Select a visit date.");
-    if (!visitConcern.trim()) return setErr("Enter the visit concern.");
-    if (!visitDentistId) return setErr("Select the attending dentist.");
-    if (draftLines.length === 0) return setErr("Add at least one procedure.");
-
-    setBusy(true);
-
-    const dentistName = dentists.find((d) => d.id === visitDentistId)?.full_name || "";
-
-    const payload = draftLines.map((ln) => ({
-      patient_id: id,
-      treatment_date: visitDate,
-      procedure: ln.procedure,
-      tooth_number: ln.tooth_number,
-      notes: ln.note || null,
-      visit_concern: visitConcern.trim() || null,
-      dentist_id: visitDentistId || null,
-      dentist_name: dentistName || null,
-      service_price_id: ln.service_price_id,
-    }));
-
-    const ins = await supabase.from("treatments").insert(payload);
-
-    setBusy(false);
-    if (ins.error) return setErr(ins.error.message);
-
-    setDraftLines([]);
-    setVisitDate(todayLocalISO());
-    setVisitDentistId("");
-    setVisitConcern(""); // Reset concern after saving
-    await loadData();
-  }
-
-  async function deleteTreatment(treatmentId: string) {
-    setBusy(true);
-    setErr(null);
-
-    const res = await supabase.from("treatments").delete().eq("id", treatmentId);
-
-    setBusy(false);
-    if (res.error) return setErr(res.error.message);
-
-    await loadData();
-  }
-
-  function openAddVisit() {
-    setVisitDate(todayLocalISO());
-    setVisitConcern(defaultAppointmentConcern);
-    setVisitDentistId("");
-    setDraftLines([]);
-    setLineTooth("");
-    setTxServiceId("");
-    setTxServiceName("");
-    setLineNote("");
-    setErr(null);
-    setShowAddVisitModal(true);
-  }
-
-  function closeAddVisit() {
-    setShowAddVisitModal(false);
-    setVisitDate(todayLocalISO());
-    setVisitConcern("");
-    setVisitDentistId("");
-    setDraftLines([]);
-    setLineTooth("");
-    setTxServiceId("");
-    setTxServiceName("");
-    setLineNote("");
-    setErr(null);
-  }
+  const editingTreatments = useMemo(
+    () => (editingVisitDate ? groupedTreatmentHistory.find(([d]) => d === editingVisitDate)?.[1] ?? [] : []),
+    [editingVisitDate, groupedTreatmentHistory]
+  );
 
   if (loading) {
     return (
@@ -297,13 +144,13 @@ export default function TreatmentsPage() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
       <div className="page-content">
         <div className="page-sections">
           <div className="card">
             <div className="flex-wrap-items-center-justify-between">
               <div className="card-title">Treatment history</div>
-              <div className="flex items-center gap-2">
+              <div className="inline-row">
                 <select
                   className="form-select-standard"
                   value={treatmentSort}
@@ -312,622 +159,90 @@ export default function TreatmentsPage() {
                   <option value="DATE_DESC">Newest</option>
                   <option value="DATE_ASC">Oldest</option>
                 </select>
-                <button
-                  className="btn-secondary-dark"
-                  onClick={openAddVisit}
-                  disabled={busy}
-                >
+                <button className="save-btn" onClick={() => setShowAddVisitModal(true)}>
                   Add visit
                 </button>
               </div>
             </div>
 
-                <div className="table-wrapper">
-                  <table className="data-table">
-                    <colgroup>
-                      <col className="col-20" />
-                      <col className="col-25" />
-                      <col className="col-40" />
-                      <col className="col-15" />
-                    </colgroup>
-                    <thead className="data-table-head">
-                      <tr>
-                        <th className="data-table-head-cell">Date</th>
-                        <th className="data-table-head-cell">Dentist</th>
-                        <th className="data-table-head-cell">Treatments</th>
-                        <th className="data-table-head-cell-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {groupedTreatmentHistory.map(([date, txs], index) => (
-                        <tr key={date} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                          <td className="data-table-cell">{formatDateStandard(date)}</td>
-                          <td className="data-table-cell">{txs[0]?.dentist_name || "—"}</td>
-                          <td className="data-table-cell">
-                            <div className="space-y-1">
-                              {txs.map((t) => (
-                                <div key={t.id} className="text-sm">
-                                  {t.tooth_number ? `Tooth ${t.tooth_number}: ` : ""}
-                                  {t.procedure}
-                                  {t.notes ? <div className="text-xs-slate-500-base">{t.notes}</div> : null}
-                                </div>
-                              ))}
+            <div className="table-wrapper">
+              <table className="data-table">
+                <colgroup>
+                  <col className="col-20" />
+                  <col className="col-25" />
+                  <col className="col-40" />
+                  <col className="col-15" />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Date</th>
+                    <th className="data-table-head-cell">Dentist</th>
+                    <th className="data-table-head-cell">Treatments</th>
+                    <th className="data-table-head-cell-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupedTreatmentHistory.map(([date, txs], index) => (
+                    <tr key={date} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                      <td className="data-table-cell">{formatDateStandard(date)}</td>
+                      <td className="data-table-cell">{txs[0]?.dentist_name || "—"}</td>
+                      <td className="data-table-cell">
+                        <div className="space-y-1">
+                          {txs.map((t) => (
+                            <div key={t.id} className="text-sm">
+                              {t.tooth_number ? `Tooth ${t.tooth_number}: ` : ""}
+                              {t.procedure}
+                              {t.notes ? <div className="hint-text">{t.notes}</div> : null}
                             </div>
-                          </td>
-                          <td className="data-table-cell-right">
-                            {invoicedDates.has(date) ? (
-                              <div className="inline-block px-3 py-1 rounded-lg bg-amber-100 text-amber-800 text-sm font-semibold">Invoiced</div>
-                            ) : (
-                              <button
-                                className="data-table-btn"
-                                onClick={() => {
-                                  setEditingVisitDate(date);
-                                  setEditingTreatmentNotes({});
-                                  setEditingTreatmentTooth({});
-                                  setEditingTreatmentProcedure({});
-                                  setEditingTreatmentServiceId({});
-                                  setNewTreatmentsToAdd([]);
-                                  // Extract concern from existing treatments on this date
-                                  const txsForDate = groupedTreatmentHistory.find(([d]) => d === date)?.[1] || [];
-                                  setEditingVisitConcern(txsForDate[0]?.visit_concern || "");
-                                }}
-                              >
-                                Edit Visit
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {groupedTreatmentHistory.length === 0 ? (
-                        <tr>
-                          <td className="data-table-empty" colSpan={4}>
-                            No treatments yet.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-      </div>
-
-      {/* Add Visit Modal */}
-      <EditModal
-        open={showAddVisitModal}
-        title="Add visit"
-        onClose={closeAddVisit}
-      >
-        <div className="spacing-vertical-lg">
-          {/* Visit Date and Dentist - Side by Side */}
-          <div className="flex gap-4">
-            {/* Visit Date */}
-            <div style={{ width: "40%" }}>
-              <DatePickerField
-                label="Visit date"
-                value={visitDate}
-                onChange={setVisitDate}
-                inputRef={visitDateRef}
-                variant="visit-modal"
-              />
-            </div>
-
-            {/* Dentist Dropdown */}
-            <div className="grid-gap-1" style={{ width: "60%" }}>
-              <label className="text-sm-medium-slate-700">Dentist</label>
-              <select
-                className="input-h10-border-white w-full"
-                value={visitDentistId}
-                onChange={(e) => setVisitDentistId(e.target.value)}
-              >
-                <option value="">Select dentist…</option>
-                {dentists.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Visit Concern */}
-          <div className="grid-gap-1">
-            <label className="text-sm-medium-slate-700">Concern</label>
-            <input
-              type="text"
-              className="input-h10-border-white"
-              value={visitConcern}
-              onChange={(e) => setVisitConcern(e.target.value)}
-              placeholder="Chief complaint or concern"
-            />
-          </div>
-
-          {/* Treatment Items */}
-          <div className="space-y-2">
-            <div className="text-sm-medium-slate-700">Treatments ({draftLines.length})</div>
-            {draftLines.map((t) => (
-              <div key={t.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-                <div className="grid grid-cols-3 gap-2 mb-2">
-                  <div className="grid gap-1">
-                    <label className="text-xs-semibold-slate-700">Tooth #</label>
-                    <input
-                      type="number"
-                      className="input-standard-sm"
-                      placeholder="Optional"
-                      value={t.tooth_number?.toString() || ""}
-                      onChange={(e) => {
-                        const updated = draftLines.map((dl) =>
-                          dl.id === t.id
-                            ? { ...dl, tooth_number: e.target.value.trim() ? Number(e.target.value) : null }
-                            : dl
-                        );
-                        setDraftLines(updated);
-                      }}
-                      min="1"
-                      max="32"
-                    />
-                  </div>
-                  <div className="grid gap-1 col-span-2">
-                    <label className="text-xs-semibold-slate-700">Treatment</label>
-                    <select
-                      className="input-h10-border-white"
-                      value={t.service_price_id || ""}
-                      onChange={(e) => {
-                        const svc = serviceMenu.find((s) => s.id === e.target.value);
-                        const updated = draftLines.map((dl) =>
-                          dl.id === t.id
-                            ? { ...dl, service_price_id: e.target.value, procedure: svc?.service_name ?? "" }
-                            : dl
-                        );
-                        setDraftLines(updated);
-                      }}
-                    >
-                      <option value="">Select treatment</option>
-                      {serviceMenu
-                        .slice()
-                        .sort((a, b) => {
-                          if (a.item_type !== b.item_type) {
-                            return a.item_type === "SERVICE" ? -1 : 1;
-                          }
-                          return a.service_name.localeCompare(b.service_name);
-                        })
-                        .map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.service_name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    className="input-standard-sm flex-1"
-                    placeholder="Notes…"
-                    value={t.note ?? ""}
-                    onChange={(e) => {
-                      const updated = draftLines.map((dl) =>
-                        dl.id === t.id ? { ...dl, note: e.target.value } : dl
-                      );
-                      setDraftLines(updated);
-                    }}
-                  />
-                  <button
-                    className="btn-sm-delete"
-                    onClick={() => removeDraftLine(t.id)}
-                    title="Remove treatment"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-            {draftLines.length === 0 ? (
-              <div className="text-xs-slate-500-base">No treatments on this visit yet.</div>
-            ) : null}
-
-            <button
-              className="btn btn-sm btn-ghost w-full mt-2"
-              onClick={() => {
-                setDraftLines((prev) => [
-                  ...prev,
-                  {
-                    id: crypto.randomUUID(),
-                    tooth_number: null,
-                    service_price_id: null,
-                    procedure: "",
-                    note: "",
-                  },
-                ]);
-              }}
-            >
-              + Add Treatment
-            </button>
-          </div>
-
-          {/* Modal Actions */}
-          <div className="modal-actions">
-            <div className="modal-actions-right">
-              <button
-                className="cancel-btn"
-                onClick={closeAddVisit}
-                disabled={busy}
-              >
-                Cancel
-              </button>
-              <button
-                className="save-btn"
-                disabled={busy || draftLines.length === 0 || !visitConcern.trim() || !visitDentistId}
-                onClick={saveVisit}
-              >
-                {busy ? "Saving…" : "Save"}
-              </button>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="data-table-cell-right">
+                        {invoicedDates.has(date) ? (
+                          <div className="inline-block px-3 py-1 rounded-lg bg-amber-100 text-amber-800 text-sm font-semibold">Invoiced</div>
+                        ) : (
+                          <button
+                            className="data-table-btn"
+                            onClick={() => setEditingVisitDate(date)}
+                          >
+                            Edit Visit
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {groupedTreatmentHistory.length === 0 && (
+                    <tr>
+                      <td className="data-table-empty" colSpan={4}>No treatments yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-      </EditModal>
+      </div>
 
-      {/* Edit Visit Modal */}
-      <EditModal
+      <AddVisitModal
+        open={showAddVisitModal}
+        onClose={() => setShowAddVisitModal(false)}
+        onSaved={loadData}
+        patientId={id}
+        dentists={dentists}
+        serviceMenu={serviceMenu}
+        defaultConcern={defaultAppointmentConcern}
+      />
+
+      <EditVisitModal
         open={editingVisitDate !== null}
-        title={`Edit Visit - ${editingVisitDate ? formatDateStandard(editingVisitDate) : ""}`}
-        onClose={() => {
-          setEditingVisitDate(null);
-          setEditingVisitDentistId("");
-          setEditingVisitConcern("");
-          setEditingTreatmentNotes({});
-          setEditingTreatmentTooth({});
-          setEditingTreatmentProcedure({});
-          setEditingTreatmentServiceId({});
-          setNewTreatmentsToAdd([]);
-          setDeleteConfirmationText("");
-          setErr(null);
-        }}
-      >
-        {editingVisitDate && (() => {
-          const visitTreatments = groupedTreatmentHistory.find(([d]) => d === editingVisitDate)?.[1] || [];
-          if (!editingVisitDentistId && visitTreatments.length > 0) {
-            setEditingVisitDentistId(visitTreatments[0].dentist_id || "");
-          }
-          return (
-            <div className="spacing-vertical-lg">
-              {/* Dentist Dropdown */}
-              <div className="grid-gap-1">
-                <label className="text-sm-medium-slate-700">Dentist</label>
-                <select
-                  className="input-h10-border-white"
-                  value={editingVisitDentistId}
-                  onChange={(e) => setEditingVisitDentistId(e.target.value)}
-                >
-                  <option value="">Select dentist…</option>
-                  {dentists.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Visit Concern */}
-              <div className="grid-gap-1">
-                <label className="text-sm-medium-slate-700">Concern</label>
-                <input
-                  type="text"
-                  className="input-h10-border-white"
-                  value={editingVisitConcern}
-                  onChange={(e) => setEditingVisitConcern(e.target.value)}
-                  placeholder="Chief complaint or concern"
-                />
-              </div>
-
-              {/* Treatment Items */}
-              <div className="space-y-2">
-                <div className="text-sm-medium-slate-700">Treatments ({visitTreatments.length + newTreatmentsToAdd.length})</div>
-                {visitTreatments.map((t) => (
-                  <div key={t.id} className="rounded-lg border bg-slate-50 p-3 space-y-2">
-                    <div className="grid grid-cols-3 gap-2 mb-2">
-                      <div className="grid gap-1">
-                        <label className="text-xs-semibold-slate-700">Tooth #</label>
-                        <input
-                          type="number"
-                          className="input-standard-sm"
-                          placeholder="Optional"
-                          value={editingTreatmentTooth[t.id] ?? (t.tooth_number?.toString() || "")}
-                          onChange={(e) =>
-                            setEditingTreatmentTooth((prev) => ({ ...prev, [t.id]: e.target.value }))
-                          }
-                          min="1"
-                          max="32"
-                        />
-                      </div>
-                      <div className="grid gap-1 col-span-2">
-                        <label className="text-xs-semibold-slate-700">Treatment</label>
-                        <select
-                          className="input-h10-border-white"
-                          value={editingTreatmentServiceId[t.id] ?? (t.service_price_id || "")}
-                          onChange={(e) => {
-                            const svc = serviceMenu.find((s) => s.id === e.target.value);
-                            setEditingTreatmentServiceId((prev) => ({ ...prev, [t.id]: e.target.value }));
-                            setEditingTreatmentProcedure((prev) => ({ ...prev, [t.id]: svc?.service_name ?? "" }));
-                          }}
-                        >
-                          <option value="">Select treatment</option>
-                          {serviceMenu
-                            .slice()
-                            .sort((a, b) => {
-                              if (a.item_type !== b.item_type) {
-                                return a.item_type === "SERVICE" ? -1 : 1;
-                              }
-                              return a.service_name.localeCompare(b.service_name);
-                            })
-                            .map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.service_name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        className="input-standard-sm flex-1"
-                        placeholder="Notes…"
-                        value={editingTreatmentNotes[t.id] ?? t.notes ?? ""}
-                        onChange={(e) =>
-                          setEditingTreatmentNotes((prev) => ({ ...prev, [t.id]: e.target.value }))
-                        }
-                      />
-                      <button
-                        className="btn-sm-delete"
-                        onClick={() => deleteTreatment(t.id)}
-                        title="Delete treatment"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {visitTreatments.length === 0 ? (
-                  <div className="text-xs-slate-500-base">No treatments on this date.</div>
-                ) : null}
-                
-                {newTreatmentsToAdd.map((newT) => (
-                  <div key={newT.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-                    <div className="grid grid-cols-3 gap-2 mb-2">
-                      <div className="grid gap-1">
-                        <label className="text-xs-semibold-slate-700">Tooth #</label>
-                        <input
-                          type="number"
-                          className="input-standard-sm"
-                          placeholder="Optional"
-                          value={editingTreatmentTooth[newT.id] ?? ""}
-                          onChange={(e) =>
-                            setEditingTreatmentTooth((prev) => ({ ...prev, [newT.id]: e.target.value }))
-                          }
-                          min="1"
-                          max="32"
-                        />
-                      </div>
-                      <div className="grid gap-1 col-span-2">
-                        <label className="text-xs-semibold-slate-700">Treatment</label>
-                        <select
-                          className="input-h10-border-white"
-                          value={editingTreatmentServiceId[newT.id] ?? ""}
-                          onChange={(e) => {
-                            const svc = serviceMenu.find((s) => s.id === e.target.value);
-                            setEditingTreatmentServiceId((prev) => ({ ...prev, [newT.id]: e.target.value }));
-                            setEditingTreatmentProcedure((prev) => ({ ...prev, [newT.id]: svc?.service_name ?? "" }));
-                          }}
-                        >
-                          <option value="">Select treatment</option>
-                          {serviceMenu
-                            .slice()
-                            .sort((a, b) => {
-                              if (a.item_type !== b.item_type) {
-                                return a.item_type === "SERVICE" ? -1 : 1;
-                              }
-                              return a.service_name.localeCompare(b.service_name);
-                            })
-                            .map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.service_name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        className="input-standard-sm flex-1"
-                        placeholder="Notes…"
-                        value={editingTreatmentNotes[newT.id] ?? ""}
-                        onChange={(e) =>
-                          setEditingTreatmentNotes((prev) => ({ ...prev, [newT.id]: e.target.value }))
-                        }
-                      />
-                      <button
-                        className="btn-sm-delete"
-                        onClick={() => setNewTreatmentsToAdd((prev) => prev.filter((nt) => nt.id !== newT.id))}
-                        title="Remove treatment"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                <button
-                  className="btn btn-sm btn-ghost w-full mt-2"
-                  onClick={() => {
-                    setNewTreatmentsToAdd((prev) => [
-                      ...prev,
-                      {
-                        id: crypto.randomUUID(),
-                        tooth_number: null,
-                        service_price_id: null,
-                        procedure: "",
-                        note: "",
-                      },
-                    ]);
-                  }}
-                >
-                  + Add Treatment
-                </button>
-              </div>
-
-              {/* Delete Entire Visit */}
-              <div className="delete-confirmation">
-                <div className="delete-confirmation-title-red">Delete entire visit?</div>
-                <div className="delete-confirmation-hint">
-                  Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion of all treatments on this date
-                </div>
-                <input
-                  type="text"
-                  className="delete-confirmation-input"
-                  placeholder="DELETE"
-                  value={deleteConfirmationText}
-                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                />
-              </div>
-
-              {/* Modal Actions */}
-              <div className="modal-actions">
-                <div className="modal-actions-left">
-                  <button
-                    className="delete-btn"
-                    disabled={busy || deleteConfirmationText !== "DELETE"}
-                    onClick={async () => {
-                    if (!editingVisitDate) return;
-                    setBusy(true);
-                    setErr(null);
-                    const { error } = await supabase
-                      .from("treatments")
-                      .delete()
-                      .in("id", visitTreatments.map((t) => t.id));
-                    setBusy(false);
-                    if (error) return setErr(error.message);
-                    setEditingVisitDate(null);
-                    setEditingVisitDentistId("");
-                    setEditingVisitConcern("");
-                    setEditingTreatmentNotes({});
-                    setEditingTreatmentTooth({});
-                    setEditingTreatmentProcedure({});
-                    setEditingTreatmentServiceId({});
-                    setNewTreatmentsToAdd([]);
-                    setDeleteConfirmationText("");
-                    await loadData();
-                  }}
-                >
-                    {busy ? "Deleting…" : "Delete Visit"}
-                  </button>
-                </div>
-                <div className="modal-actions-right">
-                  <button
-                    className="cancel-btn"
-                    onClick={() => {
-                      setEditingVisitDate(null);
-                      setEditingVisitDentistId("");
-                      setEditingVisitConcern("");
-                      setEditingTreatmentNotes({});
-                      setEditingTreatmentTooth({});
-                      setEditingTreatmentProcedure({});
-                      setEditingTreatmentServiceId({});
-                      setNewTreatmentsToAdd([]);
-                      setDeleteConfirmationText("");
-                      setErr(null);
-                    }}
-                    disabled={busy}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="save-btn"
-                    disabled={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      setErr(null);
-                      
-                      // Update existing treatments
-                      for (const t of visitTreatments) {
-                        const toothVal = editingTreatmentTooth[t.id] !== undefined ? (editingTreatmentTooth[t.id].trim() ? Number(editingTreatmentTooth[t.id]) : null) : t.tooth_number;
-                        const procedureVal = editingTreatmentProcedure[t.id] ?? t.procedure;
-                        const serviceIdVal = editingTreatmentServiceId[t.id] ?? t.service_price_id;
-                        const notesVal = editingTreatmentNotes[t.id] ?? t.notes;
-
-                        const hasChanges = 
-                          toothVal !== t.tooth_number ||
-                          procedureVal !== t.procedure ||
-                          serviceIdVal !== t.service_price_id ||
-                          notesVal !== t.notes ||
-                          editingVisitConcern !== (t.visit_concern ?? "");
-
-                        if (hasChanges) {
-                          const { error } = await supabase
-                            .from("treatments")
-                            .update({
-                              tooth_number: toothVal,
-                              procedure: procedureVal,
-                              service_price_id: serviceIdVal,
-                              notes: notesVal || null,
-                              visit_concern: editingVisitConcern?.trim() || null,
-                            })
-                            .eq("id", t.id);
-                          if (error) {
-                            setBusy(false);
-                            return setErr(error.message);
-                          }
-                        }
-                      }
-
-                      // Insert new treatments
-                      if (newTreatmentsToAdd.length > 0) {
-                        const dentistName = dentists.find((d) => d.id === editingVisitDentistId)?.full_name || "";
-                        const newPayload = newTreatmentsToAdd
-                          .filter((nt) => editingTreatmentServiceId[nt.id]) // Only insert if procedure selected
-                          .map((nt) => ({
-                            patient_id: id,
-                            treatment_date: editingVisitDate,
-                            tooth_number: editingTreatmentTooth[nt.id]?.trim() ? Number(editingTreatmentTooth[nt.id]) : null,
-                            procedure: editingTreatmentProcedure[nt.id] || "",
-                            service_price_id: editingTreatmentServiceId[nt.id],
-                            notes: editingTreatmentNotes[nt.id]?.trim() || null,
-                            visit_concern: editingVisitConcern?.trim() || null,
-                            dentist_id: editingVisitDentistId || null,
-                            dentist_name: dentistName || null,
-                          }));
-                        
-                        if (newPayload.length > 0) {
-                          const { error } = await supabase.from("treatments").insert(newPayload);
-                          if (error) {
-                            setBusy(false);
-                            return setErr(error.message);
-                          }
-                        }
-                      }
-
-                      setBusy(false);
-                      setEditingVisitDate(null);
-                      setEditingVisitDentistId("");
-                      setEditingVisitConcern("");
-                      setEditingTreatmentNotes({});
-                      setEditingTreatmentTooth({});
-                      setEditingTreatmentProcedure({});
-                      setEditingTreatmentServiceId({});
-                      setNewTreatmentsToAdd([]);
-                      setDeleteConfirmationText("");
-                      await loadData();
-                    }}
-                  >
-                    {busy ? "Saving…" : "Save"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()} 
-      </EditModal>
+        date={editingVisitDate}
+        onClose={() => setEditingVisitDate(null)}
+        onSaved={loadData}
+        patientId={id}
+        dentists={dentists}
+        serviceMenu={serviceMenu}
+        visitTreatments={editingTreatments}
+      />
     </>
   );
 }

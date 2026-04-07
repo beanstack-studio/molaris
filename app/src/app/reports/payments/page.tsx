@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { formatMoney, formatDatePH, formatDateStandard } from "@/lib/helpers";
+import { formatMoney, formatDateStandard } from "@/lib/helpers";
 
 export default function PaymentReportsPage() {
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [outstanding, setOutstanding] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
@@ -17,13 +17,13 @@ export default function PaymentReportsPage() {
 
   async function loadData() {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     try {
       // Load recent payments
       const { data: paymentsData, error: paymentsError } = await supabase
         .from("payments")
-        .select("id, amount, payment_date, status, invoice_id, reference_number")
+        .select("id, transaction_id, amount, payment_date, status, invoice_id, reference_number")
         .order("payment_date", { ascending: false })
         .limit(50);
 
@@ -91,7 +91,7 @@ export default function PaymentReportsPage() {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Failed to load payment data";
       console.error("Payment report error:", errorMsg);
-      setErr(errorMsg);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -111,25 +111,25 @@ export default function PaymentReportsPage() {
   return (
     <div className="page-content">
       <div className="page-sections">
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
 
       {/* Summary Cards */}
       {summary && (
         <div className="grid gap-4 sm:grid-cols-4">
           <div className="card">
-            <div className="text-sm text-slate-600">Total Invoiced</div>
+            <div className="text-muted">Total Invoiced</div>
             <div className="text-2xl font-bold text-slate-900 mt-2">{formatMoney(summary.totalInvoiced)}</div>
           </div>
           <div className="card">
-            <div className="text-sm text-slate-600">Total Paid</div>
+            <div className="text-muted">Total Paid</div>
             <div className="text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.totalPaid)}</div>
           </div>
           <div className="card">
-            <div className="text-sm text-slate-600">Outstanding</div>
+            <div className="text-muted">Outstanding</div>
             <div className="text-2xl font-bold text-orange-700 mt-2">{formatMoney(summary.totalOutstanding)}</div>
           </div>
           <div className="card">
-            <div className="text-sm text-slate-600">Collection Rate</div>
+            <div className="text-muted">Collection Rate</div>
             <div className="text-2xl font-bold text-blue-700 mt-2">{summary.collectionRate}%</div>
           </div>
         </div>
@@ -190,7 +190,7 @@ export default function PaymentReportsPage() {
               </colgroup>
               <thead className="data-table-head">
                 <tr>
-                  <th className="data-table-head-cell">Invoice ID</th>
+                  <th className="data-table-head-cell">Transaction ID</th>
                   <th className="data-table-head-cell-right">Amount</th>
                   <th className="data-table-head-cell">Date</th>
                   <th className="data-table-head-cell">Status</th>
@@ -199,7 +199,7 @@ export default function PaymentReportsPage() {
               <tbody>
                 {payments.map((payment, index) => (
                   <tr key={payment.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                    <td className="data-table-cell">{payment.invoice_id}</td>
+                    <td className="data-table-cell">{payment.transaction_id || "—"}</td>
                     <td className="data-table-cell-right font-semibold">{formatMoney(payment.amount)}</td>
                     <td className="data-table-cell text-sm">{formatDateStandard(payment.payment_date)}</td>
                     <td className="data-table-cell">

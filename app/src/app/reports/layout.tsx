@@ -16,7 +16,7 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="page-bg">
       <main className="app-section">
         <div className="app-section-header">
           <div>

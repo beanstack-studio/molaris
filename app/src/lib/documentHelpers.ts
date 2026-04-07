@@ -50,17 +50,8 @@ export const CODE_TO_DOC_TYPE: Record<string, DocType> = {
  * @param docType - The logical document type
  * @returns The short code (INV, PMT, SOA, RX, CER, REF)
  */
-export function getDocCode(docType: DocType): string {
+function getDocCode(docType: DocType): string {
   return DOC_CODE_MAP[docType] || "UNKNOWN";
-}
-
-/**
- * Reverse: get doc type from code
- * @param code - The short code
- * @returns The logical document type
- */
-export function getDocTypeFromCode(code: string): DocType | null {
-  return CODE_TO_DOC_TYPE[code] || null;
 }
 
 /**
@@ -70,7 +61,7 @@ export function getDocTypeFromCode(code: string): DocType | null {
  * @param number - Sequential number (1-based)
  * @returns Formatted doc no: INV26-0001, PMT26-0001, etc.
  */
-export function formatDocNo(code: string, year: number, number: number): string {
+function formatDocNo(code: string, year: number, number: number): string {
   const yearStr = String(year).slice(-2).padStart(2, "0");
   const numberStr = String(number).padStart(4, "0");
   return `${code}${yearStr}-${numberStr}`;
@@ -99,7 +90,7 @@ export async function getNextDocNo(docType: DocType): Promise<string> {
  * Fallback: simple count-based doc number generation (less safe under concurrency)
  * Used if RPC function is unavailable. Counts from documents table.
  */
-export async function getNextDocNoFallback(docType: DocType): Promise<string> {
+async function getNextDocNoFallback(docType: DocType): Promise<string> {
   try {
     const year = new Date().getFullYear();
     const docCode = getDocCode(docType);
@@ -306,24 +297,6 @@ export async function getPatientDocuments(patientId: string) {
     return allDocuments;
   } catch (error) {
     return [];
-  }
-}
-
-/**
- * Get a single document by ID
- */
-export async function getDocumentById(documentId: string) {
-  try {
-    const { data, error } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("id", documentId)
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    return null;
   }
 }
 

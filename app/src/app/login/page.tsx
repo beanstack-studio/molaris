@@ -100,10 +100,7 @@ export default function LoginPage() {
           <button
             className="w-full text-sm text-slate-600 hover:text-slate-900 py-2 mt-2"
             type="button"
-            onClick={() => {
-              // TODO: Implement forget password flow
-              console.log("Forget password clicked");
-            }}
+            onClick={() => {}}
           >
             Forgot password?
           </button>

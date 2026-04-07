@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureSessionRestored } from "@/lib/initializeAuth";
 import { EditModal } from "@/components/EditModal";
+import { formatMoney } from "@/lib/helpers";
 
 type ServicePriceRow = {
   id: string;
@@ -230,14 +231,12 @@ export default function ServicesSettingsPage() {
     if (deleteText !== "DELETE") return;
 
     setBusy(true);
-    console.log("Attempting to delete service with id:", editRow.id);
     
     const { error, data } = await supabase
       .from("service_prices")
       .delete()
       .eq("id", editRow.id);
     
-    console.log("Delete response - error:", error, "data:", data);
     
     if (error) {
       console.error("Delete error:", error);
@@ -246,7 +245,6 @@ export default function ServicesSettingsPage() {
       return;
     }
 
-    console.log("Delete successful, reloading list");
     await load();
     setBusy(false);
     closeEdit();
@@ -276,7 +274,7 @@ export default function ServicesSettingsPage() {
     <div className="card">
       <div className="card-header">
         <div className="card-title">{title}</div>
-        <div className="flex items-center gap-2">
+        <div className="inline-row">
           <select
             className="form-select-standard"
             value={sort}
@@ -290,7 +288,7 @@ export default function ServicesSettingsPage() {
           </select>
           <button
             type="button"
-            className="btn-secondary-dark"
+            className="save-btn"
             onClick={onAdd}
             disabled={busy}
           >
@@ -322,7 +320,7 @@ export default function ServicesSettingsPage() {
               <tr key={r.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                 <td className="data-table-cell">{r.service_name}</td>
                 <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
-                <td className="data-table-cell-right">₱ {Number(r.default_price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
                 <td className="data-table-cell-right">
                   <div className="flex items-center justify-end">
                     <TogglePill
@@ -412,7 +410,7 @@ export default function ServicesSettingsPage() {
             <label className="field-label">
               <span className="field-label-text">Duration</span>
               <select
-                className="field-input text-sm h-10"
+                className="field-input"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
                 disabled={busy}
@@ -514,7 +512,7 @@ export default function ServicesSettingsPage() {
               <label className="field-label">
                 <span className="field-label-text">Duration</span>
                 <select
-                  className="field-input text-sm h-10"
+                  className="field-input"
                   value={editDuration}
                   onChange={(e) => setEditDuration(e.target.value)}
                   disabled={busy}

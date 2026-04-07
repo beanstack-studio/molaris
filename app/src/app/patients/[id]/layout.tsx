@@ -86,14 +86,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const displayName = patientName || "Patient";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="page-bg">
       <main className="app-section">
         <div className="app-section-header">
           <div>
             <div className="flex-center-gap-3">
               <div className="app-section-title">{displayName}</div>
               {(patientAge !== null || patientGender) && (
-                <div className="text-sm text-slate-600">
+                <div className="text-muted">
                   {patientAge !== null && `${patientAge}`}
                   {patientAge !== null && patientGender && " "}
                   {patientGender && patientGender.charAt(0).toUpperCase()}

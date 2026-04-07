@@ -49,14 +49,14 @@ export function DatePickerField({
   if (variant === "visit-modal") {
     return (
       <div className={wrapperClassName || "grid-gap-1"}>
-        <label className="text-sm-medium-slate-700">{label}</label>
+        <label className="text-field-label">{label}</label>
         <div 
           className="relative cursor-pointer"
           onClick={handleWrapperClick}
         >
           <input
             type="text"
-            className="input-h10-border-white w-full pr-10"
+            className="input-full pr-10"
             value={value ? formatDateStandard(value) : ""}
             readOnly
           />

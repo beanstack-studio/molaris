@@ -4,17 +4,7 @@
  */
 
 import { supabase } from "./supabaseClient";
-
-/**
- * Format money with peso sign, comma separators, and 2 decimals
- * Example: formatMoney(50000) => "₱ 50,000.00"
- */
-function formatMoney(amount: number): string {
-  return `₱ ${(amount || 0).toLocaleString("en-PH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
+import { formatMoney } from "./helpers";
 
 /**
  * Format date consistently across documents
@@ -279,12 +269,12 @@ export async function generateInvoiceDocument(
       <tbody>
         ${itemsList
           .map(
-            (item: { service_name?: string; quantity?: number; unit_price?: number; amount?: number }) => `
+            (item: { service_name?: string; qty?: number; unit_price?: number; line_total?: number }) => `
         <tr>
           <td>${item.service_name || "—"}</td>
-          <td style="text-align: center;">${item.quantity || 1}</td>
+          <td style="text-align: center;">${item.qty || 1}</td>
           <td class="amount-cell">${formatMoney(item.unit_price || 0)}</td>
-          <td class="amount-cell">${formatMoney(item.amount || 0)}</td>
+          <td class="amount-cell">${formatMoney(item.line_total || 0)}</td>
         </tr>
         `
           )
@@ -294,17 +284,9 @@ export async function generateInvoiceDocument(
     
     <div class="totals-section">
       <table class="totals-table">
-        <tr>
-          <td>Subtotal:</td>
-          <td>${formatMoney(invoiceData.subtotal || 0)}</td>
-        </tr>
-        <tr>
-          <td>Tax/Discount:</td>
-          <td>${formatMoney(invoiceData.tax || 0)}</td>
-        </tr>
         <tr class="total-row">
           <td>Total Amount:</td>
-          <td>${formatMoney(invoiceData.total_amount || 0)}</td>
+          <td>${formatMoney(invoiceData.total || 0)}</td>
         </tr>
       </table>
     </div>

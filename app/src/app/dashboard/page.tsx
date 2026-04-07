@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureSessionRestored } from "@/lib/initializeAuth";
-import { formatMoney, formatDatePH, formatDateStandard } from "@/lib/helpers";
+import { formatMoney, formatDateStandard } from "@/lib/helpers";
 import { DashboardCard } from "@/components/DashboardCard";
 
 interface DashboardStats {
@@ -24,7 +24,7 @@ interface RecentActivity {
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [stats, setStats] = useState<DashboardStats>({
     totalInvoiced: 0,
@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
   async function loadDashboardData() {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     try {
       // Wait for session to be restored
@@ -61,7 +61,7 @@ export default function DashboardPage() {
       // Ensure session is loaded before making queries
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setErr("No active session. Please login first.");
+        setError("No active session. Please login first.");
         setLoading(false);
         return;
       }
@@ -326,16 +326,6 @@ export default function DashboardPage() {
       // Store all payments in state for today's payment calculation
       setAllPayments(payments || []);
 
-      // Log stats for debugging
-      console.log("Dashboard Stats:", {
-        totalInvoiced,
-        totalPaid,
-        totalOutstanding,
-        collectionRate: collectionRateValue,
-        patients: patients?.length || 0,
-        invoices: invoiceCount,
-        upcomingAppointments: appointments?.length || 0,
-      });
     } catch (error) {
       const errorMsg = error instanceof Error 
         ? error.message 
@@ -343,7 +333,7 @@ export default function DashboardPage() {
         ? error
         : (error as any)?.message || (error as any)?.error_description || JSON.stringify(error);
       console.error("Dashboard error:", errorMsg, error);
-      setErr(errorMsg || "Failed to load dashboard");
+      setError(errorMsg || "Failed to load dashboard");
     } finally {
       setLoading(false);
     }
@@ -361,30 +351,21 @@ export default function DashboardPage() {
       : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <div className="border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          <h1 className="text-4xl font-bold text-slate-900">Dashboard</h1>
-          <p className="mt-2 text-slate-600">Welcome back! Here's your clinic overview.</p>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        {/* Error message */}
-        {err && (
-          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-700">
-            <p className="font-semibold">Error loading dashboard</p>
-            <p className="text-sm">{err}</p>
+    <div className="page-bg">
+      <main className="app-section">
+        <div className="app-section-header">
+          <div>
+            <div className="app-section-title">Dashboard</div>
+            <div className="app-section-subtitle">Clinic overview</div>
           </div>
-        )}
+        </div>
+
+        {error && <div className="error-banner mb-4">{error}</div>}
 
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="text-muted">Loading dashboard...</div>
-          </div>
+          <div className="loading-text">Loading dashboard...</div>
         ) : (
-          <div className="space-y-6">
+          <div className="page-sections">
             {/* Key Metrics - Row 1 */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <DashboardCard
@@ -450,51 +431,38 @@ export default function DashboardPage() {
             {/* Content Grid */}
             <div className="grid gap-6 lg:grid-cols-3">
               {/* Left Column - Recent Activity */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-4">
                 {/* Recent Payments */}
-                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Payments</h2>
-
+                <div className="card">
+                  <div className="card-header mb-4">
+                    <div className="card-title">Recent Payments</div>
+                  </div>
                   {recent.payments.length > 0 ? (
-                    <div className="overflow-x-auto-container">
-                      <table className="w-full-text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-200">
-                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                              Transaction ID
-                            </th>
-                            <th className="px-4 py-2 text-right font-semibold text-slate-700">
-                              Amount
-                            </th>
-                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                              Mode
-                            </th>
-                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                              Status
-                            </th>
+                    <div className="table-wrapper">
+                      <table className="data-table">
+                        <colgroup>
+                          <col className="col-30" />
+                          <col className="col-20" />
+                          <col className="col-25" />
+                          <col className="col-25" />
+                        </colgroup>
+                        <thead className="data-table-head">
+                          <tr>
+                            <th className="data-table-head-cell">Transaction ID</th>
+                            <th className="data-table-head-cell-right">Amount</th>
+                            <th className="data-table-head-cell">Mode</th>
+                            <th className="data-table-head-cell">Status</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {recent.payments.map((payment) => (
-                            <tr key={payment.id} className="hover:bg-slate-50">
-                              <td className="px-4 py-2">
-                                {payment.transaction_id || "—"}
-                              </td>
-                              <td className="px-4 py-2 text-right font-semibold">
-                                {formatMoney(payment.amount)}
-                              </td>
-                              <td className="px-4 py-2 text-sm">
-                                {payment.payment_modes?.name || "—"}
-                              </td>
-                              <td className="px-4 py-2">
-                                <span
-                                  className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
-                                    payment.status === "verified"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-yellow-100 text-yellow-700"
-                                  }`}
-                                >
-                                  {payment.status === "verified" ? "✓ Verified" : "Pending"}
+                        <tbody>
+                          {recent.payments.map((payment, index) => (
+                            <tr key={payment.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                              <td className="data-table-cell">{payment.transaction_id || "—"}</td>
+                              <td className="data-table-cell-right font-semibold">{formatMoney(payment.amount)}</td>
+                              <td className="data-table-cell">{payment.payment_modes?.name || "—"}</td>
+                              <td className="data-table-cell">
+                                <span className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${payment.status === "verified" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                                  {payment.status === "verified" ? "Verified" : "Pending"}
                                 </span>
                               </td>
                             </tr>
@@ -503,49 +471,40 @@ export default function DashboardPage() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-slate-500 text-center py-4">No recent payments</p>
+                    <p className="data-table-empty">No recent payments</p>
                   )}
                 </div>
 
                 {/* Recent Invoices */}
-                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="mb-4 text-lg font-semibold text-slate-900">Recent Invoices</h2>
-
+                <div className="card">
+                  <div className="card-header mb-4">
+                    <div className="card-title">Recent Invoices</div>
+                  </div>
                   {recent.invoices.length > 0 ? (
-                    <div className="overflow-x-auto-container">
-                      <table className="w-full-text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-200">
-                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                              Invoice
-                            </th>
-                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                              Date
-                            </th>
-                            <th className="px-4 py-2 text-right font-semibold text-slate-700">
-                              Amount
-                            </th>
-                            <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                              Status
-                            </th>
+                    <div className="table-wrapper">
+                      <table className="data-table">
+                        <colgroup>
+                          <col className="col-30" />
+                          <col className="col-25" />
+                          <col className="col-20" />
+                          <col className="col-25" />
+                        </colgroup>
+                        <thead className="data-table-head">
+                          <tr>
+                            <th className="data-table-head-cell">Invoice</th>
+                            <th className="data-table-head-cell">Date</th>
+                            <th className="data-table-head-cell-right">Amount</th>
+                            <th className="data-table-head-cell">Status</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {recent.invoices.map((invoice) => (
-                            <tr key={invoice.id} className="hover:bg-slate-50">
-                              <td className="px-4 py-2">{invoice.invoice_number}</td>
-                              <td className="px-4 py-2">{formatDateStandard(invoice.invoice_date)}</td>
-                              <td className="px-4 py-2 text-right font-semibold">
-                                {formatMoney(invoice.total)}
-                              </td>
-                              <td className="px-4 py-2">
-                                <span
-                                  className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
-                                    invoice.status === "paid"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-yellow-100 text-yellow-700"
-                                  }`}
-                                >
+                        <tbody>
+                          {recent.invoices.map((invoice, index) => (
+                            <tr key={invoice.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                              <td className="data-table-cell">{invoice.invoice_number}</td>
+                              <td className="data-table-cell">{formatDateStandard(invoice.invoice_date)}</td>
+                              <td className="data-table-cell-right font-semibold">{formatMoney(invoice.total)}</td>
+                              <td className="data-table-cell">
+                                <span className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${invoice.status === "paid" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
                                   {invoice.status === "paid" ? "Paid" : "Pending"}
                                 </span>
                               </td>
@@ -555,57 +514,45 @@ export default function DashboardPage() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-slate-500 text-center py-4">No recent invoices</p>
+                    <p className="data-table-empty">No recent invoices</p>
                   )}
                 </div>
               </div>
 
               {/* Right Column - Sidebar */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Quick Actions */}
-                <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="mb-4 text-lg font-semibold text-slate-900">Quick Actions</h2>
-                  <div className="space-y-2-border-rounded-bg-slate">
-                    <Link
-                      href="/patients"
-                      className="block rounded-lg bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                    >
-                      → View Patients
+                <div className="card">
+                  <div className="card-header mb-4">
+                    <div className="card-title">Quick Actions</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Link href="/patients" className="block rounded-lg bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors">
+                      View Patients
                     </Link>
-                    <Link
-                      href="/reports/payments"
-                      className="block rounded-lg bg-green-50 px-4 py-2 text-center text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
-                    >
-                      → Payment Reports
+                    <Link href="/reports/payments" className="block rounded-lg bg-green-50 px-4 py-2 text-center text-sm font-medium text-green-700 hover:bg-green-100 transition-colors">
+                      Payment Reports
                     </Link>
-                    <Link
-                      href="/settings"
-                      className="block rounded-lg bg-slate-50 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                    >
-                      → Settings
+                    <Link href="/settings" className="block rounded-lg bg-slate-50 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                      Settings
                     </Link>
                   </div>
                 </div>
 
                 {/* Payment Modes */}
                 {paymentModes.length > 0 && (
-                  <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                    <h2 className="mb-4 text-lg font-semibold text-slate-900">
-                      Payment Modes (Today)
-                    </h2>
-                    <div className="space-y-2-border-rounded-bg-slate">
+                  <div className="card">
+                    <div className="card-header mb-4">
+                      <div className="card-title">Payment Modes (Today)</div>
+                    </div>
+                    <div className="space-y-2">
                       {paymentModes.map((mode) => (
-                        <div
-                          key={mode.code}
-                          className="flex items-center justify-between rounded-lg border border-slate-100 p-3 hover:bg-slate-50"
-                        >
+                        <div key={mode.code} className="flex items-center justify-between rounded-lg border border-slate-100 p-3 hover:bg-slate-50">
                           <div className="text-sm">
                             <p className="font-medium text-slate-900">{mode.name}</p>
                             <p className="text-muted-xs">{mode.count} payments</p>
                           </div>
-                          <p className="text-sm font-semibold text-slate-900">
-                            {formatMoney(mode.total)}
-                          </p>
+                          <p className="item-value">{formatMoney(mode.total)}</p>
                         </div>
                       ))}
                     </div>
@@ -613,23 +560,16 @@ export default function DashboardPage() {
                 )}
 
                 {/* Outstanding Summary */}
-                <div className="rounded-lg border border-orange-200 bg-orange-50 p-6 shadow-sm">
-                  <h2 className="mb-4 text-lg font-semibold text-orange-900">
-                    Outstanding Invoices
-                  </h2>
+                <div className="card">
+                  <div className="card-header mb-4">
+                    <div className="card-title">Outstanding Invoices</div>
+                  </div>
                   <div className="text-center">
-                    <p className="text-3xl font-bold text-orange-700">
-                      {outstanding.length}
+                    <p className="text-3xl font-bold text-orange-700">{outstanding.length}</p>
+                    <p className="text-sm text-slate-500 mt-2">
+                      Total: {formatMoney(outstanding.reduce((sum, inv) => sum + (inv.balance || 0), 0))}
                     </p>
-                    <p className="text-sm text-orange-600 mt-2">
-                      Total: {formatMoney(
-                        outstanding.reduce((sum, inv) => sum + (inv.balance || 0), 0)
-                      )}
-                    </p>
-                    <Link
-                      href="/reports/payments"
-                      className="mt-3 inline-block rounded-lg bg-orange-100 px-3 py-1 text-sm font-medium text-orange-700 hover:bg-orange-200 transition-colors"
-                    >
+                    <Link href="/reports/payments" className="mt-3 inline-block rounded-lg bg-orange-100 px-3 py-1 text-sm font-medium text-orange-700 hover:bg-orange-200 transition-colors">
                       View details →
                     </Link>
                   </div>
@@ -638,7 +578,7 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

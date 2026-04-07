@@ -6,7 +6,7 @@ import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
 import PatientTabs from "@/components/PatientTabs";
 import type { Patient, MedHist } from "@/lib/types";
-import { combineFullName, formatDatePH } from "@/lib/helpers";
+import { combineFullName } from "@/lib/helpers";
 
 export default function Page() {
   const params = useParams();
@@ -15,7 +15,7 @@ export default function Page() {
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [medHist, setMedHist] = useState<MedHist | null>(null);
@@ -30,11 +30,11 @@ export default function Page() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     const p = await supabase.from("patients").select("*").eq("id", id).single();
     if (p.error) {
-      setErr(p.error.message);
+      setError(p.error.message);
       setLoading(false);
       return;
     }
@@ -73,7 +73,7 @@ export default function Page() {
 
   async function saveMedical() {
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id ?? null;
@@ -93,7 +93,7 @@ export default function Page() {
       : await supabase.from("patient_medical_histories").insert(payload);
 
     setBusy(false);
-    if (res.error) return setErr(res.error.message);
+    if (res.error) return setError(res.error.message);
 
     setEditOpen(false);
     await loadData();
@@ -104,10 +104,10 @@ export default function Page() {
     if (deleteConfirmationText !== "DELETE") return;
 
     setBusy(true);
-    setErr(null);
+    setError(null);
     const { error } = await supabase.from("patient_medical_histories").delete().eq("id", medHist.id);
     setBusy(false);
-    if (error) return setErr(error.message);
+    if (error) return setError(error.message);
     setEditOpen(false);
     await loadData();
   }
@@ -131,18 +131,18 @@ export default function Page() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
       <div className="page-content">
         <div className="page-sections">
           <div className="card">
           <div className="card-header">
             <div className="card-title">Medical Information</div>
               {medHist ? (
-                <button className="btn-primary-dark" onClick={openEdit}>
+                <button className="save-btn" onClick={openEdit}>
                   Edit
                 </button>
               ) : (
-                <button className="btn-primary-dark" onClick={() => {
+                <button className="save-btn" onClick={() => {
                   setEditAllergies("");
                   setEditMedications("");
                   setEditBp("");
@@ -157,7 +157,7 @@ export default function Page() {
             {!medHist ? (
               <div className="text-sm text-slate-600 py-4">No medical history recorded.</div>
             ) : (
-              <div className="card-grid responsive-grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="field-label">
                   <span className="field-label-text">Allergies</span>
                   <input className="field-input-readonly" value={medHist.allergies ?? ""} readOnly />
@@ -188,7 +188,7 @@ export default function Page() {
         onClose={() => {
           setEditOpen(false);
           setDeleteConfirmationText("");
-          setErr(null);
+          setError(null);
         }}
       >
         <div className="spacing-vertical-lg">
@@ -237,7 +237,7 @@ export default function Page() {
 
           {/* Delete Section */}
           <div className="delete-confirmation">
-            <div className="delete-confirmation-title-red">Delete record?</div>
+            <div className="delete-confirmation-title">Delete record?</div>
             <div className="delete-confirmation-hint">
               Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
             </div>
@@ -265,7 +265,7 @@ export default function Page() {
                 onClick={() => {
                   setEditOpen(false);
                   setDeleteConfirmationText("");
-                  setErr(null);
+                  setError(null);
                 }}
                 disabled={busy}
               >

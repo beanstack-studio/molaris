@@ -37,7 +37,7 @@ export default function DocumentsPage() {
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -109,7 +109,7 @@ export default function DocumentsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     // Load patient info
     const p = await supabase.from("patients").select("*").eq("id", id).single();
@@ -161,10 +161,10 @@ export default function DocumentsPage() {
    */
   async function generateDocument() {
     if (!id || !patient) return;
-    setErr(null);
+    setError(null);
 
-    if (!selectedDocType) return setErr("Select a document type.");
-    if (!docDentistId) return setErr("Select a dentist.");
+    if (!selectedDocType) return setError("Select a document type.");
+    if (!docDentistId) return setError("Select a dentist.");
 
     setBusy(true);
 
@@ -300,7 +300,7 @@ export default function DocumentsPage() {
       await loadData();
     } catch (error) {
       setBusy(false);
-      setErr(error instanceof Error ? error.message : "Failed to generate document");
+      setError(error instanceof Error ? error.message : "Failed to generate document");
     }
   }
 
@@ -320,17 +320,17 @@ export default function DocumentsPage() {
     setRefClinic("");
     setRefDoctor("");
     setRefRemarks("");
-    setErr(null);
+    setError(null);
   }
 
   async function handleDeleteDocument() {
     if (!deleteDocId) return;
     if (deleteConfirmation !== "DELETE") {
-      setErr("You must type 'DELETE' to confirm.");
+      setError("You must type 'DELETE' to confirm.");
       return;
     }
 
-    setErr(null);
+    setError(null);
     setBusy(true);
 
     try {
@@ -340,7 +340,7 @@ export default function DocumentsPage() {
       setDeleteConfirmation("");
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to delete document");
+      setError(error instanceof Error ? error.message : "Failed to delete document");
     } finally {
       setBusy(false);
     }
@@ -359,14 +359,14 @@ export default function DocumentsPage() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
 
       <div className="page-content">
         <div className="page-sections">
           <div className="card">
             <div className="card-header">
               <div className="card-title">Documents</div>
-              <div className="flex items-center gap-2">
+              <div className="inline-row">
                 <select
                   className="form-select-standard"
                   value={docSort}
@@ -377,7 +377,7 @@ export default function DocumentsPage() {
                   <option value="TYPE_ASC">Type A–Z</option>
                 </select>
                 <button
-                  className="btn-secondary-dark"
+                  className="save-btn"
                   onClick={() => setShowGenerateModal(true)}
                 >
                   Generate document
@@ -425,7 +425,7 @@ export default function DocumentsPage() {
                         {d.issued_by ?? (d as any).issued_by ?? "—"}
                       </td>
                       <td className="data-table-cell-right">
-                        <div className="flex-items-center-justify-end-gap-2">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             className="data-table-btn"
                             onClick={async () => {
@@ -582,9 +582,9 @@ export default function DocumentsPage() {
         <div className="spacing-vertical-lg">
           {/* STEP 1: Select Document Type (always visible first) */}
           <div className="grid-gap-1">
-            <label className="text-sm-medium-slate-700">Document type</label>
+            <label className="text-field-label">Document type</label>
             <select
-              className="input-h10-border-white w-full"
+              className="input-full"
               value={selectedDocType}
               onChange={(e) => {
                 const newType = e.target.value as DocType | "";
@@ -604,8 +604,8 @@ export default function DocumentsPage() {
           {/* STEP 2: Common fields (visible when type is selected) */}
           {selectedDocType && (
             <>
-              <div className="flex gap-4">
-                <div style={{ width: "50%" }}>
+              <div className="section-columns">
+                <div className="w-1/2">
                   <DatePickerField
                     label="Visit date"
                     value={docVisitDate}
@@ -615,10 +615,10 @@ export default function DocumentsPage() {
                   />
                 </div>
 
-                <div className="grid-gap-1" style={{ width: "50%" }}>
-                  <label className="text-sm-medium-slate-700">Dentist</label>
+                <div className="grid-gap-1 w-1/2">
+                  <label className="text-field-label">Dentist</label>
                   <select
-                    className="input-h10-border-white w-full"
+                    className="input-full"
                     value={docDentistId}
                     onChange={(e) => setDocDentistId(e.target.value)}
                   >
@@ -633,10 +633,10 @@ export default function DocumentsPage() {
               </div>
 
               <div className="grid-gap-1">
-                <label className="text-sm-medium-slate-700">Issued by</label>
+                <label className="text-field-label">Issued by</label>
                 <input
                   type="text"
-                  className="input-h10-border-white w-full"
+                  className="input-full"
                   value={docIssuedBy}
                   onChange={(e) => setDocIssuedBy(e.target.value)}
                   placeholder="Optional"
@@ -650,16 +650,16 @@ export default function DocumentsPage() {
                 <>
                   {/* Medications List */}
                   <div className="space-y-2">
-                    <div className="text-sm-medium-slate-700">Medications ({rxMedications.length})</div>
+                    <div className="text-field-label">Medications ({rxMedications.length})</div>
                     {rxMedications.map((med, index) => (
                       <div key={med.id} className="form-section">
                         {/* Row 1: Medication Name (75%) | Dosage (12.5%) | Duration (12.5%) - Grid with equal distribution */}
-                        <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr", gap: "8px", overflow: "hidden" }}>
-                          <div className="grid gap-1 min-w-0" style={{ overflow: "hidden" }}>
-                            <label className="text-xs-semibold-slate-700">Medication name</label>
+                        <div className="grid grid-cols-[3fr_1fr_1fr] gap-2 overflow-hidden">
+                          <div className="grid gap-1 min-w-0 overflow-hidden">
+                            <label className="field-sublabel">Medication name</label>
                             <input
                               type="text"
-                              className="input-h10-border-white"
+                              className="input-standard min-w-0 w-full"
                               value={med.medication}
                               onChange={(e) => {
                                 const updated = rxMedications.map(m =>
@@ -668,15 +668,14 @@ export default function DocumentsPage() {
                                 setRxMedications(updated);
                               }}
                               placeholder="Medication name"
-                              style={{ minWidth: 0, width: "100%" }}
                             />
                           </div>
 
-                          <div className="grid gap-1 min-w-0" style={{ overflow: "hidden" }}>
-                            <label className="text-xs-semibold-slate-700">Dosage</label>
+                          <div className="grid gap-1 min-w-0 overflow-hidden">
+                            <label className="field-sublabel">Dosage</label>
                             <input
                               type="text"
-                              className="input-h10-border-white"
+                              className="input-standard min-w-0 w-full"
                               value={med.dosage}
                               onChange={(e) => {
                                 const updated = rxMedications.map(m =>
@@ -685,15 +684,14 @@ export default function DocumentsPage() {
                                 setRxMedications(updated);
                               }}
                               placeholder="500mg"
-                              style={{ minWidth: 0, width: "100%" }}
                             />
                           </div>
 
-                          <div className="grid gap-1 min-w-0" style={{ overflow: "hidden" }}>
-                            <label className="text-xs-semibold-slate-700">Duration</label>
+                          <div className="grid gap-1 min-w-0 overflow-hidden">
+                            <label className="field-sublabel">Duration</label>
                             <input
                               type="text"
-                              className="input-h10-border-white"
+                              className="input-standard min-w-0 w-full"
                               value={med.duration}
                               onChange={(e) => {
                                 const updated = rxMedications.map(m =>
@@ -702,7 +700,6 @@ export default function DocumentsPage() {
                                 setRxMedications(updated);
                               }}
                               placeholder="7 days"
-                              style={{ minWidth: 0, width: "100%" }}
                             />
                           </div>
                         </div>
@@ -710,10 +707,10 @@ export default function DocumentsPage() {
                         {/* Row 2: Instructions Input + Delete Button */}
                         <div className="flex gap-2 items-end">
                           <div className="flex-1 grid gap-1 min-w-0">
-                            <label className="text-xs-semibold-slate-700">Instructions</label>
+                            <label className="field-sublabel">Instructions</label>
                             <input
                               type="text"
-                              className="input-h10-border-white"
+                              className="input-standard"
                               value={med.instructions || ""}
                               onChange={(e) => {
                                 const updated = rxMedications.map(m =>
@@ -727,7 +724,7 @@ export default function DocumentsPage() {
 
                           <button
                             type="button"
-                            className="btn-sm-delete h-10 flex-shrink-0"
+                            className="item-delete-btn h-10 flex-shrink-0"
                             onClick={() => {
                               setRxMedications(rxMedications.filter(m => m.id !== med.id));
                             }}
@@ -739,13 +736,13 @@ export default function DocumentsPage() {
                       </div>
                     ))}
                     {rxMedications.length === 0 && (
-                      <div className="text-xs-slate-500-base">No medications yet. Add one below.</div>
+                      <div className="hint-text">No medications yet. Add one below.</div>
                     )}
                   </div>
 
                   <button
                     type="button"
-                    className="btn btn-sm btn-ghost w-full mt-2"
+                    className="add-row-btn"
                     onClick={() => {
                       setRxMedications([...rxMedications, {
                         id: Math.random().toString(36),
@@ -760,10 +757,9 @@ export default function DocumentsPage() {
                   </button>
 
                   <div className="grid-gap-1">
-                    <label className="text-sm-medium-slate-700">Patient Instructions</label>
+                    <label className="text-field-label">Patient Instructions</label>
                     <textarea
-                      className="input-h10-border-white w-full resize-none"
-                      style={{ minHeight: "60px" }}
+                      className="textarea-input min-h-[60px]"
                       value={rxRemarks}
                       onChange={(e) => setRxRemarks(e.target.value)}
                       placeholder="Optional notes or warnings"
@@ -786,7 +782,7 @@ export default function DocumentsPage() {
                         />
                       );
                     })()}
-                    <div className="text-xs-medium-slate-500" style={{ marginTop: "4px" }}>
+                    <div className="text-xs-medium-slate-500 mt-1">
                       If provided, an appointment will be automatically created
                     </div>
                   </div>
@@ -796,23 +792,21 @@ export default function DocumentsPage() {
               {/* Dental Certificate */}
               {selectedDocType === DOC_TYPES.DENTAL_CERTIFICATE && (
                 <>
-                  <div className="flex gap-4">
-                    <div className="grid-gap-1" style={{ width: "50%" }}>
-                      <label className="text-sm-medium-slate-700">Findings</label>
+                  <div className="section-columns">
+                    <div className="grid-gap-1 w-1/2">
+                      <label className="text-field-label">Findings</label>
                       <textarea
-                        className="input-h10-border-white w-full resize-none"
-                        style={{ minHeight: "80px" }}
+                        className="textarea-input min-h-[80px]"
                         value={cerFindings}
                         onChange={(e) => setCerFindings(e.target.value)}
                         placeholder="Clinical findings"
                       />
                     </div>
 
-                    <div className="grid-gap-1" style={{ width: "50%" }}>
-                      <label className="text-sm-medium-slate-700">Treatment done</label>
+                    <div className="grid-gap-1 w-1/2">
+                      <label className="text-field-label">Treatment done</label>
                       <textarea
-                        className="input-h10-border-white w-full resize-none"
-                        style={{ minHeight: "80px" }}
+                        className="textarea-input min-h-[80px]"
                         value={cerTreatmentDone}
                         onChange={(e) => setCerTreatmentDone(e.target.value)}
                         placeholder="Treatments performed"
@@ -821,10 +815,9 @@ export default function DocumentsPage() {
                   </div>
 
                   <div className="grid-gap-1">
-                    <label className="text-sm-medium-slate-700">Remarks</label>
+                    <label className="text-field-label">Remarks</label>
                     <textarea
-                      className="input-h10-border-white w-full resize-none"
-                      style={{ minHeight: "60px" }}
+                      className="textarea-input min-h-[60px]"
                       value={cerRemarks}
                       onChange={(e) => setCerRemarks(e.target.value)}
                       placeholder="Optional remarks"
@@ -836,23 +829,23 @@ export default function DocumentsPage() {
               {/* Referral Letter */}
               {selectedDocType === DOC_TYPES.REFERRAL_LETTER && (
                 <>
-                  <div className="flex gap-4">
-                    <div className="grid-gap-1" style={{ width: "50%" }}>
-                      <label className="text-sm-medium-slate-700">Clinic/Specialist</label>
+                  <div className="section-columns">
+                    <div className="grid-gap-1 w-1/2">
+                      <label className="text-field-label">Clinic/Specialist</label>
                       <input
                         type="text"
-                        className="input-h10-border-white w-full"
+                        className="input-full"
                         value={refClinic}
                         onChange={(e) => setRefClinic(e.target.value)}
                         placeholder="Referring clinic name"
                       />
                     </div>
 
-                    <div className="grid-gap-1" style={{ width: "50%" }}>
-                      <label className="text-sm-medium-slate-700">Doctor/Specialist</label>
+                    <div className="grid-gap-1 w-1/2">
+                      <label className="text-field-label">Doctor/Specialist</label>
                       <input
                         type="text"
-                        className="input-h10-border-white w-full"
+                        className="input-full"
                         value={refDoctor}
                         onChange={(e) => setRefDoctor(e.target.value)}
                         placeholder="Referring doctor"
@@ -861,10 +854,9 @@ export default function DocumentsPage() {
                   </div>
 
                   <div className="grid-gap-1">
-                    <label className="text-sm-medium-slate-700">Reason for referral</label>
+                    <label className="text-field-label">Reason for referral</label>
                     <textarea
-                      className="input-h10-border-white w-full resize-none"
-                      style={{ minHeight: "80px" }}
+                      className="textarea-input min-h-[80px]"
                       value={refReason}
                       onChange={(e) => setRefReason(e.target.value)}
                       placeholder="Clinical reason for referral"
@@ -872,10 +864,9 @@ export default function DocumentsPage() {
                   </div>
 
                   <div className="grid-gap-1">
-                    <label className="text-sm-medium-slate-700">Remarks</label>
+                    <label className="text-field-label">Remarks</label>
                     <textarea
-                      className="input-h10-border-white w-full resize-none"
-                      style={{ minHeight: "60px" }}
+                      className="textarea-input min-h-[60px]"
                       value={refRemarks}
                       onChange={(e) => setRefRemarks(e.target.value)}
                       placeholder="Optional additional notes"
@@ -922,12 +913,12 @@ export default function DocumentsPage() {
         }}
       >
         <div className="spacing-vertical-lg">
-          <p className="text-sm-medium-slate-700">
+          <p className="text-field-label">
             This action cannot be undone. To confirm, type <strong>DELETE</strong> below.
           </p>
           <input
             type="text"
-            className="input-h10-border-white w-full"
+            className="input-full"
             value={deleteConfirmation}
             onChange={(e) => setDeleteConfirmation(e.target.value)}
             placeholder="Type DELETE to confirm"
@@ -946,8 +937,7 @@ export default function DocumentsPage() {
                 Cancel
               </button>
               <button
-                className="save-btn"
-                style={{ backgroundColor: "#dc2626" }}
+                className="save-btn bg-red-600"
                 disabled={busy || deleteConfirmation !== "DELETE"}
                 onClick={handleDeleteDocument}
               >

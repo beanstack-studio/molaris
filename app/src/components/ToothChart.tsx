@@ -509,51 +509,51 @@ export default function ToothChart({
   return (
     <div className="grid gap-3 w-full">
       {/* UPPER DENTITION - Combined Primary & Permanent */}
-      <div className="rounded-lg border bg-slate-50 p-3">
+      <div className="card-light">
         <div className="text-s font-semibold text-slate-600 uppercase text-center mb-2 py-2">Upper Dentition</div>
         
         {/* Primary Upper */}
         <div>
-          <div className="text-xs text-slate-500 text-center mt-0.5">Primary</div>
+          <div className="tooth-section-label">Primary</div>
           <div className="flex gap-0 justify-center overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] items-center py-1 -mx-3">
             {primaryUpperRight.map(renderTooth)}
-            <div className="w-3 shrink-0 border-l-2 border-slate-300" />
+            <div className="tooth-divider" />
             {primaryUpperLeft.map(renderTooth)}
           </div>
         </div>
 
         {/* Permanent Upper */}
         <div className="mt-0.5">
-          <div className="text-xs text-slate-500 text-center mt-0.5">Permanent</div>
+          <div className="tooth-section-label">Permanent</div>
           <div className="flex gap-0 justify-center overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] items-center py-1 -mx-3">
             {permUpperRight.map(renderTooth)}
-            <div className="w-3 shrink-0 border-l-2 border-slate-300" />
+            <div className="tooth-divider" />
             {permUpperLeft.map(renderTooth)}
           </div>          
         </div>
       </div>
 
       {/* LOWER DENTITION - Permanent first, then Primary */}
-      <div className="rounded-lg border bg-slate-50 p-3">
+      <div className="card-light">
         
         {/* Permanent Lower - FIRST */}
         <div>
           <div className="flex gap-0 justify-center overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] items-center py-1 -mx-3">
             {permLowerRight.map(renderTooth)}
-            <div className="w-3 shrink-0 border-l-2 border-slate-300" />
+            <div className="tooth-divider" />
             {permLowerLeft.map(renderTooth)}
           </div>
-          <div className="text-xs text-slate-500 text-center mt-0.5">Permanent</div>
+          <div className="tooth-section-label">Permanent</div>
         </div>
 
         {/* Primary Lower - SECOND */}
         <div className="mt-0.5">
           <div className="flex gap-0 justify-center overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] items-center py-1 -mx-3">
             {primaryLowerRight.map(renderTooth)}
-            <div className="w-3 shrink-0 border-l-2 border-slate-300" />
+            <div className="tooth-divider" />
             {primaryLowerLeft.map(renderTooth)}
           </div>
-          <div className="text-xs text-slate-500 text-center mt-0.5">Primary</div>
+          <div className="tooth-section-label">Primary</div>
         </div>
 
         {/* Lower Dentition Title - Below Primary */}

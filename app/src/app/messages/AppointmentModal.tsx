@@ -149,12 +149,12 @@ export default function AppointmentModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+    <div className="modal-container">
       <div className="modal-wrapper">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Create Appointment</h3>
+        <h3 className="modal-heading">Create Appointment</h3>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg text-sm">
+          <div className="error-msg">
             {error}
           </div>
         )}
@@ -170,7 +170,7 @@ export default function AppointmentModal({
               min={getMinDate()}
               value={appointmentDate}
               onChange={(e) => setAppointmentDate(e.target.value)}
-              className="form-input-full-focus"
+              className="input-full"
             />
           </div>
 
@@ -187,7 +187,7 @@ export default function AppointmentModal({
               <select
                 value={appointmentTime}
                 onChange={(e) => setAppointmentTime(e.target.value)}
-                className="form-input-full-focus"
+                className="input-full"
               >
                 <option value="">-- Select time --</option>
                 {availableTimeSlots.map((time) => (
@@ -197,7 +197,7 @@ export default function AppointmentModal({
                 ))}
               </select>
             )}
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-caption mt-1">
               Mon-Sat: 8am-5pm | Sun/Holidays: 8am-12nn | Lunch: 12-1pm (closed)
             </p>
           </div>
@@ -213,7 +213,7 @@ export default function AppointmentModal({
               <select
                 value={dentistId}
                 onChange={(e) => setDentistId(e.target.value)}
-                className="form-input-full-focus"
+                className="input-full"
               >
                 <option value="">-- Select dentist --</option>
                 {dentists.map((dentist) => (
@@ -241,7 +241,7 @@ export default function AppointmentModal({
         </div>
 
         {/* Actions */}
-        <div className="button-group mt-6">
+        <div className="button-group">
           <button
             onClick={onCancel}
             disabled={isSending}
@@ -252,7 +252,7 @@ export default function AppointmentModal({
           <button
             onClick={handleConfirm}
             disabled={isSending || availableTimeSlots.length === 0}
-            className="flex-1 modal-btn-primary"
+            className="flex-1 save-btn"
           >
             {isSending ? "Creating..." : "Confirm & Send"}
           </button>

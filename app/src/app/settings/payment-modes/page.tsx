@@ -34,7 +34,7 @@ export default function PaymentModesSettingsPage() {
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editData, setEditData] = useState<Partial<PaymentMode> | null>(null);
 
@@ -44,7 +44,7 @@ export default function PaymentModesSettingsPage() {
 
   async function loadPaymentModes() {
     setLoading(true);
-    setErr(null);
+    setError(null);
 
     const { data, error } = await supabase
       .from("payment_modes")
@@ -55,13 +55,13 @@ export default function PaymentModesSettingsPage() {
     if (error === null && data) {
       setPaymentModes(data);
     } else if (error) {
-      setErr("Failed to load payment modes: " + error.message);
+      setError("Failed to load payment modes: " + error.message);
     }
   }
 
   async function toggleActive(id: string, newValue: boolean) {
     setBusy(true);
-    setErr(null);
+    setError(null);
     
     // Optimistically update UI immediately
     setPaymentModes((prev) =>
@@ -77,7 +77,7 @@ export default function PaymentModesSettingsPage() {
 
       if (error) {
         console.error("Toggle error:", error);
-        setErr(`Failed to update: ${error.message}`);
+        setError(`Failed to update: ${error.message}`);
         // Revert on error
         await loadPaymentModes();
         return;
@@ -85,15 +85,14 @@ export default function PaymentModesSettingsPage() {
 
       if (!data || data.length === 0) {
         console.error("No data returned from update");
-        setErr("Failed to update payment mode");
+        setError("Failed to update payment mode");
         await loadPaymentModes();
         return;
       }
 
-      console.log("Toggle successful:", data[0]);
     } catch (ex) {
       console.error("Toggle exception:", ex);
-      setErr("An error occurred while updating");
+      setError("An error occurred while updating");
       await loadPaymentModes();
     } finally {
       setBusy(false);
@@ -108,7 +107,7 @@ export default function PaymentModesSettingsPage() {
   async function saveEdit() {
     if (!editingId || !editData) return;
 
-    setErr(null);
+    setError(null);
     setBusy(true);
 
     const { error } = await supabase
@@ -123,7 +122,7 @@ export default function PaymentModesSettingsPage() {
 
     setBusy(false);
     if (error) {
-      return setErr(error.message);
+      return setError(error.message);
     }
 
     setEditingId(null);
@@ -134,7 +133,7 @@ export default function PaymentModesSettingsPage() {
   async function cancelEdit() {
     setEditingId(null);
     setEditData(null);
-    setErr(null);
+    setError(null);
   }
 
   if (loading) {
@@ -150,7 +149,7 @@ export default function PaymentModesSettingsPage() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
       <div className="page-content">
         <div className="page-sections">
             {/* Payment modes table */}
@@ -173,19 +172,19 @@ export default function PaymentModesSettingsPage() {
                   <tr>
                     <th className="data-table-head-cell">Name</th>
                     <th className="data-table-head-cell">
-                      <div className="flex items-center justify-center">Proof</div>
+                      <div className="centered-cell">Proof</div>
                     </th>
                     <th className="data-table-head-cell">
-                      <div className="flex items-center justify-center">Reference</div>
+                      <div className="centered-cell">Reference</div>
                     </th>
                     <th className="data-table-head-cell">
-                      <div className="flex items-center justify-center">Staff</div>
+                      <div className="centered-cell">Staff</div>
                     </th>
                     <th className="data-table-head-cell">
-                      <div className="flex items-center justify-center">Auto-Verify</div>
+                      <div className="centered-cell">Auto-Verify</div>
                     </th>
                     <th className="data-table-head-cell">
-                      <div className="flex items-center justify-center">Activate</div>
+                      <div className="centered-cell">Activate</div>
                     </th>
                     <th className="data-table-head-cell-right">Actions</th>
                   </tr>
@@ -207,7 +206,7 @@ export default function PaymentModesSettingsPage() {
                           <>
                             <td className="data-table-cell font-semibold">{mode.name}</td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <input
                                   type="checkbox"
                                   checked={editData.requires_proof || false}
@@ -220,7 +219,7 @@ export default function PaymentModesSettingsPage() {
                               </div>
                             </td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <input
                                   type="checkbox"
                                   checked={editData.requires_reference || false}
@@ -233,7 +232,7 @@ export default function PaymentModesSettingsPage() {
                               </div>
                             </td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <input
                                   type="checkbox"
                                   checked={editData.requires_received_by || false}
@@ -246,7 +245,7 @@ export default function PaymentModesSettingsPage() {
                               </div>
                             </td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <input
                                   type="checkbox"
                                   checked={editData.auto_verifies || false}
@@ -259,7 +258,7 @@ export default function PaymentModesSettingsPage() {
                               </div>
                             </td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <TogglePill
                                   checked={mode.is_active}
                                   onChange={(newValue) => toggleActive(mode.id, newValue)}
@@ -289,7 +288,7 @@ export default function PaymentModesSettingsPage() {
                           <>
                             <td className="data-table-cell font-semibold">{mode.name}</td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <span
                                   className={`inline-block w-4 h-4 rounded ${
                                     mode.requires_proof ? "bg-blue-500" : "bg-slate-200"
@@ -298,7 +297,7 @@ export default function PaymentModesSettingsPage() {
                               </div>
                             </td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <span
                                   className={`inline-block w-4 h-4 rounded ${
                                     mode.requires_reference ? "bg-blue-500" : "bg-slate-200"
@@ -307,7 +306,7 @@ export default function PaymentModesSettingsPage() {
                               </div>
                             </td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <span
                                   className={`inline-block w-4 h-4 rounded ${
                                     mode.requires_received_by ? "bg-blue-500" : "bg-slate-200"
@@ -316,7 +315,7 @@ export default function PaymentModesSettingsPage() {
                               </div>
                             </td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <span
                                   className={`inline-block w-4 h-4 rounded ${
                                     mode.auto_verifies ? "bg-green-500" : "bg-slate-200"
@@ -325,7 +324,7 @@ export default function PaymentModesSettingsPage() {
                               </div>
                             </td>
                             <td className="data-table-cell">
-                              <div className="flex items-center justify-center">
+                              <div className="centered-cell">
                                 <TogglePill
                                   checked={mode.is_active}
                                   onChange={(newValue) => toggleActive(mode.id, newValue)}

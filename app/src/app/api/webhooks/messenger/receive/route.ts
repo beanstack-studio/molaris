@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
     const verifyToken = process.env.MESSENGER_WEBHOOK_VERIFY_TOKEN;
 
     if (mode === "subscribe" && token === verifyToken) {
-      console.log("Webhook verified");
       return new NextResponse(challenge, { status: 200 });
     }
 
@@ -112,7 +111,6 @@ async function handleIncomingMessage(
       }
 
       threadId = newThread.id;
-      console.log(`Created new unlinked Messenger thread: ${threadId}`);
     } else if (senderName) {
       // Update thread with latest sender name
       await supabase

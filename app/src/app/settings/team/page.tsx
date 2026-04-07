@@ -67,7 +67,7 @@ export default function TeamSettingsPage() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Dentist form & modal
   const [showAddDentistModal, setShowAddDentistModal] = useState(false);
@@ -88,8 +88,7 @@ export default function TeamSettingsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    setErr(null);
-    console.log("loadData called");
+    setError(null);
 
     try {
       const dentistRes = await supabase
@@ -108,7 +107,6 @@ export default function TeamSettingsPage() {
         is_active: d.is_active ?? true,
       })) as DentistRow[];
 
-      console.log("Loaded dentists:", dentistData);
       setDentists(dentistData);
 
       try {
@@ -132,7 +130,7 @@ export default function TeamSettingsPage() {
       }
     } catch (error) {
       console.error("Load error:", error);
-      setErr(error instanceof Error ? error.message : "Failed to load data");
+      setError(error instanceof Error ? error.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -145,12 +143,12 @@ export default function TeamSettingsPage() {
   // DENTIST OPERATIONS
   async function addDentist() {
     if (!dentistName.trim()) {
-      setErr("Please enter dentist name");
+      setError("Please enter dentist name");
       return;
     }
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     try {
       const { data: session } = await supabase.auth.getSession();
@@ -177,7 +175,7 @@ export default function TeamSettingsPage() {
       setShowAddDentistModal(false);
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to add dentist");
+      setError(error instanceof Error ? error.message : "Failed to add dentist");
     } finally {
       setBusy(false);
     }
@@ -186,23 +184,15 @@ export default function TeamSettingsPage() {
   async function updateDentist() {
     if (!editingDentist) return;
     if (!dentistName.trim()) {
-      setErr("Please enter dentist name");
+      setError("Please enter dentist name");
       return;
     }
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     try {
-      console.log("Updating dentist:", {
-        id: editingDentist.id,
-        full_name: dentistName.trim(),
-        date_of_birth: dentistDob || null,
-        prc_number: dentistPrc.trim() || null,
-        ptr_number: dentistPtr.trim() || null,
-      });
-
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("dentists")
         .update({
           full_name: dentistName.trim(),
@@ -213,31 +203,23 @@ export default function TeamSettingsPage() {
         .eq("id", editingDentist.id)
         .select();
 
-      console.log("Update response - data:", data, "error:", error);
+      if (error) throw error;
 
-      if (error) {
-        console.error("Supabase update error:", error);
-        console.error("Error details:", JSON.stringify(error, null, 2));
-        throw error;
-      }
-
-      console.log("Update successful, calling loadData");
       setEditingDentist(null);
       setDentistName("");
       setDentistDob("");
       setDentistPrc("");
       setDentistPtr("");
       setShowAddDentistModal(false);
-      setErr(null);
+      setError(null);
       
       // Small delay to ensure database is updated
       await new Promise(resolve => setTimeout(resolve, 500));
       
       await loadData();
-      console.log("LoadData completed");
     } catch (error) {
       console.error("Update dentist error:", error);
-      setErr(error instanceof Error ? error.message : "Failed to update dentist");
+      setError(error instanceof Error ? error.message : "Failed to update dentist");
     } finally {
       setBusy(false);
     }
@@ -247,7 +229,7 @@ export default function TeamSettingsPage() {
     if (!confirm("Delete this dentist?")) return;
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     try {
       const { data: session } = await supabase.auth.getSession();
@@ -263,7 +245,7 @@ export default function TeamSettingsPage() {
       setEditingDentist(null);
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to delete dentist");
+      setError(error instanceof Error ? error.message : "Failed to delete dentist");
     } finally {
       setBusy(false);
     }
@@ -271,7 +253,7 @@ export default function TeamSettingsPage() {
 
   async function toggleDentistActive(id: string, isActive: boolean) {
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     try {
       const { error } = await supabase
@@ -282,7 +264,7 @@ export default function TeamSettingsPage() {
       if (error) throw error;
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to update dentist");
+      setError(error instanceof Error ? error.message : "Failed to update dentist");
     } finally {
       setBusy(false);
     }
@@ -291,16 +273,16 @@ export default function TeamSettingsPage() {
   // STAFF OPERATIONS
   async function addStaff() {
     if (!staffName.trim()) {
-      setErr("Please enter staff name");
+      setError("Please enter staff name");
       return;
     }
     if (!staffRole.trim()) {
-      setErr("Please select staff role");
+      setError("Please select staff role");
       return;
     }
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     try {
       const { data: session } = await supabase.auth.getSession();
@@ -327,7 +309,7 @@ export default function TeamSettingsPage() {
       setShowAddStaffModal(false);
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to add staff");
+      setError(error instanceof Error ? error.message : "Failed to add staff");
     } finally {
       setBusy(false);
     }
@@ -336,16 +318,16 @@ export default function TeamSettingsPage() {
   async function updateStaff() {
     if (!editingStaff) return;
     if (!staffName.trim()) {
-      setErr("Please enter staff name");
+      setError("Please enter staff name");
       return;
     }
     if (!staffRole.trim()) {
-      setErr("Please select staff role");
+      setError("Please select staff role");
       return;
     }
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     try {
       const { error } = await supabase
@@ -364,10 +346,10 @@ export default function TeamSettingsPage() {
       setStaffRole("");
       setStaffDob("");
       setShowAddStaffModal(false);
-      setErr(null);
+      setError(null);
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to update staff");
+      setError(error instanceof Error ? error.message : "Failed to update staff");
     } finally {
       setBusy(false);
     }
@@ -377,7 +359,7 @@ export default function TeamSettingsPage() {
     if (!confirm("Delete this staff member?")) return;
 
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     try {
       const { error } = await supabase.from("staff").delete().eq("id", id);
@@ -386,7 +368,7 @@ export default function TeamSettingsPage() {
       setEditingStaff(null);
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to delete staff");
+      setError(error instanceof Error ? error.message : "Failed to delete staff");
     } finally {
       setBusy(false);
     }
@@ -394,7 +376,7 @@ export default function TeamSettingsPage() {
 
   async function toggleStaffActive(id: string, isActive: boolean) {
     setBusy(true);
-    setErr(null);
+    setError(null);
 
     try {
       const { error } = await supabase
@@ -405,7 +387,7 @@ export default function TeamSettingsPage() {
       if (error) throw error;
       await loadData();
     } catch (error) {
-      setErr(error instanceof Error ? error.message : "Failed to update staff");
+      setError(error instanceof Error ? error.message : "Failed to update staff");
     } finally {
       setBusy(false);
     }
@@ -415,7 +397,7 @@ export default function TeamSettingsPage() {
 
   return (
     <>
-      {err ? <div className="error-banner">{err}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
       <div className="page-content">
         <div className="page-sections">
             {/* DENTISTS SECTION */}
@@ -423,7 +405,7 @@ export default function TeamSettingsPage() {
               <div className="card-header">
                 <h2 className="card-title">Dentists</h2>
                 <button
-                  className="btn-secondary-dark"
+                  className="save-btn"
                   onClick={() => {
                     setDentistName("");
                     setDentistDob("");
@@ -515,7 +497,7 @@ export default function TeamSettingsPage() {
               <div className="card-header">
                 <h2 className="card-title">Staff Members</h2>
                 <button
-                  className="btn-secondary-dark"
+                  className="save-btn"
                   onClick={() => {
                     setStaffName("");
                     setStaffRole("");

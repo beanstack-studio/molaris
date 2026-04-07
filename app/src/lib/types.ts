@@ -47,8 +47,7 @@ export type ToothStatusRow = {
 
 export type Treatment = {
   id: string;
-  visit_date: string; // renamed from treatment_date
-  treatment_date: string; // database column name
+  treatment_date: string;
   procedure: string;
   tooth_number: number | null;
   notes: string | null;
@@ -76,13 +75,11 @@ export type InvoiceRow = {
   id: string;
   invoice_date: string;
   invoice_number?: string | null;
-  dentist_name?: string | null;
   status: string | null;
-  subtotal: number | null;
   discount_amount: number | null;
   total: number | null;
   notes: string | null;
-  invoice_type?: "regular" | "ortho"; // PART 7: Ortho billing
+  invoice_type?: "regular" | "ortho";
   created_at: string | null;
 };
 
@@ -133,14 +130,12 @@ export type PaymentRow = {
   amount: number;
   mode: string;
   received_by: string | null;
-  reference_no: string | null;
   notes: string | null;
   created_at: string | null;
 };
 
 /**
  * Extended payment with all new fields from payment system
- * Used with getActivePayments(), getVerifiedPayments()
  */
 export type PaymentRowExtended = {
   id: string;
@@ -154,8 +149,6 @@ export type PaymentRowExtended = {
   received_by: string | null;
   verified_by: string | null;
   verified_at: string | null;
-  proof_file_id: string | null;
-  proof_storage_path: string | null;
   details: Record<string, any> | null;
   voided_at: string | null;
   voided_by: string | null;
@@ -279,7 +272,6 @@ export type Appointment = {
   appointment_time: string;
   status: "pending" | "confirmed" | "completed" | "no_show" | "cancelled";
   notes: string | null;
-  concerns: string | null;
   message_thread_id: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -349,8 +341,7 @@ export type OrthoEntry = {
   id: string;
   ortho_case_id: string;
   entry_date: string;
-  visit_type: "adjustment" | "emergency" | "consultation" | "debond" | "retainer_delivery" | null;
-  concern_type: string | null; // VisitReasonType, more flexible than visit_type
+  concern_type: string | null;
   note: string | null;
   invoice_package: boolean;
   created_at: string;

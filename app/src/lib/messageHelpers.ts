@@ -372,7 +372,6 @@ export async function getMessengerUserProfile(psid: string): Promise<{ name: str
     const pageAccessToken = process.env.NEXT_PUBLIC_FACEBOOK_PAGE_ACCESS_TOKEN;
 
     if (!pageAccessToken) {
-      console.log("Facebook access token not configured");
       return { name: null, picture_url: null };
     }
 
@@ -381,7 +380,6 @@ export async function getMessengerUserProfile(psid: string): Promise<{ name: str
     );
 
     if (!response.ok) {
-      console.log("Failed to fetch Messenger profile");
       return { name: null, picture_url: null };
     }
 

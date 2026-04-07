@@ -13,9 +13,9 @@ export default function DocumentTemplatesSettingsPage() {
               Manage your certificate and receipt templates, including logo support.
             </p>
             
-            <div className="rounded-lg bg-slate-50 border border-slate-200 p-8 text-center">
+            <div className="empty-state">
               <p className="text-slate-600 font-medium">Coming Soon</p>
-              <p className="text-sm text-slate-500 mt-2">We'll connect this to your document_templates table and add logo support.</p>
+              <p className="empty-state-hint">We'll connect this to your document_templates table and add logo support.</p>
             </div>
           </div>
         </div>

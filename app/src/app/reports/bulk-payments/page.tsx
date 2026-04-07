@@ -200,21 +200,14 @@ export default function BulkPaymentsPage() {
   return (
     <div className="page-content">
       <div className="page-sections">
-        {/* Header */}
-        <div className="card-header mb-6">
-          <div>
+        <div className="card">
+          <div className="card-header">
             <div className="card-title">Bulk Payments</div>
-            <p className="text-sm text-slate-600 mt-1">
-              Record multiple payments, import from CSV, and generate receipts
-            </p>
+            <Link href="/reports/payments" className="save-btn">← Back</Link>
           </div>
-          <Link
-            href="/reports/payments"
-            className="btn-secondary-dark"
-          >
-            ← Back
-          </Link>
-        </div>
+          <p className="text-sm text-slate-500 mt-1 mb-4">
+            Record multiple payments, import from CSV, and generate receipts
+          </p>
 
         {/* Tabs */}
         <div className="tabs mb-6">
@@ -242,30 +235,24 @@ export default function BulkPaymentsPage() {
           {/* MANUAL ENTRY TAB */}
           {activeTab === "manual" && (
             <div className="space-y-4">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50">
+              <div className="table-wrapper">
+                <table className="data-table-compact">
+                  <thead className="data-table-head">
                     <tr>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                        Invoice #
-                      </th>
-                      <th className="px-4 py-2 text-right font-semibold text-slate-700">
-                        Amount
-                      </th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Date</th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Mode</th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Reference</th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                        Received By
-                      </th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Notes</th>
-                      <th className="px-4 py-2 text-center font-semibold text-slate-700">Action</th>
+                      <th className="data-table-head-cell">Invoice #</th>
+                      <th className="data-table-head-cell-right">Amount</th>
+                      <th className="data-table-head-cell">Date</th>
+                      <th className="data-table-head-cell">Mode</th>
+                      <th className="data-table-head-cell">Reference</th>
+                      <th className="data-table-head-cell">Received By</th>
+                      <th className="data-table-head-cell">Notes</th>
+                      <th className="data-table-head-cell-right">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody>
                     {manualPayments.map((payment, index) => (
-                      <tr key={index} className="hover:bg-slate-50">
-                        <td className="px-4 py-2">
+                      <tr key={index} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                        <td className="data-table-cell">
                           <input
                             type="text"
                             placeholder="INV-001"
@@ -273,10 +260,10 @@ export default function BulkPaymentsPage() {
                             onChange={(e) =>
                               handleManualPaymentChange(index, "invoice_number", e.target.value)
                             }
-                            className="w-full rounded border border-slate-300 px-2 py-1"
+                            className="compact-input"
                           />
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="data-table-cell-right">
                           <input
                             type="number"
                             placeholder="0"
@@ -289,26 +276,26 @@ export default function BulkPaymentsPage() {
                                 parseFloat(e.target.value) || 0
                               )
                             }
-                            className="w-full rounded border border-slate-300 px-2 py-1 text-right"
+                            className="compact-input text-right"
                           />
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="data-table-cell">
                           <input
                             type="date"
                             value={payment.payment_date}
                             onChange={(e) =>
                               handleManualPaymentChange(index, "payment_date", e.target.value)
                             }
-                            className="w-full rounded border border-slate-300 px-2 py-1"
+                            className="compact-input"
                           />
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="data-table-cell">
                           <select
                             value={payment.mode}
                             onChange={(e) =>
                               handleManualPaymentChange(index, "mode", e.target.value)
                             }
-                            className="w-full rounded border border-slate-300 px-2 py-1"
+                            className="compact-input"
                             onFocus={loadPaymentModes}
                           >
                             {paymentModes.map((mode) => (
@@ -318,7 +305,7 @@ export default function BulkPaymentsPage() {
                             ))}
                           </select>
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="data-table-cell">
                           <input
                             type="text"
                             placeholder="Optional"
@@ -326,10 +313,10 @@ export default function BulkPaymentsPage() {
                             onChange={(e) =>
                               handleManualPaymentChange(index, "reference_number", e.target.value)
                             }
-                            className="w-full rounded border border-slate-300 px-2 py-1"
+                            className="compact-input"
                           />
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="data-table-cell">
                           <input
                             type="text"
                             placeholder="Optional"
@@ -337,10 +324,10 @@ export default function BulkPaymentsPage() {
                             onChange={(e) =>
                               handleManualPaymentChange(index, "received_by", e.target.value)
                             }
-                            className="w-full rounded border border-slate-300 px-2 py-1"
+                            className="compact-input"
                           />
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="data-table-cell">
                           <input
                             type="text"
                             placeholder="Optional"
@@ -348,13 +335,13 @@ export default function BulkPaymentsPage() {
                             onChange={(e) =>
                               handleManualPaymentChange(index, "notes", e.target.value)
                             }
-                            className="w-full rounded border border-slate-300 px-2 py-1"
+                            className="compact-input"
                           />
                         </td>
-                        <td className="px-4 py-2 text-center">
+                        <td className="data-table-cell-right">
                           <button
                             onClick={() => handleRemovePaymentRow(index)}
-                            className="text-red-600 hover:text-red-700"
+                            className="data-table-btn text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
                             ✕
                           </button>
@@ -365,17 +352,17 @@ export default function BulkPaymentsPage() {
                 </table>
               </div>
 
-              <div className="flex gap-2">
+              <div className="action-row">
                 <button
                   onClick={handleAddPaymentRow}
-                  className="btn-secondary-dark"
+                  className="save-btn"
                 >
                   + Add Row
                 </button>
                 <button
                   onClick={handleValidateManual}
                   disabled={isValidating}
-                  className="btn-primary-dark"
+                  className="save-btn"
                 >
                   {isValidating ? "Validating..." : "Continue to Review"}
                 </button>
@@ -391,7 +378,7 @@ export default function BulkPaymentsPage() {
                   <div className="text-4xl">📄</div>
                   <div>
                     <p className="font-semibold text-slate-900">Drop CSV file here or click to upload</p>
-                    <p className="text-sm text-slate-600">
+                    <p className="text-muted">
                       Format: invoice_number, amount, payment_date, mode, reference_number, received_by, notes
                     </p>
                   </div>
@@ -404,7 +391,7 @@ export default function BulkPaymentsPage() {
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-block rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    className="save-btn"
                   >
                     Choose File
                   </button>
@@ -414,7 +401,7 @@ export default function BulkPaymentsPage() {
               {csvFile && (
                 <div className="rounded-lg bg-slate-50 p-4">
                   <p className="font-semibold text-slate-900">File: {csvFile.name}</p>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-muted">
                     {parsedRecords.length} records found{csvErrors.length > 0 && `, ${csvErrors.length} errors`}
                   </p>
                 </div>
@@ -433,36 +420,30 @@ export default function BulkPaymentsPage() {
 
               {parsedRecords.length > 0 && csvErrors.length === 0 && (
                 <div className="space-y-4">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50">
+                  <div className="table-wrapper">
+                    <table className="data-table">
+                      <thead className="data-table-head">
                         <tr>
-                          <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                            Invoice
-                          </th>
-                          <th className="px-4 py-2 text-right font-semibold text-slate-700">
-                            Amount
-                          </th>
-                          <th className="px-4 py-2 text-left font-semibold text-slate-700">Date</th>
-                          <th className="px-4 py-2 text-left font-semibold text-slate-700">Mode</th>
+                          <th className="data-table-head-cell">Invoice</th>
+                          <th className="data-table-head-cell-right">Amount</th>
+                          <th className="data-table-head-cell">Date</th>
+                          <th className="data-table-head-cell">Mode</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200">
+                      <tbody>
                         {parsedRecords.slice(0, 5).map((record, i) => (
-                          <tr key={i}>
-                            <td className="px-4 py-2">{record.invoice_number}</td>
-                            <td className="px-4 py-2 text-right">
-                              {formatMoney(record.amount)}
-                            </td>
-                            <td className="px-4 py-2">{record.payment_date}</td>
-                            <td className="px-4 py-2">{record.mode}</td>
+                          <tr key={i} className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                            <td className="data-table-cell">{record.invoice_number}</td>
+                            <td className="data-table-cell-right">{formatMoney(record.amount)}</td>
+                            <td className="data-table-cell">{record.payment_date}</td>
+                            <td className="data-table-cell">{record.mode}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                   {parsedRecords.length > 5 && (
-                    <p className="text-sm text-slate-600">
+                    <p className="text-muted">
                       ...and {parsedRecords.length - 5} more records
                     </p>
                   )}
@@ -470,7 +451,7 @@ export default function BulkPaymentsPage() {
                   <button
                     onClick={handleValidateCSV}
                     disabled={isValidating}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="save-btn"
                   >
                     {isValidating ? "Validating..." : "Continue to Review"}
                   </button>
@@ -479,7 +460,7 @@ export default function BulkPaymentsPage() {
 
               <button
                 onClick={handleDownloadTemplate}
-                className="rounded-lg bg-slate-600 px-4 py-2 text-white hover:bg-slate-700"
+                className="cancel-btn"
               >
                 ⬇️ Download Template
               </button>
@@ -489,7 +470,7 @@ export default function BulkPaymentsPage() {
           {/* REVIEW TAB */}
           {activeTab === "review" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-slate-900">Review Records</h2>
+              <div className="card-title">Review Records</div>
 
               {validationErrors.length > 0 && (
                 <div className="rounded-lg bg-red-50 p-4">
@@ -508,46 +489,42 @@ export default function BulkPaymentsPage() {
                 </div>
               )}
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50">
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead className="data-table-head">
                     <tr>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                        Invoice
-                      </th>
-                      <th className="px-4 py-2 text-right font-semibold text-slate-700">
-                        Amount
-                      </th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Date</th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Mode</th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Reference</th>
+                      <th className="data-table-head-cell">Invoice</th>
+                      <th className="data-table-head-cell-right">Amount</th>
+                      <th className="data-table-head-cell">Date</th>
+                      <th className="data-table-head-cell">Mode</th>
+                      <th className="data-table-head-cell">Reference</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody>
                     {recordsToImport.map((record, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-4 py-2">{record.invoice_number}</td>
-                        <td className="px-4 py-2 text-right">{formatMoney(record.amount)}</td>
-                        <td className="px-4 py-2">{record.payment_date}</td>
-                        <td className="px-4 py-2">{record.mode}</td>
-                        <td className="px-4 py-2">{record.reference_number || "—"}</td>
+                      <tr key={i} className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                        <td className="data-table-cell">{record.invoice_number}</td>
+                        <td className="data-table-cell-right">{formatMoney(record.amount)}</td>
+                        <td className="data-table-cell">{record.payment_date}</td>
+                        <td className="data-table-cell">{record.mode}</td>
+                        <td className="data-table-cell">{record.reference_number || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              <div className="flex gap-2">
+              <div className="action-row">
                 <button
                   onClick={handleImport}
                   disabled={isImporting || validationErrors.length > 0}
-                  className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
+                  className="save-btn"
                 >
                   {isImporting ? "Importing..." : "Import Payments"}
                 </button>
                 <button
                   onClick={() => setActiveTab("manual")}
-                  className="rounded-lg bg-slate-600 px-4 py-2 text-white hover:bg-slate-700"
+                  className="cancel-btn"
                 >
                   ← Back
                 </button>
@@ -558,40 +535,38 @@ export default function BulkPaymentsPage() {
           {/* RESULTS TAB */}
           {activeTab === "results" && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-slate-900">Import Results</h2>
+              <div className="card-title">Import Results</div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-lg bg-green-50 p-4">
-                  <p className="text-sm text-slate-600">Successful</p>
-                  <p className="text-2xl font-bold text-green-700">
+                <div className="card">
+                  <p className="text-muted">Successful</p>
+                  <p className="text-2xl font-bold text-green-700 mt-2">
                     {importResults.filter((r) => r.success).length}
                   </p>
                 </div>
-                <div className="rounded-lg bg-red-50 p-4">
-                  <p className="text-sm text-slate-600">Failed</p>
-                  <p className="text-2xl font-bold text-red-700">
+                <div className="card">
+                  <p className="text-muted">Failed</p>
+                  <p className="text-2xl font-bold text-red-700 mt-2">
                     {importResults.filter((r) => !r.success).length}
                   </p>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50">
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead className="data-table-head">
                     <tr>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">
-                        Invoice
-                      </th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Status</th>
-                      <th className="px-4 py-2 text-left font-semibold text-slate-700">Message</th>
-                      <th className="px-4 py-2 text-center font-semibold text-slate-700">Receipt</th>
+                      <th className="data-table-head-cell">Invoice</th>
+                      <th className="data-table-head-cell">Status</th>
+                      <th className="data-table-head-cell">Message</th>
+                      <th className="data-table-head-cell-right">Receipt</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody>
                     {importResults.map((result, i) => (
-                      <tr key={i} className={result.success ? "bg-green-50" : "bg-red-50"}>
-                        <td className="px-4 py-2">{result.invoice_number}</td>
-                        <td className="px-4 py-2">
+                      <tr key={i} className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                        <td className="data-table-cell">{result.invoice_number}</td>
+                        <td className="data-table-cell">
                           <span
                             className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
                               result.success
@@ -602,11 +577,11 @@ export default function BulkPaymentsPage() {
                             {result.success ? "✓ Success" : "✕ Failed"}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="data-table-cell text-sm">
                           {result.message}
                           {result.error && ` - ${result.error}`}
                         </td>
-                        <td className="px-4 py-2 text-center">
+                        <td className="data-table-cell-right">
                           {result.success && (
                             <input
                               type="checkbox"
@@ -636,10 +611,8 @@ export default function BulkPaymentsPage() {
               {importResults.some((r) => r.success) && (
                 <button
                   onClick={handleGenerateReceipts}
-                  disabled={
-                    isGeneratingReceipts || selectedForReceipts.length === 0
-                  }
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                  disabled={isGeneratingReceipts || selectedForReceipts.length === 0}
+                  className="save-btn"
                 >
                   {isGeneratingReceipts
                     ? "Generating..."
@@ -648,6 +621,7 @@ export default function BulkPaymentsPage() {
               )}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

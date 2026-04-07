@@ -7,7 +7,6 @@ export default function AppointmentsReportPage() {
   const [formData, setFormData] = useState({ patientName: "", date: "", time: "", dentist: "" });
 
   const handleCreateAppointment = () => {
-    console.log("Creating appointment:", formData);
     setShowModal(false);
     setFormData({ patientName: "", date: "", time: "", dentist: "" });
   };
@@ -15,32 +14,26 @@ export default function AppointmentsReportPage() {
   return (
     <div className="page-content">
       <div className="page-sections">
-      <div className="card">
-        <div className="card-header mb-6">
-          <div>
+        <div className="card">
+          <div className="card-header">
             <div className="card-title">Appointment Reports</div>
-            <p className="text-sm text-slate-600 mt-1">
-              Track appointment utilization, no-show rates, scheduling efficiency, and dentist workload.
-            </p>
+            <button onClick={() => setShowModal(true)} className="save-btn">
+              + Create
+            </button>
           </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn-secondary-dark"
-          >
-            + Create
-          </button>
+          <p className="text-sm text-slate-500 mt-1 mb-4">
+            Track appointment utilization, no-show rates, scheduling efficiency, and dentist workload.
+          </p>
+          <div className="empty-state">
+            <p className="text-slate-600 font-medium">Coming Soon</p>
+            <p className="empty-state-hint">This report is being developed</p>
+          </div>
         </div>
-        
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-8 text-center">
-          <p className="text-slate-600 font-medium">Coming Soon</p>
-          <p className="text-sm text-slate-500 mt-2">This report is being developed</p>
-        </div>
-      </div>
 
       {/* Appointment Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 border">
+        <div className="modal-container">
+          <div className="modal-panel">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Create Appointment</h3>
             
             <div className="space-y-4 mb-6">
