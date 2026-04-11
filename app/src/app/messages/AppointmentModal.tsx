@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DentistRow } from "@/lib/types";
+import { DatePickerField } from "@/components/DatePickerField";
 
 interface AppointmentModalProps {
   patientId: string;
@@ -161,18 +162,12 @@ export default function AppointmentModal({
 
         <div className="space-y-4">
           {/* Date */}
-          <div>
-            <label className="text-label-block">
-              Date
-            </label>
-            <input
-              type="date"
-              min={getMinDate()}
-              value={appointmentDate}
-              onChange={(e) => setAppointmentDate(e.target.value)}
-              className="input-full"
-            />
-          </div>
+          <DatePickerField
+            label="Date"
+            value={appointmentDate}
+            onChange={setAppointmentDate}
+            min={getMinDate()}
+          />
 
           {/* Time */}
           <div>

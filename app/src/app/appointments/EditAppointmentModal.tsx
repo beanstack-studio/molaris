@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType } from "@/lib/visitReasonHelpers";
+import { EditModal } from "@/components/EditModal";
 import type { Patient, DentistRow, Appointment } from "@/lib/types";
 
 const PH_HOLIDAYS_2026 = [
@@ -42,6 +43,8 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
     concernType: "" as VisitReasonType | "",
     status: "confirmed",
   });
+  const [patientSearchInput, setPatientSearchInput] = useState("");
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement | null>(null);
@@ -58,6 +61,24 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
       });
       setDeleteConfirmText("");
       setError(null);
+      setShowPatientDropdown(false);
+
+      // Pre-populate patient name from the joined relation or from the patients list
+      const relName = appointment.patients
+        ? (appointment.patients.full_name || `${(appointment.patients as any).first_name ?? ""} ${(appointment.patients as any).last_name ?? ""}`.trim())
+        : "";
+      if (relName) {
+        setPatientSearchInput(relName);
+      } else {
+        // Fallback: look up in the patients prop array
+        const found = patients.find((p) => p.id === appointment.patient_id);
+        if (found) {
+          const name = found.full_name || `${(found as any).first_name ?? ""} ${(found as any).last_name ?? ""}`.trim();
+          setPatientSearchInput(name);
+        } else {
+          setPatientSearchInput("");
+        }
+      }
     }
   }, [appointment]);
 
@@ -112,129 +133,160 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
       : [8, 9, 10, 11, 12, 14, 15, 16];
   }
 
-  if (!appointment) return null;
+  const filteredPatients = (() => {
+    if (patientSearchInput.length < 3) return [];
+    const q = patientSearchInput.toLowerCase();
+    return patients
+      .filter((p) => {
+        const full = (p.full_name ?? "").toLowerCase();
+        const first = ((p as any).first_name ?? "").toLowerCase();
+        const last = ((p as any).last_name ?? "").toLowerCase();
+        return full.includes(q) || first.includes(q) || last.includes(q);
+      })
+      .slice(0, 5);
+  })();
 
   return (
-    <div
-      className="modal-container"
-      onDoubleClick={onClose}
-    >
-      <div
-        className="modal-panel-raised"
-        onDoubleClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="modal-heading">Edit Appointment</h3>
-
-        <div className="space-y-4">
-          {/* Patient */}
-          <div>
-            <label className="input-label">Patient</label>
-            <select
-              value={editFormData.patientId}
-              onChange={(e) => setEditFormData({ ...editFormData, patientId: e.target.value })}
-              className="input-full"
-            >
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>{p.full_name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Date */}
-          <DatePickerField
-            label="Date"
-            value={editFormData.appointmentDate}
-            onChange={(val) => setEditFormData({ ...editFormData, appointmentDate: val })}
-            inputRef={dateRef}
-            variant="case-modal"
-          />
-
-          {/* Time */}
-          <div>
-            <label className="input-label">Time</label>
-            <select
-              value={editFormData.appointmentTime}
-              onChange={(e) => setEditFormData({ ...editFormData, appointmentTime: e.target.value })}
-              className="input-full"
-            >
-              {getValidHours(editFormData.appointmentDate).map((hour) => {
-                const timeStr = `${String(hour).padStart(2, "0")}:00`;
-                return (
-                  <option key={hour} value={timeStr}>{formatTime12Hr(timeStr)}</option>
-                );
-              })}
-            </select>
-          </div>
-
-          {/* Dentist */}
-          <div>
-            <label className="input-label">Dentist (Optional)</label>
-            <select
-              value={editFormData.dentistId}
-              onChange={(e) => setEditFormData({ ...editFormData, dentistId: e.target.value })}
-              className="input-full"
-            >
-              <option value="">-- Select dentist --</option>
-              {dentists.map((d) => (
-                <option key={d.id} value={d.id}>{d.full_name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="input-label">Status</label>
-            <select
-              value={editFormData.status}
-              onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-              className="input-full"
-            >
-              <option value="confirmed">Confirmed</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          {/* Concern Type */}
-          <div>
-            <label className="input-label">
-              Concern / Reason (Optional)
-            </label>
-            <select
-              value={editFormData.concernType}
-              onChange={(e) => setEditFormData({ ...editFormData, concernType: e.target.value as VisitReasonType | "" })}
-              className="input-full"
-            >
-              <option value="">-- Select a reason --</option>
-              {VISIT_REASONS.map((group) => (
-                <optgroup key={group.group} label={group.group}>
-                  {group.reasons.map((reason) => (
-                    <option key={reason.value} value={reason.value}>{reason.label}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-
-          {/* Delete Section */}
-          <div className="delete-confirmation">
-            <div className="delete-confirmation-title">Delete appointment?</div>
-            <div className="delete-confirmation-hint">
-              Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
-            </div>
+    <EditModal open={!!appointment} title="Edit appointment" onClose={onClose}>
+      <div className="grid gap-4">
+        {/* Patient - Searchable */}
+        <div className="relative">
+          <label className="grid gap-1 text-sm">
+            <span className="text-slate-700">Patient</span>
             <input
               type="text"
-              value={deleteConfirmText}
-              onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder="DELETE"
-              className="delete-confirmation-input"
+              value={patientSearchInput}
+              onChange={(e) => {
+                setPatientSearchInput(e.target.value);
+                setShowPatientDropdown(e.target.value.length >= 3);
+              }}
+              onBlur={() => setTimeout(() => setShowPatientDropdown(false), 200)}
+              className="input-standard"
+              placeholder="Search patient name"
             />
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-100 text-red-800 rounded-lg text-sm">{error}</div>
+          </label>
+          {showPatientDropdown && filteredPatients.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-lg shadow-lg z-10 overflow-hidden">
+              {filteredPatients.map((p) => {
+                const displayName = p.full_name || `${(p as any).first_name ?? ""} ${(p as any).last_name ?? ""}`.trim();
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setEditFormData({ ...editFormData, patientId: p.id });
+                      setPatientSearchInput(displayName);
+                      setShowPatientDropdown(false);
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-violet-50 text-sm text-slate-700"
+                  >
+                    {displayName}
+                  </button>
+                );
+              })}
+              {patientSearchInput.length >= 3 && filteredPatients.length === 0 && (
+                <div className="px-3 py-2 text-sm text-slate-500">No matches for "{patientSearchInput}"</div>
+              )}
+            </div>
+          )}
+          {showPatientDropdown && patientSearchInput.length >= 3 && filteredPatients.length === 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-lg shadow-lg z-10 overflow-hidden">
+              <div className="px-3 py-2 text-sm text-slate-500">No matches for "{patientSearchInput}"</div>
+            </div>
           )}
         </div>
+
+        {/* Date */}
+        <DatePickerField
+          label="Date"
+          value={editFormData.appointmentDate}
+          onChange={(val) => setEditFormData({ ...editFormData, appointmentDate: val })}
+          inputRef={dateRef}
+          min={new Date().toISOString().split("T")[0]}
+        />
+
+        {/* Time */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Time</span>
+          <select
+            value={editFormData.appointmentTime}
+            onChange={(e) => setEditFormData({ ...editFormData, appointmentTime: e.target.value })}
+            className="input-standard"
+          >
+            {getValidHours(editFormData.appointmentDate).map((hour) => {
+              const timeStr = `${String(hour).padStart(2, "0")}:00`;
+              return <option key={hour} value={timeStr}>{formatTime12Hr(timeStr)}</option>;
+            })}
+          </select>
+        </label>
+
+        {/* Dentist */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Dentist (optional)</span>
+          <select
+            value={editFormData.dentistId}
+            onChange={(e) => setEditFormData({ ...editFormData, dentistId: e.target.value })}
+            className="input-standard"
+          >
+            <option value="">Select dentist</option>
+            {dentists.map((d) => (
+              <option key={d.id} value={d.id}>{d.full_name}</option>
+            ))}
+          </select>
+        </label>
+
+        {/* Status */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Status</span>
+          <select
+            value={editFormData.status}
+            onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+            className="input-standard"
+          >
+            <option value="confirmed">Confirmed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+
+        {/* Concern Type */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Concern / reason (optional)</span>
+          <select
+            value={editFormData.concernType}
+            onChange={(e) => setEditFormData({ ...editFormData, concernType: e.target.value as VisitReasonType | "" })}
+            className="input-standard"
+          >
+            <option value="">Select a reason</option>
+            {VISIT_REASONS.map((group) => (
+              <optgroup key={group.group} label={group.group}>
+                {group.reasons.map((reason) => (
+                  <option key={reason.value} value={reason.value}>{reason.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+
+        {/* Delete Section */}
+        <div className="delete-confirmation">
+          <div className="delete-confirmation-title">Delete appointment?</div>
+          <div className="delete-confirmation-hint">
+            Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion
+          </div>
+          <input
+            type="text"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder="DELETE"
+            className="delete-confirmation-input"
+          />
+        </div>
+
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-100 p-3">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="modal-actions">
@@ -251,6 +303,6 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
           </div>
         </div>
       </div>
-    </div>
+    </EditModal>
   );
 }

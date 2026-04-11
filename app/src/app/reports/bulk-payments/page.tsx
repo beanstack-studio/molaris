@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { DatePickerField } from "@/components/DatePickerField";
 import Link from "next/link";
 import {
   importBulkPayments,
@@ -278,13 +279,11 @@ export default function BulkPaymentsPage() {
                           />
                         </td>
                         <td className="data-table-cell">
-                          <input
-                            type="date"
+                          <DatePickerField
+                            label=""
                             value={payment.payment_date}
-                            onChange={(e) =>
-                              handleManualPaymentChange(index, "payment_date", e.target.value)
-                            }
-                            className="compact-input"
+                            onChange={(v) => handleManualPaymentChange(index, "payment_date", v)}
+                            wrapperClassName=""
                           />
                         </td>
                         <td className="data-table-cell">

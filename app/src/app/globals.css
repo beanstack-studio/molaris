@@ -321,7 +321,7 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .data-table-btn {
-  @apply inline-flex items-center gap-1 px-3 py-1 text-sm font-medium text-slate-600 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap;
+  @apply inline-flex items-center justify-center gap-1 px-3 py-1 text-sm font-medium text-slate-600 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap;
 }
 
 .data-table-btn-danger {

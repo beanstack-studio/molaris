@@ -928,6 +928,7 @@ export default function OrthoPage() {
                   inputRef={visitDateRef}
                   variant="visit-modal"
                   wrapperClassName="grid-gap-1"
+                  max={new Date().toISOString().split("T")[0]}
                 />
               </div>
 

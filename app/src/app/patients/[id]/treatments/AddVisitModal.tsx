@@ -98,6 +98,7 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
               onChange={setVisitDate}
               inputRef={visitDateRef}
               variant="visit-modal"
+              max={new Date().toISOString().split("T")[0]}
             />
           </div>
           <div className="grid-gap-1 w-[60%]">

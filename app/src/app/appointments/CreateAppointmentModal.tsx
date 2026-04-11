@@ -117,26 +117,33 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
           {showPatientDropdown && patientSearchInput.length >= 3 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
               {(() => {
-                const filtered = patients.filter((p) =>
-                  p.full_name?.toLowerCase().includes(patientSearchInput.toLowerCase())
-                );
+                const q = patientSearchInput.toLowerCase();
+                const filtered = patients.filter((p) => {
+                  const full = (p.full_name ?? "").toLowerCase();
+                  const first = ((p as any).first_name ?? "").toLowerCase();
+                  const last = ((p as any).last_name ?? "").toLowerCase();
+                  return full.includes(q) || first.includes(q) || last.includes(q);
+                });
                 return filtered.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-slate-500">No matches for "{patientSearchInput}"</div>
                 ) : (
-                  filtered.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setFormData({ ...formData, patientId: p.id });
-                        setPatientSearchInput(p.full_name || "");
-                        setShowPatientDropdown(false);
-                      }}
-                      className="w-full text-left px-3 py-2 hover:bg-violet-50 text-sm text-slate-700"
-                    >
-                      {p.full_name}
-                    </button>
-                  ))
+                  filtered.map((p) => {
+                    const displayName = p.full_name || `${(p as any).first_name ?? ""} ${(p as any).last_name ?? ""}`.trim();
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, patientId: p.id });
+                          setPatientSearchInput(displayName);
+                          setShowPatientDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-violet-50 text-sm text-slate-700"
+                      >
+                        {displayName}
+                      </button>
+                    );
+                  })
                 );
               })()}
             </div>
@@ -150,6 +157,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
           onChange={(val) => setFormData({ ...formData, appointmentDate: val })}
           inputRef={dateRef}
           variant="case-modal"
+          min={new Date().toISOString().split("T")[0]}
         />
 
         {/* Time */}

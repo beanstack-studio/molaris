@@ -605,6 +605,7 @@ export default function DocumentsPage() {
                     onChange={setDocVisitDate}
                     inputRef={docVisitDateRef}
                     variant="visit-modal"
+                    max={new Date().toISOString().split("T")[0]}
                   />
                 </div>
 

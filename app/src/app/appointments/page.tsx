@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getVisitReasonLabel } from "@/lib/visitReasonHelpers";
-import { formatPhoneLocal } from "@/lib/helpers";
+import { formatPhoneLocal, combineFullName } from "@/lib/helpers";
 import { Appointment, Patient, DentistRow } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
@@ -61,7 +61,7 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     const timeout = new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timed out")), 10000)
+      setTimeout(() => reject(new Error("Connection timed out")), 30000)
     );
     Promise.race([
       Promise.all([loadAppointments(), loadDentists(), loadPatients(), loadClinicHours()]),
@@ -119,35 +119,104 @@ export default function AppointmentsPage() {
 
   const loadPatients = async () => {
     try {
-      let allPatients: { id: string; full_name: string }[] = [];
+      let allPatients: Patient[] = [];
       let offset = 0;
-      const pageSize = 10000;
+      const pageSize = 1000; // Supabase caps at 1000 rows per request
 
       while (true) {
         const { data, error: err } = await supabase
           .from("patients")
-          .select("id, full_name")
-          .order("full_name")
+          .select("id, full_name, first_name, last_name")
           .range(offset, offset + pageSize - 1);
 
         if (err) throw err;
         if (!data || data.length === 0) break;
 
-        allPatients = [...allPatients, ...data];
+        // Normalize: ensure full_name is always a usable string
+        const normalized = data.map((p: any) => ({
+          ...p,
+          full_name: p.full_name?.trim() || combineFullName(p.first_name, p.last_name),
+        }));
+
+        allPatients = [...allPatients, ...normalized];
         if (data.length < pageSize) break;
         offset += data.length;
       }
 
-      setPatients(allPatients as Patient[]);
+      // Sort by last_name then first_name client-side
+      allPatients.sort((a, b) => {
+        const aLast = (a.last_name ?? "").toLowerCase();
+        const bLast = (b.last_name ?? "").toLowerCase();
+        if (aLast !== bLast) return aLast.localeCompare(bLast);
+        return (a.first_name ?? "").toLowerCase().localeCompare((b.first_name ?? "").toLowerCase());
+      });
+
+      setPatients(allPatients);
     } catch {
       setPatients([]);
     }
   };
 
-  const getDayOfWeek = (dateStr: string) => {
+  const formatDateHeading = (dateStr: string) => {
     const date = new Date(dateStr + "T00:00:00");
-    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getDay()];
+    return date.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   };
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      confirmed: "badge badge-success",
+      completed: "badge badge-info",
+      cancelled: "badge badge-secondary",
+      pending: "badge badge-warning",
+    };
+    return map[status] ?? "badge badge-secondary";
+  };
+
+  const AppointmentsTable = ({ rows }: { rows: AppointmentWithRelations[] }) => (
+    <div className="table-wrapper">
+      <table className="data-table">
+        <thead className="data-table-head">
+          <tr>
+            <th className="data-table-head-cell w-28">Time</th>
+            <th className="data-table-head-cell">Patient</th>
+            <th className="data-table-head-cell">Concern / Reason</th>
+            <th className="data-table-head-cell">Dentist</th>
+            <th className="data-table-head-cell w-28">Status</th>
+            <th className="data-table-head-cell w-20">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((apt, idx) => (
+            <tr key={apt.id} className={idx % 2 === 0 ? "data-table-row-even data-table-row" : "data-table-row-odd data-table-row"}>
+              <td className="data-table-cell font-semibold text-slate-800 whitespace-nowrap">
+                {formatTime12Hr(apt.appointment_time)}
+              </td>
+              <td className="data-table-cell">
+                <div className="font-medium text-slate-900">{apt.patients?.full_name || "—"}</div>
+                {apt.patients?.phone && (
+                  <div className="text-xs text-slate-500 mt-0.5">📞 {formatPhoneLocal(apt.patients.phone)}</div>
+                )}
+              </td>
+              <td className="data-table-cell text-slate-600 italic">
+                {(apt as any).concern_type ? getVisitReasonLabel((apt as any).concern_type) : <span className="text-slate-300">—</span>}
+              </td>
+              <td className="data-table-cell text-slate-700">
+                {apt.dentists?.full_name || <span className="text-slate-300">—</span>}
+              </td>
+              <td className="data-table-cell">
+                <span className={statusBadge(apt.status)}>{apt.status}</span>
+              </td>
+              <td className="data-table-cell">
+                <button onClick={() => setEditingAppointment(apt)} className="data-table-btn justify-center">
+                  Edit
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   const appointmentsByDate = appointments.reduce((acc, apt) => {
     const date = apt.appointment_date;
@@ -202,63 +271,21 @@ export default function AppointmentsPage() {
 
             {/* List View */}
             {viewMode === "list" && (
-              <div className="rounded-lg border border-slate-200 p-4 space-y-4">
+              <div className="space-y-6">
                 {datesList.length === 0 ? (
-                  <div className="text-center py-12 bg-slate-100 rounded-lg">
-                    <p className="text-slate-600">No appointments scheduled</p>
+                  <div className="text-center py-12 bg-slate-50 rounded-xl border border-slate-100">
+                    <p className="text-slate-500">No appointments scheduled</p>
                   </div>
                 ) : (
                   datesList.map((date) => (
-                    <div key={date} className="border border-slate-200 rounded-lg overflow-hidden">
-                      <div className="bg-indigo-50 border-b border-indigo-200 px-4 py-3 font-semibold text-indigo-900">
-                        {getDayOfWeek(date)}, {new Date(date + "T00:00:00").toLocaleDateString()}
+                    <div key={date}>
+                      <div className="px-1 pb-2 flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-700">{formatDateHeading(date)}</span>
+                        {PH_HOLIDAYS_2026.includes(date) && (
+                          <span className="badge badge-warning">🇵🇭 {PH_HOLIDAY_NAMES[date]}</span>
+                        )}
                       </div>
-                      <div className="divider-rows">
-                        {appointmentsByDate[date].map((apt) => (
-                          <div key={apt.id} className="p-4 bg-white hover:bg-slate-50 transition">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium text-slate-900">
-                                    {formatTime12Hr(apt.appointment_time)}
-                                  </span>
-                                  <span className={`text-xs px-2 py-1 rounded font-medium ${
-                                    apt.status === "confirmed"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : apt.status === "completed"
-                                      ? "bg-indigo-100 text-indigo-800"
-                                      : "bg-amber-100 text-amber-800"
-                                  }`}>
-                                    {apt.status}
-                                  </span>
-                                </div>
-                                <p className="font-semibold text-slate-900">
-                                  {apt.patients?.full_name || "Unknown Patient"}
-                                </p>
-                                <p className="text-muted">
-                                  📞 {apt.patients?.phone ? formatPhoneLocal(apt.patients.phone) : "No phone"}
-                                </p>
-                                {apt.dentists && (
-                                  <p className="text-muted">
-                                    🦷 Dr. {apt.dentists.full_name}
-                                  </p>
-                                )}
-                                {(apt as any).concern_type && (
-                                  <p className="text-sm text-slate-700 mt-2 italic bg-amber-50 p-2 rounded">
-                                    📋 {getVisitReasonLabel((apt as any).concern_type)}
-                                  </p>
-                                )}
-                              </div>
-                              <button
-                                onClick={() => setEditingAppointment(apt)}
-                                className="data-table-btn"
-                              >
-                                Edit
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <AppointmentsTable rows={appointmentsByDate[date]} />
                     </div>
                   ))
                 )}
@@ -387,52 +414,20 @@ export default function AppointmentsPage() {
 
                 {/* Selected date details */}
                 {selectedDate && (
-                  <div className="mt-6 md:mt-8 p-4 md:p-6 bg-gradient-to-r from-indigo-50 to-indigo-100 border-2 border-indigo-300 rounded-lg">
-                    <h3 className="font-bold text-base md:text-lg text-slate-900 mb-3 md:mb-4">
-                      📅 {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-                        weekday: "long", month: "long", day: "numeric",
-                      })}
-                    </h3>
-
-                    {PH_HOLIDAYS_2026.includes(selectedDate) && (
-                      <div className="mb-4 p-3 bg-amber-50 border-l-4 border-amber-400 rounded">
-                        <p className="font-semibold text-amber-700">🇵🇭 {PH_HOLIDAY_NAMES[selectedDate]}</p>
-                        <p className="text-sm text-amber-600 mt-1">Sundays & Holidays - By Appointment Only</p>
+                  <div className="mt-6">
+                    <div className="px-1 pb-2 flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-700">{formatDateHeading(selectedDate)}</span>
+                      {PH_HOLIDAYS_2026.includes(selectedDate) && (
+                        <span className="badge badge-warning">🇵🇭 {PH_HOLIDAY_NAMES[selectedDate]}</span>
+                      )}
+                    </div>
+                    {appointmentsByDate[selectedDate]?.length > 0 ? (
+                      <AppointmentsTable rows={appointmentsByDate[selectedDate]} />
+                    ) : (
+                      <div className="text-center py-8 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="text-slate-500 text-sm">No appointments for this date</p>
                       </div>
                     )}
-
-                    <div className="space-y-2 md:space-y-3">
-                      {appointmentsByDate[selectedDate]?.map((apt) => {
-                        return (
-                          <div key={apt.id} className="bg-white p-3 md:p-4 rounded-lg border border-indigo-200 hover:shadow-md transition flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-3">
-                            <div className="flex-1">
-                              <p className="font-bold text-base md:text-lg text-slate-900">{formatTime12Hr(apt.appointment_time)}</p>
-                              <p className="font-semibold text-slate-800 text-sm md:text-base">{apt.patients?.full_name}</p>
-                              <p className="text-xs md:text-sm text-slate-600">📞 {apt.patients?.phone ? formatPhoneLocal(apt.patients.phone) : "—"}</p>
-                              {apt.dentists && <p className="text-xs md:text-sm text-slate-600">🦷 Dr. {apt.dentists.full_name}</p>}
-                              {(apt as any).concern_type && <p className="text-xs md:text-sm text-slate-700 mt-2 italic bg-amber-50 p-2 rounded">📋 {getVisitReasonLabel((apt as any).concern_type)}</p>}
-                            </div>
-                            <div className="flex flex-row md:flex-col gap-2">
-                              <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                                apt.status === "confirmed"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : apt.status === "completed"
-                                  ? "bg-indigo-100 text-indigo-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}>
-                                {apt.status}
-                              </span>
-                              <button
-                                onClick={() => setEditingAppointment(apt)}
-                                className="data-table-btn"
-                              >
-                                Edit
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
                   </div>
                 )}
               </div>

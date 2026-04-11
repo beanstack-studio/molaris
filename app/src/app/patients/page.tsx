@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { calcAge, formatGenderShort, formatDateStandard, formatMoney, formatPhoneLocal } from "@/lib/helpers";
 import type { GenderDB } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
+import { DatePickerField } from "@/components/DatePickerField";
 
 type PatientRow = {
   id: string;
@@ -554,7 +555,7 @@ export default function PatientsPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="form-group">
                   <label className="form-label">Birth date</label>
-                  <input className="form-input" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                  <DatePickerField label="" value={birthDate} onChange={setBirthDate} wrapperClassName="" max={new Date().toISOString().split("T")[0]} />
                 </div>
 
                 <div className="form-group">

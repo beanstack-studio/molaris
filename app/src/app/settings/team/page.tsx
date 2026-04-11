@@ -579,6 +579,7 @@ export default function TeamSettingsPage() {
             onChange={(val) => setDentistDob(val)}
             inputRef={dentistDobRef}
             variant="case-modal"
+            max={new Date().toISOString().split("T")[0]}
           />
           <label className="field-label">
             <span className="field-label-text">PRC Number</span>
@@ -687,6 +688,7 @@ export default function TeamSettingsPage() {
             onChange={(val) => setStaffDob(val)}
             inputRef={staffDobRef}
             variant="case-modal"
+            max={new Date().toISOString().split("T")[0]}
           />
           <div className="modal-actions">
             {editingStaff && (

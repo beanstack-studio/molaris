@@ -315,6 +315,7 @@ export default function Page() {
               onChange={setEditBirthDate}
               inputRef={birthDateRef}
               variant="case-modal"
+              max={new Date().toISOString().split("T")[0]}
             />
             <div className="field-label">
               <span className="field-label-text">Gender</span>

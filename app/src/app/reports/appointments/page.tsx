@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DatePickerField } from "@/components/DatePickerField";
 
 export default function AppointmentsReportPage() {
   const [showModal, setShowModal] = useState(false);
@@ -47,12 +48,10 @@ export default function AppointmentsReportPage() {
                 />
               </div>
               <div className="field-label">
-                <label className="field-label-text">Date</label>
-                <input
-                  type="date"
+                <DatePickerField
+                  label="Date"
                   value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="field-input"
+                  onChange={(v) => setFormData({ ...formData, date: v })}
                 />
               </div>
               <div className="field-label">

@@ -79,13 +79,13 @@ export function CreateInvoiceModal({
           </div>
 
           {selectedVisitDate && (
-            <div className="rounded-xl border bg-white p-4">
+            <div className="rounded-xl border border-slate-100 bg-white p-4">
               {visitTreatments.length > 0 && (
                 <div className="mb-4">
                   <div className="text-sm font-semibold mb-2">
                     Treatments on {formatDateStandard(selectedVisitDate)} ({visitTreatments.length})
                   </div>
-                  <div className="space-y-2 mb-4 pb-4 border-b">
+                  <div className="space-y-2 mb-4 pb-4 border-b border-slate-100">
                     {visitTreatments.map((t: any) => {
                       const servicePrice = servicePrices.find((sp) => sp.id === t.service_price_id);
                       const priceValue = (servicePrice as any)?.default_price ?? (servicePrice as any)?.price ?? 0;
@@ -118,7 +118,7 @@ export function CreateInvoiceModal({
                         <div className="text-sm font-semibold mb-2">
                           Treatments on {formatDateStandard(selectedVisitDate)} ({totalItemCount}) - ORTHO
                         </div>
-                        <div className="space-y-2 mb-4 pb-4 border-b">
+                        <div className="space-y-2 mb-4 pb-4 border-b border-slate-100">
                           {orthoVisits.map((entry: OrthoEntry) => {
                             const items = orthoVisitItems.filter((item) => item.ortho_entry_id === entry.id);
                             const chargedItems = items.filter((item) => item.is_charged);
@@ -160,7 +160,7 @@ export function CreateInvoiceModal({
               )}
 
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center pb-2 border-b">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                   <span className="text-slate-600">Subtotal</span>
                   <span className="font-semibold">{formatMoney(subtotal)}</span>
                 </div>

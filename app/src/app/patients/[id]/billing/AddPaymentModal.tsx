@@ -3,6 +3,7 @@
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
 import type { Invoice, PaymentRowExtended, PaymentMode } from "@/lib/types";
 import { EditModal } from "@/components/EditModal";
+import { DatePickerField } from "@/components/DatePickerField";
 
 function num(n: unknown) {
   const v = Number(n);
@@ -136,15 +137,12 @@ export function AddPaymentModal({
             return null;
           })()}
 
-          <label className="form-field">
-            <span className="text-slate-700">Payment date</span>
-            <input
-              type="date"
-              className="input-standard"
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
-            />
-          </label>
+          <DatePickerField
+            label="Payment date"
+            value={paymentDate}
+            onChange={setPaymentDate}
+            max={new Date().toISOString().split("T")[0]}
+          />
 
           <label className="form-field">
             <span className="text-slate-700">Payment mode</span>
