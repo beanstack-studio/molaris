@@ -459,7 +459,7 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .modal-actions-right {
-  @apply flex gap-2;
+  @apply flex gap-2 ml-auto;
 }
 
 .button-group {
@@ -769,17 +769,17 @@ tr.data-table-row-compact-odd:hover {
   box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
 }
 
-/* Themed modal header — 60% opacity accent color, white text */
+/* Themed modal header — full accent color, white text */
 .modal-header {
   @apply px-6 py-4;
-  background: hsl(var(--accent-hue) var(--accent-sat) 44% / 0.60);
-  border-bottom: 1px solid hsl(var(--accent-hue) var(--accent-sat) 44% / 0.20);
+  background: hsl(var(--accent-hue) var(--accent-sat) 44%);
+  border-bottom: none;
 }
 
 .modal-sticky-header {
   @apply sticky top-0 px-6 py-4;
-  background: hsl(var(--accent-hue) var(--accent-sat) 44% / 0.60);
-  border-bottom: 1px solid hsl(var(--accent-hue) var(--accent-sat) 44% / 0.20);
+  background: hsl(var(--accent-hue) var(--accent-sat) 44%);
+  border-bottom: none;
 }
 
 .form-field {

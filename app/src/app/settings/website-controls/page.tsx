@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { ThemePicker } from "@/components/ThemePicker";
 import { Spinner } from "@/components/Spinner";
-import { Toggle } from "@/components/Toggle";
 import { formatDateStandard } from "@/lib/helpers";
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -16,13 +15,6 @@ type AppUser = {
   last_sign_in: string | null;
   created_at: string;
   confirmed: boolean;
-};
-
-type ClinicHour = {
-  id: string;
-  day: string;
-  open_hour: number;
-  close_hour: number;
 };
 
 const DAYS_ORDER = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -73,12 +65,6 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-function fmt12(h: number) {
-  const ampm = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-  return `${hour}:00 ${ampm}`;
-}
-
 /* ══════════════════════════════════════════════════════════════ */
 export default function WebsiteControlsPage() {
 
@@ -100,15 +86,18 @@ export default function WebsiteControlsPage() {
   /* ── Permissions modal ── */
   const [showPermissions, setShowPermissions] = useState(false);
 
-  /* ── My account ── */
+  /* ── Current user (My Account) ── */
+  const [currentEmail, setCurrentEmail] = useState<string>("");
+  const [currentRole, setCurrentRole] = useState<string>("staff");
+
+  /* ── Change password modal ── */
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwSuccess, setPwSuccess] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
-
-  /* ── Clinic hours / notifications ── */
-  const [clinicHours, setClinicHours] = useState<ClinicHour[]>([]);
-  const [notifSMS, setNotifSMS] = useState(false);
+  const [pwBusy, setPwBusy] = useState(false);
 
   /* ── Load data ── */
   const loadUsers = useCallback(async () => {
@@ -123,22 +112,18 @@ export default function WebsiteControlsPage() {
 
   useEffect(() => {
     loadUsers();
-    supabase
-      .from("clinic_profile")
-      .select("clinic_hours")
-      .limit(1)
-      .then(({ data }) => {
-        const hours = data?.[0]?.clinic_hours;
-        if (Array.isArray(hours)) {
-          const sorted = [...hours].sort(
-            (a, b) => DAYS_ORDER.indexOf(a.day) - DAYS_ORDER.indexOf(b.day)
-          );
-          setClinicHours(sorted);
-        }
-      });
 
-    const saved = localStorage.getItem("notif-sms");
-    if (saved === "1") setNotifSMS(true);
+    // Load current user info
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setCurrentEmail(data.user.email ?? "");
+        setCurrentRole(
+          (data.user.user_metadata?.role as string) ??
+          (data.user.app_metadata?.role as string) ??
+          "staff"
+        );
+      }
+    });
   }, [loadUsers]);
 
   /* ── Invite user ── */
@@ -190,16 +175,41 @@ export default function WebsiteControlsPage() {
   }
 
   /* ── Change password ── */
+  function openChangePw() {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPwError(null);
+    setPwSuccess(false);
+    setShowChangePw(true);
+  }
+
   async function changePassword() {
     setPwError(null); setPwSuccess(false);
-    if (newPassword.length < 8) { setPwError("Password must be at least 8 characters."); return; }
-    if (newPassword !== confirmPassword) { setPwError("Passwords don't match."); return; }
-    setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setBusy(false);
-    if (error) { setPwError(error.message); return; }
-    setNewPassword(""); setConfirmPassword("");
+    if (!currentPassword) { setPwError("Please enter your current password."); return; }
+    if (newPassword.length < 8) { setPwError("New password must be at least 8 characters."); return; }
+    if (newPassword !== confirmPassword) { setPwError("New passwords don't match."); return; }
+    setPwBusy(true);
+
+    // Verify current password first
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: currentEmail,
+      password: currentPassword,
+    });
+    if (signInError) {
+      setPwBusy(false);
+      setPwError("Current password is incorrect.");
+      return;
+    }
+
+    // Set new password
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+    setPwBusy(false);
+    if (updateError) { setPwError(updateError.message); return; }
     setPwSuccess(true);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
   }
 
   /* ══ Render ════════════════════════════════════════════════ */
@@ -214,196 +224,191 @@ export default function WebsiteControlsPage() {
         <ThemePicker />
       </div>
 
-      {/* ── Notifications ────────────────────────────────────── */}
-      <div className="card">
-        <div className="card-header mb-4">
-          <div className="card-title">Notifications</div>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          {/* SMS toggle */}
-          <div className="flex items-center justify-between py-2 border-b border-slate-100">
-            <div>
-              <div className="text-sm font-medium text-slate-700">Appointment SMS reminders</div>
-              <div className="text-xs text-slate-400 mt-0.5">Send patients an SMS 24 hours before their appointment</div>
-            </div>
-            <Toggle
-              checked={notifSMS}
-              onChange={(next) => {
-                setNotifSMS(next);
-                localStorage.setItem("notif-sms", next ? "1" : "0");
-              }}
-            />
-          </div>
-
-          {/* Clinic hours read-only display */}
-          <div>
-            <div className="text-sm font-medium text-slate-700 mb-2">Clinic hours</div>
-            {clinicHours.length === 0 ? (
-              <p className="text-xs text-slate-400">
-                No clinic hours set.{" "}
-                <a href="/settings/clinic-profile" className="text-violet-600 hover:underline">
-                  Configure in Clinic Profile →
-                </a>
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-1">
-                {clinicHours.map((h) => (
-                  <div key={h.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs">
-                    <span className="font-medium text-slate-700 w-24">{h.day}</span>
-                    <span className="text-slate-500">{fmt12(h.open_hour)} – {fmt12(h.close_hour)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="text-xs text-slate-400 mt-2">
-              Edit hours in{" "}
-              <a href="/settings/clinic-profile" className="text-violet-600 hover:underline">
-                Clinic Profile
-              </a>
-              .
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── My Account / Password ────────────────────────────── */}
+      {/* ── My Account ───────────────────────────────────────── */}
       <div className="card">
         <div className="card-header mb-4">
           <div className="card-title">My Account</div>
         </div>
 
         <div className="flex flex-col gap-3 max-w-sm">
-          <p className="text-xs text-slate-400">Change the password for your currently logged-in account.</p>
+          {/* Email */}
+          <div>
+            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Email</div>
+            <div className="field-input-readonly text-sm">{currentEmail || "—"}</div>
+          </div>
 
-          <label className="field-label">
-            <span className="field-label-text">New password</span>
-            <input
-              className="field-input"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Min. 8 characters"
-            />
-          </label>
-          <label className="field-label">
-            <span className="field-label-text">Confirm password</span>
-            <input
-              className="field-input"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </label>
+          {/* Password */}
+          <div>
+            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Password</div>
+            <div className="field-input-readonly text-sm tracking-widest text-slate-400">••••••••••••</div>
+          </div>
 
-          {pwError && <p className="text-sm text-red-600">{pwError}</p>}
-          {pwSuccess && <p className="text-sm text-emerald-600 font-medium">Password updated successfully.</p>}
+          {/* Role */}
+          <div>
+            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Role</div>
+            <div className="py-1"><RoleBadge role={currentRole} /></div>
+          </div>
 
-          <button
-            className="save-btn self-start"
-            disabled={busy || !newPassword || !confirmPassword}
-            onClick={changePassword}
-          >
-            {busy ? "Saving…" : "Update password"}
+          <button className="save-btn self-start mt-1" onClick={openChangePw}>
+            Change password
           </button>
         </div>
       </div>
 
-      {/* ── Login Access / Users ─────────────────────────────── */}
-      <div className="card">
-        <div className="card-header mb-4">
-          <div>
-            <div className="card-title">Login Access</div>
-            <p className="text-xs text-slate-400 mt-0.5">People who can sign in to this portal</p>
+      {/* ── Login Access / Users — temporarily hidden ────────── */}
+      {false && (
+        <div className="card">
+          <div className="card-header mb-4">
+            <div>
+              <div className="card-title">Login Access</div>
+              <p className="text-xs text-slate-400 mt-0.5">People who can sign in to this portal</p>
+            </div>
+            <div className="flex gap-2">
+              <button className="cancel-btn" onClick={() => setShowPermissions(true)}>
+                View permissions
+              </button>
+              <button className="save-btn" onClick={() => { setShowInvite(true); setInviteSuccess(false); }}>
+                Invite user
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button className="cancel-btn" onClick={() => setShowPermissions(true)}>
-              View permissions
-            </button>
-            <button className="save-btn" onClick={() => { setShowInvite(true); setInviteSuccess(false); }}>
-              Invite user
-            </button>
-          </div>
-        </div>
 
-        {error && <div className="error-banner mb-3">{error}</div>}
+          {error && <div className="error-banner mb-3">{error}</div>}
 
-        {setupRequired ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
-            <div className="font-semibold text-amber-700 mb-1">Setup required</div>
-            <p className="text-amber-600">
-              Add <code className="bg-amber-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> to your{" "}
-              <code className="bg-amber-100 px-1 rounded">.env.local</code> to enable user management.
-              Get it from Supabase Dashboard → Project Settings → API.
-            </p>
-          </div>
-        ) : usersLoading ? (
-          <div className="flex justify-center py-8">
-            <Spinner />
-          </div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
-              <colgroup>
-                <col style={{ width: "35%" }} />
-                <col style={{ width: "15%" }} />
-                <col style={{ width: "20%" }} />
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "18%" }} />
-              </colgroup>
-              <thead className="data-table-head">
-                <tr>
-                  <th className="data-table-head-cell">Email</th>
-                  <th className="data-table-head-cell">Role</th>
-                  <th className="data-table-head-cell">Last sign in</th>
-                  <th className="data-table-head-cell">Status</th>
-                  <th className="data-table-head-cell-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u, i) => (
-                  <tr key={u.id} className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                    <td className="data-table-cell text-sm font-medium text-slate-800">{u.email}</td>
-                    <td className="data-table-cell"><RoleBadge role={u.role} /></td>
-                    <td className="data-table-cell text-xs text-slate-500">
-                      {u.last_sign_in ? formatDateStandard(u.last_sign_in.split("T")[0]) : "Never"}
-                    </td>
-                    <td className="data-table-cell">
-                      {u.confirmed
-                        ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Active</span>
-                        : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Pending</span>}
-                    </td>
-                    <td className="data-table-cell-right">
-                      <div className="flex gap-1 justify-end">
-                        <button className="data-table-btn" onClick={() => { setEditingUser(u); setEditRole(u.role); }}>
-                          Edit role
-                        </button>
-                        <button className="data-table-btn-danger" disabled={busy} onClick={() => removeUser(u)}>
-                          Remove
-                        </button>
-                      </div>
-                    </td>
+          {setupRequired ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+              <div className="font-semibold text-amber-700 mb-1">Setup required</div>
+              <p className="text-amber-600">
+                Add <code className="bg-amber-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> to your{" "}
+                <code className="bg-amber-100 px-1 rounded">.env.local</code> to enable user management.
+              </p>
+            </div>
+          ) : usersLoading ? (
+            <div className="flex justify-center py-8"><Spinner /></div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="data-table">
+                <colgroup>
+                  <col style={{ width: "35%" }} />
+                  <col style={{ width: "15%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "18%" }} />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Email</th>
+                    <th className="data-table-head-cell">Role</th>
+                    <th className="data-table-head-cell">Last sign in</th>
+                    <th className="data-table-head-cell">Status</th>
+                    <th className="data-table-head-cell-right">Actions</th>
                   </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr><td className="data-table-empty" colSpan={5}>No users found.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {users.map((u, i) => (
+                    <tr key={u.id} className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                      <td className="data-table-cell text-sm font-medium text-slate-800">{u.email}</td>
+                      <td className="data-table-cell"><RoleBadge role={u.role} /></td>
+                      <td className="data-table-cell text-xs text-slate-500">
+                        {u.last_sign_in ? formatDateStandard(u.last_sign_in.split("T")[0]) : "Never"}
+                      </td>
+                      <td className="data-table-cell">
+                        {u.confirmed
+                          ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Active</span>
+                          : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Pending</span>}
+                      </td>
+                      <td className="data-table-cell-right">
+                        <div className="flex gap-1 justify-end">
+                          <button className="data-table-btn" onClick={() => { setEditingUser(u); setEditRole(u.role); }}>Edit role</button>
+                          <button className="data-table-btn-danger" disabled={busy} onClick={() => removeUser(u)}>Remove</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr><td className="data-table-empty" colSpan={5}>No users found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* ── Audit Log placeholder ────────────────────────────── */}
-      <div className="card">
-        <div className="card-header mb-2">
-          <div className="card-title">Audit Log</div>
+      {/* ── Audit Log — temporarily hidden ───────────────────── */}
+      {false && (
+        <div className="card">
+          <div className="card-header mb-2">
+            <div className="card-title">Audit Log</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-500">
+            <p className="font-medium text-slate-600 mb-1">Coming soon</p>
+            <p>The audit log will record who created, edited, or deleted records.</p>
+          </div>
         </div>
-        <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-500">
-          <p className="font-medium text-slate-600 mb-1">Coming soon</p>
-          <p>The audit log will record who created, edited, or deleted records — including payments, invoices, and patient data. This requires an <code className="bg-slate-100 px-1 rounded">audit_logs</code> table in Supabase.</p>
+      )}
+
+      {/* ── Change Password Modal ─────────────────────────────── */}
+      <EditModal open={showChangePw} title="Change Password" onClose={() => { setShowChangePw(false); setPwSuccess(false); }}>
+        <div className="grid gap-4">
+          {pwSuccess ? (
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700 font-medium text-center">
+              Password updated successfully!
+            </div>
+          ) : (
+            <>
+              <label className="field-label">
+                <span className="field-label-text">Current password</span>
+                <input
+                  className="field-input"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter your current password"
+                  autoComplete="current-password"
+                />
+              </label>
+              <label className="field-label">
+                <span className="field-label-text">New password</span>
+                <input
+                  className="field-input"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min. 8 characters"
+                  autoComplete="new-password"
+                />
+              </label>
+              <label className="field-label">
+                <span className="field-label-text">Confirm new password</span>
+                <input
+                  className="field-input"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  autoComplete="new-password"
+                />
+              </label>
+              {pwError && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{pwError}</p>}
+            </>
+          )}
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <button className="cancel-btn" onClick={() => { setShowChangePw(false); setPwSuccess(false); }}>
+              {pwSuccess ? "Close" : "Cancel"}
+            </button>
+            {!pwSuccess && (
+              <button
+                className="save-btn"
+                disabled={pwBusy || !currentPassword || !newPassword || !confirmPassword}
+                onClick={changePassword}
+              >
+                {pwBusy ? "Updating…" : "Update password"}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </EditModal>
 
       {/* ── Permissions Modal ─────────────────────────────────── */}
       <EditModal open={showPermissions} title="Role permissions" onClose={() => setShowPermissions(false)} wide>

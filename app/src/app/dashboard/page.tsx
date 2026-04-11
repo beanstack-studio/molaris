@@ -100,9 +100,7 @@ export default function DashboardPage() {
           .select("id")
           .gte("appointment_date", today)
           .lte("appointment_date", endOfMonth)
-          .is("deleted_at", null)
-          .then((r: any) => r)
-          .catch(() => ({ data: [], error: null })),
+          .is("deleted_at", null),
         supabase.from("payment_modes").select("id, code, name").order("sort_order", { ascending: true }),
       ]));
 

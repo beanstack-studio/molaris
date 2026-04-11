@@ -528,13 +528,12 @@ export default function PatientsPage() {
       {/* Add Patient Modal */}
       {showAdd ? (
         <div className="modal-container p-4" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
-          <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg">
-            <div>
+          <div className="w-full max-w-lg rounded-2xl bg-white overflow-hidden" style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}>
+            <div className="modal-header">
               <h2 className="modal-title">Add patient</h2>
-              <p className="text-muted">Basic info now, details later</p>
             </div>
 
-            <div className="mt-4 grid gap-3">
+            <div className="p-4 grid gap-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="form-group">
                   <label className="form-label">Last name</label>
@@ -590,7 +589,6 @@ export default function PatientsPage() {
                     placeholder="09XX XXX XXXX"
                     inputMode="numeric"
                   />
-                  <div className="mt-1 text-xs text-slate-500">Format: 09XX XXX XXXX</div>
                 </div>
 
                 <div className="form-group">
