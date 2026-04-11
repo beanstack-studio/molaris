@@ -2,6 +2,7 @@
 
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
 import type { Invoice, PaymentRowExtended, PaymentMode } from "@/lib/types";
+import { EditModal } from "@/components/EditModal";
 
 function num(n: unknown) {
   const v = Number(n);
@@ -45,18 +46,9 @@ export function AddPaymentModal({
   paymentProofFile, setPaymentProofFile,
   onAddPayment,
 }: Props) {
-  if (!open) return null;
-
   return (
-    <div
-      className="modal-container"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      onDoubleClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="modal-panel">
-        <h2 className="modal-title">Add payment</h2>
-
-        <div className="modal-body">
+    <EditModal open={open} title="Add payment" onClose={onClose}>
+      <div className="grid gap-4">
           <div className="grid gap-2 text-sm">
             <label className="text-slate-700 font-medium">Invoices</label>
             <div className="space-y-2 border rounded-lg bg-slate-50 p-3">
@@ -247,7 +239,7 @@ export function AddPaymentModal({
             </div>
           )}
 
-          <div className="modal-footer">
+          <div className="flex justify-end gap-2 pt-2">
             <button
               className="cancel-btn"
               onClick={() => {
@@ -265,8 +257,7 @@ export function AddPaymentModal({
               Add
             </button>
           </div>
-        </div>
       </div>
-    </div>
+    </EditModal>
   );
 }

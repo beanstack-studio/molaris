@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { ensureSessionRestored } from "@/lib/initializeAuth";
 import { EditModal } from "@/components/EditModal";
 import { formatMoney } from "@/lib/helpers";
+import { PageLoader } from "@/components/Spinner";
+import { Toggle } from "@/components/Toggle";
+
 
 type ServicePriceRow = {
   id: string;
@@ -18,36 +20,7 @@ type ServicePriceRow = {
 
 type ServiceSort = "NAME_ASC" | "NAME_DESC" | "FEE_ASC" | "FEE_DESC";
 
-function TogglePill({
-  checked,
-  onChange,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={[
-        "relative inline-flex h-6 w-11 items-center rounded-full transition",
-        checked ? "bg-emerald-500" : "bg-slate-300",
-        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
-      ].join(" ")}
-      aria-label={checked ? "Active" : "Inactive"}
-    >
-      <span
-        className={[
-          "inline-block h-5 w-5 transform rounded-full bg-white transition",
-          checked ? "translate-x-5" : "translate-x-1",
-        ].join(" ")}
-      />
-    </button>
-  );
-}
+const TogglePill = Toggle;
 
 function sortRows(list: ServicePriceRow[], sort: ServiceSort) {
   const out = [...list];
@@ -96,10 +69,6 @@ export default function ServicesSettingsPage() {
     setLoading(true);
     
     try {
-      // Wait for session to be restored
-      await ensureSessionRestored();
-      
-      // Ensure session is loaded before making queries
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         // No session - user should be redirected to login, just return
@@ -252,12 +221,7 @@ export default function ServicesSettingsPage() {
 
   if (loading)
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
 
   const Table = ({

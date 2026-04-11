@@ -8,6 +8,8 @@ import type { Treatment, DentistRow, ServicePriceRow, Patient } from "@/lib/type
 import { todayLocalISO, splitFullName, formatDateStandard } from "@/lib/helpers";
 import { AddVisitModal } from "./AddVisitModal";
 import { EditVisitModal } from "./EditVisitModal";
+import { PageLoader } from "@/components/Spinner";
+
 
 export default function TreatmentsPage() {
   const params = useParams();
@@ -133,12 +135,7 @@ export default function TreatmentsPage() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 

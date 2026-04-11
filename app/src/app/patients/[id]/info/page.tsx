@@ -6,6 +6,9 @@ import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import type { Patient } from "@/lib/types";
+import { PageLoader } from "@/components/Spinner";
+import { Toggle } from "@/components/Toggle";
+
 import {
   splitFullName,
   combineFullName,
@@ -208,12 +211,7 @@ export default function Page() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 
@@ -363,25 +361,7 @@ export default function Page() {
           {/* Ortho patient toggle switch */}
           <div className="flex items-center gap-3">
             <span className="field-label-text text-sm">Ortho patient?</span>
-            <button
-              type="button"
-              onClick={() => setEditOrtho(!editOrtho)}
-              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none ${
-                editOrtho ? 'bg-green-500' : 'bg-slate-300'
-              }`}
-            >
-              <span
-                className={`inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow-md transition-transform ${
-                  editOrtho ? 'translate-x-7' : 'translate-x-0.5'
-                }`}
-              >
-                <span className={`text-xs font-bold ${
-                  editOrtho ? 'text-green-500' : 'text-slate-300'
-                }`}>
-                  {editOrtho ? '✓' : '✕'}
-                </span>
-              </span>
-            </button>
+            <Toggle checked={editOrtho} onChange={(v) => setEditOrtho(v)} />
           </div>
 
           <div className="delete-confirmation">

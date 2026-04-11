@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { calcAge, formatGenderShort, formatDateStandard, formatMoney, formatPhoneLocal } from "@/lib/helpers";
 import type { GenderDB } from "@/lib/types";
+import { Spinner } from "@/components/Spinner";
 
 type PatientRow = {
   id: string;
@@ -83,9 +84,16 @@ export default function PatientsPage() {
     setError(null);
 
     try {
-      // Load all patients with pagination (Supabase defaults to 1000 rows per response)
+      // Confirm session is valid before running queries
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+
+      // Load all patients with pagination (Supabase caps at 1000 rows per request)
       const allPatients: any[] = [];
-      const BATCH_SIZE = 10000;
+      const BATCH_SIZE = 1000;
       let offset = 0;
       let hasMore = true;
 
@@ -102,8 +110,8 @@ export default function PatientsPage() {
           hasMore = false;
         } else {
           allPatients.push(...data);
-          offset += data.length; // Increment by actual records returned
-          hasMore = data.length > 0; // Continue if we got any data
+          offset += data.length;
+          hasMore = data.length === BATCH_SIZE; // stop when we get a partial page
         }
       }
 
@@ -175,7 +183,15 @@ export default function PatientsPage() {
   }
 
   useEffect(() => {
-    loadPatients();
+    const abort = new AbortController();
+    const timer = setTimeout(() => {
+      if (!abort.signal.aborted) {
+        setError("Connection timed out — check your Supabase project is active");
+        setLoading(false);
+      }
+    }, 10000);
+    loadPatients().finally(() => clearTimeout(timer));
+    return () => { abort.abort(); clearTimeout(timer); };
   }, []);
 
   const filtered = useMemo(() => {
@@ -307,7 +323,6 @@ export default function PatientsPage() {
       <div className="app-section-header">
         <div>
           <div className="app-section-title">Patients</div>
-          <div className="app-section-subtitle">Search, add, and manage patient records</div>
         </div>
 
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
@@ -360,36 +375,47 @@ export default function PatientsPage() {
               </thead>
 
               <tbody>
-                {pageRows.map((p, index) => (
-                  <tr
-                    key={p.id}
-                    className={`data-table-row cursor-pointer ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
-                    onClick={() => router.push(`/patients/${p.id}/info`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        router.push(`/patients/${p.id}/info`);
-                      }
-                    }}
-                    tabIndex={0}
-                    role="link"
-                  >
-                    <td className="data-table-cell font-medium">{p.last_name ?? "-"}</td>
-                    <td className="data-table-cell">{p.first_name ?? "-"}</td>
-                    <td className="data-table-cell">{calcAge(p.birth_date)}</td>
-                    <td className="data-table-cell">{formatGenderShort(p.gender)}</td>
-                    <td className="data-table-cell">{p.phone ? formatPhoneLocal(p.phone) : "-"}</td>
-                    <td className="data-table-cell">{formatDateStandard(p.last_visit_date)}</td>
-                    <td className="data-table-cell-right num">{formatMoney(p.balance ?? 0)}</td>
-                  </tr>
-                ))}
-
-                {!loading && filtered.length === 0 && (
+                {loading ? (
                   <tr>
-                    <td colSpan={7} className="data-table-empty">
-                      No patients found.
+                    <td colSpan={7} className="py-12 text-center">
+                      <div className="flex justify-center">
+                        <Spinner />
+                      </div>
                     </td>
                   </tr>
+                ) : (
+                  <>
+                    {pageRows.map((p, index) => (
+                      <tr
+                        key={p.id}
+                        className={`data-table-row cursor-pointer ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                        onClick={() => router.push(`/patients/${p.id}/info`)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            router.push(`/patients/${p.id}/info`);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="link"
+                      >
+                        <td className="data-table-cell font-medium">{p.last_name ?? "-"}</td>
+                        <td className="data-table-cell">{p.first_name ?? "-"}</td>
+                        <td className="data-table-cell">{calcAge(p.birth_date)}</td>
+                        <td className="data-table-cell">{formatGenderShort(p.gender)}</td>
+                        <td className="data-table-cell">{p.phone ? formatPhoneLocal(p.phone) : "-"}</td>
+                        <td className="data-table-cell">{formatDateStandard(p.last_visit_date)}</td>
+                        <td className="data-table-cell-right num">{formatMoney(p.balance ?? 0)}</td>
+                      </tr>
+                    ))}
+                    {filtered.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="data-table-empty">
+                          No patients found.
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 )}
               </tbody>
             </table>

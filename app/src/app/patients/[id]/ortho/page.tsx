@@ -8,6 +8,7 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType, getOrthoOnlyReasons, getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow, Invoice } from "@/lib/types";
 import { formatDateStandard } from "@/lib/helpers";
+import { PageLoader } from "@/components/Spinner";
 
 /* Helpers */
 function num(n: unknown) {
@@ -500,11 +501,7 @@ export default function OrthoPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex-col-center justify-center min-h-screen">
-        <div className="text-muted">Loading…</div>
-      </div>
-    );
+    return <PageLoader text="Loading ortho records…" />;
   }
 
   return (
@@ -665,7 +662,7 @@ export default function OrthoPage() {
               </div>
 
               {entriesLoading ? (
-                <div className="text-center py-8 text-slate-500">Loading visits…</div>
+                <div className="flex justify-center py-8"><span className="loading-text">Loading visits…</span></div>
               ) : entries.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">No visits recorded yet.</div>
               ) : (

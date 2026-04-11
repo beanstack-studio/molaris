@@ -23,13 +23,15 @@ export function VoidPaymentModal({
       onDoubleClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="modal-panel">
-        <h2 className="modal-title">Void Payment</h2>
+        <div className="modal-header">
+          <h2 className="modal-title">Void Payment</h2>
+        </div>
 
         <div className="modal-body">
           <label className="form-field">
-            <span className="text-slate-700">Reason for voiding *</span>
+            <span className="text-slate-700 text-sm font-medium">Reason for voiding *</span>
             <textarea
-              className="min-h-[80px] rounded-lg border px-3 py-2"
+              className="field-textarea"
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}
               placeholder="E.g., Duplicate payment, customer request, etc."

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import { formatPhoneLocal } from "@/lib/helpers";
 import { Appointment, Patient, DentistRow } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
+import { PageLoader } from "@/components/Spinner";
 
 interface AppointmentWithRelations extends Appointment {
   patients?: Patient;
@@ -44,6 +46,7 @@ const formatTime12Hr = (time24: string): string => {
 };
 
 export default function AppointmentsPage() {
+  const router = useRouter();
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +60,15 @@ export default function AppointmentsPage() {
   const [sundayEndHour, setSundayEndHour] = useState(11);
 
   useEffect(() => {
-    Promise.all([loadAppointments(), loadDentists(), loadPatients(), loadClinicHours()]).finally(
-      () => setLoading(false)
+    const timeout = new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error("Connection timed out")), 10000)
     );
+    Promise.race([
+      Promise.all([loadAppointments(), loadDentists(), loadPatients(), loadClinicHours()]),
+      timeout,
+    ])
+      .catch((e) => setError(e.message || "Failed to load data"))
+      .finally(() => setLoading(false));
   }, []);
 
   const loadClinicHours = async () => {
@@ -79,6 +88,8 @@ export default function AppointmentsPage() {
 
   const loadAppointments = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push("/login"); return; }
       const { data, error: err } = await supabase
         .from("appointments")
         .select("*, patients(id, full_name, phone), dentists(id, full_name)")
@@ -149,9 +160,7 @@ export default function AppointmentsPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-slate-600">Loading appointments...</p>
-      </div>
+      <PageLoader text="Loading appointments…" />
     );
   }
 
@@ -160,7 +169,6 @@ export default function AppointmentsPage() {
       <div className="app-section-header">
         <div>
           <div className="app-section-title">Appointments</div>
-          <div className="app-section-subtitle">Manage patient appointments and calendar</div>
         </div>
         <button
           className="btn btn-primary"

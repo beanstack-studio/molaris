@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDateTimePH, formatPhoneLocal } from "@/lib/helpers";
+import { Spinner } from "@/components/Spinner";
 import { Message, MessageThread, Patient, Appointment } from "@/lib/types";
 import {
   getMessageThread,
@@ -198,7 +199,7 @@ export default function ChatWindow({ threadId, onThreadUpdated }: ChatWindowProp
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-muted">Loading conversation...</p>
+        <Spinner />
       </div>
     );
   }

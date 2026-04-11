@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
 import { MessageThread, Patient } from "@/lib/types";
 import ChatWindow from "./ChatWindow";
+import { Spinner } from "@/components/Spinner";
 
 export default function MessagesPage() {
   const [threads, setThreads] = useState<(MessageThread & { patients: Patient })[]>([]);
@@ -76,7 +77,7 @@ export default function MessagesPage() {
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="p-4 text-slate-600">Loading messages...</div>
+            <div className="p-6 flex justify-center"><Spinner size="h-8 w-8" /></div>
           ) : error ? (
             <div className="p-4 text-red-600">{error}</div>
           ) : threads.length === 0 ? (

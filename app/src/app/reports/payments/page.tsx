@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
+import { downloadCSV } from "@/lib/exportHelpers";
+import { PageLoader, Spinner } from "@/components/Spinner";
+
 
 export default function PaymentReportsPage() {
   const [loading, setLoading] = useState(true);
@@ -99,12 +102,7 @@ export default function PaymentReportsPage() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 
@@ -138,6 +136,23 @@ export default function PaymentReportsPage() {
       <div className="card">
         <div className="card-header">
           <div className="card-title">Outstanding Invoices</div>
+          <button
+            className="cancel-btn"
+            onClick={() =>
+              downloadCSV(
+                outstanding.map((inv) => ({
+                  "Invoice #": inv.invoice_number,
+                  "Total (₱)": inv.total,
+                  "Paid (₱)": inv.paid_amount,
+                  "Balance (₱)": inv.balance,
+                  Date: formatDateStandard(inv.created_at),
+                })),
+                "outstanding-invoices"
+              )
+            }
+          >
+            Download CSV
+          </button>
         </div>
         {outstanding.length > 0 ? (
           <div className="table-wrapper">
@@ -177,6 +192,24 @@ export default function PaymentReportsPage() {
       <div className="card">
         <div className="card-header">
           <div className="card-title">Recent Payments</div>
+          <button
+            className="cancel-btn"
+            onClick={() =>
+              downloadCSV(
+                payments.map((p) => ({
+                  "Transaction ID": p.transaction_id ?? "",
+                  "Amount (₱)": p.amount,
+                  Date: formatDateStandard(p.payment_date),
+                  Status: p.status,
+                  "Invoice ID": p.invoice_id ?? "",
+                  Reference: p.reference_number ?? "",
+                })),
+                "payments"
+              )
+            }
+          >
+            Download CSV
+          </button>
         </div>
         {payments.length > 0 ? (
           <div className="table-wrapper">

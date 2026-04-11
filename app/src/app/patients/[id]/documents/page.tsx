@@ -30,6 +30,8 @@ import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 import { generateCertificateHTML } from "@/lib/certificateGenerator";
 import { generateReferralHTML } from "@/lib/referralGenerator";
 import { openDocumentViewer } from "@/components/DocumentViewer";
+import { PageLoader } from "@/components/Spinner";
+
 
 export default function DocumentsPage() {
   const params = useParams();
@@ -348,12 +350,7 @@ export default function DocumentsPage() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 

@@ -26,7 +26,7 @@ export function ViewInvoiceModal({ viewingInvoice, payments, onClose }: Props) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
       onDoubleClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="max-h-screen overflow-y-auto rounded-2xl border bg-white w-full max-w-2xl">
+      <div className="max-h-screen overflow-y-auto rounded-2xl bg-white w-full max-w-2xl" style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}>
         <div className="modal-sticky-header">
           <div className="modal-title">Invoice {viewingInvoice.invoice_number}</div>
         </div>

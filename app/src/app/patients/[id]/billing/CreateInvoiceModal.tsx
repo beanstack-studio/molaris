@@ -2,6 +2,7 @@
 
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
 import type { Treatment, ServicePriceRow, OrthoEntry, OrthoEntryItem, OrthoCase } from "@/lib/types";
+import { EditModal } from "@/components/EditModal";
 
 function num(n: unknown) {
   const v = Number(n);
@@ -46,18 +47,9 @@ export function CreateInvoiceModal({
   subtotal, invoiceTotal,
   onCreateInvoice,
 }: Props) {
-  if (!open) return null;
-
   return (
-    <div
-      className="modal-container"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      onDoubleClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="modal-panel-wide">
-        <h2 className="modal-title">Create invoice</h2>
-
-        <div className="modal-body">
+    <EditModal open={open} title="Create invoice" onClose={onClose} wide>
+      <div className="grid gap-4">
           <div className="flex gap-3 items-end">
             <label className="flex-1 grid gap-1 text-sm">
               <span className="text-slate-700">Visit date</span>
@@ -78,7 +70,7 @@ export function CreateInvoiceModal({
               </select>
             </label>
             <button
-              className="h-10 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white disabled:opacity-50"
+              className="cancel-btn"
               disabled={!selectedVisitDate}
               onClick={() => setShowDiscount(!showDiscount)}
             >
@@ -178,7 +170,7 @@ export function CreateInvoiceModal({
                       <input
                         type="text"
                         placeholder="Discount code/description"
-                        className="h-9 rounded-lg border bg-white px-2 text-sm flex-1"
+                        className="input-standard flex-1"
                         value={discountDescription}
                         onChange={(e) => setDiscountDescription(e.target.value)}
                       />
@@ -186,7 +178,7 @@ export function CreateInvoiceModal({
                       <input
                         type="number"
                         placeholder="0.00"
-                        className="h-9 rounded-lg border bg-white px-2 text-sm w-24"
+                        className="input-standard w-24"
                         value={discountAmount}
                         onChange={(e) => setDiscountAmount(e.target.value)}
                         step="0.01"
@@ -202,7 +194,7 @@ export function CreateInvoiceModal({
             </div>
           )}
 
-          <div className="modal-footer">
+          <div className="flex justify-end gap-2 pt-2">
             <button className="cancel-btn" onClick={onClose}>
               Cancel
             </button>
@@ -214,8 +206,7 @@ export function CreateInvoiceModal({
               Create
             </button>
           </div>
-        </div>
       </div>
-    </div>
+    </EditModal>
   );
 }

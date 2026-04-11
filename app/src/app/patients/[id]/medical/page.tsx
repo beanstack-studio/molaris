@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import PatientTabs from "@/components/PatientTabs";
 import type { Patient, MedHist } from "@/lib/types";
 import { combineFullName } from "@/lib/helpers";
+import { PageLoader } from "@/components/Spinner";
+
 
 export default function Page() {
   const params = useParams();
@@ -114,12 +116,7 @@ export default function Page() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 

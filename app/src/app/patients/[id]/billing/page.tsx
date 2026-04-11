@@ -27,6 +27,8 @@ import { AddPaymentModal } from "./AddPaymentModal";
 import { VerifyPaymentModal } from "./VerifyPaymentModal";
 import { VoidPaymentModal } from "./VoidPaymentModal";
 import { ViewInvoiceModal } from "./ViewInvoiceModal";
+import { PageLoader, Spinner } from "@/components/Spinner";
+
 
 /* Helpers */
 function num(n: unknown) {
@@ -862,12 +864,7 @@ export default function BillingPage() {
   }
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        <div className="flex flex-col items-center gap-3">
-          <img src="/loading.gif" alt="Loading" className="h-12 w-12" />
-          <div className="text-sm">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 

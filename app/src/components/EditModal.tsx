@@ -5,11 +5,13 @@ export function EditModal({
   title,
   children,
   onClose,
+  wide = false,
 }: {
   open: boolean;
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  wide?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const backdropRef = useRef<HTMLDivElement | null>(null);
@@ -47,10 +49,11 @@ export function EditModal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-lg rounded-2xl border bg-white shadow-xl"
+        className={`${wide ? "w-full max-w-2xl" : "w-full max-w-lg"} rounded-2xl bg-white overflow-hidden`}
+        style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}
       >
-        <div className="border-b px-4 py-3">
-          <div className="table-title">{title}</div>
+        <div className="modal-header">
+          <div className="modal-title">{title}</div>
         </div>
 
         {/* Body scroll on small screens */}

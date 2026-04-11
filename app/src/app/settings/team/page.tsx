@@ -5,37 +5,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
+import { PageLoader, Spinner } from "@/components/Spinner";
+import { Toggle } from "@/components/Toggle";
 
-function TogglePill({
-  checked,
-  onChange,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={[
-        "relative inline-flex h-6 w-11 items-center rounded-full transition",
-        checked ? "bg-emerald-500" : "bg-slate-300",
-        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
-      ].join(" ")}
-      aria-label={checked ? "Active" : "Inactive"}
-    >
-      <span
-        className={[
-          "inline-block h-5 w-5 transform rounded-full bg-white transition",
-          checked ? "translate-x-5" : "translate-x-1",
-        ].join(" ")}
-      />
-    </button>
-  );
-}
+const TogglePill = Toggle;
 
 type DentistRow = {
   id: string;
@@ -57,7 +30,7 @@ type StaffRow = {
 function LoadingBlock() {
   return (
     <div className="flex items-center justify-center py-16">
-      <img src="/loading.gif" alt="Loading" className="h-12 w-12 opacity-70" />
+      <Spinner />
     </div>
   );
 }

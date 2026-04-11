@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { formatPhoneLocal } from "@/lib/helpers";
+import { PageLoader } from "@/components/Spinner";
+
 
 const PHONE_TYPES = ["Mobile", "Landline", "WhatsApp", "Viber"] as const;
 const CONTACT_TYPES = ["Email", "Website", "Instagram", "Facebook", "Messenger", "Twitter/X", "TikTok", "YouTube"] as const;
@@ -273,12 +275,7 @@ export default function ClinicProfileSettingsPage() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 

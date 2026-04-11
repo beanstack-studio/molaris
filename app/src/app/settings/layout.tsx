@@ -10,6 +10,7 @@ const tabs = [
   { label: "Team", href: "/settings/team" },
   { label: "Payment Modes", href: "/settings/payment-modes" },
   { label: "Document Templates", href: "/settings/document-templates" },
+  { label: "Website Controls", href: "/settings/website-controls" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -21,7 +22,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <div className="app-section-header">
           <div>
             <div className="app-section-title">Settings</div>
-            <div className="app-section-subtitle">Clinic configuration</div>
           </div>
         </div>
 

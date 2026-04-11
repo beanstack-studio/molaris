@@ -21,7 +21,6 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
         <div className="app-section-header">
           <div>
             <div className="app-section-title">Reports</div>
-            <div className="app-section-subtitle">Analyze clinic performance and financials</div>
           </div>
         </div>
 

@@ -7,6 +7,8 @@ import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
 import type { Attachment, Patient } from "@/lib/types";
 import { formatDateStandard, safeFileName, combineFullName, splitFullName } from "@/lib/helpers";
+import { PageLoader } from "@/components/Spinner";
+
 
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
 type AttachmentType = (typeof attachmentTypes)[number];
@@ -225,12 +227,7 @@ export default function AttachmentsPage() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 

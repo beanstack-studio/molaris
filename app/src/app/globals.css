@@ -1,4 +1,107 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/* html carries the solid fallback color (shows while bg image loads or as the canvas base).
+   body must be transparent so ThemeBackground (z:-1) isn't hidden behind a white body bg. */
+html {
+  background-color: var(--theme-bg-color, #bfdbfe);
+}
+body {
+  background-color: transparent;
+}
+
+/* ============================================================
+   ACCENT COLOR — controlled by --accent-hue + --accent-sat
+   Both are set at runtime by applyTheme() in themeHelpers.ts.
+   Themes: Ocean (hue 210, sat 70) | Spring (340, 60) | Forest (142, 55) | Sunset (22, 78)
+   Sat: 55–78 — lower = softer/muted, higher = vivid/bold
+   ============================================================ */
+:root {
+  /* Defaults match the Ocean theme. applyTheme() overrides all of these at runtime.
+     Lower sat = softer/muted (pink, green). Higher sat = vivid (blue, orange).
+     Lightness values ensure WCAG AA contrast on white backgrounds. */
+  --accent-hue: 210;
+  --accent-sat: 70%;
+  --theme-bg-blur: 0px;
+
+  --color-violet-50:  hsl(var(--accent-hue) 100% 97%);
+  --color-violet-100: hsl(var(--accent-hue)  91% 94%);
+  --color-violet-200: hsl(var(--accent-hue)  88% 86%);
+  --color-violet-300: hsl(var(--accent-hue)  84% 76%);
+  --color-violet-400: hsl(var(--accent-hue)  80% 64%);
+  --color-violet-500: hsl(var(--accent-hue) var(--accent-sat) 54%);
+  --color-violet-600: hsl(var(--accent-hue) var(--accent-sat) 44%);   /* primary buttons, active nav */
+  --color-violet-700: hsl(var(--accent-hue) var(--accent-sat) 36%);   /* table headers, links — AA on white */
+  --color-violet-800: hsl(var(--accent-hue) var(--accent-sat) 26%);
+  --color-violet-900: hsl(var(--accent-hue) var(--accent-sat) 18%);
+  --color-violet-950: hsl(var(--accent-hue) var(--accent-sat) 12%);
+
+  /* Semantic accent — themed dark text, readable on white and light backgrounds */
+  --accent-text: hsl(var(--accent-hue) var(--accent-sat) 36%);
+
+  /* Body text rendered directly on the theme background (not on a card).
+     Each theme sets this via applyTheme(). Ocean default = deep navy. */
+  --text-on-bg: #1e3a5f;
+
+  /* Theme background — overridden by applyTheme() */
+  --theme-bg-image: url('/bg/bg-ocean.png');
+  --theme-bg-color: #bfdbfe;
+}
+
+/* ============================================================
+   COLOR & THEME REFERENCE — where to change specific colors
+   ============================================================
+   THEME (4 themes: Ocean, Spring, Forest, Sunset):
+     → Edit themeHelpers.ts  THEMES array
+       - hue: color wheel angle (0-360)
+       - sat: saturation % (55 = muted/soft, 78 = vivid/bold)
+       - bgImage: url('/bg/bg-*.png')  ← image in app/public/bg/
+       - bgColor: solid hex fallback while image loads
+       - bgBlur: CSS blur radius e.g. "0px", "4px", "8px" (Forest = 8px)
+
+   SPECIFIC UI ELEMENTS:
+     Buttons (primary/save):       --color-violet-600  (line ~24)
+     Table headers text:           --color-violet-700  (line ~25)
+     Active nav pill background:   --color-violet-600
+     Active tab underline:         --color-violet-500
+     Form input focus ring:        --color-violet-500/20
+     Hover row tint:               line ~194 hsl(var(--accent-hue) 91% 95%)
+     Spinner arc color:            .spinner-arc → accent-sat 44%
+     Loading text color:           .loading-text → var(--accent-text)
+     Page background image:        ThemeBackground component (layout.tsx) → var(--theme-bg-image)
+     Card opacity (glass effect):  .card → rgba(255,255,255,X) — line ~498
+
+   ALSO THEMED (inherit accent color automatically):
+     Page section title:           .app-section-title → var(--accent-text)
+     Nav logo text:                .topnav-logo → var(--accent-text)
+     Loading "Loading…" text:      .loading-text → var(--accent-text)
+     Spinner arc:                  .spinner-arc → accent-sat 44%
+
+   TEXT ON THEMED BACKGROUND (not on a card):
+     Subtitle / muted text on bg:  .app-section-subtitle → var(--text-on-bg) @ 75% opacity
+     Inactive tab labels:          .tab-item → var(--text-on-bg) @ 65% opacity
+     → Change textOnBg in themeHelpers.ts per theme
+
+   NEUTRAL (intentionally NOT themed — for legibility on all backgrounds):
+     Card titles:                  .card-title → text-slate-800
+     Body / label text:            text-slate-700
+     Subtitle / muted text:        text-slate-400–500
+     Success indicators:           text-green-700 / bg-green-100
+     Warning indicators:           text-orange-700 / bg-orange-100
+     Error / danger:               text-red-600 / bg-red-50
+   ============================================================ */
+
+/* =========================
+   Native <select> global reset — removes OS chrome on ALL select elements
+   themed arrow uses slate-500 color (neutral, readable on white/70 bg)
+========================= */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 2rem;
+}
 
 /* =========================
    App Section Layout
@@ -13,12 +116,11 @@
 }
 
 .app-section-title {
-  @apply text-xl font-bold text-slate-800;
+  @apply text-xl font-bold;
+  color: var(--accent-text);
 }
 
-.app-section-subtitle {
-  @apply text-sm text-slate-400;
-}
+/* .app-section-subtitle intentionally removed — subtitles were deleted from all pages */
 
 .dentition-section-title {
   @apply text-lg font-semibold text-slate-800;
@@ -33,15 +135,22 @@
 ========================= */
 
 .tabs {
-  @apply flex gap-1 border-b border-slate-100 mb-4;
+  @apply flex gap-1 mb-4 flex-wrap;
 }
 
 .tab-item {
-  @apply px-3 py-2 text-sm font-medium rounded-t-md border-b-2 border-transparent text-slate-400 hover:text-slate-700 transition-colors;
+  @apply px-4 py-2 text-sm font-medium rounded-lg transition-all;
+  color: var(--text-on-bg);
+  background: rgba(255, 255, 255, 0.25);
+}
+.tab-item:hover {
+  background: rgba(255, 255, 255, 0.50);
 }
 
 .tab-item-active {
-  @apply border-violet-500 text-violet-600;
+  background: hsl(var(--accent-hue) var(--accent-sat) 44% / 0.50);
+  color: var(--text-on-bg);
+  font-weight: 600;
 }
 
 /* =========================
@@ -102,19 +211,25 @@
 }
 
 .form-input-full-focus {
-  @apply w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply w-full px-3 py-2 border border-violet-100 bg-white/70 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .modal-panel-raised {
-  @apply bg-white rounded-2xl shadow-xl p-6 w-full max-w-md;
+  @apply bg-white rounded-2xl p-6 w-full max-w-md;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .form-textarea {
-  @apply rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply rounded-lg border border-violet-100 bg-white/70 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .form-select {
-  @apply h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-10 rounded-lg border border-violet-100 bg-white/70 px-3 pr-8 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
 
 .form-error {
@@ -146,7 +261,7 @@
 }
 
 .data-table-row {
-  @apply border-b border-slate-100 hover:bg-violet-50/30 transition-colors;
+  @apply border-b border-slate-100 transition-colors;
 }
 
 .data-table-row-even {
@@ -157,8 +272,14 @@
   @apply bg-slate-50/40;
 }
 
+tr.data-table-row:hover,
+tr.data-table-row-even:hover,
+tr.data-table-row-odd:hover {
+  background-color: hsl(var(--accent-hue) 91% 95% / 0.5);
+}
+
 .data-table-row-compact {
-  @apply border-b border-slate-100 hover:bg-violet-50/30 transition-colors;
+  @apply border-b border-slate-100 transition-colors;
 }
 
 .data-table-row-compact-even {
@@ -167,6 +288,12 @@
 
 .data-table-row-compact-odd {
   @apply bg-slate-50/40;
+}
+
+tr.data-table-row-compact:hover,
+tr.data-table-row-compact-even:hover,
+tr.data-table-row-compact-odd:hover {
+  background-color: hsl(var(--accent-hue) 91% 95% / 0.5);
 }
 
 .data-table-cell {
@@ -206,21 +333,51 @@
 }
 
 /* Table Column Width Utilities */
-.col-10 { width: 10%; }
-.col-11 { width: 11%; }
-.col-12 { width: 12%; }
-.col-13 { width: 13%; }
-.col-14 { width: 14%; }
-.col-15 { width: 15%; }
-.col-16 { width: 16%; }
-.col-17 { width: 17%; }
-.col-18 { width: 18%; }
-.col-20 { width: 20%; }
-.col-25 { width: 25%; }
-.col-30 { width: 30%; }
-.col-35 { width: 35%; }
-.col-40 { width: 40%; }
-.col-50 { width: 50%; }
+.col-10 {
+  width: 10%;
+}
+.col-11 {
+  width: 11%;
+}
+.col-12 {
+  width: 12%;
+}
+.col-13 {
+  width: 13%;
+}
+.col-14 {
+  width: 14%;
+}
+.col-15 {
+  width: 15%;
+}
+.col-16 {
+  width: 16%;
+}
+.col-17 {
+  width: 17%;
+}
+.col-18 {
+  width: 18%;
+}
+.col-20 {
+  width: 20%;
+}
+.col-25 {
+  width: 25%;
+}
+.col-30 {
+  width: 30%;
+}
+.col-35 {
+  width: 35%;
+}
+.col-40 {
+  width: 40%;
+}
+.col-50 {
+  width: 50%;
+}
 
 .num {
   @apply tabular-nums;
@@ -264,25 +421,33 @@
 }
 
 .entry-row-select {
-  @apply w-1/4 flex-shrink-0 h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply w-1/4 flex-shrink-0 h-10 rounded-lg border border-violet-100 bg-white/70 px-3 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .entry-row-input {
   @apply flex-1 min-w-0 h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
 }
 
-/* Toggle switch */
+/* Toggle switch (ortho charge-extra toggle in ortho page) */
 .switch-btn {
-  @apply h-7 w-12 rounded-full transition-colors flex items-center;
+  @apply h-6 w-11 rounded-full transition-colors flex items-center cursor-pointer;
 }
-.switch-btn-on  { @apply bg-violet-500; }
-.switch-btn-off { @apply bg-slate-200; }
+.switch-btn-on {
+  @apply bg-violet-600;
+}
+.switch-btn-off {
+  @apply bg-slate-200;
+}
 
 .switch-thumb {
-  @apply h-5 w-5 rounded-full bg-white shadow transition transform;
+  @apply h-5 w-5 rounded-full bg-white shadow transition-transform;
 }
-.switch-thumb-on  { transform: translateX(24px); }
-.switch-thumb-off { transform: translateX(2px); }
+.switch-thumb-on {
+  transform: translateX(22px);
+}
+.switch-thumb-off {
+  transform: translateX(2px);
+}
 
 /* Modal button layout */
 .modal-actions {
@@ -336,7 +501,7 @@
   z-index: 40;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgb(237 233 254 / 0.8); /* violet-100/80 */
+  border-bottom: 1px solid hsl(var(--accent-hue) 91% 95% / 0.8);
   margin-bottom: 1rem;
 }
 
@@ -383,7 +548,16 @@
 }
 
 .loading-text {
-  @apply text-sm text-slate-400;
+  font-size: 0.875rem;
+  color: var(--accent-text);
+}
+
+/* Spinner arcs — theme-aware via --accent-hue */
+.spinner-track {
+  stroke: hsl(var(--accent-hue) 80% 90%);
+}
+.spinner-arc {
+  stroke: hsl(var(--accent-hue) var(--accent-sat) 44%);
 }
 
 .not-found-screen {
@@ -402,17 +576,10 @@
    PAGE LAYOUT
    ======================================== */
 
-.page-content {
-  @apply p-4 md:p-6;
-}
-
-.page-sections {
-  @apply grid gap-5 md:gap-6 p-4 md:p-6;
-}
-
-/* Primary card — glass morphism */
+/* Primary card — glass morphism with top-to-bottom white gradient opacity */
 .card {
-  @apply rounded-2xl border border-white/70 bg-white/85 backdrop-blur-sm px-5 pt-4 pb-6 shadow-md;
+  @apply rounded-2xl border border-white/70 backdrop-blur-sm px-5 pt-4 pb-6 shadow-md;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.5));
 }
 
 /* Stat/KPI card */
@@ -460,11 +627,11 @@
 
 /* Inputs */
 .field-input {
-  @apply h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-10 w-full rounded-lg border border-violet-100 bg-white/70 px-3 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .field-textarea {
-  @apply min-h-[88px] rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply min-h-[88px] rounded-lg border border-violet-100 bg-white/70 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .field-input-readonly {
@@ -472,7 +639,7 @@
 }
 
 .field-input-white {
-  @apply rounded-xl border border-slate-200 bg-white px-3 py-2;
+  @apply rounded-lg border border-violet-100 bg-white/70 px-3 py-2 text-slate-700;
 }
 
 /* Modal footer */
@@ -506,7 +673,7 @@
 }
 
 .cancel-btn {
-  @apply h-10 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-60 transition-colors;
+  @apply h-10 rounded-xl border border-violet-100 bg-white/80 px-5 text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-800 disabled:opacity-60 transition-colors;
 }
 
 .total-row {
@@ -555,7 +722,8 @@
 }
 
 .topnav-logo {
-  @apply flex items-center gap-2 text-sm font-bold text-slate-800 hover:text-violet-600 transition-colors;
+  @apply flex items-center gap-2 text-sm font-bold transition-colors;
+  color: var(--accent-text);
 }
 
 .topnav-links {
@@ -587,19 +755,31 @@
 }
 
 .modal-wrapper {
-  @apply bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md;
+  @apply bg-white rounded-2xl overflow-hidden w-full max-w-md;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .modal-panel {
-  @apply w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl;
+  @apply w-full max-w-md rounded-2xl bg-white overflow-hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .modal-panel-wide {
-  @apply w-full max-w-2xl rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl;
+  @apply w-full max-w-2xl rounded-2xl bg-white overflow-hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Themed modal header — 60% opacity accent color, white text */
+.modal-header {
+  @apply px-6 py-4;
+  background: hsl(var(--accent-hue) var(--accent-sat) 44% / 0.60);
+  border-bottom: 1px solid hsl(var(--accent-hue) var(--accent-sat) 44% / 0.20);
 }
 
 .modal-sticky-header {
-  @apply sticky top-0 border-b border-slate-100 bg-white p-4;
+  @apply sticky top-0 px-6 py-4;
+  background: hsl(var(--accent-hue) var(--accent-sat) 44% / 0.60);
+  border-bottom: 1px solid hsl(var(--accent-hue) var(--accent-sat) 44% / 0.20);
 }
 
 .form-field {
@@ -616,38 +796,88 @@
 }
 
 /* Grid layouts */
-.grid-gap-3  { @apply grid gap-3; }
-.grid-gap-4  { @apply grid gap-4; }
-.grid-gap-1  { @apply grid gap-1; }
-.grid-gap-2  { @apply grid gap-2 sm:grid-cols-2; }
+.grid-gap-3 {
+  @apply grid gap-3;
+}
+.grid-gap-4 {
+  @apply grid gap-4;
+}
+.grid-gap-1 {
+  @apply grid gap-1;
+}
+.grid-gap-2 {
+  @apply grid gap-2 sm:grid-cols-2;
+}
 
 /* Flex layouts */
-.flex-between              { @apply flex items-center justify-between; }
-.flex-between-gap-2        { @apply flex items-center justify-between gap-2; }
-.flex-between-gap-3        { @apply flex items-center justify-between gap-3; }
-.flex-between-gap-4        { @apply flex items-center justify-between gap-4; }
-.flex-start-gap-2          { @apply flex items-start gap-2; }
-.flex-start-gap-3          { @apply flex items-start justify-between gap-3; }
-.flex-center-gap           { @apply flex items-center gap-3; }
-.flex-center-gap-2         { @apply flex items-center gap-2; }
-.flex-center-gap-3         { @apply flex items-center gap-3; }
-.flex-col-gap-3            { @apply flex flex-col gap-3; }
-.flex-col-center           { @apply flex flex-col items-center; }
-.flex-col-sm-row           { @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between; }
-.flex-col-md-row           { @apply flex flex-col gap-3 md:flex-row md:items-center; }
-.flex-row-md-col           { @apply flex gap-3 md:flex-col; }
-.flex-wrap-gap             { @apply flex flex-wrap gap-2; }
-.flex-center-gap-sm        { @apply flex items-center gap-1; }
-.flex-between-items-start  { @apply flex items-start justify-between; }
-.text-label-block          { @apply block text-slate-600 font-medium; }
-.overflow-x-auto-container { @apply overflow-x-auto; }
+.flex-between {
+  @apply flex items-center justify-between;
+}
+.flex-between-gap-2 {
+  @apply flex items-center justify-between gap-2;
+}
+.flex-between-gap-3 {
+  @apply flex items-center justify-between gap-3;
+}
+.flex-between-gap-4 {
+  @apply flex items-center justify-between gap-4;
+}
+.flex-start-gap-2 {
+  @apply flex items-start gap-2;
+}
+.flex-start-gap-3 {
+  @apply flex items-start justify-between gap-3;
+}
+.flex-center-gap {
+  @apply flex items-center gap-3;
+}
+.flex-center-gap-2 {
+  @apply flex items-center gap-2;
+}
+.flex-center-gap-3 {
+  @apply flex items-center gap-3;
+}
+.flex-col-gap-3 {
+  @apply flex flex-col gap-3;
+}
+.flex-col-center {
+  @apply flex flex-col items-center;
+}
+.flex-col-sm-row {
+  @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+}
+.flex-col-md-row {
+  @apply flex flex-col gap-3 md:flex-row md:items-center;
+}
+.flex-row-md-col {
+  @apply flex gap-3 md:flex-col;
+}
+.flex-wrap-gap {
+  @apply flex flex-wrap gap-2;
+}
+.flex-center-gap-sm {
+  @apply flex items-center gap-1;
+}
+.flex-between-items-start {
+  @apply flex items-start justify-between;
+}
+.text-label-block {
+  @apply block text-slate-600 font-medium;
+}
+.overflow-x-auto-container {
+  @apply overflow-x-auto;
+}
 
 .table-wrapper {
   @apply mt-4 overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-md;
 }
 
-.form-grid-3 { @apply mt-3 grid gap-3 sm:grid-cols-3; }
-.form-grid-2 { @apply mt-3 grid gap-3 sm:grid-cols-2; }
+.form-grid-3 {
+  @apply mt-3 grid gap-3 sm:grid-cols-3;
+}
+.form-grid-2 {
+  @apply mt-3 grid gap-3 sm:grid-cols-2;
+}
 
 /* Address row: Street (50%) + City + Province + Zip */
 .address-grid {
@@ -659,8 +889,12 @@
   @apply mt-3 grid grid-cols-2 gap-4 text-xs text-slate-600;
 }
 
-.legend-item      { @apply flex items-center gap-2; }
-.legend-indicator { @apply inline-block w-4 h-4 rounded; }
+.legend-item {
+  @apply flex items-center gap-2;
+}
+.legend-indicator {
+  @apply inline-block w-4 h-4 rounded;
+}
 
 .error-message-red {
   @apply mb-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600;
@@ -670,26 +904,37 @@
    GRID VARIANTS
    ======================================== */
 
-.two-col-grid          { @apply grid gap-4 grid-cols-2; }
-.grid-gap-4-cols-3     { @apply grid gap-4 grid-cols-3; }
-.grid-gap-4-cols-4     { @apply grid gap-4 grid-cols-4; }
-.form-field-wrapper    { @apply grid gap-1 text-sm; }
-.inline-flex-items-center-gap-2 { @apply inline-flex items-center gap-2; }
+.two-col-grid {
+  @apply grid gap-4 grid-cols-2;
+}
+.grid-gap-4-cols-3 {
+  @apply grid gap-4 grid-cols-3;
+}
+.grid-gap-4-cols-4 {
+  @apply grid gap-4 grid-cols-4;
+}
+.form-field-wrapper {
+  @apply grid gap-1 text-sm;
+}
+.inline-flex-items-center-gap-2 {
+  @apply inline-flex items-center gap-2;
+}
 
 /* ========================================
-   INPUT STYLES
+   INPUT STYLES — flat + themed
+   bg-white/70 = sits lightly on cards; violet-100 border follows theme
    ======================================== */
 
 .input-standard {
-  @apply h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-10 rounded-lg border border-violet-100 bg-white/70 px-3 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .input-standard-sm {
-  @apply h-9 rounded-xl border border-slate-200 px-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-9 rounded-lg border border-violet-100 px-2 bg-white/70 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .textarea-standard {
-  @apply min-h-[88px] rounded-xl border border-slate-200 px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply min-h-[88px] rounded-lg border border-violet-100 px-3 py-2 bg-white/70 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 /* ========================================
@@ -700,18 +945,32 @@
   @apply text-xs font-semibold text-slate-400 uppercase mb-2;
 }
 
-.text-field-label  { @apply text-sm font-medium text-slate-600; }
-.field-sublabel    { @apply text-xs font-semibold text-slate-500; }
+.text-field-label {
+  @apply text-sm font-medium text-slate-600;
+}
+.field-sublabel {
+  @apply text-xs font-semibold text-slate-500;
+}
 
 /* ========================================
    CONTAINERS
    ======================================== */
 
-.container-input-slate-50         { @apply px-3 py-2 rounded-xl bg-slate-50 text-sm text-slate-500; }
-.container-center-sm-slate-500    { @apply p-3 text-center text-sm text-slate-400; }
-.flex-wrap-gap-2-mt-2             { @apply mt-2 flex flex-wrap gap-2; }
-.flex-wrap-items-center-justify-between { @apply flex flex-wrap items-center justify-between gap-3; }
-.container-bg-white-rounded-shadow { @apply bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6; }
+.container-input-slate-50 {
+  @apply px-3 py-2 rounded-xl bg-slate-50 text-sm text-slate-500;
+}
+.container-center-sm-slate-500 {
+  @apply p-3 text-center text-sm text-slate-400;
+}
+.flex-wrap-gap-2-mt-2 {
+  @apply mt-2 flex flex-wrap gap-2;
+}
+.flex-wrap-items-center-justify-between {
+  @apply flex flex-wrap items-center justify-between gap-3;
+}
+.container-bg-white-rounded-shadow {
+  @apply bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6;
+}
 
 .input-sm-text-sm {
   @apply h-8 rounded-lg border border-slate-200 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
@@ -725,10 +984,12 @@
   @apply overflow-y-auto max-h-96 rounded-xl border border-slate-100 bg-white;
 }
 
-.spacing-vertical-lg { @apply space-y-4; }
+.spacing-vertical-lg {
+  @apply space-y-4;
+}
 
 .form-select-standard {
-  @apply h-9 w-40 rounded-xl border border-slate-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-9 w-40 rounded-lg border border-violet-100 bg-white/70 px-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .empty-state {
@@ -739,28 +1000,46 @@
   @apply rounded-xl border border-violet-100 bg-violet-50/60 p-3 space-y-2;
 }
 
-.text-muted    { @apply text-sm text-slate-500; }
-.text-muted-sm { @apply text-sm text-slate-400; }
-.text-muted-xs { @apply text-xs text-slate-400; }
-.text-caption  { @apply text-xs text-slate-400; }
+.text-muted {
+  @apply text-sm text-slate-500;
+}
+.text-muted-sm {
+  @apply text-sm text-slate-400;
+}
+.text-muted-xs {
+  @apply text-xs text-slate-400;
+}
+.text-caption {
+  @apply text-xs text-slate-400;
+}
 
 /* ========================================
    TABLE CELL UTILITIES
    ======================================== */
 
-.th-left  { @apply px-4 py-2 text-left font-semibold text-violet-700; }
-.th-right { @apply px-4 py-2 text-right font-semibold text-violet-700; }
-.td-cell  { @apply px-4 py-2; }
+.th-left {
+  @apply px-4 py-2 text-left font-semibold text-violet-700;
+}
+.th-right {
+  @apply px-4 py-2 text-right font-semibold text-violet-700;
+}
+.td-cell {
+  @apply px-4 py-2;
+}
 
 /* ========================================
    FLEX / INPUT UTILITIES
    ======================================== */
 
-.centered-cell { @apply flex items-center justify-center; }
-.inline-row    { @apply flex items-center gap-2; }
+.centered-cell {
+  @apply flex items-center justify-center;
+}
+.inline-row {
+  @apply flex items-center gap-2;
+}
 
 .compact-input {
-  @apply w-full rounded-xl border border-slate-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply w-full rounded-lg border border-violet-100 bg-white/70 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .readonly-input {
@@ -771,66 +1050,96 @@
    TYPOGRAPHY HELPERS
    ======================================== */
 
-.empty-state-hint { @apply text-sm text-slate-400 mt-2; }
-.modal-title      { @apply text-lg font-bold text-slate-800; }
-.field-full-row   { @apply grid gap-1 col-span-2; }
+.empty-state-hint {
+  @apply text-sm text-slate-400 mt-2;
+}
+.modal-title {
+  @apply text-base font-semibold text-white;
+}
+.field-full-row {
+  @apply grid gap-1 col-span-2;
+}
 
 /* ========================================
    PAGE & LAYOUT
    ======================================== */
 
-/* Subtle gradient background so glass cards stand out */
+/* Background image is now handled globally by ThemeBackground component in layout.tsx.
+   .page-bg is kept for pages that need min-height: 100vh. */
 .page-bg {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f3ff 0%, #fafafa 50%, #eff6ff 100%);
 }
 
 /* ========================================
    TABLE UTILITIES
    ======================================== */
 
-.cell-sm       { @apply py-2 px-3; }
-.cell-sm-right { @apply py-2 px-3 text-right; }
-.divider-rows  { @apply divide-y divide-slate-100; }
+.cell-sm {
+  @apply py-2 px-3;
+}
+.cell-sm-right {
+  @apply py-2 px-3 text-right;
+}
+.divider-rows {
+  @apply divide-y divide-slate-100;
+}
 
 /* ========================================
    FLEX ROW VARIANTS
    ======================================== */
 
-.action-row      { @apply flex gap-2; }
-.section-columns { @apply flex gap-4; }
-.detail-row      { @apply flex justify-between; }
+.action-row {
+  @apply flex gap-2;
+}
+.section-columns {
+  @apply flex gap-4;
+}
+.detail-row {
+  @apply flex justify-between;
+}
 
 /* ========================================
    TYPOGRAPHY
    ======================================== */
 
-.modal-heading  { @apply text-lg font-bold text-slate-800 mb-4; }
-.item-value     { @apply text-sm font-semibold text-slate-800; }
-.hint-text      { @apply text-xs text-slate-400; }
-.section-heading { @apply mb-4 text-lg font-bold text-slate-800; }
+.modal-heading {
+  @apply text-lg font-bold text-slate-800 mb-4;
+}
+.item-value {
+  @apply text-sm font-semibold text-slate-800;
+}
+.hint-text {
+  @apply text-xs text-slate-400;
+}
+.section-heading {
+  @apply mb-4 text-lg font-bold text-slate-800;
+}
 
 /* ========================================
    TOOTH CHART
    ======================================== */
 
-.tooth-section-label { @apply text-xs text-slate-400 text-center mt-0.5; }
-.tooth-divider       { @apply w-3 shrink-0 border-l-2 border-slate-100; }
+.tooth-section-label {
+  @apply text-xs text-slate-400 text-center mt-0.5;
+}
+.tooth-divider {
+  @apply w-3 shrink-0 border-l-2 border-slate-100;
+}
 
 /* ========================================
    FULL-WIDTH INPUTS
    ======================================== */
 
 .input-full {
-  @apply h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-10 w-full rounded-lg border border-violet-100 bg-white/70 px-3 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .textarea-input {
-  @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply w-full rounded-lg border border-violet-100 bg-white/70 px-3 py-2 text-sm text-slate-700 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .input-xs {
-  @apply rounded-lg border border-slate-200 px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply rounded-md border border-violet-100 px-2 py-1 text-sm bg-white/70 text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
 }
 
 .input-flex-sm {
@@ -845,14 +1154,20 @@
   @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
 }
 
-.input-row { @apply flex gap-2 items-center; }
+.input-row {
+  @apply flex gap-2 items-center;
+}
 
 /* ========================================
    MODAL STRUCTURE
    ======================================== */
 
-.modal-body   { @apply mt-4 grid gap-4; }
-.modal-footer { @apply flex justify-end gap-2; }
+.modal-body {
+  @apply p-6 grid gap-4;
+}
+.modal-footer {
+  @apply px-6 pb-6 flex justify-end gap-2;
+}
 
 /* ========================================
    STATUS / ALERT BOXES
@@ -886,12 +1201,24 @@
    BADGES
    ======================================== */
 
-.badge           { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
-.badge-secondary { @apply bg-slate-100 text-slate-600; }
-.badge-success   { @apply bg-emerald-50 text-emerald-600; }
-.badge-warning   { @apply bg-amber-50 text-amber-600; }
-.badge-danger    { @apply bg-red-50 text-red-600; }
-.badge-info      { @apply bg-violet-50 text-violet-600; }
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+.badge-secondary {
+  @apply bg-slate-100 text-slate-600;
+}
+.badge-success {
+  @apply bg-emerald-50 text-emerald-600;
+}
+.badge-warning {
+  @apply bg-amber-50 text-amber-600;
+}
+.badge-danger {
+  @apply bg-red-50 text-red-600;
+}
+.badge-info {
+  @apply bg-violet-50 text-violet-600;
+}
 
 /* ========================================
    FORM TEXTAREA

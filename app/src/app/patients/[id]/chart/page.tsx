@@ -7,6 +7,8 @@ import PatientTabs from "@/components/PatientTabs";
 import { supabase } from "@/lib/supabaseClient";
 import type { ChartEntry, ToothStatusRow, Patient } from "@/lib/types";
 import { formatDateStandard, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
+import { PageLoader } from "@/components/Spinner";
+
 
 export default function ChartPage() {
   const params = useParams();
@@ -259,12 +261,7 @@ export default function ChartPage() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-container">
-          <img src="/loading.gif" alt="Loading" className="loading-icon" />
-          <div className="loading-text">Loading…</div>
-        </div>
-      </div>
+      <PageLoader />
     );
   }
 
@@ -409,7 +406,7 @@ export default function ChartPage() {
 
                 <div className="mt-3 flex justify-center">
                   <button
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    className="save-btn"
                     disabled={busy || selectedTooth === null}
                     onClick={() => pendingStatus && saveToothStatus(pendingStatus)}
                   >

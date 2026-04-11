@@ -22,18 +22,26 @@ export default function TopNav({
   const router = useRouter();
   const pathname = usePathname();
   const [busy, setBusy] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  // null = show emoji fallback. Populated from Supabase (and cached in localStorage).
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState(title);
 
-  // Fetch clinic logo and name on mount
   useEffect(() => {
+    // Show cached logo immediately (no flash of emoji on repeat visits)
+    const cached = localStorage.getItem("clinic-logo-url");
+    if (cached) setLogoSrc(cached);
+
+    // Fetch latest from Supabase and update cache
     supabase
       .from("clinic_profile")
       .select("logo_url, clinic_name")
       .limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) {
-          if (data[0].logo_url) setLogoUrl(data[0].logo_url);
+          if (data[0].logo_url) {
+            setLogoSrc(data[0].logo_url);
+            localStorage.setItem("clinic-logo-url", data[0].logo_url);
+          }
           if (data[0].clinic_name) setClinicName(data[0].clinic_name);
         }
       });
@@ -43,23 +51,26 @@ export default function TopNav({
   useEffect(() => {
     function handleProfileUpdate(e: Event) {
       const { logoUrl: newLogo, clinicName: newName } = (e as CustomEvent).detail ?? {};
-      if (newLogo) setLogoUrl(newLogo);
+      if (newLogo) {
+        setLogoSrc(newLogo);
+        localStorage.setItem("clinic-logo-url", newLogo);
+      }
       if (newName) setClinicName(newName);
     }
     window.addEventListener("clinicProfileUpdated", handleProfileUpdate);
     return () => window.removeEventListener("clinicProfileUpdated", handleProfileUpdate);
   }, []);
 
-  // Update browser favicon — only remove app-managed links to avoid disturbing React's DOM
+  // Keep browser favicon in sync — updates whenever logoSrc changes
   useEffect(() => {
-    if (!logoUrl) return;
+    if (!logoSrc) return;
     document.querySelectorAll("link[data-app-favicon]").forEach((el) => el.remove());
     const link = document.createElement("link");
     link.rel = "icon";
     link.setAttribute("data-app-favicon", "true");
-    link.href = logoUrl;
+    link.href = logoSrc;
     document.head.appendChild(link);
-  }, [logoUrl]);
+  }, [logoSrc]);
 
   async function signOut() {
     setBusy(true);
@@ -141,12 +152,8 @@ export default function TopNav({
         <div className="topnav-inner">
           {/* Logo/Home */}
           <Link href="/dashboard" className="topnav-logo">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt="Clinic logo"
-                className="h-8 w-8 rounded-lg object-contain"
-              />
+            {logoSrc ? (
+              <img src={logoSrc} alt="Clinic logo" className="h-8 w-8 rounded-lg object-contain" />
             ) : (
               <span>🦷</span>
             )}

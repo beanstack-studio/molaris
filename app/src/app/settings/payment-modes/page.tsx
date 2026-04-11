@@ -3,32 +3,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { PaymentMode } from "@/lib/types";
-
-function TogglePill({
-  checked,
-  onChange,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={() => onChange(!checked)}
-      disabled={disabled}
-      className={`inline-flex h-6 w-11 items-center rounded-full transition ${
-        checked ? "bg-emerald-500" : "bg-slate-300"
-      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-    >
-      <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
-          checked ? "translate-x-5" : "translate-x-0.5"
-        }`}
-      />
-    </button>
-  );
-}
+import { PageLoader, Spinner } from "@/components/Spinner";
+import { Toggle } from "@/components/Toggle";
+const TogglePill = Toggle;
 
 export default function PaymentModesSettingsPage() {
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
@@ -138,12 +115,7 @@ export default function PaymentModesSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-600">
-        <div className="flex flex-col items-center gap-3">
-          <img src="/loading.gif" alt="Loading" className="h-12 w-12" />
-          <div className="text-sm">Loading payment modes…</div>
-        </div>
-      </div>
+      <PageLoader text="Loading payment modes…" />
     );
   }
 
