@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType } from "@/lib/visitReasonHelpers";
+import { EditModal } from "@/components/EditModal";
 import type { Patient, DentistRow } from "@/lib/types";
 
 const PH_HOLIDAYS_2026 = [
@@ -88,29 +89,19 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
       : [8, 9, 10, 11, 12, 14, 15, 16];
   }
 
-  if (!open) return null;
-
   return (
-    <div
-      className="modal-container"
-      onDoubleClick={onClose}
-    >
-      <div
-        className="modal-panel-raised"
-        onDoubleClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="modal-heading">Create Appointment</h3>
-
+    <EditModal open={open} title="Create appointment" onClose={onClose}>
+      <div className="grid gap-4">
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3">
+          <div className="rounded-lg bg-red-50 border border-red-100 p-3">
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
-        <div className="space-y-4">
-          {/* Patient - Searchable */}
-          <div className="relative">
-            <label className="input-label">Patient *</label>
+        {/* Patient - Searchable */}
+        <div className="relative">
+          <label className="grid gap-1 text-sm">
+            <span className="text-slate-700">Patient *</span>
             <input
               type="text"
               value={patientSearchInput}
@@ -119,107 +110,105 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
                 setShowPatientDropdown(e.target.value.length >= 3);
               }}
               onBlur={() => setTimeout(() => setShowPatientDropdown(false), 200)}
-              className="input-full"
+              className="input-standard"
               placeholder="Start typing to search"
             />
-            {showPatientDropdown && patientSearchInput.length >= 3 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                {(() => {
-                  const filtered = patients.filter((p) =>
-                    p.full_name?.toLowerCase().includes(patientSearchInput.toLowerCase())
-                  );
-                  return filtered.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-slate-500">No matches for "{patientSearchInput}"</div>
-                  ) : (
-                    filtered.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          setFormData({ ...formData, patientId: p.id });
-                          setPatientSearchInput(p.full_name || "");
-                          setShowPatientDropdown(false);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm text-slate-700"
-                      >
-                        {p.full_name}
-                      </button>
-                    ))
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-
-          {/* Date */}
-          <DatePickerField
-            label="Date *"
-            value={formData.appointmentDate}
-            onChange={(val) => setFormData({ ...formData, appointmentDate: val })}
-            inputRef={dateRef}
-            variant="case-modal"
-          />
-
-          {/* Time */}
-          <div>
-            <label className="input-label">Time *</label>
-            <select
-              value={formData.appointmentTime}
-              onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })}
-              className="input-full"
-            >
-              {getValidHours(formData.appointmentDate).map((hour) => {
-                const timeStr = `${String(hour).padStart(2, "0")}:00`;
-                return (
-                  <option key={hour} value={timeStr}>{formatTime12Hr(timeStr)}</option>
+          </label>
+          {showPatientDropdown && patientSearchInput.length >= 3 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+              {(() => {
+                const filtered = patients.filter((p) =>
+                  p.full_name?.toLowerCase().includes(patientSearchInput.toLowerCase())
                 );
-              })}
-            </select>
-          </div>
-
-          {/* Dentist */}
-          <div>
-            <label className="input-label">Dentist (Optional)</label>
-            <select
-              value={formData.dentistId}
-              onChange={(e) => setFormData({ ...formData, dentistId: e.target.value })}
-              className="input-full"
-            >
-              <option value="">-- Select dentist --</option>
-              {dentists.map((d) => (
-                <option key={d.id} value={d.id}>{d.full_name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Concern Type */}
-          <div>
-            <label className="input-label">
-              Concern / Reason for Visit (Optional)
-            </label>
-            <select
-              value={formData.concernType}
-              onChange={(e) => setFormData({ ...formData, concernType: e.target.value as VisitReasonType | "" })}
-              className="input-full"
-            >
-              <option value="">-- Select a reason --</option>
-              {VISIT_REASONS.map((group) => (
-                <optgroup key={group.group} label={group.group}>
-                  {group.reasons.map((reason) => (
-                    <option key={reason.value} value={reason.value}>{reason.label}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
+                return filtered.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-slate-500">No matches for "{patientSearchInput}"</div>
+                ) : (
+                  filtered.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, patientId: p.id });
+                        setPatientSearchInput(p.full_name || "");
+                        setShowPatientDropdown(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-violet-50 text-sm text-slate-700"
+                    >
+                      {p.full_name}
+                    </button>
+                  ))
+                );
+              })()}
+            </div>
+          )}
         </div>
 
+        {/* Date */}
+        <DatePickerField
+          label="Date *"
+          value={formData.appointmentDate}
+          onChange={(val) => setFormData({ ...formData, appointmentDate: val })}
+          inputRef={dateRef}
+          variant="case-modal"
+        />
+
+        {/* Time */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Time *</span>
+          <select
+            value={formData.appointmentTime}
+            onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })}
+            className="input-standard"
+          >
+            {getValidHours(formData.appointmentDate).map((hour) => {
+              const timeStr = `${String(hour).padStart(2, "0")}:00`;
+              return (
+                <option key={hour} value={timeStr}>{formatTime12Hr(timeStr)}</option>
+              );
+            })}
+          </select>
+        </label>
+
+        {/* Dentist */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Dentist (optional)</span>
+          <select
+            value={formData.dentistId}
+            onChange={(e) => setFormData({ ...formData, dentistId: e.target.value })}
+            className="input-standard"
+          >
+            <option value="">Select dentist</option>
+            {dentists.map((d) => (
+              <option key={d.id} value={d.id}>{d.full_name}</option>
+            ))}
+          </select>
+        </label>
+
+        {/* Concern Type */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Concern / reason for visit (optional)</span>
+          <select
+            value={formData.concernType}
+            onChange={(e) => setFormData({ ...formData, concernType: e.target.value as VisitReasonType | "" })}
+            className="input-standard"
+          >
+            <option value="">Select a reason</option>
+            {VISIT_REASONS.map((group) => (
+              <optgroup key={group.group} label={group.group}>
+                {group.reasons.map((reason) => (
+                  <option key={reason.value} value={reason.value}>{reason.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+
         {/* Actions */}
-        <div className="modal-footer-buttons justify-end mt-6">
+        <div className="flex justify-end gap-2 pt-1">
           <button onClick={onClose} className="cancel-btn">Cancel</button>
           <button onClick={handleCreate} className="save-btn">Create</button>
         </div>
       </div>
-    </div>
+    </EditModal>
   );
 }
