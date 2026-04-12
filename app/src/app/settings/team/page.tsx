@@ -719,9 +719,7 @@ export default function TeamSettingsPage() {
             >
               <option value="">Select role</option>
               <option value="admin">Admin</option>
-              <option value="dentist">Dentist</option>
               <option value="staff">Staff</option>
-              <option value="viewer">Viewer</option>
             </select>
           </label>
           <DatePickerField

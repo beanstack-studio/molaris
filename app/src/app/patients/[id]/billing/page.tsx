@@ -582,13 +582,6 @@ export default function BillingPage() {
         }
       }
 
-      // Recalculate invoice totals
-      const rpcResult = await supabase.rpc("recalc_invoice", { invoice_id: invoiceId });
-      if (rpcResult.error) {
-        const errorMsg = rpcResult.error?.message || JSON.stringify(rpcResult.error) || "Unknown RPC error";
-        throw new Error(`Failed to recalculate invoice: ${errorMsg}`);
-      }
-      
       setBusy(false);
       setShowCreateInvoice(false);
       setSelectedVisitDate("");
@@ -841,11 +834,6 @@ export default function BillingPage() {
         } catch (receiptError) {
           // Receipt generation block error
         }
-      }
-
-      // Recalculate all affected invoices
-      for (const invoiceId of selectedInvoiceIds) {
-        await supabase.rpc("recalc_invoice", { invoice_id: invoiceId });
       }
 
       setShowAddPayment(false);

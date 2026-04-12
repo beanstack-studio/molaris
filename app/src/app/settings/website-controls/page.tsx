@@ -23,26 +23,24 @@ const ROLES = [
   { value: "admin",   label: "Admin",   desc: "Full access to all features and settings" },
   { value: "dentist", label: "Dentist", desc: "Patient records, treatments, and billing" },
   { value: "staff",   label: "Staff",   desc: "Scheduling, appointments, basic records" },
-  { value: "viewer",  label: "Viewer",  desc: "Read-only access, no edits" },
 ];
 
-const PERMISSIONS: { feature: string; admin: boolean; dentist: boolean; staff: boolean; viewer: boolean }[] = [
-  { feature: "View patients",          admin: true,  dentist: true,  staff: true,  viewer: true  },
-  { feature: "Add / edit patients",    admin: true,  dentist: true,  staff: true,  viewer: false },
-  { feature: "Delete patient",         admin: true,  dentist: false, staff: false, viewer: false },
-  { feature: "View treatments & chart",admin: true,  dentist: true,  staff: true,  viewer: true  },
-  { feature: "Add / edit treatments",  admin: true,  dentist: true,  staff: false, viewer: false },
-  { feature: "View billing",           admin: true,  dentist: true,  staff: true,  viewer: true  },
-  { feature: "Create invoice",         admin: true,  dentist: true,  staff: true,  viewer: false },
-  { feature: "Add payment",            admin: true,  dentist: true,  staff: true,  viewer: false },
-  { feature: "Verify payment",         admin: true,  dentist: false, staff: false, viewer: false },
-  { feature: "Void payment",           admin: true,  dentist: false, staff: false, viewer: false },
-  { feature: "View reports",           admin: true,  dentist: true,  staff: false, viewer: false },
-  { feature: "Send messages",          admin: true,  dentist: true,  staff: true,  viewer: false },
-  { feature: "Manage appointments",    admin: true,  dentist: true,  staff: true,  viewer: false },
-  { feature: "Settings access",        admin: true,  dentist: false, staff: false, viewer: false },
-  { feature: "Manage users / login",   admin: true,  dentist: false, staff: false, viewer: false },
-  { feature: "Manage team records",    admin: true,  dentist: true,  staff: false, viewer: false },
+const PERMISSIONS: { feature: string; admin: boolean; dentist: boolean; staff: boolean }[] = [
+  { feature: "View patients",           admin: true,  dentist: true,  staff: true  },
+  { feature: "Add / edit patients",     admin: true,  dentist: true,  staff: true  },
+  { feature: "Delete patient",          admin: true,  dentist: false, staff: false },
+  { feature: "View treatments & chart", admin: true,  dentist: true,  staff: true  },
+  { feature: "Add / edit treatments",   admin: true,  dentist: true,  staff: false },
+  { feature: "View billing",            admin: true,  dentist: true,  staff: true  },
+  { feature: "Create invoice",          admin: true,  dentist: true,  staff: true  },
+  { feature: "Add payment",             admin: true,  dentist: true,  staff: true  },
+  { feature: "Verify payment",          admin: true,  dentist: false, staff: false },
+  { feature: "Void payment",            admin: true,  dentist: false, staff: false },
+  { feature: "View reports",            admin: true,  dentist: true,  staff: false },
+  { feature: "Send messages",           admin: true,  dentist: true,  staff: true  },
+  { feature: "Manage appointments",     admin: true,  dentist: true,  staff: true  },
+  { feature: "Settings / user mgmt",    admin: true,  dentist: false, staff: false },
+  { feature: "Manage team records",     admin: true,  dentist: false, staff: false },
 ];
 
 function Check({ yes }: { yes: boolean }) {
@@ -226,32 +224,25 @@ export default function WebsiteControlsPage() {
 
       {/* ── My Account ───────────────────────────────────────── */}
       <div className="card">
-        <div className="card-header mb-4">
+        <div className="card-header mb-3">
           <div className="card-title">My Account</div>
-        </div>
-
-        <div className="flex flex-col gap-3 max-w-sm">
-          {/* Email */}
-          <div>
-            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Email</div>
-            <div className="field-input-readonly text-sm">{currentEmail || "—"}</div>
-          </div>
-
-          {/* Password */}
-          <div>
-            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Password</div>
-            <div className="field-input-readonly text-sm tracking-widest text-slate-400">••••••••••••</div>
-          </div>
-
-          {/* Role */}
-          <div>
-            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Role</div>
-            <div className="py-1"><RoleBadge role={currentRole} /></div>
-          </div>
-
-          <button className="save-btn self-start mt-1" onClick={openChangePw}>
+          <button className="cancel-btn" onClick={openChangePw}>
             Change password
           </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-6">
+          <div>
+            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Email</div>
+            <div className="text-sm text-slate-800 font-medium">{currentEmail || "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Password</div>
+            <div className="text-sm text-slate-400 tracking-widest">••••••••</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Role</div>
+            <RoleBadge role={currentRole} />
+          </div>
         </div>
       </div>
 
@@ -404,11 +395,10 @@ export default function WebsiteControlsPage() {
             <table className="data-table">
               <thead className="data-table-head">
                 <tr>
-                  <th className="data-table-head-cell" style={{ width: "40%" }}>Feature</th>
+                  <th className="data-table-head-cell" style={{ width: "55%" }}>Feature</th>
                   <th className="data-table-head-cell text-center">Admin</th>
                   <th className="data-table-head-cell text-center">Dentist</th>
                   <th className="data-table-head-cell text-center">Staff</th>
-                  <th className="data-table-head-cell text-center">Viewer</th>
                 </tr>
               </thead>
               <tbody>
@@ -418,7 +408,6 @@ export default function WebsiteControlsPage() {
                     <td className="data-table-cell text-center"><Check yes={p.admin} /></td>
                     <td className="data-table-cell text-center"><Check yes={p.dentist} /></td>
                     <td className="data-table-cell text-center"><Check yes={p.staff} /></td>
-                    <td className="data-table-cell text-center"><Check yes={p.viewer} /></td>
                   </tr>
                 ))}
               </tbody>
