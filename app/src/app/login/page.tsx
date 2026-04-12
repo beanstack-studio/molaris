@@ -48,7 +48,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) { setError(error.message); return; }
-    router.push("/dashboard");
+    window.location.href = "/dashboard";
   }
 
   async function sendReset(e: React.FormEvent) {
