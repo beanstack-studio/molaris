@@ -249,15 +249,20 @@ select {
 }
 
 .data-table-head {
-  @apply bg-violet-50 text-violet-700 font-medium;
+  @apply font-medium;
+  background: hsl(var(--accent-hue) var(--accent-sat) 88%);
 }
 
 .data-table-head-cell {
-  @apply px-3 py-3 text-left font-semibold text-violet-700 border-b border-violet-100;
+  @apply px-3 py-3 text-left font-semibold;
+  color: hsl(var(--accent-hue) var(--accent-sat) 22%);
+  border-bottom: 1px solid hsl(var(--accent-hue) var(--accent-sat) 76%);
 }
 
 .data-table-head-cell-right {
-  @apply px-3 py-3 text-right font-semibold text-violet-700 border-b border-violet-100;
+  @apply px-3 py-3 text-right font-semibold;
+  color: hsl(var(--accent-hue) var(--accent-sat) 22%);
+  border-bottom: 1px solid hsl(var(--accent-hue) var(--accent-sat) 76%);
 }
 
 .data-table-row {
@@ -275,7 +280,7 @@ select {
 tr.data-table-row:hover,
 tr.data-table-row-even:hover,
 tr.data-table-row-odd:hover {
-  background-color: hsl(var(--accent-hue) 91% 95% / 0.5);
+  background-color: hsl(var(--accent-hue) var(--accent-sat) 94%);
 }
 
 .data-table-row-compact {
@@ -293,7 +298,7 @@ tr.data-table-row-odd:hover {
 tr.data-table-row-compact:hover,
 tr.data-table-row-compact-even:hover,
 tr.data-table-row-compact-odd:hover {
-  background-color: hsl(var(--accent-hue) 91% 95% / 0.5);
+  background-color: hsl(var(--accent-hue) var(--accent-sat) 94%);
 }
 
 .data-table-cell {

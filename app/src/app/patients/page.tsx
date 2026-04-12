@@ -61,7 +61,7 @@ export default function PatientsPage() {
   const [q, setQ] = useState("");
   const [patientSort, setPatientSort] = useState<PatientSort>("LASTNAME_ASC");
 
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
 
   // Scroll to top when page changes
