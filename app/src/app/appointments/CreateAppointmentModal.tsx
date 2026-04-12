@@ -40,6 +40,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
   });
   const [patientSearchInput, setPatientSearchInput] = useState("");
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [isOrthoPatient, setIsOrthoPatient] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement | null>(null);
 
@@ -47,6 +48,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
     if (open) {
       setPatientSearchInput("");
       setError(null);
+      setIsOrthoPatient(false);
       setFormData({
         patientId: "",
         appointmentDate: selectedDate || new Date().toISOString().split("T")[0],
@@ -56,6 +58,16 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
       });
     }
   }, [open, selectedDate]);
+
+  async function checkOrthoStatus(patientId: string) {
+    if (!patientId) { setIsOrthoPatient(false); return; }
+    const { data } = await supabase
+      .from("ortho_cases")
+      .select("id")
+      .eq("patient_id", patientId)
+      .limit(1);
+    setIsOrthoPatient((data?.length ?? 0) > 0);
+  }
 
   async function handleCreate() {
     if (!formData.patientId || !formData.appointmentDate || !formData.appointmentTime) {
@@ -134,9 +146,10 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
                         key={p.id}
                         type="button"
                         onClick={() => {
-                          setFormData({ ...formData, patientId: p.id });
+                          setFormData({ ...formData, patientId: p.id, concernType: "" });
                           setPatientSearchInput(displayName);
                           setShowPatientDropdown(false);
+                          checkOrthoStatus(p.id);
                         }}
                         className="w-full text-left px-3 py-2 hover:bg-violet-50 text-sm text-slate-700"
                       >
@@ -201,14 +214,19 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
             className="input-standard"
           >
             <option value="">Select a reason</option>
-            {VISIT_REASONS.map((group) => (
-              <optgroup key={group.group} label={group.group}>
-                {group.reasons.map((reason) => (
-                  <option key={reason.value} value={reason.value}>{reason.label}</option>
-                ))}
-              </optgroup>
-            ))}
+            {VISIT_REASONS
+              .filter((group) => group.group === "General" || isOrthoPatient)
+              .map((group) => (
+                <optgroup key={group.group} label={group.group}>
+                  {group.reasons.map((reason) => (
+                    <option key={reason.value} value={reason.value}>{reason.label}</option>
+                  ))}
+                </optgroup>
+              ))}
           </select>
+          {!isOrthoPatient && formData.patientId && (
+            <span className="text-xs text-slate-400">Ortho reasons are only available for patients with an ortho case.</span>
+          )}
         </label>
 
         {/* Actions */}

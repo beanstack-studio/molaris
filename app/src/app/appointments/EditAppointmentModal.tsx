@@ -45,9 +45,20 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
   });
   const [patientSearchInput, setPatientSearchInput] = useState("");
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [isOrthoPatient, setIsOrthoPatient] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement | null>(null);
+
+  async function checkOrthoStatus(patientId: string) {
+    if (!patientId) { setIsOrthoPatient(false); return; }
+    const { data } = await supabase
+      .from("ortho_cases")
+      .select("id")
+      .eq("patient_id", patientId)
+      .limit(1);
+    setIsOrthoPatient((data?.length ?? 0) > 0);
+  }
 
   useEffect(() => {
     if (appointment) {
@@ -62,6 +73,7 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
       setDeleteConfirmText("");
       setError(null);
       setShowPatientDropdown(false);
+      checkOrthoStatus(appointment.patient_id);
 
       // Pre-populate patient name from the joined relation or from the patients list
       const relName = appointment.patients
@@ -174,9 +186,10 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
                     key={p.id}
                     type="button"
                     onClick={() => {
-                      setEditFormData({ ...editFormData, patientId: p.id });
+                      setEditFormData({ ...editFormData, patientId: p.id, concernType: "" });
                       setPatientSearchInput(displayName);
                       setShowPatientDropdown(false);
+                      checkOrthoStatus(p.id);
                     }}
                     className="w-full text-left px-3 py-2 hover:bg-violet-50 text-sm text-slate-700"
                   >
@@ -257,14 +270,19 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
             className="input-standard"
           >
             <option value="">Select a reason</option>
-            {VISIT_REASONS.map((group) => (
-              <optgroup key={group.group} label={group.group}>
-                {group.reasons.map((reason) => (
-                  <option key={reason.value} value={reason.value}>{reason.label}</option>
-                ))}
-              </optgroup>
-            ))}
+            {VISIT_REASONS
+              .filter((group) => group.group === "General" || isOrthoPatient)
+              .map((group) => (
+                <optgroup key={group.group} label={group.group}>
+                  {group.reasons.map((reason) => (
+                    <option key={reason.value} value={reason.value}>{reason.label}</option>
+                  ))}
+                </optgroup>
+              ))}
           </select>
+          {!isOrthoPatient && (
+            <span className="text-xs text-slate-400">Ortho reasons are only available for patients with an ortho case.</span>
+          )}
         </label>
 
         {/* Delete Section */}

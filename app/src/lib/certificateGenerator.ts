@@ -1,7 +1,4 @@
-/**
- * Dental Certificate HTML Generator
- * Professional A4 dental certificate
- */
+import { buildDocHeaderHTML, buildPatientRowHTML, buildSignatureHTML, buildPageCSS, DOC_ACCENT } from "./documentUtils";
 
 export interface CertificateData {
   patientName: string;
@@ -25,297 +22,76 @@ export interface CertificateData {
   };
 }
 
-/**
- * Generate dental certificate HTML (full A4 page)
- */
 export function generateCertificateHTML(data: CertificateData): string {
   const {
-    patientName,
-    patientAge,
-    patientAddress,
-    patientGender,
-    visitDate,
-    dentistName,
-    findings,
-    treatmentDone,
-    purpose,
-    remarks,
-    docNo,
-    clinicMeta = {},
+    patientName, patientAge, patientAddress, patientGender,
+    visitDate, dentistName, findings, treatmentDone, purpose, remarks,
+    docNo, clinicMeta = {},
   } = data;
 
-  // Format date
   const dateObj = new Date(visitDate + "T00:00:00Z");
   const formattedDate = dateObj.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+    year: "numeric", month: "long", day: "numeric",
   });
 
-  return `
-<!DOCTYPE html>
+  const purposeStatement = purpose
+    ? ` for the purpose of <strong>${purpose}</strong>`
+    : "";
+
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>Dental Certificate - ${docNo}</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Arial', sans-serif;
-      color: #333;
-      background: #f5f5f5;
-    }
-    
-    .page {
-      width: 8.5in;
-      min-height: 11in;
-      background: white;
-      margin: 20px auto;
-      padding: 0.6in 0.75in;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      page-break-after: always;
-    }
-    
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 20px;
-      padding-bottom: 15px;
-      border-bottom: 3px solid #2c5aa0;
-    }
-    
-    .clinic-info {
-      flex: 1;
-      text-align: center;
-      margin: 0 15px;
-    }
-    
-    .clinic-name {
-      font-size: 18px;
-      font-weight: bold;
-      color: #2c5aa0;
-      margin-bottom: 3px;
-    }
-    
-    .clinic-subtitle {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 5px;
-    }
-    
-    .clinic-address {
-      font-size: 10px;
-      color: #666;
-      line-height: 1.4;
-    }
-    
-    .right-section {
-      flex: 0 0 auto;
-      text-align: right;
-      font-size: 9px;
-    }
-    
-    .doc-no {
-      font-weight: bold;
-      color: #2c5aa0;
-      font-size: 11px;
-      margin-bottom: 8px;
-    }
-    
-    .certificate-title {
-      text-align: center;
-      font-size: 24px;
-      font-weight: bold;
-      color: #2c5aa0;
-      margin: 30px 0 20px 0;
-      text-decoration: underline;
-    }
-    
-    .certificate-body {
-      font-size: 12px;
-      line-height: 1.8;
-      margin: 20px 0;
-    }
-    
-    .section-title {
-      font-weight: bold;
-      color: #2c5aa0;
-      margin-top: 15px;
-      margin-bottom: 8px;
-      font-size: 11px;
-    }
-    
-    .section-content {
-      padding-left: 15px;
-      font-size: 11px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      margin-bottom: 12px;
-    }
-    
-    .patient-info {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin: 15px 0;
-      font-size: 11px;
-    }
-    
-    .info-field {
-      padding: 6px;
-      border: 1px solid #ddd;
-      background: #fafafa;
-    }
-    
-    .info-label {
-      font-weight: bold;
-      color: #2c5aa0;
-      font-size: 10px;
-    }
-    
-    .info-value {
-      color: #333;
-      margin-top: 3px;
-      word-wrap: break-word;
-    }
-    
-    .footer {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px dashed #ccc;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 30px;
-      font-size: 10px;
-    }
-    
-    .signature-section {
-      text-align: center;
-    }
-    
-    .signature-line {
-      height: 40px;
-      border-bottom: 1px solid #000;
-      margin-bottom: 5px;
-    }
-    
-    .signature-label {
-      font-weight: bold;
-      color: #2c5aa0;
-      margin-top: 5px;
-    }
-    
-    .date-line {
-      text-align: right;
-      margin-top: 15px;
-      font-size: 10px;
-    }
-    
-    @media print {
-      body {
-        background: white;
-      }
-      .page {
-        margin: 0;
-        box-shadow: none;
-      }
-    }
-  </style>
+  <style>${buildPageCSS()}</style>
 </head>
 <body>
-  <div class="page">
-    <!-- Header -->
-    <div class="header">
-      <div style="flex: 0 0 auto;">
-        ${clinicMeta.logoUrl
-          ? `<img src="${clinicMeta.logoUrl}" style="width:60px;height:60px;object-fit:contain;" alt="Clinic Logo">`
-          : `<div style="width:60px;height:60px;background:#f0f0f0;border:1px dashed #ccc;"></div>`}
-      </div>
-      <div class="clinic-info">
-        <div class="clinic-name">${clinicMeta.name || "Dental Clinic"}</div>
-        <div class="clinic-subtitle">GENERAL DENTISTRY &amp; ORTHODONTICS</div>
-        <div class="clinic-address">
-          ${clinicMeta.address || ""}${clinicMeta.contact ? `<br>${clinicMeta.contact}` : ""}
-        </div>
-      </div>
-      <div class="right-section">
-        <div class="doc-no">${docNo}</div>
-        ${clinicMeta.licenseNo ? `<div>Lic. No. ${clinicMeta.licenseNo}</div>` : ""}
-        ${clinicMeta.ptrNo ? `<div>PTR No. ${clinicMeta.ptrNo}</div>` : ""}
-      </div>
+<div class="page">
+  ${buildDocHeaderHTML(clinicMeta, docNo)}
+
+  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};text-decoration:underline;margin-bottom:16px;letter-spacing:0.04em;">DENTAL CERTIFICATE</div>
+
+  ${buildPatientRowHTML(patientName, patientAge, patientGender, patientAddress)}
+
+  <!-- Examination row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
+    <div style="padding:6px 9px;border-right:1px solid #ddd;">
+      <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Date of Examination</div>
+      <div style="font-size:11px;margin-top:2px;">${formattedDate}</div>
     </div>
-
-    <!-- Certificate Title -->
-    <div class="certificate-title">DENTAL CERTIFICATE</div>
-
-    <!-- Patient Information -->
-    <div class="patient-info">
-      <div class="info-field">
-        <div class="info-label">Patient Name</div>
-        <div class="info-value">${patientName || "_______________"}</div>
-      </div>
-      <div class="info-field">
-        <div class="info-label">Age / Sex</div>
-        <div class="info-value">${patientAge ? patientAge : "___"} / ${patientGender?.charAt(0) || "_"}</div>
-      </div>
-      <div class="info-field" style="grid-column: 1 / -1;">
-        <div class="info-label">Address</div>
-        <div class="info-value">${patientAddress || "_______________"}</div>
-      </div>
-      <div class="info-field">
-        <div class="info-label">Date of Examination</div>
-        <div class="info-value">${formattedDate}</div>
-      </div>
-      <div class="info-field">
-        <div class="info-label">Examined By</div>
-        <div class="info-value">${dentistName || "_______________"}</div>
-      </div>
+    <div style="padding:6px 9px;">
+      <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Examined By</div>
+      <div style="font-size:11px;margin-top:2px;">${dentistName || "—"}</div>
     </div>
-
-    <!-- Certificate Body -->
-    <div class="certificate-body">
-      <p>This is to certify that the above-named patient was examined by the undersigned dentist${purpose ? ` for the purpose of <strong>${purpose}</strong>` : ""}.</p>
-    </div>
-
-    <!-- Findings -->
-    <div class="section-title">CLINICAL FINDINGS:</div>
-    <div class="section-content">${findings || "[Findings]"}</div>
-
-    <!-- Treatment Done -->
-    <div class="section-title">TREATMENT DONE:</div>
-    <div class="section-content">${treatmentDone || "[Treatment details]"}</div>
-
-    ${
-      remarks
-        ? `
-    <div class="section-title">REMARKS:</div>
-    <div class="section-content">${remarks}</div>
-    `
-        : ""
-    }
-
-    <!-- Signature -->
-    <div class="footer">
-      <div class="signature-section">
-        <div class="signature-line"></div>
-        <div class="signature-label">${dentistName || "Dentist Signature"}</div>
-      </div>
-      <div class="signature-section">
-        <div class="signature-line"></div>
-        <div class="signature-label">Parent / Guardian (if minor)</div>
-      </div>
-    </div>
-
-    <div class="date-line">Date: ${formattedDate}</div>
   </div>
+
+  <hr class="divider">
+
+  <p style="font-size:11px;line-height:1.8;margin-bottom:14px;">
+    This is to certify that the above-named patient was examined by the undersigned dentist${purposeStatement}.
+  </p>
+
+  <div class="section-title">Clinical Findings</div>
+  <div class="section-body">${findings || "[No findings entered]"}</div>
+
+  <div class="section-title">Treatment Done</div>
+  <div class="section-body">${treatmentDone || "[No treatment entered]"}</div>
+
+  ${remarks ? `
+  <div class="section-title">Remarks</div>
+  <div class="section-body">${remarks}</div>` : ""}
+
+  <hr class="divider" style="margin-top:30px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:20px;">
+    ${buildSignatureHTML(dentistName, clinicMeta.licenseNo, clinicMeta.ptrNo)}
+    <div>
+      <div style="height:50px;border-bottom:1px solid #333;width:180px;"></div>
+      <div style="font-size:11px;font-weight:bold;color:${DOC_ACCENT};margin-top:5px;">Parent / Guardian</div>
+      <div style="font-size:9px;color:#666;margin-top:2px;">(if patient is a minor)</div>
+    </div>
+  </div>
+  <div style="text-align:right;font-size:10px;color:#666;margin-top:12px;">Date: ${formattedDate}</div>
+</div>
 </body>
-</html>
-  `;
+</html>`;
 }

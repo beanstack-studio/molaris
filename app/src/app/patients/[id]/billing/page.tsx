@@ -982,11 +982,22 @@ export default function BillingPage() {
                               onClick={async () => {
                                 try {
                                   setBusy(true);
+                                  const patAge = (() => {
+                                    if (!patient?.birth_date) return undefined;
+                                    const dob = new Date(patient.birth_date);
+                                    const today = new Date();
+                                    let a = today.getFullYear() - dob.getFullYear();
+                                    if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) a--;
+                                    return a;
+                                  })();
                                   const html = await generateInvoiceDocument(
                                     inv.id,
                                     patient?.full_name || "Patient",
                                     inv.invoice_number,
-                                    formatDateStandard(inv.invoice_date)
+                                    formatDateStandard(inv.invoice_date),
+                                    patAge,
+                                    patient?.gender || undefined,
+                                    patient?.address || undefined,
                                   );
                                   openDocumentViewer({
                                     html,
@@ -1104,10 +1115,21 @@ export default function BillingPage() {
                                     onClick={async () => {
                                       try {
                                         setBusy(true);
+                                        const patAge = (() => {
+                                          if (!patient?.birth_date) return undefined;
+                                          const dob = new Date(patient.birth_date);
+                                          const today = new Date();
+                                          let a = today.getFullYear() - dob.getFullYear();
+                                          if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) a--;
+                                          return a;
+                                        })();
                                         const html = await generatePaymentReceiptDocument(
                                           pay.id,
                                           patient?.full_name || "Patient",
-                                          pay.transaction_id || "PMT00000"
+                                          pay.transaction_id || "PMT00000",
+                                          patAge,
+                                          patient?.gender || undefined,
+                                          patient?.address || undefined,
                                         );
                                         openDocumentViewer({
                                           html,
