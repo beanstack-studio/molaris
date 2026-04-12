@@ -549,7 +549,7 @@ export default function BillingPage() {
                 qty: 1,
                 unit_price: (svc as any)?.default_price || 0,
                 line_total: (svc as any)?.default_price || 0,
-                source_type: "ortho_addon",
+                source_type: "ortho_entry",
                 source_id: item.id,
               });
             }

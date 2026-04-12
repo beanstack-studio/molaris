@@ -1,9 +1,16 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
 import type { Invoice, PaymentRowExtended, PaymentMode } from "@/lib/types";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
+
+function formatAmountDisplay(raw: string): string {
+  const num = parseFloat(raw.replace(/,/g, ""));
+  if (!raw || isNaN(num)) return "";
+  return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 function num(n: unknown) {
   const v = Number(n);
@@ -47,6 +54,13 @@ export function AddPaymentModal({
   paymentProofFile, setPaymentProofFile,
   onAddPayment,
 }: Props) {
+  const [displayAmount, setDisplayAmount] = useState("");
+
+  // Sync display when parent clears the amount
+  useEffect(() => {
+    if (!paymentAmount) setDisplayAmount("");
+  }, [paymentAmount]);
+
   return (
     <EditModal open={open} title="Add payment" onClose={onClose}>
       <div className="grid gap-4">
@@ -108,12 +122,26 @@ export function AddPaymentModal({
           <label className="form-field">
             <span className="text-slate-700">Amount</span>
             <input
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               className="input-standard"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              placeholder="0.00"
+              value={displayAmount}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9.]/g, "");
+                setDisplayAmount(raw);
+                setPaymentAmount(raw);
+              }}
+              onBlur={() => {
+                const formatted = formatAmountDisplay(displayAmount);
+                setDisplayAmount(formatted);
+                const numeric = displayAmount.replace(/,/g, "");
+                setPaymentAmount(numeric);
+              }}
+              onFocus={() => {
+                // Show raw number on focus for easy editing
+                setDisplayAmount(paymentAmount || "");
+              }}
+              placeholder="₱ 0.00"
             />
           </label>
 

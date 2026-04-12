@@ -176,12 +176,19 @@ export function CreateInvoiceModal({
                       />
                       <span className="text-sm font-semibold text-red-600">−</span>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         placeholder="0.00"
                         className="input-standard w-24"
                         value={discountAmount}
-                        onChange={(e) => setDiscountAmount(e.target.value)}
-                        step="0.01"
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^0-9.]/g, "");
+                          setDiscountAmount(raw);
+                        }}
+                        onBlur={(e) => {
+                          const num = parseFloat(e.target.value);
+                          if (!isNaN(num)) setDiscountAmount(num.toFixed(2));
+                        }}
                       />
                     </div>
                   </div>

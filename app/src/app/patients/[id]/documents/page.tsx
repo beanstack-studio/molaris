@@ -773,8 +773,9 @@ export default function DocumentsPage() {
                   <div className="section-columns">
                     <div className="grid-gap-1 w-1/2">
                       <label className="text-field-label">Findings</label>
-                      <textarea
-                        className="textarea-input min-h-[80px]"
+                      <input
+                        type="text"
+                        className="input-full"
                         value={cerFindings}
                         onChange={(e) => setCerFindings(e.target.value)}
                         placeholder="Clinical findings"
@@ -783,8 +784,9 @@ export default function DocumentsPage() {
 
                     <div className="grid-gap-1 w-1/2">
                       <label className="text-field-label">Treatment done</label>
-                      <textarea
-                        className="textarea-input min-h-[80px]"
+                      <input
+                        type="text"
+                        className="input-full"
                         value={cerTreatmentDone}
                         onChange={(e) => setCerTreatmentDone(e.target.value)}
                         placeholder="Treatments performed"

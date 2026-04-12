@@ -71,15 +71,11 @@ export function generateCertificateHTML(data: CertificateData): string {
     This is to certify that the above-named patient was examined by the undersigned dentist${purposeStatement}.
   </p>
 
-  <div class="section-title">Clinical Findings</div>
-  <div class="section-body">${findings || "[No findings entered]"}</div>
+  ${findings ? `<div class="section-title">Clinical Findings</div><div class="section-body">${findings}</div>` : ""}
 
-  <div class="section-title">Treatment Done</div>
-  <div class="section-body">${treatmentDone || "[No treatment entered]"}</div>
+  ${treatmentDone ? `<div class="section-title">Treatment Done</div><div class="section-body">${treatmentDone}</div>` : ""}
 
-  ${remarks ? `
-  <div class="section-title">Remarks</div>
-  <div class="section-body">${remarks}</div>` : ""}
+  ${remarks ? `<div class="section-title">Remarks</div><div class="section-body">${remarks}</div>` : ""}
 
   <hr class="divider" style="margin-top:30px;">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:20px;">

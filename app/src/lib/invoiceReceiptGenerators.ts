@@ -149,6 +149,17 @@ export async function generatePaymentReceiptDocument(
     const paymentModeName = paymentDetails.payment_mode_name || "—";
     const referenceNumber = paymentDetails.reference_number || "—";
 
+    // Fetch linked invoice number(s) via invoice_id FK
+    let invoiceRef = "—";
+    if (payment.invoice_id) {
+      const { data: invData } = await supabase
+        .from("invoices")
+        .select("invoice_number")
+        .eq("id", payment.invoice_id)
+        .single();
+      if (invData?.invoice_number) invoiceRef = invData.invoice_number;
+    }
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -189,10 +200,11 @@ export async function generatePaymentReceiptDocument(
       <div class="detail-value">${paymentModeName}</div>
     </div>
     <div class="detail-box">
-      <div class="detail-label">Reference Number</div>
-      <div class="detail-value">${referenceNumber}</div>
+      <div class="detail-label">Invoice No.</div>
+      <div class="detail-value">${invoiceRef}</div>
     </div>
   </div>
+  ${referenceNumber !== "—" ? `<div class="detail-grid" style="margin-top:-4px;"><div class="detail-box detail-full" style="grid-column:1/-1;"><div class="detail-label">Reference Number</div><div class="detail-value">${referenceNumber}</div></div></div>` : ""}
 
   <div class="amount-box">
     <div class="amount-label">AMOUNT PAID</div>
@@ -238,12 +250,10 @@ export async function generateInvoicePreviewHTML(): Promise<string> {
     .tr { text-align:right; }
     .tc { text-align:center; }
     .total-row td { font-weight:bold; background:#e8edf7 !important; color:${DOC_ACCENT}; }
-    .sample-badge { display:inline-block; background:#fef3c7; border:1px solid #f59e0b; color:#92400e; padding:2px 10px; border-radius:4px; font-size:9px; font-weight:bold; margin-bottom:12px; }
   </style>
 </head>
 <body>
 <div class="page">
-  <div class="sample-badge">SAMPLE PREVIEW — not a real document</div>
   ${buildDocHeaderHTML(clinicProfile, "INV26-0001")}
   <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:14px;letter-spacing:0.04em;">INVOICE</div>
   ${buildPatientRowHTML("Sample Patient", 32, "Female", "Sample Address, Kalibo, Aklan")}
@@ -286,12 +296,10 @@ export async function generateReceiptPreviewHTML(): Promise<string> {
     .amount-label { font-size:10px; font-weight:bold; color:${DOC_ACCENT}; margin-bottom:6px; }
     .amount-value { font-size:30px; font-weight:bold; color:${DOC_ACCENT}; }
     .verified-badge { display:inline-block; background:${DOC_ACCENT}; color:white; padding:3px 12px; border-radius:12px; font-size:9px; font-weight:bold; margin-top:8px; }
-    .sample-badge { display:inline-block; background:#fef3c7; border:1px solid #f59e0b; color:#92400e; padding:2px 10px; border-radius:4px; font-size:9px; font-weight:bold; margin-bottom:12px; }
   </style>
 </head>
 <body>
 <div class="page">
-  <div class="sample-badge">SAMPLE PREVIEW — not a real document</div>
   ${buildDocHeaderHTML(clinicProfile, "OR26-0001")}
   <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:14px;letter-spacing:0.04em;">PAYMENT RECEIPT</div>
   ${buildPatientRowHTML("Sample Patient", 32, "Female", "Sample Address, Kalibo, Aklan")}
