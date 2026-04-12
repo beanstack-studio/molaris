@@ -255,98 +255,84 @@ export default function WebsiteControlsPage() {
         </div>
       </div>
 
-      {/* ── Login Access / Users — temporarily hidden ────────── */}
-      {false && (
-        <div className="card">
-          <div className="card-header mb-4">
-            <div>
-              <div className="card-title">Login Access</div>
-              <p className="text-xs text-slate-400 mt-0.5">People who can sign in to this portal</p>
-            </div>
-            <div className="flex gap-2">
-              <button className="cancel-btn" onClick={() => setShowPermissions(true)}>
-                View permissions
-              </button>
-              <button className="save-btn" onClick={() => { setShowInvite(true); setInviteSuccess(false); }}>
-                Invite user
-              </button>
-            </div>
+      {/* ── Login Access / Users ─────────────────────────────── */}
+      <div className="card">
+        <div className="card-header mb-4">
+          <div>
+            <div className="card-title">Login Access</div>
+            <p className="text-xs text-slate-400 mt-0.5">People who can sign in to this portal</p>
           </div>
+          <div className="flex gap-2">
+            <button className="cancel-btn" onClick={() => setShowPermissions(true)}>
+              View permissions
+            </button>
+            <button className="save-btn" onClick={() => { setShowInvite(true); setInviteSuccess(false); }}>
+              Invite user
+            </button>
+          </div>
+        </div>
 
-          {error && <div className="error-banner mb-3">{error}</div>}
+        {error && <div className="error-banner mb-3">{error}</div>}
 
-          {setupRequired ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
-              <div className="font-semibold text-amber-700 mb-1">Setup required</div>
-              <p className="text-amber-600">
-                Add <code className="bg-amber-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> to your{" "}
-                <code className="bg-amber-100 px-1 rounded">.env.local</code> to enable user management.
-              </p>
-            </div>
-          ) : usersLoading ? (
-            <div className="flex justify-center py-8"><Spinner /></div>
-          ) : (
-            <div className="table-wrapper">
-              <table className="data-table">
-                <colgroup>
-                  <col style={{ width: "35%" }} />
-                  <col style={{ width: "15%" }} />
-                  <col style={{ width: "20%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "18%" }} />
-                </colgroup>
-                <thead className="data-table-head">
-                  <tr>
-                    <th className="data-table-head-cell">Email</th>
-                    <th className="data-table-head-cell">Role</th>
-                    <th className="data-table-head-cell">Last sign in</th>
-                    <th className="data-table-head-cell">Status</th>
-                    <th className="data-table-head-cell-right">Actions</th>
+        {setupRequired ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+            <div className="font-semibold text-amber-700 mb-1">Setup required</div>
+            <p className="text-amber-600">
+              Add <code className="bg-amber-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> to your{" "}
+              <code className="bg-amber-100 px-1 rounded">.env.local</code> to enable user management.
+            </p>
+          </div>
+        ) : usersLoading ? (
+          <div className="flex justify-center py-8"><Spinner /></div>
+        ) : (
+          <div className="table-wrapper">
+            <table className="data-table">
+              <colgroup>
+                <col style={{ width: "35%" }} />
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "20%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "18%" }} />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Email</th>
+                  <th className="data-table-head-cell">Role</th>
+                  <th className="data-table-head-cell">Last sign in</th>
+                  <th className="data-table-head-cell">Status</th>
+                  <th className="data-table-head-cell-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u, i) => (
+                  <tr key={u.id} className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                    <td className="data-table-cell text-sm font-medium text-slate-800">{u.email}</td>
+                    <td className="data-table-cell"><RoleBadge role={u.role} /></td>
+                    <td className="data-table-cell text-xs text-slate-500">
+                      {u.last_sign_in ? formatDateStandard(u.last_sign_in.split("T")[0]) : "Never"}
+                    </td>
+                    <td className="data-table-cell">
+                      {u.confirmed
+                        ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Active</span>
+                        : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Pending</span>}
+                    </td>
+                    <td className="data-table-cell-right">
+                      <div className="flex gap-1 justify-end">
+                        <button className="data-table-btn" onClick={() => { setEditingUser(u); setEditRole(u.role); }}>Edit role</button>
+                        <button className="data-table-btn-danger" disabled={busy} onClick={() => removeUser(u)}>Remove</button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {users.map((u, i) => (
-                    <tr key={u.id} className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
-                      <td className="data-table-cell text-sm font-medium text-slate-800">{u.email}</td>
-                      <td className="data-table-cell"><RoleBadge role={u.role} /></td>
-                      <td className="data-table-cell text-xs text-slate-500">
-                        {u.last_sign_in ? formatDateStandard(u.last_sign_in.split("T")[0]) : "Never"}
-                      </td>
-                      <td className="data-table-cell">
-                        {u.confirmed
-                          ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Active</span>
-                          : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Pending</span>}
-                      </td>
-                      <td className="data-table-cell-right">
-                        <div className="flex gap-1 justify-end">
-                          <button className="data-table-btn" onClick={() => { setEditingUser(u); setEditRole(u.role); }}>Edit role</button>
-                          <button className="data-table-btn-danger" disabled={busy} onClick={() => removeUser(u)}>Remove</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {users.length === 0 && (
-                    <tr><td className="data-table-empty" colSpan={5}>No users found.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                ))}
+                {users.length === 0 && (
+                  <tr><td className="data-table-empty" colSpan={5}>No users found.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-      {/* ── Audit Log — temporarily hidden ───────────────────── */}
-      {false && (
-        <div className="card">
-          <div className="card-header mb-2">
-            <div className="card-title">Audit Log</div>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-500">
-            <p className="font-medium text-slate-600 mb-1">Coming soon</p>
-            <p>The audit log will record who created, edited, or deleted records.</p>
-          </div>
-        </div>
-      )}
 
       {/* ── Change Password Modal ─────────────────────────────── */}
       <EditModal open={showChangePw} title="Change Password" onClose={() => { setShowChangePw(false); setPwSuccess(false); }}>

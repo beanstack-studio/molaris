@@ -70,8 +70,8 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
   }
 
   async function handleCreate() {
-    if (!formData.patientId || !formData.appointmentDate || !formData.appointmentTime) {
-      setError("Please fill in required fields");
+    if (!formData.patientId || !formData.appointmentDate || !formData.appointmentTime || !formData.dentistId) {
+      setError("Please fill in all required fields");
       return;
     }
     try {
@@ -79,7 +79,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
         patient_id: formData.patientId,
         appointment_date: formData.appointmentDate,
         appointment_time: formData.appointmentTime,
-        dentist_id: formData.dentistId || null,
+        dentist_id: formData.dentistId,
         concern_type: formData.concernType || null,
         status: "confirmed",
         notes: "Created manually",
@@ -192,7 +192,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
 
         {/* Dentist */}
         <label className="grid gap-1 text-sm">
-          <span className="text-slate-700">Dentist (optional)</span>
+          <span className="text-slate-700">Dentist *</span>
           <select
             value={formData.dentistId}
             onChange={(e) => setFormData({ ...formData, dentistId: e.target.value })}

@@ -16,6 +16,11 @@ const DENTIST_COLORS = [
   { hex: "#e11d48", label: "Rose" },
   { hex: "#d97706", label: "Amber" },
   { hex: "#059669", label: "Emerald" },
+  { hex: "#0ea5e9", label: "Sky" },
+  { hex: "#9333ea", label: "Purple" },
+  { hex: "#ea580c", label: "Orange" },
+  { hex: "#65a30d", label: "Lime" },
+  { hex: "#06b6d4", label: "Cyan" },
 ];
 
 type DentistRow = {
@@ -713,13 +718,10 @@ export default function TeamSettingsPage() {
               disabled={busy}
             >
               <option value="">Select role</option>
-              <option value="Dental Hygienist">Dental Hygienist</option>
-              <option value="Dental Assistant">Dental Assistant</option>
-              <option value="Secretary">Secretary</option>
-              <option value="Receptionist">Receptionist</option>
-              <option value="Nurse">Nurse</option>
-              <option value="Admin">Admin</option>
-              <option value="Other">Other</option>
+              <option value="admin">Admin</option>
+              <option value="dentist">Dentist</option>
+              <option value="staff">Staff</option>
+              <option value="viewer">Viewer</option>
             </select>
           </label>
           <DatePickerField

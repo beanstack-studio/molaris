@@ -208,8 +208,20 @@ export default function AppointmentsPage() {
               <td className="data-table-cell text-slate-600 italic">
                 {(apt as any).concern_type ? getVisitReasonLabel((apt as any).concern_type) : <span className="text-slate-300">—</span>}
               </td>
-              <td className="data-table-cell text-slate-700">
-                {apt.dentists?.full_name || <span className="text-slate-300">—</span>}
+              <td className="data-table-cell">
+                {apt.dentists?.full_name ? (
+                  <span
+                    className="inline-block rounded-full px-2 py-0.5 text-sm font-medium"
+                    style={{
+                      backgroundColor: (dentistColorMap[apt.dentist_id!] || "#6366f1") + "22",
+                      color: dentistColorMap[apt.dentist_id!] || "#6366f1",
+                    }}
+                  >
+                    {apt.dentists.full_name}
+                  </span>
+                ) : (
+                  <span className="text-slate-300">—</span>
+                )}
               </td>
               <td className="data-table-cell">
                 <span className={statusBadge(apt.status)}>{apt.status}</span>
@@ -348,7 +360,7 @@ export default function AppointmentsPage() {
                     const dateStr = date ? date.toISOString().split("T")[0] : null;
                     const dayAppointments = dateStr ? appointmentsByDate[dateStr] || [] : [];
                     const isToday = dateStr === new Date().toISOString().split("T")[0];
-                    const isPast = dateStr && new Date(dateStr) < new Date() && !isToday;
+                    const isPast = !!(dateStr && new Date(dateStr) < new Date() && !isToday);
                     const isHoliday = dateStr ? PH_HOLIDAYS_2026.includes(dateStr) : false;
 
                     return (
