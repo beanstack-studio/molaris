@@ -5,6 +5,7 @@ import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 import { generateCertificateHTML } from "@/lib/certificateGenerator";
 import { generateReferralHTML } from "@/lib/referralGenerator";
+import { generateInvoicePreviewHTML, generateReceiptPreviewHTML } from "@/lib/invoiceReceiptGenerators";
 
 const TABS = ["Prescription", "Certificate", "Referral", "Invoice", "Receipt"] as const;
 type Tab = typeof TABS[number];
@@ -75,6 +76,12 @@ export default function DocumentTemplatesSettingsPage() {
           clinicMeta,
         });
         setPreviewHtml(html);
+      } else if (tab === "Invoice") {
+        const html = await generateInvoicePreviewHTML();
+        setPreviewHtml(html);
+      } else if (tab === "Receipt") {
+        const html = await generateReceiptPreviewHTML();
+        setPreviewHtml(html);
       } else {
         setPreviewHtml("");
       }
@@ -114,38 +121,24 @@ export default function DocumentTemplatesSettingsPage() {
         </div>
 
         {/* Preview area */}
-        {activeTab === "Invoice" || activeTab === "Receipt" ? (
-          <div className="empty-state">
-            <p className="text-slate-600 font-medium">{activeTab} Preview</p>
-            <p className="empty-state-hint">
-              {activeTab === "Invoice"
-                ? "Invoice documents are generated directly from patient billing records and include itemized treatment costs."
-                : "Receipt documents are generated from payment records and show the amount paid with payment method details."}
-            </p>
-            <p className="empty-state-hint mt-2">
-              Both include your clinic logo, name, address, and contact information from Clinic Profile settings.
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50" style={{ height: "700px" }}>
-            {loading ? (
-              <div className="flex items-center justify-center h-full text-sm text-slate-500">
-                Generating preview…
-              </div>
-            ) : previewHtml ? (
-              <iframe
-                srcDoc={previewHtml}
-                className="w-full h-full border-0"
-                title={`${activeTab} Preview`}
-                sandbox="allow-same-origin"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-sm text-slate-500">
-                No preview available.
-              </div>
-            )}
-          </div>
-        )}
+        <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50" style={{ height: "700px" }}>
+          {loading ? (
+            <div className="flex items-center justify-center h-full text-sm text-slate-500">
+              Generating preview…
+            </div>
+          ) : previewHtml ? (
+            <iframe
+              srcDoc={previewHtml}
+              className="w-full h-full border-0"
+              title={`${activeTab} Preview`}
+              sandbox="allow-same-origin"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-slate-500">
+              No preview available.
+            </div>
+          )}
+        </div>
 
         <p className="text-xs text-slate-400 mt-3">
           Preview uses sample data. Update clinic information in Clinic Profile settings to see real details.

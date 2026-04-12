@@ -356,3 +356,135 @@ export async function generatePaymentReceiptDocument(
     throw error;
   }
 }
+
+/**
+ * Generate sample invoice HTML for previewing in document templates settings
+ */
+export async function generateInvoicePreviewHTML(): Promise<string> {
+  const clinicProfile = await fetchClinicProfile();
+  const accentColor = "#2c5aa0";
+  const sampleItems = [
+    { service_name: "Oral Prophylaxis (Teeth Cleaning)", qty: 1, unit_price: 800, line_total: 800 },
+    { service_name: "Tooth Extraction (Simple)", qty: 1, unit_price: 1200, line_total: 1200 },
+    { service_name: "Composite Filling (Anterior)", qty: 2, unit_price: 1500, line_total: 3000 },
+  ];
+  const total = sampleItems.reduce((sum, i) => sum + i.line_total, 0);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Invoice Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; color: #333; background: #f5f5f5; }
+    .page { width: 8.5in; min-height: 11in; background: white; margin: 20px auto; padding: 0.6in 0.75in; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .meta-box { padding: 8px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; }
+    .meta-label { font-size: 9px; font-weight: bold; color: ${accentColor}; margin-bottom: 2px; }
+    .meta-value { font-size: 11px; color: #333; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10px; }
+    th { background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px; text-align: left; font-weight: bold; color: ${accentColor}; }
+    td { border: 1px solid #d1d5db; padding: 6px 8px; }
+    tr:nth-child(even) { background: #f9fafb; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .total-row { font-weight: bold; background: #e5e7eb !important; }
+    .footer { text-align: center; font-size: 9px; color: #666; border-top: 1px solid #d1d5db; padding-top: 12px; margin-top: 20px; }
+    .sample-badge { display:inline-block; background:#fef3c7; border:1px solid #f59e0b; color:#92400e; padding:2px 8px; border-radius:4px; font-size:9px; font-weight:bold; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="sample-badge">SAMPLE PREVIEW — not a real document</div>
+    ${buildDocHeader({ ...clinicProfile, docTitle: "INVOICE", accentColor })}
+    <div class="meta-grid">
+      <div class="meta-box"><div class="meta-label">Invoice No.</div><div class="meta-value"><strong>INV26-0001</strong></div></div>
+      <div class="meta-box"><div class="meta-label">Invoice Date</div><div class="meta-value">April 11, 2026</div></div>
+      <div class="meta-box"><div class="meta-label">Patient</div><div class="meta-value">Sample Patient</div></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th class="text-center">Qty</th>
+          <th class="text-right">Unit Price</th>
+          <th class="text-right">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sampleItems.map((item) => `
+        <tr>
+          <td>${item.service_name}</td>
+          <td class="text-center">${item.qty}</td>
+          <td class="text-right">${formatMoney(item.unit_price)}</td>
+          <td class="text-right">${formatMoney(item.line_total)}</td>
+        </tr>`).join("")}
+        <tr class="total-row">
+          <td colspan="3">Total Amount</td>
+          <td class="text-right">${formatMoney(total)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="footer">
+      <p>Thank you for your trust in our services.</p>
+      <p style="margin-top:6px;font-size:8px;">This is a computer-generated document. Please retain for your records.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Generate sample receipt HTML for previewing in document templates settings
+ */
+export async function generateReceiptPreviewHTML(): Promise<string> {
+  const clinicProfile = await fetchClinicProfile();
+  const accentColor = "#059669";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Receipt Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; color: #333; background: #f5f5f5; }
+    .page { width: 8.5in; min-height: 11in; background: white; margin: 20px auto; padding: 0.6in 0.75in; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .meta-grid-full { grid-column: 1 / -1; }
+    .meta-box { padding: 8px 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; }
+    .meta-label { font-size: 9px; font-weight: bold; color: ${accentColor}; margin-bottom: 2px; }
+    .meta-value { font-size: 11px; color: #333; word-break: break-word; }
+    .amount-box { border: 2px solid ${accentColor}; border-radius: 6px; padding: 18px; text-align: center; background: #f0fdf4; margin: 20px 0; }
+    .amount-label { font-size: 10px; font-weight: bold; color: ${accentColor}; margin-bottom: 6px; }
+    .amount-value { font-size: 28px; font-weight: bold; color: ${accentColor}; }
+    .verified-badge { display: inline-block; background: ${accentColor}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 9px; font-weight: bold; margin-top: 8px; }
+    .footer { text-align: center; font-size: 9px; color: #666; border-top: 1px solid #d1d5db; padding-top: 12px; margin-top: 20px; }
+    .sample-badge { display:inline-block; background:#fef3c7; border:1px solid #f59e0b; color:#92400e; padding:2px 8px; border-radius:4px; font-size:9px; font-weight:bold; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="sample-badge">SAMPLE PREVIEW — not a real document</div>
+    ${buildDocHeader({ ...clinicProfile, docTitle: "PAYMENT RECEIPT", accentColor })}
+    <div class="meta-grid">
+      <div class="meta-box"><div class="meta-label">Receipt No.</div><div class="meta-value"><strong>OR26-0001</strong></div></div>
+      <div class="meta-box"><div class="meta-label">Date</div><div class="meta-value">April 11, 2026</div></div>
+      <div class="meta-box"><div class="meta-label">Patient</div><div class="meta-value">Sample Patient</div></div>
+      <div class="meta-box"><div class="meta-label">Payment Mode</div><div class="meta-value">GCash</div></div>
+      <div class="meta-box meta-grid-full"><div class="meta-label">Reference Number</div><div class="meta-value">GC-2026-0000-1234</div></div>
+    </div>
+    <div class="amount-box">
+      <div class="amount-label">AMOUNT PAID</div>
+      <div class="amount-value">${formatMoney(5000)}</div>
+      <div><span class="verified-badge">✓ VERIFIED</span></div>
+    </div>
+    <div class="footer">
+      <p>Generated: ${new Date().toLocaleString("en-PH")}</p>
+      <p style="margin-top:5px;">Please keep this receipt for your records.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
