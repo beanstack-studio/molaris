@@ -29,6 +29,7 @@ import {
 import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 import { generateCertificateHTML } from "@/lib/certificateGenerator";
 import { generateReferralHTML } from "@/lib/referralGenerator";
+import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { openDocumentViewer } from "@/components/DocumentViewer";
 import { PageLoader } from "@/components/Spinner";
 
@@ -70,6 +71,7 @@ export default function DocumentsPage() {
   const rxNextCheckupRef = useRef<HTMLInputElement>(null);
 
   // Certificate fields
+  const [cerPurpose, setCerPurpose] = useState("");
   const [cerFindings, setCerFindings] = useState("");
   const [cerTreatmentDone, setCerTreatmentDone] = useState("");
   const [cerRemarks, setCerRemarks] = useState("");
@@ -171,44 +173,41 @@ export default function DocumentsPage() {
     setBusy(true);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userEmail = sessionData.session?.user?.email ?? "Unknown";
+      const [sessionResult, clinicMeta] = await Promise.all([
+        supabase.auth.getSession(),
+        loadClinicMeta(docDentistId),
+      ]);
+      const userEmail = sessionResult.data.session?.user?.email ?? "Unknown";
 
       let renderedHtml = previewHtml;
 
+      // Calculate patient age helper
+      function calcAge(): number | undefined {
+        if (!patient!.birth_date) return undefined;
+        const dob = new Date(patient!.birth_date);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        if (today.getMonth() < dob.getMonth() ||
+            (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
+          age--;
+        }
+        return age;
+      }
+
       // Generate HTML for prescriptions
       if (selectedDocType === DOC_TYPES.PRESCRIPTION) {
-        // Calculate age from DOB if available
-        let age: number | undefined;
-        if (patient.birth_date) {
-          const dob = new Date(patient.birth_date);
-          const today = new Date();
-          age = today.getFullYear() - dob.getFullYear();
-          if (today.getMonth() < dob.getMonth() || 
-              (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
-            age--;
-          }
-        }
-
-        // Remove id field from medications for prescription data
         const cleanMedications = rxMedications.map(({ id, ...med }) => med);
-
         renderedHtml = generatePrescriptionHTML({
           patientName: patient.full_name || "Unknown Patient",
-          patientAge: age,
+          patientAge: calcAge(),
           patientAddress: patient.address || "",
           patientGender: patient.gender || "",
           visitDate: docVisitDate,
           dentistName: dentistNameById[docDentistId] ?? "Dentist",
           medications: cleanMedications,
           remarks: rxRemarks || "",
-          docNo: "RX26-0000", // Will be replaced by generateDocument
-          clinicMeta: {
-            name: "MATIRA DENTAL STUDIO",
-            address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
-            licenseNo: "[Placeholder]",
-            ptrNo: "[Placeholder]",
-          },
+          docNo: "RX26-0000", // Will be replaced by createDocument
+          clinicMeta,
         });
       }
 
@@ -220,41 +219,23 @@ export default function DocumentsPage() {
         dentist_name: dentistNameById[docDentistId] ?? null,
         issued_by: docIssuedBy || userEmail,
         rendered_html: renderedHtml,
-        clinic_meta: {
-          name: "MATIRA DENTAL STUDIO",
-          address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
-          licenseNo: "[Placeholder]",
-          ptrNo: "[Placeholder]",
-        },
+        clinic_meta: clinicMeta,
       };
 
       if (selectedDocType === DOC_TYPES.PRESCRIPTION) {
-        // Clean medications (remove id field) before storing to payload
         const cleanMedications = rxMedications.map(({ id, ...med }) => med);
-        
-        // Calculate age from DOB if available
-        let age: number | undefined;
-        if (patient.birth_date) {
-          const dob = new Date(patient.birth_date);
-          const today = new Date();
-          age = today.getFullYear() - dob.getFullYear();
-          if (today.getMonth() < dob.getMonth() || 
-              (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
-            age--;
-          }
-        }
-        
         payload.fields = {
           medications: cleanMedications,
           remarks: rxRemarks || null,
           next_checkup_date: rxNextCheckup || null,
-          patient_age: age,
+          patient_age: calcAge(),
           patient_address: patient.address || "",
           patient_gender: patient.gender || "",
           visit_date: docVisitDate,
         };
       } else if (selectedDocType === DOC_TYPES.DENTAL_CERTIFICATE) {
         payload.fields = {
+          purpose: cerPurpose || null,
           findings: cerFindings || null,
           treatment_done: cerTreatmentDone || null,
           remarks: cerRemarks || null,
@@ -288,7 +269,7 @@ export default function DocumentsPage() {
             appointment_type: "CHECKUP",
             status: "SCHEDULED",
             notes: `Follow-up checkup from prescription dated ${formatDateStandard(docVisitDate)}`,
-            created_by: sessionData.session?.user?.id,
+            created_by: sessionResult.data.session?.user?.id,
           });
         } catch (appointmentError) {
           // Don't fail the entire document generation, just log the appointment error
@@ -315,6 +296,7 @@ export default function DocumentsPage() {
     setRxMedications([]);
     setRxRemarks("");
     setRxNextCheckup("");
+    setCerPurpose("");
     setCerFindings("");
     setCerTreatmentDone("");
     setCerRemarks("");
@@ -464,16 +446,12 @@ export default function DocumentsPage() {
                                   patientGender: patient?.gender || "",
                                   visitDate: d.payload?.visit_date || "",
                                   dentistName: d.payload?.dentist_name || "Dentist",
+                                  purpose: (d.payload?.fields as any)?.purpose || "",
                                   findings: (d.payload?.fields as any)?.findings || "",
                                   treatmentDone: (d.payload?.fields as any)?.treatment_done || "",
                                   remarks: (d.payload?.fields as any)?.remarks || "",
                                   docNo: d.doc_no || "—",
-                                  clinicMeta: d.payload?.clinic_meta || {
-                                    name: "MATIRA DENTAL STUDIO",
-                                    address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
-                                    licenseNo: "[Placeholder]",
-                                    ptrNo: "[Placeholder]",
-                                  },
+                                  clinicMeta: d.payload?.clinic_meta || {},
                                 });
                               }
                               // For referral letters, generate from payload
@@ -500,12 +478,7 @@ export default function DocumentsPage() {
                                   doctor: (d.payload?.fields as any)?.doctor || "",
                                   remarks: (d.payload?.fields as any)?.remarks || "",
                                   docNo: d.doc_no || "—",
-                                  clinicMeta: d.payload?.clinic_meta || {
-                                    name: "MATIRA DENTAL STUDIO",
-                                    address: "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan",
-                                    licenseNo: "[Placeholder]",
-                                    ptrNo: "[Placeholder]",
-                                  },
+                                  clinicMeta: d.payload?.clinic_meta || {},
                                 });
                               }
                               // For other documents, use stored HTML
@@ -786,6 +759,17 @@ export default function DocumentsPage() {
               {/* Dental Certificate */}
               {selectedDocType === DOC_TYPES.DENTAL_CERTIFICATE && (
                 <>
+                  <div className="grid-gap-1">
+                    <label className="text-field-label">Purpose of certificate</label>
+                    <input
+                      type="text"
+                      className="input-full"
+                      value={cerPurpose}
+                      onChange={(e) => setCerPurpose(e.target.value)}
+                      placeholder="e.g. employment, school requirement, travel"
+                    />
+                  </div>
+
                   <div className="section-columns">
                     <div className="grid-gap-1 w-1/2">
                       <label className="text-field-label">Findings</label>

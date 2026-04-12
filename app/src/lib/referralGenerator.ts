@@ -19,6 +19,7 @@ export interface ReferralData {
     name?: string;
     address?: string;
     contact?: string;
+    logoUrl?: string | null;
     licenseNo?: string;
     ptrNo?: string;
   };
@@ -71,11 +72,11 @@ export function generateReferralHTML(data: ReferralData): string {
     }
     
     .page {
-      width: 8.27in;
-      height: 11.69in;
+      width: 8.5in;
+      min-height: 11in;
       background: white;
       margin: 20px auto;
-      padding: 25px;
+      padding: 0.6in 0.75in;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       page-break-after: always;
     }
@@ -239,19 +240,21 @@ export function generateReferralHTML(data: ReferralData): string {
     <!-- Header -->
     <div class="header">
       <div style="flex: 0 0 auto;">
-        <div style="width: 50px; height: 50px; background: #e0e0e0; border: 2px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #999;">📋</div>
+        ${clinicMeta.logoUrl
+          ? `<img src="${clinicMeta.logoUrl}" style="width:60px;height:60px;object-fit:contain;" alt="Clinic Logo">`
+          : `<div style="width:60px;height:60px;background:#f0f0f0;border:1px dashed #ccc;"></div>`}
       </div>
       <div class="clinic-info">
-        <div class="clinic-name">${clinicMeta.name || "MATIRA DENTAL STUDIO"}</div>
-        <div class="clinic-subtitle">GENERAL DENTISTRY & ORTHODONTICS</div>
+        <div class="clinic-name">${clinicMeta.name || "Dental Clinic"}</div>
+        <div class="clinic-subtitle">GENERAL DENTISTRY &amp; ORTHODONTICS</div>
         <div class="clinic-address">
-          ${clinicMeta.address || "Unit 5 Gandionco Building, Toting Reyes Street, Kalibo, Aklan<br>(036) 262 3207"}
+          ${clinicMeta.address || ""}${clinicMeta.contact ? `<br>${clinicMeta.contact}` : ""}
         </div>
       </div>
       <div class="right-section">
         <div class="doc-no">${docNo}</div>
-        <div>Lic. No. ${clinicMeta.licenseNo || "___________"}</div>
-        <div>PTR No. ${clinicMeta.ptrNo || "___________"}</div>
+        ${clinicMeta.licenseNo ? `<div>Lic. No. ${clinicMeta.licenseNo}</div>` : ""}
+        ${clinicMeta.ptrNo ? `<div>PTR No. ${clinicMeta.ptrNo}</div>` : ""}
       </div>
     </div>
 

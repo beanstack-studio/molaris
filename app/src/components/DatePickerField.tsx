@@ -60,7 +60,7 @@ export function DatePickerField({
   const monRef  = useRef<HTMLInputElement>(null);
   const yrRef   = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const blurTmr = useRef<ReturnType<typeof setTimeout>>();
+  const blurTmr = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Sync external value → segments + nav
   useEffect(() => {
