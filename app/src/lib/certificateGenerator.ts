@@ -7,8 +7,8 @@ export interface CertificateData {
   patientGender?: string;
   visitDate: string;
   dentistName: string;
-  findings: string;
-  treatmentDone: string;
+  findings: string | string[];
+  treatmentDone: string | string[];
   purpose?: string;
   remarks?: string;
   docNo: string;
@@ -22,12 +22,22 @@ export interface CertificateData {
   };
 }
 
+function renderLines(val: string | string[] | null | undefined): string {
+  if (!val) return "";
+  const items = Array.isArray(val) ? val.filter(Boolean) : [val].filter(Boolean);
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  return items.map((item) => `• ${item}`).join("\n");
+}
+
 export function generateCertificateHTML(data: CertificateData): string {
   const {
     patientName, patientAge, patientAddress, patientGender,
-    visitDate, dentistName, findings, treatmentDone, purpose, remarks,
+    visitDate, dentistName, purpose, remarks,
     docNo, clinicMeta = {},
   } = data;
+  const findings = renderLines(data.findings);
+  const treatmentDone = renderLines(data.treatmentDone);
 
   const dateObj = new Date(visitDate + "T00:00:00Z");
   const formattedDate = dateObj.toLocaleDateString("en-US", {

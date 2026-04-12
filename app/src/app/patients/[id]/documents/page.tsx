@@ -55,7 +55,7 @@ export default function DocumentsPage() {
   // Form fields (dynamic per doc type)
   const [docVisitDate, setDocVisitDate] = useState(() => todayLocalISO());
   const [docDentistId, setDocDentistId] = useState<string>("");
-  const [docIssuedBy, setDocIssuedBy] = useState("");
+  // docIssuedBy removed — always auto-filled from user email
   const docVisitDateRef = useRef<HTMLInputElement>(null);
 
   // Prescription fields
@@ -72,8 +72,8 @@ export default function DocumentsPage() {
 
   // Certificate fields
   const [cerPurpose, setCerPurpose] = useState("");
-  const [cerFindings, setCerFindings] = useState("");
-  const [cerTreatmentDone, setCerTreatmentDone] = useState("");
+  const [cerFindings, setCerFindings] = useState<string[]>([]);
+  const [cerTreatmentDone, setCerTreatmentDone] = useState<string[]>([]);
   const [cerRemarks, setCerRemarks] = useState("");
 
   // Referral fields
@@ -217,7 +217,7 @@ export default function DocumentsPage() {
         visit_date: docVisitDate,
         dentist_id: docDentistId,
         dentist_name: dentistNameById[docDentistId] ?? null,
-        issued_by: docIssuedBy || userEmail,
+        issued_by: userEmail,
         rendered_html: renderedHtml,
         clinic_meta: clinicMeta,
       };
@@ -236,8 +236,8 @@ export default function DocumentsPage() {
       } else if (selectedDocType === DOC_TYPES.DENTAL_CERTIFICATE) {
         payload.fields = {
           purpose: cerPurpose || null,
-          findings: cerFindings || null,
-          treatment_done: cerTreatmentDone || null,
+          findings: cerFindings.length > 0 ? cerFindings : null,
+          treatment_done: cerTreatmentDone.length > 0 ? cerTreatmentDone : null,
           remarks: cerRemarks || null,
         };
       } else if (selectedDocType === DOC_TYPES.REFERRAL_LETTER) {
@@ -256,7 +256,7 @@ export default function DocumentsPage() {
         docType: selectedDocType,
         payload,
         dentistName: dentistNameById[docDentistId],
-        issuedBy: docIssuedBy || userEmail,
+        issuedBy: userEmail,
       });
 
       // If prescription has a next checkup date, create an appointment
@@ -292,13 +292,12 @@ export default function DocumentsPage() {
     setPreviewHtml("");
     setDocVisitDate(todayLocalISO());
     setDocDentistId("");
-    setDocIssuedBy("");
     setRxMedications([]);
     setRxRemarks("");
     setRxNextCheckup("");
     setCerPurpose("");
-    setCerFindings("");
-    setCerTreatmentDone("");
+    setCerFindings([]);
+    setCerTreatmentDone([]);
     setCerRemarks("");
     setRefReason("");
     setRefClinic("");
@@ -367,17 +366,15 @@ export default function DocumentsPage() {
             <table className="data-table">
               <colgroup>
                 <col className="col-20" />
+                <col className="col-30" />
+                <col className="col-30" />
                 <col className="col-20" />
-                <col className="col-20" />
-                <col className="col-25" />
-                <col className="col-15" />
               </colgroup>
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell">Date</th>
                   <th className="data-table-head-cell">Type</th>
                   <th className="data-table-head-cell">Doc No.</th>
-                  <th className="data-table-head-cell">Issued By</th>
                   <th className="data-table-head-cell-right">Actions</th>
                 </tr>
               </thead>
@@ -397,9 +394,6 @@ export default function DocumentsPage() {
                     </td>
                     <td className="data-table-cell">
                       {d.doc_no || (d as any).doc_number || "—"}
-                    </td>
-                    <td className="data-table-cell">
-                      {d.issued_by ?? (d as any).issued_by ?? "—"}
                     </td>
                     <td className="data-table-cell-right">
                       <div className="flex items-center justify-end gap-2">
@@ -447,8 +441,8 @@ export default function DocumentsPage() {
                                   visitDate: d.payload?.visit_date || "",
                                   dentistName: d.payload?.dentist_name || "Dentist",
                                   purpose: (d.payload?.fields as any)?.purpose || "",
-                                  findings: (d.payload?.fields as any)?.findings || "",
-                                  treatmentDone: (d.payload?.fields as any)?.treatment_done || "",
+                                  findings: (d.payload?.fields as any)?.findings || [],
+                                  treatmentDone: (d.payload?.fields as any)?.treatment_done || [],
                                   remarks: (d.payload?.fields as any)?.remarks || "",
                                   docNo: d.doc_no || "—",
                                   clinicMeta: d.payload?.clinic_meta || {},
@@ -597,17 +591,6 @@ export default function DocumentsPage() {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              <div className="grid-gap-1">
-                <label className="text-field-label">Issued by</label>
-                <input
-                  type="text"
-                  className="input-full"
-                  value={docIssuedBy}
-                  onChange={(e) => setDocIssuedBy(e.target.value)}
-                  placeholder="Optional"
-                />
               </div>
 
               {/* STEP 3: Type-specific fields */}
@@ -770,29 +753,65 @@ export default function DocumentsPage() {
                     />
                   </div>
 
-                  <div className="section-columns">
-                    <div className="grid-gap-1 w-1/2">
-                      <label className="text-field-label">Findings</label>
-                      <input
-                        type="text"
-                        className="input-full"
-                        value={cerFindings}
-                        onChange={(e) => setCerFindings(e.target.value)}
-                        placeholder="Clinical findings"
-                      />
-                    </div>
-
-                    <div className="grid-gap-1 w-1/2">
-                      <label className="text-field-label">Treatment done</label>
-                      <input
-                        type="text"
-                        className="input-full"
-                        value={cerTreatmentDone}
-                        onChange={(e) => setCerTreatmentDone(e.target.value)}
-                        placeholder="Treatments performed"
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <div className="text-field-label">Findings ({cerFindings.length})</div>
+                    {cerFindings.map((item, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          className="input-standard flex-1"
+                          value={item}
+                          onChange={(e) => {
+                            const updated = [...cerFindings];
+                            updated[index] = e.target.value;
+                            setCerFindings(updated);
+                          }}
+                          placeholder="Clinical finding"
+                        />
+                        <button
+                          type="button"
+                          className="item-delete-btn flex-shrink-0"
+                          onClick={() => setCerFindings(cerFindings.filter((_, i) => i !== index))}
+                        >Delete</button>
+                      </div>
+                    ))}
+                    {cerFindings.length === 0 && <div className="hint-text">No findings yet. Add one below.</div>}
                   </div>
+                  <button
+                    type="button"
+                    className="add-row-btn"
+                    onClick={() => setCerFindings([...cerFindings, ""])}
+                  >+ Add Finding</button>
+
+                  <div className="space-y-2">
+                    <div className="text-field-label">Treatment done ({cerTreatmentDone.length})</div>
+                    {cerTreatmentDone.map((item, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          className="input-standard flex-1"
+                          value={item}
+                          onChange={(e) => {
+                            const updated = [...cerTreatmentDone];
+                            updated[index] = e.target.value;
+                            setCerTreatmentDone(updated);
+                          }}
+                          placeholder="Treatment performed"
+                        />
+                        <button
+                          type="button"
+                          className="item-delete-btn flex-shrink-0"
+                          onClick={() => setCerTreatmentDone(cerTreatmentDone.filter((_, i) => i !== index))}
+                        >Delete</button>
+                      </div>
+                    ))}
+                    {cerTreatmentDone.length === 0 && <div className="hint-text">No treatments yet. Add one below.</div>}
+                  </div>
+                  <button
+                    type="button"
+                    className="add-row-btn"
+                    onClick={() => setCerTreatmentDone([...cerTreatmentDone, ""])}
+                  >+ Add Treatment Done</button>
 
                   <div className="grid-gap-1">
                     <label className="text-field-label">Remarks</label>

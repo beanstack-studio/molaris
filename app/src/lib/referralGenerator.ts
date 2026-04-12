@@ -67,8 +67,7 @@ export function generateReferralHTML(data: ReferralData): string {
 
   ${buildPatientRowHTML(patientName, patientAge, patientGender, patientAddress)}
 
-  <div class="section-title">Reason for Referral</div>
-  <div class="section-body">${reason || "[No reason entered]"}</div>
+  ${reason ? `<div class="section-title">Reason for Referral</div><div class="section-body">${reason}</div>` : ""}
 
   ${remarks ? `
   <div class="section-title">Clinical Notes</div>

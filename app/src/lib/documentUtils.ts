@@ -71,7 +71,8 @@ export function buildSignatureHTML(
   return `<div>
   <div style="height:50px;border-bottom:1px solid #333;width:220px;"></div>
   <div style="font-size:11px;font-weight:bold;color:${DOC_ACCENT};margin-top:5px;">${dentistName || "Dentist"}</div>
-  <div style="font-size:9px;color:#666;margin-top:2px;">${licLine}  |  ${ptrLine}</div>
+  <div style="font-size:9px;color:#666;margin-top:2px;">${licLine}</div>
+  <div style="font-size:9px;color:#666;margin-top:1px;">${ptrLine}</div>
 </div>`;
 }
 
