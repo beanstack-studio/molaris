@@ -224,30 +224,31 @@ export default function WebsiteControlsPage() {
 
       {/* ── My Account ───────────────────────────────────────── */}
       <div className="card">
-        <div className="card-header mb-3">
+        <div className="card-header mb-4">
           <div className="card-title">My Account</div>
-          <button className="cancel-btn" onClick={openChangePw}>
-            Change password
-          </button>
         </div>
-        <div className="flex flex-wrap items-center gap-6">
+
+        <div className="flex flex-col gap-3 max-w-sm">
           <div>
             <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Email</div>
-            <div className="text-sm text-slate-800 font-medium">{currentEmail || "—"}</div>
+            <div className="field-input-readonly text-sm">{currentEmail || "—"}</div>
           </div>
           <div>
             <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Password</div>
-            <div className="text-sm text-slate-400 tracking-widest">••••••••</div>
+            <div className="field-input-readonly text-sm tracking-widest text-slate-400">••••••••••••</div>
           </div>
           <div>
             <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Role</div>
-            <RoleBadge role={currentRole} />
+            <div className="py-1"><RoleBadge role={currentRole} /></div>
           </div>
+          <button className="save-btn self-start mt-1" onClick={openChangePw}>
+            Change password
+          </button>
         </div>
       </div>
 
-      {/* ── Login Access / Users ─────────────────────────────── */}
-      <div className="card">
+      {/* ── Login Access / Users — hidden until user mgmt is ready ── */}
+      {false && <div className="card">
         <div className="card-header mb-4">
           <div>
             <div className="card-title">Login Access</div>
@@ -322,8 +323,7 @@ export default function WebsiteControlsPage() {
             </table>
           </div>
         )}
-      </div>
-
+      </div>}
 
       {/* ── Change Password Modal ─────────────────────────────── */}
       <EditModal open={showChangePw} title="Change Password" onClose={() => { setShowChangePw(false); setPwSuccess(false); }}>

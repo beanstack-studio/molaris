@@ -46,9 +46,6 @@ export async function generateInvoiceDocument(
   patientName: string,
   invoiceNumber: string,
   invoiceDate: string,
-  patientAge?: number,
-  patientGender?: string,
-  patientAddress?: string,
 ): Promise<string> {
   try {
     const [clinicProfile, invoiceResult, itemsResult] = await Promise.all([
@@ -62,6 +59,29 @@ export async function generateInvoiceDocument(
 
     const invoiceData = invoiceResult.data as any;
     const itemsList = (itemsResult.data || []) as any[];
+
+    // Fetch patient metadata directly
+    let patientAge: number | undefined;
+    let patientGender: string | undefined;
+    let patientAddress: string | undefined;
+    if (invoiceData.patient_id) {
+      const { data: pat } = await supabase
+        .from("patients")
+        .select("birth_date, gender, address")
+        .eq("id", invoiceData.patient_id)
+        .single();
+      if (pat) {
+        if (pat.birth_date) {
+          const dob = new Date(pat.birth_date);
+          const today = new Date();
+          let age = today.getFullYear() - dob.getFullYear();
+          if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+          patientAge = age;
+        }
+        patientGender = pat.gender || undefined;
+        patientAddress = pat.address || undefined;
+      }
+    }
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -132,9 +152,6 @@ export async function generatePaymentReceiptDocument(
   paymentId: string,
   patientName: string,
   receiptNumber: string,
-  patientAge?: number,
-  patientGender?: string,
-  patientAddress?: string,
 ): Promise<string> {
   try {
     const [clinicProfile, paymentResult] = await Promise.all([
@@ -145,6 +162,29 @@ export async function generatePaymentReceiptDocument(
     if (paymentResult.error) throw paymentResult.error;
 
     const payment = paymentResult.data as any;
+
+    // Fetch patient metadata directly
+    let patientAge: number | undefined;
+    let patientGender: string | undefined;
+    let patientAddress: string | undefined;
+    if (payment.patient_id) {
+      const { data: pat } = await supabase
+        .from("patients")
+        .select("birth_date, gender, address")
+        .eq("id", payment.patient_id)
+        .single();
+      if (pat) {
+        if (pat.birth_date) {
+          const dob = new Date(pat.birth_date);
+          const today = new Date();
+          let age = today.getFullYear() - dob.getFullYear();
+          if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+          patientAge = age;
+        }
+        patientGender = pat.gender || undefined;
+        patientAddress = pat.address || undefined;
+      }
+    }
     const paymentDetails = payment?.details || {};
     const paymentModeName = paymentDetails.payment_mode_name || "—";
     const referenceNumber = paymentDetails.reference_number || "—";
