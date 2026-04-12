@@ -1,99 +1,192 @@
 "use client";
 
-import { useState } from "react";
-import { DatePickerField } from "@/components/DatePickerField";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { formatDateStandard } from "@/lib/helpers";
+import { downloadCSV } from "@/lib/exportHelpers";
+import { PageLoader } from "@/components/Spinner";
+
+interface DentistStat {
+  id: string;
+  full_name: string;
+  total: number;
+  confirmed: number;
+  cancelled: number;
+}
+
+interface MonthStat {
+  month: string;
+  total: number;
+  confirmed: number;
+  cancelled: number;
+}
 
 export default function AppointmentsReportPage() {
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ patientName: "", date: "", time: "", dentist: "" });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState({ total: 0, confirmed: 0, cancelled: 0, pending: 0 });
+  const [byDentist, setByDentist] = useState<DentistStat[]>([]);
+  const [byMonth, setByMonth] = useState<MonthStat[]>([]);
 
-  const handleCreateAppointment = () => {
-    setShowModal(false);
-    setFormData({ patientName: "", date: "", time: "", dentist: "" });
-  };
+  useEffect(() => { loadData(); }, []);
+
+  async function loadData() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [{ data: appts }, { data: dentists }] = await Promise.all([
+        supabase.from("appointments").select("id, dentist_id, appointment_date, status").is("deleted_at", null),
+        supabase.from("dentists").select("id, full_name"),
+      ]);
+
+      const dentistMap: Record<string, string> = {};
+      for (const d of dentists || []) dentistMap[d.id] = d.full_name;
+
+      let total = 0, confirmed = 0, cancelled = 0, pending = 0;
+      const dentistStats: Record<string, DentistStat> = {};
+      const monthStats: Record<string, MonthStat> = {};
+
+      for (const a of appts || []) {
+        total++;
+        const s = (a.status || "").toLowerCase();
+        if (s === "confirmed") confirmed++;
+        else if (s === "cancelled") cancelled++;
+        else pending++;
+
+        // By dentist
+        const did = a.dentist_id || "__unassigned__";
+        if (!dentistStats[did]) dentistStats[did] = { id: did, full_name: dentistMap[did] || "Unassigned", total: 0, confirmed: 0, cancelled: 0 };
+        dentistStats[did].total++;
+        if (s === "confirmed") dentistStats[did].confirmed++;
+        if (s === "cancelled") dentistStats[did].cancelled++;
+
+        // By month
+        if (a.appointment_date) {
+          const month = a.appointment_date.substring(0, 7); // "YYYY-MM"
+          if (!monthStats[month]) monthStats[month] = { month, total: 0, confirmed: 0, cancelled: 0 };
+          monthStats[month].total++;
+          if (s === "confirmed") monthStats[month].confirmed++;
+          if (s === "cancelled") monthStats[month].cancelled++;
+        }
+      }
+
+      setSummary({ total, confirmed, cancelled, pending });
+      setByDentist(Object.values(dentistStats).sort((a, b) => b.total - a.total));
+      setByMonth(Object.values(monthStats).sort((a, b) => b.month.localeCompare(a.month)).slice(0, 12));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const maxMonthTotal = byMonth.length > 0 ? Math.max(...byMonth.map((m) => m.total)) : 1;
+
+  function fmtMonth(ym: string) {
+    const [y, m] = ym.split("-");
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  }
+
+  if (loading) return <PageLoader />;
 
   return (
     <>
-      <div className="card">
+      {error && <div className="error-banner">{error}</div>}
+
+      <div className="grid gap-4 sm:grid-cols-4">
+        <div className="card">
+          <div className="text-muted">Total</div>
+          <div className="text-2xl font-bold text-slate-900 mt-2">{summary.total}</div>
+        </div>
+        <div className="card">
+          <div className="text-muted">Confirmed</div>
+          <div className="text-2xl font-bold text-green-700 mt-2">{summary.confirmed}</div>
+        </div>
+        <div className="card">
+          <div className="text-muted">Cancelled</div>
+          <div className="text-2xl font-bold text-red-600 mt-2">{summary.cancelled}</div>
+        </div>
+        <div className="card">
+          <div className="text-muted">Pending / Other</div>
+          <div className="text-2xl font-bold text-yellow-600 mt-2">{summary.pending}</div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* By Dentist */}
+        <div className="card">
           <div className="card-header">
-            <div className="card-title">Appointment Reports</div>
-            <button onClick={() => setShowModal(true)} className="save-btn">
-              + Create
+            <div className="card-title">By Dentist</div>
+            <button className="cancel-btn" onClick={() => downloadCSV(byDentist.map((d) => ({
+              "Dentist": d.full_name,
+              "Total": d.total,
+              "Confirmed": d.confirmed,
+              "Cancelled": d.cancelled,
+            })), "appointments-by-dentist")}>
+              CSV
             </button>
           </div>
-          <p className="text-sm text-slate-500 mt-1 mb-4">
-            Track appointment utilization, no-show rates, scheduling efficiency, and dentist workload.
-          </p>
-          <div className="empty-state">
-            <p className="text-slate-600 font-medium">Coming Soon</p>
-            <p className="empty-state-hint">This report is being developed</p>
-          </div>
+          {byDentist.length === 0 ? (
+            <p className="text-center text-slate-500 py-4">No data</p>
+          ) : (
+            <div className="table-wrapper">
+              <table className="data-table">
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Dentist</th>
+                    <th className="data-table-head-cell-right">Total</th>
+                    <th className="data-table-head-cell-right">Confirmed</th>
+                    <th className="data-table-head-cell-right">Cancelled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byDentist.map((d, i) => (
+                    <tr key={d.id} className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                      <td className="data-table-cell">{d.full_name}</td>
+                      <td className="data-table-cell-right font-semibold">{d.total}</td>
+                      <td className="data-table-cell-right text-green-700">{d.confirmed}</td>
+                      <td className="data-table-cell-right text-red-600">{d.cancelled}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-      {/* Appointment Modal */}
-      {showModal && (
-        <div className="modal-container">
-          <div className="modal-panel">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Create Appointment</h3>
-            
-            <div className="space-y-4 mb-6">
-              <div className="field-label">
-                <label className="field-label-text">Patient Name</label>
-                <input
-                  type="text"
-                  value={formData.patientName}
-                  onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-                  placeholder="Enter patient name"
-                  className="field-input"
-                />
-              </div>
-              <div className="field-label">
-                <DatePickerField
-                  label="Date"
-                  value={formData.date}
-                  onChange={(v) => setFormData({ ...formData, date: v })}
-                />
-              </div>
-              <div className="field-label">
-                <label className="field-label-text">Time</label>
-                <input
-                  type="time"
-                  value={formData.time}
-                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  className="field-input"
-                />
-              </div>
-              <div className="field-label">
-                <label className="field-label-text">Dentist</label>
-                <select
-                  value={formData.dentist}
-                  onChange={(e) => setFormData({ ...formData, dentist: e.target.value })}
-                  className="field-input"
-                >
-                  <option value="">Select a dentist</option>
-                  <option value="Dr. Smith">Dr. Smith</option>
-                  <option value="Dr. Johnson">Dr. Johnson</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowModal(false)}
-                className="cancel-btn"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateAppointment}
-                className="save-btn"
-              >
-                Create
-              </button>
-            </div>
+        {/* By Month */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">By Month (last 12)</div>
+            <button className="cancel-btn" onClick={() => downloadCSV(byMonth.map((m) => ({
+              "Month": fmtMonth(m.month),
+              "Total": m.total,
+              "Confirmed": m.confirmed,
+              "Cancelled": m.cancelled,
+            })), "appointments-by-month")}>
+              CSV
+            </button>
           </div>
+          {byMonth.length === 0 ? (
+            <p className="text-center text-slate-500 py-4">No data</p>
+          ) : (
+            <div className="space-y-2 px-1 py-2">
+              {byMonth.map((m) => (
+                <div key={m.month} className="flex items-center gap-3">
+                  <div className="w-20 text-xs text-slate-500 flex-shrink-0 text-right">{fmtMonth(m.month)}</div>
+                  <div className="flex-1 bg-slate-100 rounded-full h-5 relative overflow-hidden">
+                    <div
+                      className="h-5 rounded-full flex items-center justify-end pr-2"
+                      style={{ width: `${Math.max(8, Math.round((m.total / maxMonthTotal) * 100))}%`, background: "hsl(var(--accent-hue) var(--accent-sat) 50%)" }}
+                    />
+                  </div>
+                  <div className="w-6 text-xs font-semibold text-slate-700 text-right">{m.total}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </>
   );
 }
