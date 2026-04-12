@@ -26,7 +26,7 @@ export type MedHist = {
   conditions: any;
 };
 
-export type DentistRow = { id: string; full_name: string };
+export type DentistRow = { id: string; full_name: string; color?: string | null };
 
 export type ChartEntry = {
   id: string;

@@ -90,10 +90,10 @@ export default function TreatmentAnalyticsReportPage() {
           <div className="card-title">Services Breakdown</div>
           <div className="inline-row">
             <select className="form-select-standard" value={sort} onChange={(e) => setSort(e.target.value as any)}>
-              <option value="count">Sort: Most Used</option>
-              <option value="revenue">Sort: Highest Revenue</option>
-              <option value="avg">Sort: Highest Avg Price</option>
-              <option value="name">Sort: Name A–Z</option>
+              <option value="count">Most Used</option>
+              <option value="revenue">Highest Revenue</option>
+              <option value="avg">Highest Avg Price</option>
+              <option value="name">Name A–Z</option>
             </select>
             <button className="cancel-btn" onClick={() => downloadCSV(sorted.map((r) => ({
               "Service": r.service_name,

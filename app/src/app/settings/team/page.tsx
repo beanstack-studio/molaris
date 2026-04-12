@@ -10,6 +10,14 @@ import { Toggle } from "@/components/Toggle";
 
 const TogglePill = Toggle;
 
+const DENTIST_COLORS = [
+  { hex: "#6366f1", label: "Indigo" },
+  { hex: "#0d9488", label: "Teal" },
+  { hex: "#e11d48", label: "Rose" },
+  { hex: "#d97706", label: "Amber" },
+  { hex: "#059669", label: "Emerald" },
+];
+
 type DentistRow = {
   id: string;
   full_name: string;
@@ -17,6 +25,7 @@ type DentistRow = {
   ptr_number: string | null;
   date_of_birth: string | null;
   is_active: boolean;
+  color: string | null;
 };
 
 type StaffRow = {
@@ -48,6 +57,7 @@ export default function TeamSettingsPage() {
   const [dentistDob, setDentistDob] = useState("");
   const [dentistPrc, setDentistPrc] = useState("");
   const [dentistPtr, setDentistPtr] = useState("");
+  const [dentistColor, setDentistColor] = useState<string>(DENTIST_COLORS[0].hex);
   const [editingDentist, setEditingDentist] = useState<DentistRow | null>(null);
   const dentistDobRef = useRef<HTMLInputElement | null>(null);
 
@@ -78,6 +88,7 @@ export default function TeamSettingsPage() {
         ptr_number: d.ptr_number || null,
         date_of_birth: d.date_of_birth || null,
         is_active: d.is_active ?? true,
+        color: d.color || null,
       })) as DentistRow[];
 
       setDentists(dentistData);
@@ -137,6 +148,7 @@ export default function TeamSettingsPage() {
         prc_number: dentistPrc.trim() || null,
         ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
         is_active: true,
+        color: dentistColor,
       });
 
       if (error) throw error;
@@ -172,6 +184,7 @@ export default function TeamSettingsPage() {
           date_of_birth: dentistDob || null,
           prc_number: dentistPrc.trim() || null,
           ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
+          color: dentistColor,
         })
         .eq("id", editingDentist.id)
         .select();
@@ -382,6 +395,7 @@ export default function TeamSettingsPage() {
                     setDentistDob("");
                     setDentistPrc("");
                     setDentistPtr("");
+                    setDentistColor(DENTIST_COLORS[0].hex);
                     setEditingDentist(null);
                     setShowAddDentistModal(true);
                   }}
@@ -424,7 +438,12 @@ export default function TeamSettingsPage() {
                         key={d.id}
                         className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
                       >
-                        <td className="data-table-cell">{d.full_name}</td>
+                        <td className="data-table-cell">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-block w-3 h-3 rounded-full flex-shrink-0" style={{ background: d.color || DENTIST_COLORS[0].hex }} />
+                            {d.full_name}
+                          </div>
+                        </td>
                         <td className="data-table-cell">
                           {d.date_of_birth
                             ? formatDateStandard(d.date_of_birth.split('T')[0])
@@ -448,6 +467,7 @@ export default function TeamSettingsPage() {
                               setDentistDob(d.date_of_birth || "");
                               setDentistPrc(d.prc_number || "");
                               setDentistPtr(d.ptr_number || "");
+                              setDentistColor(d.color || DENTIST_COLORS[0].hex);
                               setShowAddDentistModal(true);
                             }}
                             disabled={busy}
@@ -602,6 +622,26 @@ export default function TeamSettingsPage() {
               disabled={busy}
             />
           </label>
+          <div className="grid gap-1">
+            <span className="field-label-text">Calendar color</span>
+            <div className="flex gap-2">
+              {DENTIST_COLORS.map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  title={c.label}
+                  onClick={() => setDentistColor(c.hex)}
+                  className="w-8 h-8 rounded-full border-2 transition-transform hover:scale-110"
+                  style={{
+                    background: c.hex,
+                    borderColor: dentistColor === c.hex ? "#1e293b" : "transparent",
+                    boxShadow: dentistColor === c.hex ? `0 0 0 2px white, 0 0 0 4px ${c.hex}` : "none",
+                  }}
+                  disabled={busy}
+                />
+              ))}
+            </div>
+          </div>
           <div className="modal-actions">
             {editingDentist && (
               <button

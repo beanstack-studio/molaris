@@ -107,7 +107,7 @@ export default function AppointmentsPage() {
     try {
       const { data, error: err } = await supabase
         .from("dentists")
-        .select("id, full_name")
+        .select("id, full_name, color")
         .eq("is_active", true)
         .order("full_name");
       if (err) throw err;
@@ -155,6 +155,14 @@ export default function AppointmentsPage() {
     } catch {
       setPatients([]);
     }
+  };
+
+  const dentistColorMap: Record<string, string> = {};
+  for (const d of dentists) dentistColorMap[d.id] = d.color || "#6366f1";
+
+  const getAptColor = (apt: AppointmentWithRelations, isPast: boolean) => {
+    if (isPast) return "#94a3b8";
+    return apt.dentist_id ? (dentistColorMap[apt.dentist_id] || "#6366f1") : "#6366f1";
   };
 
   const formatDateHeading = (dateStr: string) => {
@@ -394,14 +402,16 @@ export default function AppointmentsPage() {
                         {dayAppointments.length > 0 && (
                           <div className="space-y-0.5">
                             {dayAppointments.slice(0, 2).map((apt) => (
-                              <div key={apt.id} className={`text-xs md:text-xs p-0.5 md:p-1 rounded font-medium truncate ${
-                                isPast ? "bg-slate-300 text-slate-600" : "bg-indigo-400 text-white"
-                              }`}>
+                              <div
+                                key={apt.id}
+                                className="text-xs md:text-xs p-0.5 md:p-1 rounded font-medium truncate text-white"
+                                style={{ backgroundColor: getAptColor(apt, isPast) }}
+                              >
                                 {formatTime12Hr(apt.appointment_time)}
                               </div>
                             ))}
                             {dayAppointments.length > 2 && (
-                              <div className="text-xs text-indigo-600 font-semibold px-0.5 md:px-1">
+                              <div className="text-xs font-semibold px-0.5 md:px-1" style={{ color: getAptColor(dayAppointments[0], isPast) }}>
                                 +{dayAppointments.length - 2} more
                               </div>
                             )}
