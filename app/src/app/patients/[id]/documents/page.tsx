@@ -306,6 +306,45 @@ export default function DocumentsPage() {
     setError(null);
   }
 
+  async function handleOpenDocument(d: any) {
+    try {
+      setBusy(true);
+      let html = "";
+      if (d.doc_type === DOC_TYPES.INVOICE) {
+        html = await generateInvoiceDocument(d.id, patient?.full_name || "Patient", d.doc_no || "—", formatDateStandard(d.created_at?.split("T")[0] || ""));
+      } else if (d.doc_type === DOC_TYPES.PAYMENT_RECEIPT) {
+        html = await generatePaymentReceiptDocument((d as any).payload?.payment_id || d.id, patient?.full_name || "Patient", d.doc_no || "—");
+      } else if (d.doc_type === DOC_TYPES.DENTAL_CERTIFICATE) {
+        let age: number | undefined;
+        if (patient?.birth_date) {
+          const dob = new Date(patient.birth_date);
+          const today = new Date();
+          age = today.getFullYear() - dob.getFullYear();
+          if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+        }
+        html = generateCertificateHTML({ patientName: patient?.full_name || "Unknown Patient", patientAge: age, patientAddress: patient?.address || "", patientGender: patient?.gender || "", visitDate: d.payload?.visit_date || "", dentistName: d.payload?.dentist_name || "Dentist", purpose: (d.payload?.fields as any)?.purpose || "", findings: (d.payload?.fields as any)?.findings || [], treatmentDone: (d.payload?.fields as any)?.treatment_done || [], remarks: (d.payload?.fields as any)?.remarks || "", docNo: d.doc_no || "—", clinicMeta: d.payload?.clinic_meta || {} });
+      } else if (d.doc_type === DOC_TYPES.REFERRAL_LETTER) {
+        let age: number | undefined;
+        if (patient?.birth_date) {
+          const dob = new Date(patient.birth_date);
+          const today = new Date();
+          age = today.getFullYear() - dob.getFullYear();
+          if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+        }
+        html = generateReferralHTML({ patientName: patient?.full_name || "Unknown Patient", patientAge: age, patientAddress: patient?.address || "", patientGender: patient?.gender || "", visitDate: d.payload?.visit_date || "", dentistName: d.payload?.dentist_name || "Dentist", reason: (d.payload?.fields as any)?.reason || "", clinic: (d.payload?.fields as any)?.clinic || "", doctor: (d.payload?.fields as any)?.doctor || "", remarks: (d.payload?.fields as any)?.remarks || "", docNo: d.doc_no || "—", clinicMeta: d.payload?.clinic_meta || {} });
+      } else {
+        html = d.payload?.rendered_html || (d as any).payload?.renderedHtml || "";
+      }
+      if (html) { openDocumentViewer({ html, docType: d.doc_type || "INVOICE", docNumber: d.doc_no || "—" }); }
+      else if (d.doc_type !== DOC_TYPES.INVOICE && d.doc_type !== DOC_TYPES.PAYMENT_RECEIPT) { alert("No document content available for this document."); }
+    } catch (error) {
+      console.error("Error opening document:", error);
+      alert("Failed to open document");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleDeleteDocument() {
     if (!deleteDocId) return;
     if (deleteConfirmation !== "DELETE") {
@@ -361,8 +400,8 @@ export default function DocumentsPage() {
             </div>
           </div>
 
-          {/* Generated Documents List */}
-          <div className="table-wrapper">
+          {/* Desktop table */}
+          <div className="table-wrapper hidden md:block">
             <table className="data-table">
               <colgroup>
                 <col className="col-20" />
@@ -380,153 +419,46 @@ export default function DocumentsPage() {
               </thead>
               <tbody>
                 {displayedDocuments.map((d, index) => (
-                  <tr
-                    key={d.id}
-                    className={`data-table-row ${
-                      index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
-                    }`}
-                  >
-                    <td className="data-table-cell">
-                      {formatDateStandard(d.created_at?.split("T")[0] || "")}
-                    </td>
-                    <td className="data-table-cell">
-                      {getDocTypeLabel(d.doc_type)}
-                    </td>
-                    <td className="data-table-cell">
-                      {d.doc_no || (d as any).doc_number || "—"}
-                    </td>
+                  <tr key={d.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                    <td className="data-table-cell">{formatDateStandard(d.created_at?.split("T")[0] || "")}</td>
+                    <td className="data-table-cell">{getDocTypeLabel(d.doc_type)}</td>
+                    <td className="data-table-cell">{d.doc_no || (d as any).doc_number || "—"}</td>
                     <td className="data-table-cell-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          className="data-table-btn"
-                          onClick={async () => {
-                            try {
-                              setBusy(true);
-                              let html = "";
-
-                              // For invoices, generate HTML from invoice table
-                              if (d.doc_type === DOC_TYPES.INVOICE) {
-                                html = await generateInvoiceDocument(
-                                  d.id,
-                                  patient?.full_name || "Patient",
-                                  d.doc_no || "—",
-                                  formatDateStandard(d.created_at?.split("T")[0] || "")
-                                );
-                              }
-                              // For payment receipts, generate HTML from receipts table
-                              else if (d.doc_type === DOC_TYPES.PAYMENT_RECEIPT) {
-                                html = await generatePaymentReceiptDocument(
-                                  (d as any).payload?.payment_id || d.id,
-                                  patient?.full_name || "Patient",
-                                  d.doc_no || "—"
-                                );
-                              }
-                              // For dental certificates, generate from payload
-                              else if (d.doc_type === DOC_TYPES.DENTAL_CERTIFICATE) {
-                                let age: number | undefined;
-                                if (patient?.birth_date) {
-                                  const dob = new Date(patient.birth_date);
-                                  const today = new Date();
-                                  age = today.getFullYear() - dob.getFullYear();
-                                  if (today.getMonth() < dob.getMonth() || 
-                                      (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
-                                    age--;
-                                  }
-                                }
-                                html = generateCertificateHTML({
-                                  patientName: patient?.full_name || "Unknown Patient",
-                                  patientAge: age,
-                                  patientAddress: patient?.address || "",
-                                  patientGender: patient?.gender || "",
-                                  visitDate: d.payload?.visit_date || "",
-                                  dentistName: d.payload?.dentist_name || "Dentist",
-                                  purpose: (d.payload?.fields as any)?.purpose || "",
-                                  findings: (d.payload?.fields as any)?.findings || [],
-                                  treatmentDone: (d.payload?.fields as any)?.treatment_done || [],
-                                  remarks: (d.payload?.fields as any)?.remarks || "",
-                                  docNo: d.doc_no || "—",
-                                  clinicMeta: d.payload?.clinic_meta || {},
-                                });
-                              }
-                              // For referral letters, generate from payload
-                              else if (d.doc_type === DOC_TYPES.REFERRAL_LETTER) {
-                                let age: number | undefined;
-                                if (patient?.birth_date) {
-                                  const dob = new Date(patient.birth_date);
-                                  const today = new Date();
-                                  age = today.getFullYear() - dob.getFullYear();
-                                  if (today.getMonth() < dob.getMonth() || 
-                                      (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) {
-                                    age--;
-                                  }
-                                }
-                                html = generateReferralHTML({
-                                  patientName: patient?.full_name || "Unknown Patient",
-                                  patientAge: age,
-                                  patientAddress: patient?.address || "",
-                                  patientGender: patient?.gender || "",
-                                  visitDate: d.payload?.visit_date || "",
-                                  dentistName: d.payload?.dentist_name || "Dentist",
-                                  reason: (d.payload?.fields as any)?.reason || "",
-                                  clinic: (d.payload?.fields as any)?.clinic || "",
-                                  doctor: (d.payload?.fields as any)?.doctor || "",
-                                  remarks: (d.payload?.fields as any)?.remarks || "",
-                                  docNo: d.doc_no || "—",
-                                  clinicMeta: d.payload?.clinic_meta || {},
-                                });
-                              }
-                              // For other documents, use stored HTML
-                              else {
-                                html =
-                                  d.payload?.rendered_html ||
-                                  (d as any).payload?.renderedHtml ||
-                                  "";
-                              }
-
-                              if (html) {
-                                openDocumentViewer({
-                                  html,
-                                  docType: d.doc_type || "INVOICE",
-                                  docNumber: d.doc_no || "—",
-                                });
-                              } else if (d.doc_type !== DOC_TYPES.INVOICE && d.doc_type !== DOC_TYPES.PAYMENT_RECEIPT) {
-                                alert("No document content available for this document.");
-                              }
-                            } catch (error) {
-                              console.error("Error opening document:", error);
-                              alert("Failed to open document");
-                            } finally {
-                              setBusy(false);
-                            }
-                          }}
-                          disabled={busy}
-                        >
-                          Open
-                        </button>
-                        <button
-                          className="data-table-btn data-table-btn-danger"
-                          onClick={() => {
-                            setDeleteDocId(d.id);
-                            setDeleteConfirmation("");
-                            setShowDeleteModal(true);
-                          }}
-                          disabled={busy}
-                        >
-                          Delete
-                        </button>
+                        <button className="data-table-btn" onClick={() => handleOpenDocument(d)} disabled={busy}>Open</button>
+                        <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setDeleteConfirmation(""); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {displayedDocuments.length === 0 ? (
-                  <tr>
-                    <td className="data-table-empty" colSpan={5}>
-                      No documents yet.
-                    </td>
-                  </tr>
+                  <tr><td className="data-table-empty" colSpan={5}>No documents yet.</td></tr>
                 ) : null}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="mt-3 grid gap-2 md:hidden">
+            {displayedDocuments.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-sm">No documents yet.</div>
+            ) : (
+              displayedDocuments.map((d) => (
+                <div key={d.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-semibold text-slate-800 text-sm">{getDocTypeLabel(d.doc_type)}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{formatDateStandard(d.created_at?.split("T")[0] || "")}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{d.doc_no || (d as any).doc_number || "—"}</div>
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <button className="data-table-btn" onClick={() => handleOpenDocument(d)} disabled={busy}>Open</button>
+                      <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setDeleteConfirmation(""); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

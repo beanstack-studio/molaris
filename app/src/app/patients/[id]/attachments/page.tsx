@@ -258,7 +258,8 @@ export default function AttachmentsPage() {
             </div>
           </div>
 
-          <div className="table-wrapper">
+          {/* Desktop table */}
+          <div className="table-wrapper hidden md:block">
             <table className="data-table">
               <colgroup>
                 <col className="col-15" />
@@ -291,31 +292,47 @@ export default function AttachmentsPage() {
                     </td>
                     <td className="data-table-cell-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          className="data-table-btn"
-                          onClick={() => openAttachment(a)}
-                        >
-                          Open
-                        </button>
-                        <button
-                          className="data-table-btn"
-                          onClick={() => openEditModal(a)}
-                        >
-                          Edit
-                        </button>
+                        <button className="data-table-btn" onClick={() => openAttachment(a)}>Open</button>
+                        <button className="data-table-btn" onClick={() => openEditModal(a)}>Edit</button>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {displayedAttachments.length === 0 ? (
                   <tr>
-                    <td className="data-table-empty" colSpan={5}>
-                      No attachments yet.
-                    </td>
+                    <td className="data-table-empty" colSpan={5}>No attachments yet.</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="mt-3 grid gap-2 md:hidden">
+            {displayedAttachments.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-sm">No attachments yet.</div>
+            ) : (
+              displayedAttachments.map((a) => (
+                <div key={a.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="inline-block rounded-full bg-slate-100 text-slate-700 text-xs font-semibold px-2 py-0.5 mb-1">{a.type}</span>
+                      <div className="text-sm font-medium text-slate-800 truncate max-w-[200px]">
+                        {a.file_name ?? a.file_path.split("/").slice(-1)[0]}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">{formatDateStandard(a.created_at.split('T')[0])}</div>
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <button className="data-table-btn" onClick={() => openAttachment(a)}>Open</button>
+                      <button className="data-table-btn" onClick={() => openEditModal(a)}>Edit</button>
+                    </div>
+                  </div>
+                  {(a as any).notes && (
+                    <div className="mt-2 text-xs text-slate-500 border-t border-slate-50 pt-2">{(a as any).notes}</div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       

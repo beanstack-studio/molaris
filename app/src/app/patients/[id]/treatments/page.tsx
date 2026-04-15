@@ -160,7 +160,8 @@ export default function TreatmentsPage() {
               </div>
             </div>
 
-            <div className="table-wrapper">
+            {/* Desktop table */}
+            <div className="table-wrapper hidden md:block">
               <table className="data-table">
                 <colgroup>
                   <col className="col-20" />
@@ -213,6 +214,38 @@ export default function TreatmentsPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="mt-3 grid gap-2 md:hidden">
+              {groupedTreatmentHistory.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm">No treatments yet.</div>
+              ) : (
+                groupedTreatmentHistory.map(([date, txs]) => (
+                  <div key={date} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-slate-800 text-sm">{formatDateStandard(date)}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{txs[0]?.dentist_name || "—"}</div>
+                      </div>
+                      {invoicedDates.has(date) ? (
+                        <span className="inline-block px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-xs font-semibold">Invoiced</span>
+                      ) : (
+                        <button className="data-table-btn" onClick={() => setEditingVisitDate(date)}>Edit</button>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-1 border-t border-slate-50 pt-2">
+                      {txs.map((t) => (
+                        <div key={t.id} className="text-sm text-slate-700">
+                          {t.tooth_number ? <span className="font-medium">Tooth {t.tooth_number}:</span> : null}{" "}
+                          {t.procedure}
+                          {t.notes ? <div className="text-xs text-slate-400">{t.notes}</div> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

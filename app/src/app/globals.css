@@ -604,6 +604,11 @@ tr.data-table-row-compact-odd:hover {
 .card-header {
   @apply flex items-center justify-between;
 }
+@media (max-width: 767px) {
+  .card-header {
+    @apply flex-wrap gap-2 mb-2;
+  }
+}
 
 .card-title {
   @apply text-lg font-bold text-slate-800 no-underline;

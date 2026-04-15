@@ -900,7 +900,7 @@ export default function BillingPage() {
                   </button>
                 </div>
 
-                <div className="table-wrapper">
+                <div className="table-wrapper hidden md:block">
                   <table className="data-table">
                     <colgroup>
                       <col className="col-16" />
@@ -1006,6 +1006,41 @@ export default function BillingPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Mobile invoice cards */}
+                <div className="mt-3 grid gap-2 md:hidden">
+                  {invoices.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-sm">No invoices yet.</div>
+                  ) : invoices.map((inv: any) => {
+                    const invoiceAmount = inv.total ?? 0;
+                    const paidAmount = payments.filter((p: any) => p.invoice_id === inv.id && !p.voided_at).reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0);
+                    const balance = invoiceAmount - paidAmount;
+                    return (
+                      <div key={inv.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-800 text-sm">{inv.invoice_number}</span>
+                              {inv.invoice_type === "ortho" && <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-0.5 rounded">Ortho</span>}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">{formatDateStandard(inv.invoice_date)}</div>
+                          </div>
+                          <span className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${balance === 0 ? "bg-green-100 text-green-800" : inv.status === "overdue" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
+                            {balance === 0 ? "paid" : inv.status || "pending"}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs border-t border-slate-50 pt-2">
+                          <div><div className="text-slate-400">Amount</div><div className="font-semibold text-slate-800">{formatMoney(invoiceAmount)}</div></div>
+                          <div><div className="text-slate-400">Paid</div><div className="font-semibold text-green-700">{formatMoney(paidAmount)}</div></div>
+                          <div><div className="text-slate-400">Balance</div><div className={`font-semibold ${balance > 0 ? "text-red-600" : "text-green-600"}`}>{formatMoney(Math.max(0, balance))}</div></div>
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generateInvoiceDocument(inv.id, patient?.full_name || "Patient", inv.invoice_number, formatDateStandard(inv.invoice_date)); openDocumentViewer({ html, docType: "INVOICE", docNumber: inv.invoice_number }); } catch { alert("Failed to generate invoice document"); } finally { setBusy(false); } }}>Open</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Payments */}
@@ -1017,7 +1052,7 @@ export default function BillingPage() {
                   </button>
                 </div>
 
-                <div className="table-wrapper">
+                <div className="table-wrapper hidden md:block">
                   <table className="data-table">
                     <colgroup>
                       <col className="col-14" />
@@ -1138,6 +1173,42 @@ export default function BillingPage() {
                       ) : null}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile payment cards */}
+                <div className="mt-3 grid gap-2 md:hidden">
+                  {payments.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-sm">No payments yet.</div>
+                  ) : payments.map((pay: any) => {
+                    const modeData = paymentModes.find((m: any) => m.code === pay.details?.payment_mode_code);
+                    const isVoided = !!pay.voided_at;
+                    const statusColor = pay.status === 'verified' ? 'bg-green-100 text-green-800' : pay.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800';
+                    return (
+                      <div key={pay.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-semibold text-green-700 text-sm">{formatMoney(pay.amount)}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{formatDateStandard(pay.payment_date)}</div>
+                            <div className="text-xs text-slate-500">{modeData?.name || pay.details?.payment_mode_name || "—"}</div>
+                          </div>
+                          <span className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${statusColor} ${isVoided ? 'line-through opacity-60' : ''}`}>
+                            {isVoided ? 'voided' : pay.status || 'pending'}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex justify-end gap-1.5">
+                          {pay.status === 'pending' && !isVoided && (
+                            <button className="data-table-btn-warning" disabled={busy} onClick={async () => { try { const { data: fullPayment, error } = await supabase.from("payments").select("*").eq("id", pay.id).single(); if (error) throw error; setVerifyingPaymentDetails(fullPayment); setVerifyingPaymentId(pay.id); setVerificationConfirmation(""); } catch { setError("Failed to load payment details"); } }}>Verify</button>
+                          )}
+                          {pay.status === 'verified' && !isVoided && (
+                            <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generatePaymentReceiptDocument(pay.id, patient?.full_name || "Patient", pay.transaction_id || "PMT00000"); openDocumentViewer({ html, docType: "PAYMENT_RECEIPT", docNumber: pay.transaction_id || "PMT00000" }); } catch { alert("Failed to generate receipt"); } finally { setBusy(false); } }}>View</button>
+                          )}
+                          {!isVoided && (
+                            <button className="data-table-btn-danger" disabled={busy} onClick={() => setVoidingPaymentId(pay.id)}>Void</button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

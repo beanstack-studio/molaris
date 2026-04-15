@@ -304,7 +304,8 @@ export default function ChartPage() {
               </select>
             </div>
 
-            <div className="table-wrapper">
+            {/* Desktop table */}
+            <div className="table-wrapper hidden md:block">
               <table className="data-table">
                 <colgroup>
                   <col className="col-15" />
@@ -332,7 +333,7 @@ export default function ChartPage() {
                       if (sortKey === "finding_asc") return (a.finding_code ?? "").localeCompare(b.finding_code ?? "");
                       if (sortKey === "finding_desc") return (b.finding_code ?? "").localeCompare(a.finding_code ?? "");
                       if (sortKey === "date_asc") return (a.recorded_at ?? "").localeCompare(b.recorded_at ?? "");
-                      return (b.recorded_at ?? "").localeCompare(a.recorded_at ?? ""); // date_desc default
+                      return (b.recorded_at ?? "").localeCompare(a.recorded_at ?? "");
                     })
                     .map((entry, index) => (
                     <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
@@ -342,24 +343,48 @@ export default function ChartPage() {
                       <td className="data-table-cell">{entry.surfaces ?? "—"}</td>
                       <td className="data-table-cell-truncate">{entry.finding_detail ?? "—"}</td>
                       <td className="data-table-cell-right">
-                        <button
-                          onClick={() => editChartEntry(entry)}
-                          className="data-table-btn"
-                        >
-                          Edit
-                        </button>
+                        <button onClick={() => editChartEntry(entry)} className="data-table-btn">Edit</button>
                       </td>
                     </tr>
                   ))}
                   {chart.length === 0 ? (
-                    <tr>
-                      <td className="data-table-empty" colSpan={6}>
-                        No chart entries yet.
-                      </td>
-                    </tr>
+                    <tr><td className="data-table-empty" colSpan={6}>No chart entries yet.</td></tr>
                   ) : null}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="mt-3 grid gap-2 md:hidden">
+              {chart.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm">No chart entries yet.</div>
+              ) : (
+                [...chart]
+                  .sort((a, b) => {
+                    if (sortKey === "tooth_asc") return Number(a.tooth_number) - Number(b.tooth_number);
+                    if (sortKey === "tooth_desc") return Number(b.tooth_number) - Number(a.tooth_number);
+                    if (sortKey === "finding_asc") return (a.finding_code ?? "").localeCompare(b.finding_code ?? "");
+                    if (sortKey === "finding_desc") return (b.finding_code ?? "").localeCompare(a.finding_code ?? "");
+                    if (sortKey === "date_asc") return (a.recorded_at ?? "").localeCompare(b.recorded_at ?? "");
+                    return (b.recorded_at ?? "").localeCompare(a.recorded_at ?? "");
+                  })
+                  .map((entry) => (
+                    <div key={entry.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800">Tooth {entry.tooth_number}</span>
+                            <span className="rounded-full bg-slate-100 text-slate-700 text-xs font-semibold px-2 py-0.5">{entry.finding_code}</span>
+                            {entry.surfaces && <span className="text-xs text-slate-500">{entry.surfaces}</span>}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">{entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}</div>
+                          {entry.finding_detail && <div className="text-xs text-slate-600 mt-1">{entry.finding_detail}</div>}
+                        </div>
+                        <button onClick={() => editChartEntry(entry)} className="data-table-btn flex-shrink-0">Edit</button>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
 
@@ -474,10 +499,12 @@ export default function ChartPage() {
 
       {editingEntry ? (
         <div className="modal-container" onDoubleClick={() => setEditingEntry(null)}>
-          <div className="container-bg-white-rounded-shadow">
-            <div className="text-lg font-semibold mb-4">
-              Edit Entry — Tooth #{editingEntry.tooth_number}
+          <div className="w-full max-w-md rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0" style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}>
+            <div className="modal-header flex items-center justify-between pr-4">
+              <div className="modal-title">Edit Entry — Tooth #{editingEntry.tooth_number}</div>
+              <button type="button" onClick={() => { setEditingEntry(null); setError(null); setDeleteConfirmation(""); }} className="text-white/70 hover:text-white text-xl leading-none">✕</button>
             </div>
+            <div className="p-5">
 
             {error && <div className="error-message-red">{error}</div>}
 
@@ -561,6 +588,7 @@ export default function ChartPage() {
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
       ) : null}
