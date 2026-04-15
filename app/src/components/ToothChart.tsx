@@ -507,15 +507,19 @@ export default function ToothChart({
   }
 
   return (
-    <div className="grid gap-3 w-full">
+    /* Mobile/tablet: single horizontal scroll container for the whole chart.
+       Desktop (md+): overflow-x-visible lets the per-row scroll containers take over. */
+    <div className="overflow-x-auto md:overflow-x-visible -mx-3 px-3 md:mx-0 md:px-0">
+      <div className="grid gap-3 min-w-max md:min-w-0 w-full">
       {/* UPPER DENTITION - Combined Primary & Permanent */}
       <div className="card-light">
         <div className="text-s font-semibold text-slate-600 uppercase text-center mb-2 py-2">Upper Dentition</div>
-        
+
         {/* Primary Upper */}
         <div>
           <div className="tooth-section-label">Primary</div>
-          <div className="overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] -mx-3">
+          {/* Desktop: per-row scroll + edge-to-edge via -mx-3. Mobile: outer wrapper scrolls. */}
+          <div className="min-h-[90px] md:overflow-x-auto md:overflow-y-hidden md:scrollbar-hide md:-mx-3">
             <div className="flex gap-0 w-max mx-auto items-center py-1">
               {primaryUpperRight.map(renderTooth)}
               <div className="tooth-divider" />
@@ -527,7 +531,7 @@ export default function ToothChart({
         {/* Permanent Upper */}
         <div className="mt-0.5">
           <div className="tooth-section-label">Permanent</div>
-          <div className="overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] -mx-3">
+          <div className="min-h-[90px] md:overflow-x-auto md:overflow-y-hidden md:scrollbar-hide md:-mx-3">
             <div className="flex gap-0 w-max mx-auto items-center py-1">
               {permUpperRight.map(renderTooth)}
               <div className="tooth-divider" />
@@ -542,7 +546,7 @@ export default function ToothChart({
 
         {/* Permanent Lower - FIRST */}
         <div>
-          <div className="overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] -mx-3">
+          <div className="min-h-[90px] md:overflow-x-auto md:overflow-y-hidden md:scrollbar-hide md:-mx-3">
             <div className="flex gap-0 w-max mx-auto items-center py-1">
               {permLowerRight.map(renderTooth)}
               <div className="tooth-divider" />
@@ -554,7 +558,7 @@ export default function ToothChart({
 
         {/* Primary Lower - SECOND */}
         <div className="mt-0.5">
-          <div className="overflow-x-auto overflow-y-hidden scrollbar-hide min-h-[90px] -mx-3">
+          <div className="min-h-[90px] md:overflow-x-auto md:overflow-y-hidden md:scrollbar-hide md:-mx-3">
             <div className="flex gap-0 w-max mx-auto items-center py-1">
               {primaryLowerRight.map(renderTooth)}
               <div className="tooth-divider" />
@@ -566,6 +570,7 @@ export default function ToothChart({
 
         {/* Lower Dentition Title - Below Primary */}
         <div className="text-s font-semibold text-slate-600 uppercase text-center mt-1 py-2">Lower Dentition</div>
+      </div>
       </div>
     </div>
   );
