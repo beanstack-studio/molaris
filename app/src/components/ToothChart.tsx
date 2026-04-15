@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useEffect } from "react";
 
 export type ChartEntryLite = {
   id: string;
@@ -471,6 +471,15 @@ export default function ToothChart({
   previewStatus?: ToothStatus | null;
   onSelectTooth: (tooth: number | string) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // On mobile, scroll to center of the chart so the midline is visible by default
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+  }, []);
+
   const counts = useMemo(() => {
     const m = new Map<number | string, number>();
     for (const e of entries) m.set(e.tooth_number, (m.get(e.tooth_number) ?? 0) + 1);
@@ -509,7 +518,7 @@ export default function ToothChart({
   return (
     /* Mobile/tablet: single horizontal scroll container for the whole chart.
        Desktop (md+): overflow-x-visible lets the per-row scroll containers take over. */
-    <div className="overflow-x-auto md:overflow-x-visible -mx-3 px-3 md:mx-0 md:px-0">
+    <div ref={scrollRef} className="overflow-x-auto md:overflow-x-visible -mx-3 px-3 md:mx-0 md:px-0">
       <div className="grid gap-3 min-w-max md:min-w-0 w-full">
       {/* UPPER DENTITION - Combined Primary & Permanent */}
       <div className="card-light">

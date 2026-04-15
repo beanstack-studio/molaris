@@ -25,6 +25,7 @@ interface RecentActivity {
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
+  const [loadingTooLong, setLoadingTooLong] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -48,7 +49,9 @@ export default function DashboardPage() {
   const [todayPayments, setTodayPayments] = useState<any[]>([]);
 
   useEffect(() => {
-    loadDashboardData();
+    setLoadingTooLong(false);
+    const slowTimer = setTimeout(() => setLoadingTooLong(true), 8000);
+    loadDashboardData().finally(() => clearTimeout(slowTimer));
   }, []);
 
   async function loadDashboardData() {
@@ -229,7 +232,24 @@ export default function DashboardPage() {
         {error && <div className="error-banner mb-4">{error}</div>}
 
         {loading ? (
-          <PageLoader />
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <PageLoader />
+            {loadingTooLong && (
+              <div className="flex flex-col items-center gap-3 mt-4">
+                <p className="text-sm text-slate-500">Taking longer than usual…</p>
+                <button
+                  onClick={() => {
+                    setLoadingTooLong(false);
+                    const slowTimer = setTimeout(() => setLoadingTooLong(true), 8000);
+                    loadDashboardData().finally(() => clearTimeout(slowTimer));
+                  }}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-white/60 hover:bg-white/80 text-slate-700 border border-slate-200 transition-all"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
             {/* Key Metrics - Row 1 */}

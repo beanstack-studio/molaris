@@ -52,7 +52,9 @@ export default function AppointmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 ? "list" : "calendar"
+  );
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
