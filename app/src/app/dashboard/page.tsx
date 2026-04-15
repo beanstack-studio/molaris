@@ -233,7 +233,7 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-4">
             {/* Key Metrics - Row 1 */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <DashboardCard
                 title="Total Invoiced"
                 value={formatMoney(stats.totalInvoiced)}
@@ -264,7 +264,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Key Metrics - Row 2 */}
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
               <DashboardCard title="Total Patients" value={stats.totalPatients} icon="👥" />
               <DashboardCard
                 title="Active Ortho Patients"

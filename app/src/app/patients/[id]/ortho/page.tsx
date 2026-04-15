@@ -526,7 +526,7 @@ export default function OrthoPage() {
             {orthoCase ? (
               <div className="spacing-vertical-lg">
                 {/* Row 1: Start Date, End Date, Status, Phase */}
-                <div className="grid gap-3 grid-cols-4">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                   <label className="field-label">
                     <span className="field-label-text">Start Date</span>
                     <input className="field-input-readonly" value={orthoCase.start_date ? formatDateStandard(orthoCase.start_date) : ""} readOnly />
@@ -546,7 +546,7 @@ export default function OrthoPage() {
                 </div>
 
                 {/* Row 2: Dentist, Package, Next Appointment */}
-                <div className="grid gap-3 grid-cols-3">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                   <label className="field-label">
                     <span className="field-label-text">Dentist</span>
                     <input 
@@ -578,7 +578,7 @@ export default function OrthoPage() {
                 </div>
 
                 {/* Row 3: Inclusions & Notes */}
-                <div className="grid gap-3 grid-cols-2 items-start">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 items-start">
                   <div className="field-label flex flex-col">
                     <span className="field-label-text">Inclusions</span>
                     {orthoCase.inclusions && Object.values(orthoCase.inclusions).some(v => v) ? (
@@ -619,7 +619,7 @@ export default function OrthoPage() {
                 </div>
 
                 {/* Row 4: Package Fee, Paid, Outstanding */}
-                <div className="grid gap-3 grid-cols-3 border-t pt-3">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 border-t pt-3">
                   <label className="field-label">
                     <span className="field-label-text">Total Package Fee</span>
                     <input 

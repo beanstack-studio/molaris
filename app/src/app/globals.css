@@ -108,15 +108,15 @@ select {
 ========================= */
 
 .app-section {
-  @apply max-w-7xl mx-auto px-4 py-6;
+  @apply max-w-7xl mx-auto px-3 py-4 sm:px-4 sm:py-6;
 }
 
 .app-section-header {
-  @apply flex items-center justify-between mb-4;
+  @apply flex items-center justify-between mb-4 gap-3 flex-wrap;
 }
 
 .app-section-title {
-  @apply text-xl font-bold;
+  @apply text-lg sm:text-xl font-bold;
   color: var(--accent-text);
 }
 
@@ -760,17 +760,17 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .modal-wrapper {
-  @apply bg-white rounded-2xl overflow-hidden w-full max-w-md;
+  @apply bg-white rounded-2xl overflow-hidden w-full max-w-md mx-3 sm:mx-0;
   box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .modal-panel {
-  @apply w-full max-w-md rounded-2xl bg-white overflow-hidden;
+  @apply w-full max-w-md rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
   box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .modal-panel-wide {
-  @apply w-full max-w-2xl rounded-2xl bg-white overflow-hidden;
+  @apply w-full max-w-2xl rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
   box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
 }
 
@@ -884,10 +884,20 @@ tr.data-table-row-compact-odd:hover {
   @apply mt-3 grid gap-3 sm:grid-cols-2;
 }
 
-/* Address row: Street (50%) + City + Province + Zip */
+/* Address row: Street (50%) + City + Province + Zip — stacks on mobile */
 .address-grid {
   @apply grid gap-3 mb-3;
-  grid-template-columns: 3fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .address-grid {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+@media (min-width: 768px) {
+  .address-grid {
+    grid-template-columns: 3fr 1fr 1fr 1fr;
+  }
 }
 
 .legend-grid {
@@ -910,13 +920,13 @@ tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .two-col-grid {
-  @apply grid gap-4 grid-cols-2;
+  @apply grid gap-4 grid-cols-1 sm:grid-cols-2;
 }
 .grid-gap-4-cols-3 {
-  @apply grid gap-4 grid-cols-3;
+  @apply grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3;
 }
 .grid-gap-4-cols-4 {
-  @apply grid gap-4 grid-cols-4;
+  @apply grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
 }
 .form-field-wrapper {
   @apply grid gap-1 text-sm;

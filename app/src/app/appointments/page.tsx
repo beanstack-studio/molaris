@@ -181,61 +181,101 @@ export default function AppointmentsPage() {
   };
 
   const AppointmentsTable = ({ rows }: { rows: AppointmentWithRelations[] }) => (
-    <div className="table-wrapper">
-      <table className="data-table">
-        <thead className="data-table-head">
-          <tr>
-            <th className="data-table-head-cell w-28">Time</th>
-            <th className="data-table-head-cell">Patient</th>
-            <th className="data-table-head-cell">Concern / Reason</th>
-            <th className="data-table-head-cell">Dentist</th>
-            <th className="data-table-head-cell w-28">Status</th>
-            <th className="data-table-head-cell w-20">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((apt, idx) => (
-            <tr key={apt.id} className={idx % 2 === 0 ? "data-table-row-even data-table-row" : "data-table-row-odd data-table-row"}>
-              <td className="data-table-cell font-semibold text-slate-800 whitespace-nowrap">
-                {formatTime12Hr(apt.appointment_time)}
-              </td>
-              <td className="data-table-cell">
-                <div className="font-medium text-slate-900">{apt.patients?.full_name || "—"}</div>
+    <>
+      {/* Desktop table */}
+      <div className="table-wrapper hidden md:block">
+        <table className="data-table">
+          <thead className="data-table-head">
+            <tr>
+              <th className="data-table-head-cell w-28">Time</th>
+              <th className="data-table-head-cell">Patient</th>
+              <th className="data-table-head-cell">Concern / Reason</th>
+              <th className="data-table-head-cell">Dentist</th>
+              <th className="data-table-head-cell w-28">Status</th>
+              <th className="data-table-head-cell w-20">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((apt, idx) => (
+              <tr key={apt.id} className={idx % 2 === 0 ? "data-table-row-even data-table-row" : "data-table-row-odd data-table-row"}>
+                <td className="data-table-cell font-semibold text-slate-800 whitespace-nowrap">
+                  {formatTime12Hr(apt.appointment_time)}
+                </td>
+                <td className="data-table-cell">
+                  <div className="font-medium text-slate-900">{apt.patients?.full_name || "—"}</div>
+                  {apt.patients?.phone && (
+                    <div className="text-xs text-slate-500 mt-0.5">📞 {formatPhoneLocal(apt.patients.phone)}</div>
+                  )}
+                </td>
+                <td className="data-table-cell text-slate-600 italic">
+                  {(apt as any).concern_type ? getVisitReasonLabel((apt as any).concern_type) : <span className="text-slate-300">—</span>}
+                </td>
+                <td className="data-table-cell">
+                  {apt.dentists?.full_name ? (
+                    <span
+                      className="inline-block rounded-full px-2 py-0.5 text-sm font-medium"
+                      style={{
+                        backgroundColor: (dentistColorMap[apt.dentist_id!] || "#6366f1") + "22",
+                        color: dentistColorMap[apt.dentist_id!] || "#6366f1",
+                      }}
+                    >
+                      {apt.dentists.full_name}
+                    </span>
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
+                <td className="data-table-cell">
+                  <span className={statusBadge(apt.status)}>{apt.status}</span>
+                </td>
+                <td className="data-table-cell">
+                  <button onClick={() => setEditingAppointment(apt)} className="data-table-btn justify-center">
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="grid gap-2 md:hidden">
+        {rows.map((apt) => (
+          <div key={apt.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-slate-900 text-sm">{apt.patients?.full_name || "—"}</div>
                 {apt.patients?.phone && (
                   <div className="text-xs text-slate-500 mt-0.5">📞 {formatPhoneLocal(apt.patients.phone)}</div>
                 )}
-              </td>
-              <td className="data-table-cell text-slate-600 italic">
-                {(apt as any).concern_type ? getVisitReasonLabel((apt as any).concern_type) : <span className="text-slate-300">—</span>}
-              </td>
-              <td className="data-table-cell">
-                {apt.dentists?.full_name ? (
-                  <span
-                    className="inline-block rounded-full px-2 py-0.5 text-sm font-medium"
-                    style={{
-                      backgroundColor: (dentistColorMap[apt.dentist_id!] || "#6366f1") + "22",
-                      color: dentistColorMap[apt.dentist_id!] || "#6366f1",
-                    }}
-                  >
-                    {apt.dentists.full_name}
-                  </span>
-                ) : (
-                  <span className="text-slate-300">—</span>
-                )}
-              </td>
-              <td className="data-table-cell">
-                <span className={statusBadge(apt.status)}>{apt.status}</span>
-              </td>
-              <td className="data-table-cell">
-                <button onClick={() => setEditingAppointment(apt)} className="data-table-btn justify-center">
-                  Edit
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              </div>
+              <span className={statusBadge(apt.status)}>{apt.status}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+              <span className="font-medium text-slate-800">{formatTime12Hr(apt.appointment_time)}</span>
+              {apt.dentists?.full_name && (
+                <span
+                  className="rounded-full px-2 py-0.5 font-medium"
+                  style={{
+                    backgroundColor: (dentistColorMap[apt.dentist_id!] || "#6366f1") + "22",
+                    color: dentistColorMap[apt.dentist_id!] || "#6366f1",
+                  }}
+                >
+                  {apt.dentists.full_name}
+                </span>
+              )}
+              {(apt as any).concern_type && (
+                <span className="italic text-slate-500">{getVisitReasonLabel((apt as any).concern_type)}</span>
+              )}
+            </div>
+            <div className="mt-2 flex justify-end">
+              <button onClick={() => setEditingAppointment(apt)} className="data-table-btn">Edit</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 
   const appointmentsByDate = appointments.reduce((acc, apt) => {

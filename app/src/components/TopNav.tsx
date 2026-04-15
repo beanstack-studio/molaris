@@ -22,6 +22,7 @@ export default function TopNav({
   const router = useRouter();
   const pathname = usePathname();
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   // null = show emoji fallback. Populated from Supabase (and cached in localStorage).
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState(title);
@@ -146,57 +147,81 @@ export default function TopNav({
   const isSettings = pathname?.startsWith("/settings");
   const isAppointments = pathname?.startsWith("/appointments");
 
+  const navLinks = [
+    { href: "/appointments", label: "Appointments", active: isAppointments },
+    { href: "/patients", label: "Patients", active: isPatients },
+    { href: "/reports/payments", label: "Reports", active: isReports },
+    { href: "/settings/clinic-profile", label: "Settings", active: isSettings },
+  ];
+
   return (
     <div className="topnav-wrapper">
       <div className="topnav-container">
         <div className="topnav-inner">
           {/* Logo/Home */}
-          <Link href="/dashboard" className="topnav-logo">
+          <Link href="/dashboard" className="topnav-logo" onClick={() => setMenuOpen(false)}>
             {logoSrc ? (
               <img src={logoSrc} alt="Clinic logo" className="h-8 w-8 rounded-lg object-contain" />
             ) : (
               <span>🦷</span>
             )}
-            {clinicName}
+            <span className="hidden sm:inline">{clinicName}</span>
           </Link>
 
-          {/* Right Navigation & Actions */}
-          <div className="topnav-links">
-            <Link
-              href="/appointments"
-              className={`topnav-link ${isAppointments ? "topnav-link-active" : "topnav-link-inactive"}`}
-            >
-              Appointments
-            </Link>
-            <Link
-              href="/patients"
-              className={`topnav-link ${isPatients ? "topnav-link-active" : "topnav-link-inactive"}`}
-            >
-              Patients
-            </Link>
-            <Link
-              href="/reports/payments"
-              className={`topnav-link ${isReports ? "topnav-link-active" : "topnav-link-inactive"}`}
-            >
-              Reports
-            </Link>
-            <Link
-              href="/settings/clinic-profile"
-              className={`topnav-link ${isSettings ? "topnav-link-active" : "topnav-link-inactive"}`}
-            >
-              Settings
-            </Link>
-            <button
-              type="button"
-              className="topnav-button-signout"
-              onClick={signOut}
-              disabled={busy}
-              title="Sign out"
-            >
+          {/* Desktop navigation */}
+          <div className="hidden md:flex items-center gap-1">
+            {navLinks.map((l) => (
+              <Link key={l.href} href={l.href} className={`topnav-link ${l.active ? "topnav-link-active" : "topnav-link-inactive"}`}>
+                {l.label}
+              </Link>
+            ))}
+            <button type="button" className="topnav-button-signout" onClick={signOut} disabled={busy}>
               {busy ? "..." : "Sign out"}
             </button>
           </div>
+
+          {/* Mobile hamburger button */}
+          <button
+            type="button"
+            className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="Toggle menu"
+          >
+            {menuOpen ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {menuOpen && (
+          <div className="md:hidden border-t border-slate-100 pt-2 pb-3 flex flex-col gap-1">
+            {navLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                onClick={() => setMenuOpen(false)}
+                className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${l.active ? "bg-violet-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                {l.label}
+              </Link>
+            ))}
+            <button
+              type="button"
+              className="px-3 py-2.5 rounded-xl text-sm font-medium text-left text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              onClick={() => { setMenuOpen(false); signOut(); }}
+              disabled={busy}
+            >
+              {busy ? "Signing out…" : "Sign out"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
