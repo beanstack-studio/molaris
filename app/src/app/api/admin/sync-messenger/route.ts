@@ -32,11 +32,10 @@ export async function POST() {
   const pageId: string = (pageRow as { page_id: string; page_access_token: string }).page_id;
   const pageToken: string = (pageRow as { page_id: string; page_access_token: string }).page_access_token;
 
-  let totalThreads = 0;
-  let totalMessages = 0;
   const errors: string[] = [];
 
-  // ── Fetch all conversations (paginated) ─────────────────────────────
+  // ── Collect all conversations across pages first ─────────────────────
+  const allConvs: ConvItem[] = [];
   let convUrl = `${FB}/${pageId}/conversations?platform=messenger&fields=id,participants&limit=100&access_token=${pageToken}`;
 
   while (convUrl) {
@@ -45,31 +44,45 @@ export async function POST() {
       errors.push(`Conversations fetch failed: ${await convRes.text()}`);
       break;
     }
-
     const convData = await convRes.json() as { data: ConvItem[]; paging?: { next?: string } };
-    const conversations = convData.data ?? [];
+    allConvs.push(...(convData.data ?? []));
+    convUrl = convData.paging?.next ?? "";
+  }
 
-    for (const conv of conversations) {
-      try {
+  // ── Process conversations in parallel batches of 8 ───────────────────
+  const BATCH = 8;
+  const results: { threads: number; messages: number }[] = [];
+
+  for (let i = 0; i < allConvs.length; i += BATCH) {
+    const batch = allConvs.slice(i, i + BATCH);
+    const batchResults = await Promise.allSettled(
+      batch.map(async (conv) => {
         const participants: Participant[] = conv.participants?.data ?? [];
         const user = participants.find((p) => p.id !== pageId);
-        if (!user) continue;
+        if (!user) return { threads: 0, messages: 0 };
 
         const threadId = await upsertThread(supabase, user.id, user.name ?? null);
         if (!threadId) {
           errors.push(`Could not upsert thread for PSID ${user.id}`);
-          continue;
+          return { threads: 0, messages: 0 };
         }
 
-        totalThreads++;
-        totalMessages += await syncMessages(supabase, conv.id, pageId, pageToken, threadId);
-      } catch (e: unknown) {
-        errors.push(`Conversation ${conv.id}: ${e instanceof Error ? e.message : String(e)}`);
+        const msgCount = await syncMessages(supabase, conv.id, pageId, pageToken, threadId);
+        return { threads: 1, messages: msgCount };
+      })
+    );
+
+    for (const r of batchResults) {
+      if (r.status === "fulfilled") {
+        results.push(r.value);
+      } else {
+        errors.push(r.reason instanceof Error ? r.reason.message : String(r.reason));
       }
     }
-
-    convUrl = convData.paging?.next ?? "";
   }
+
+  const totalThreads  = results.reduce((s, r) => s + r.threads, 0);
+  const totalMessages = results.reduce((s, r) => s + r.messages, 0);
 
   return NextResponse.json({
     ok: true,
