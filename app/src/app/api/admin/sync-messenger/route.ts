@@ -9,126 +9,115 @@ function getAdminClient() {
   );
 }
 
-const FB_VERSION = "v18.0";
+const FB = "https://graph.facebook.com/v18.0";
 
 /**
  * POST /api/admin/sync-messenger
  * Fetches all historical conversations + messages from the connected
- * Facebook Page and upserts them into Supabase. Safe to run multiple
- * times — messages are deduplicated by external_id.
+ * Facebook Page and upserts them into Supabase.
+ * Safe to run multiple times — deduplicates by external_id.
  */
 export async function POST() {
   const supabase = getAdminClient();
 
-  // ── Get stored page credentials ──────────────────────────────────────
-  const { data: pageRow, error: pageErr } = await supabase
+  const { data: pageRow } = await supabase
     .from("facebook_pages")
     .select("page_id, page_access_token")
     .maybeSingle();
 
-  if (pageErr || !pageRow) {
+  if (!pageRow) {
     return NextResponse.json({ error: "No Facebook page connected" }, { status: 400 });
   }
 
-  const { page_id: pageId, page_access_token: pageToken } = pageRow as {
-    page_id: string;
-    page_access_token: string;
-  };
+  const pageId: string = (pageRow as { page_id: string; page_access_token: string }).page_id;
+  const pageToken: string = (pageRow as { page_id: string; page_access_token: string }).page_access_token;
 
   let totalThreads = 0;
   let totalMessages = 0;
   const errors: string[] = [];
 
-  try {
-    // ── Fetch all conversations (paginated) ───────────────────────────
-    let convUrl: string | null =
-      `https://graph.facebook.com/${FB_VERSION}/${pageId}/conversations` +
-      `?platform=messenger&fields=id,participants&limit=100&access_token=${pageToken}`;
+  // ── Fetch all conversations (paginated) ─────────────────────────────
+  let convUrl = `${FB}/${pageId}/conversations?platform=messenger&fields=id,participants&limit=100&access_token=${pageToken}`;
 
-    while (convUrl) {
-      const convRes = await fetch(convUrl);
-      if (!convRes.ok) {
-        errors.push(`Conversations fetch failed: ${await convRes.text()}`);
-        break;
-      }
-      const convData = await convRes.json();
-      const conversations: any[] = convData.data ?? [];
-
-      for (const conv of conversations) {
-        try {
-          // Identify the user's PSID (the participant who is NOT the page)
-          const participants: any[] = conv.participants?.data ?? [];
-          const userParticipant = participants.find((p: any) => p.id !== pageId);
-          if (!userParticipant) continue;
-
-          const userPsid: string = userParticipant.id;
-          const userName: string | null = userParticipant.name ?? null;
-
-          // ── Upsert thread ──────────────────────────────────────────
-          const { data: threadRow, error: threadErr } = await supabase
-            .from("message_threads")
-            .upsert(
-              {
-                channel: "messenger",
-                external_thread_id: userPsid,
-                external_user_name: userName,
-              },
-              { onConflict: "channel,external_thread_id", ignoreDuplicates: false }
-            )
-            .select("id")
-            .single();
-
-          if (threadErr || !threadRow) {
-            // Try selecting existing thread if upsert conflicts
-            const { data: existing } = await supabase
-              .from("message_threads")
-              .select("id, external_user_name")
-              .eq("channel", "messenger")
-              .eq("external_thread_id", userPsid)
-              .maybeSingle();
-
-            if (!existing) {
-              errors.push(`Thread upsert failed for PSID ${userPsid}: ${threadErr?.message}`);
-              continue;
-            }
-            // Update name if we now have it
-            if (userName && !existing.external_user_name) {
-              await supabase
-                .from("message_threads")
-                .update({ external_user_name: userName })
-                .eq("id", existing.id);
-            }
-            (threadRow as any) ?? Object.assign({}, existing);
-            const threadId = existing.id;
-            totalThreads++;
-            await syncMessages(supabase, conv.id, pageId, pageToken, threadId);
-            const count = await getMessageCount(supabase, threadId);
-            totalMessages += count;
-            continue;
-          }
-
-          totalThreads++;
-          const threadId = (threadRow as any).id;
-          const msgCount = await syncMessages(supabase, conv.id, pageId, pageToken, threadId);
-          totalMessages += msgCount;
-        } catch (convErr: any) {
-          errors.push(`Error processing conversation ${conv.id}: ${convErr.message}`);
-        }
-      }
-
-      // Follow pagination cursor
-      convUrl = convData.paging?.next ?? null;
+  while (convUrl) {
+    const convRes: Response = await fetch(convUrl);
+    if (!convRes.ok) {
+      errors.push(`Conversations fetch failed: ${await convRes.text()}`);
+      break;
     }
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+
+    const convData = await convRes.json() as { data: ConvItem[]; paging?: { next?: string } };
+    const conversations = convData.data ?? [];
+
+    for (const conv of conversations) {
+      try {
+        const participants: Participant[] = conv.participants?.data ?? [];
+        const user = participants.find((p) => p.id !== pageId);
+        if (!user) continue;
+
+        const threadId = await upsertThread(supabase, user.id, user.name ?? null);
+        if (!threadId) {
+          errors.push(`Could not upsert thread for PSID ${user.id}`);
+          continue;
+        }
+
+        totalThreads++;
+        totalMessages += await syncMessages(supabase, conv.id, pageId, pageToken, threadId);
+      } catch (e: unknown) {
+        errors.push(`Conversation ${conv.id}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
+    convUrl = convData.paging?.next ?? "";
   }
 
   return NextResponse.json({
     ok: true,
     threads: totalThreads,
     messages: totalMessages,
-    errors: errors.length ? errors : undefined,
+    ...(errors.length ? { errors } : {}),
   });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+type Participant = { id: string; name?: string };
+type ConvItem    = { id: string; participants?: { data: Participant[] } };
+type FbMessage   = { id: string; message?: string; from?: { id: string; name?: string }; created_time: string };
+
+async function upsertThread(
+  supabase: ReturnType<typeof getAdminClient>,
+  psid: string,
+  name: string | null
+): Promise<string | null> {
+  // Try to find existing thread first
+  const { data: existing } = await supabase
+    .from("message_threads")
+    .select("id")
+    .eq("channel", "messenger")
+    .eq("external_thread_id", psid)
+    .maybeSingle();
+
+  if (existing) {
+    // Update name if we now have one
+    if (name) {
+      await supabase
+        .from("message_threads")
+        .update({ external_user_name: name })
+        .eq("id", (existing as { id: string }).id);
+    }
+    return (existing as { id: string }).id;
+  }
+
+  // Insert new thread
+  const { data: inserted, error } = await supabase
+    .from("message_threads")
+    .insert({ channel: "messenger", external_thread_id: psid, external_user_name: name })
+    .select("id")
+    .single();
+
+  if (error || !inserted) return null;
+  return (inserted as { id: string }).id;
 }
 
 async function syncMessages(
@@ -138,32 +127,29 @@ async function syncMessages(
   pageToken: string,
   threadId: string
 ): Promise<number> {
-  let count = 0;
-  let msgUrl: string | null =
-    `https://graph.facebook.com/v18.0/${convId}/messages` +
-    `?fields=id,message,from,created_time&limit=100&access_token=${pageToken}`;
+  // Collect all pages (FB returns newest first)
+  const allMessages: FbMessage[] = [];
+  let msgUrl = `${FB}/${convId}/messages?fields=id,message,from,created_time&limit=100&access_token=${pageToken}`;
 
-  // Collect all pages first (FB returns newest first; we insert oldest first)
-  const allMessages: any[] = [];
   while (msgUrl) {
-    const res = await fetch(msgUrl);
+    const res: Response = await fetch(msgUrl);
     if (!res.ok) break;
-    const data = await res.json();
+    const data = await res.json() as { data: FbMessage[]; paging?: { next?: string } };
     allMessages.push(...(data.data ?? []));
-    msgUrl = data.paging?.next ?? null;
+    msgUrl = data.paging?.next ?? "";
   }
 
-  // Insert oldest first so last_message_at ends up correct
+  // Insert oldest first so last_message_at ends up correct after update
   allMessages.reverse();
 
+  let count = 0;
   for (const msg of allMessages) {
-    if (!msg.message) continue; // skip attachment-only messages
+    if (!msg.message) continue;
 
-    const isStaff = msg.from?.id === pageId;
     const { error } = await supabase.from("messages").upsert(
       {
         thread_id: threadId,
-        sender_type: isStaff ? "staff" : "patient",
+        sender_type: msg.from?.id === pageId ? "staff" : "patient",
         sender_id: null,
         sender_name: msg.from?.name ?? null,
         content: msg.message,
@@ -177,25 +163,13 @@ async function syncMessages(
     if (!error) count++;
   }
 
-  // Update last_message_at to the last message time
+  // Bump last_message_at on the thread
   if (allMessages.length > 0) {
-    const lastMsg = allMessages[allMessages.length - 1];
     await supabase
       .from("message_threads")
-      .update({ last_message_at: lastMsg.created_time })
+      .update({ last_message_at: allMessages[allMessages.length - 1].created_time })
       .eq("id", threadId);
   }
 
   return count;
-}
-
-async function getMessageCount(
-  supabase: ReturnType<typeof getAdminClient>,
-  threadId: string
-): Promise<number> {
-  const { count } = await supabase
-    .from("messages")
-    .select("id", { count: "exact", head: true })
-    .eq("thread_id", threadId);
-  return count ?? 0;
 }
