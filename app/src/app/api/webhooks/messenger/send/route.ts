@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabaseClient";
 
 /**
  * POST /api/webhooks/messenger/send
- * Send Messenger message via Facebook Graph API
- * 
- * Expected payload:
- * {
- *   "recipient_id": "PSID",
- *   "message": "Your appointment is confirmed"
- * }
+ * Send a Messenger message via Facebook Graph API.
+ * Token is read from the facebook_pages table (set via OAuth connect flow).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -21,52 +17,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pageAccessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+    const { data: page } = await supabase
+      .from("facebook_pages")
+      .select("page_access_token, page_name")
+      .maybeSingle();
 
-    if (!pageAccessToken) {
-      console.error("Facebook Page Access Token not configured");
+    const pageToken = (page as any)?.page_access_token as string | null;
+
+    if (!pageToken) {
       return NextResponse.json(
-        { error: "Messenger service not configured" },
-        { status: 500 }
+        { error: "Facebook page not connected. Go to Settings → Website Controls to connect." },
+        { status: 503 }
       );
     }
 
-    // Send message via Facebook Graph API
-    const response = await fetch(
-      `https://graph.facebook.com/v18.0/me/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          recipient: { id: recipient_id },
-          message: { text: message },
-          access_token: pageAccessToken,
-        }),
-      }
-    );
+    const graphRes = await fetch("https://graph.facebook.com/v18.0/me/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipient_id },
+        message: { text: message },
+        access_token: pageToken,
+      }),
+    });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("Facebook Graph API error:", response.status, errorData);
+    if (!graphRes.ok) {
+      const errorText = await graphRes.text();
+      console.error("Facebook Graph API error:", graphRes.status, errorText);
       return NextResponse.json(
-        { error: "Failed to send Messenger message", details: errorData },
-        { status: response.status }
+        { error: "Failed to send Messenger message", details: errorText },
+        { status: graphRes.status }
       );
     }
 
-    const result = await response.json();
-
-    return NextResponse.json(
-      { success: true, messageId: result.message_id },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error sending Messenger message:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    const result = await graphRes.json();
+    return NextResponse.json({ success: true, messageId: result.message_id });
+  } catch (err) {
+    console.error("Error sending Messenger message:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

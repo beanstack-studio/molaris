@@ -3,144 +3,146 @@ import { supabase } from "@/lib/supabaseClient";
 
 /**
  * GET /api/webhooks/messenger/receive
- * Webhook verification endpoint for Facebook Messenger
- * Facebook will call this to verify the webhook
+ * Webhook verification endpoint — Facebook calls this once to confirm ownership.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const mode = searchParams.get("hub.mode");
-    const token = searchParams.get("hub.verify_token");
-    const challenge = searchParams.get("hub.challenge");
+  const searchParams = request.nextUrl.searchParams;
+  const mode = searchParams.get("hub.mode");
+  const token = searchParams.get("hub.verify_token");
+  const challenge = searchParams.get("hub.challenge");
 
-    const verifyToken = process.env.MESSENGER_WEBHOOK_VERIFY_TOKEN;
-
-    if (mode === "subscribe" && token === verifyToken) {
-      return new NextResponse(challenge, { status: 200 });
-    }
-
-    return NextResponse.json(
-      { error: "Webhook verification failed" },
-      { status: 403 }
-    );
-  } catch (error) {
-    console.error("Error in webhook verification:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  if (mode === "subscribe" && token === process.env.MESSENGER_WEBHOOK_VERIFY_TOKEN) {
+    return new NextResponse(challenge, { status: 200 });
   }
+
+  return NextResponse.json({ error: "Webhook verification failed" }, { status: 403 });
 }
 
 /**
  * POST /api/webhooks/messenger/receive
- * Webhook to receive incoming Messenger messages
+ * Facebook posts incoming messages here in real time.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
     if (body.object !== "page") {
-      return NextResponse.json(
-        { error: "Not a page event" },
-        { status: 400 }
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
+
+    // Return 200 immediately; process async so Facebook doesn't retry
+    processEntries(body.entry).catch((err) =>
+      console.error("Messenger processing error:", err)
+    );
+
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (err) {
+    console.error("Messenger webhook error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+async function processEntries(entries: any[]) {
+  // Get page token once (for fetching sender names on new threads)
+  const { data: pageRow } = await supabase
+    .from("facebook_pages")
+    .select("page_access_token")
+    .maybeSingle();
+  const pageToken: string | null = (pageRow as any)?.page_access_token ?? null;
+
+  for (const entry of entries) {
+    for (const messaging of (entry.messaging ?? [])) {
+      if (!messaging.message || messaging.message.is_echo) continue;
+
+      await handleIncomingMessage(
+        pageToken,
+        messaging.sender.id,
+        messaging.recipient.id,
+        messaging.message.text ?? "",
+        messaging.message.mid
       );
     }
-
-    // Process each entry
-    for (const entry of body.entry) {
-      for (const messaging of entry.messaging) {
-        if (messaging.message && !messaging.message.is_echo) {
-          await handleIncomingMessage(
-            messaging.sender.id,
-            messaging.recipient.id,
-            messaging.message.text,
-            messaging.message.mid,
-            messaging.sender.name || null // Pass sender name
-          );
-        }
-      }
-    }
-
-    // Return 200 immediately to acknowledge receipt
-    return NextResponse.json({ received: true }, { status: 200 });
-  } catch (error) {
-    console.error("Error handling Messenger webhook:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
   }
 }
 
 async function handleIncomingMessage(
+  pageToken: string | null,
   senderId: string,
   pageId: string,
   messageText: string,
-  externalMessageId: string,
-  senderName: string | null = null
+  externalMessageId: string
 ) {
   try {
-    // Find thread by Messenger PSID
-    const { data: threads } = await supabase
+    // ── Find existing thread ─────────────────────────────────────────────
+    const { data: existingThread } = await supabase
       .from("message_threads")
-      .select("*, patients(id, full_name)")
+      .select("id, patient_id, external_user_name, patients(id, full_name)")
       .eq("channel", "messenger")
       .eq("external_thread_id", senderId)
-      .single();
+      .maybeSingle();
 
-    let threadId = threads?.id;
-    let patient = threads?.patients;
+    let threadId: string | null = (existingThread as any)?.id ?? null;
+    const patientId: string | null = (existingThread as any)?.patient_id ?? null;
+    const patientName: string | null = (existingThread as any)?.patients?.full_name ?? null;
 
     if (!threadId) {
-      // Create new unlinked thread with external user name
-      const { data: newThread, error: threadError } = await supabase
+      // ── New sender — look up their name from Graph API ───────────────
+      let senderName: string | null = null;
+      if (pageToken) {
+        try {
+          const nameRes = await fetch(
+            `https://graph.facebook.com/v18.0/${senderId}?fields=first_name,last_name&access_token=${pageToken}`
+          );
+          if (nameRes.ok) {
+            const nd = await nameRes.json();
+            senderName =
+              nd.first_name && nd.last_name
+                ? `${nd.first_name} ${nd.last_name}`
+                : nd.first_name || null;
+          }
+        } catch {
+          // Non-critical — thread will just show "Unknown"
+        }
+      }
+
+      const { data: newThread, error: threadErr } = await supabase
         .from("message_threads")
         .insert({
-          patient_id: null, // Not linked yet
+          patient_id: null,
           channel: "messenger",
           external_thread_id: senderId,
           external_user_name: senderName,
         })
-        .select()
+        .select("id")
         .single();
 
-      if (threadError) {
-        console.error("Error creating thread:", threadError);
+      if (threadErr || !newThread) {
+        console.error("Error creating thread:", threadErr);
         return;
       }
-
-      threadId = newThread.id;
-    } else if (senderName) {
-      // Update thread with latest sender name
-      await supabase
-        .from("message_threads")
-        .update({
-          external_user_name: senderName,
-        })
-        .eq("id", threadId);
+      threadId = (newThread as any).id;
     }
 
-    // Store message
-    const { error: messageError } = await supabase
-      .from("messages")
-      .insert({
-        thread_id: threadId,
-        sender_type: "patient",
-        sender_id: patient?.id || null,
-        sender_name: patient?.full_name || senderName,
-        content: messageText,
-        message_type: "text",
-        external_id: externalMessageId,
-        metadata: {
-          channel: "messenger",
-          sender_id: senderId,
-          page_id: pageId,
-        },
-      });
+    // ── Store the message ────────────────────────────────────────────────
+    const { error: msgErr } = await supabase.from("messages").insert({
+      thread_id: threadId,
+      sender_type: "patient",
+      sender_id: patientId,
+      sender_name: patientName ?? (existingThread as any)?.external_user_name ?? null,
+      content: messageText,
+      message_type: "text",
+      external_id: externalMessageId,
+      metadata: { channel: "messenger", sender_psid: senderId, page_id: pageId },
+    });
 
-    if (messageError) throw messageError;
-  } catch (error) {
-    console.error("Error processing Messenger message:", error);
+    if (msgErr) throw msgErr;
+
+    // ── Bump last_message_at ─────────────────────────────────────────────
+    await supabase
+      .from("message_threads")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", threadId);
+  } catch (err) {
+    console.error("Error storing message:", err);
   }
 }

@@ -364,36 +364,15 @@ export async function unlinkThreadFromPatient(threadId: string): Promise<Message
 }
 
 /**
- * Fetch Messenger user profile info (name, picture)
- * Called fresh when displaying a thread (not stored in DB)
+ * Fetch Messenger user profile info (name, picture) via server-side proxy.
+ * The page access token never leaves the server — /api/messenger/profile handles the Graph API call.
  */
 export async function getMessengerUserProfile(psid: string): Promise<{ name: string | null; picture_url: string | null }> {
   try {
-    const pageAccessToken = process.env.NEXT_PUBLIC_FACEBOOK_PAGE_ACCESS_TOKEN;
-
-    if (!pageAccessToken) {
-      return { name: null, picture_url: null };
-    }
-
-    const response = await fetch(
-      `https://graph.facebook.com/v18.0/${psid}?fields=first_name,last_name,profile_pic&access_token=${pageAccessToken}`
-    );
-
-    if (!response.ok) {
-      return { name: null, picture_url: null };
-    }
-
-    const data = await response.json();
-    const name = data.first_name && data.last_name 
-      ? `${data.first_name} ${data.last_name}`
-      : data.first_name || null;
-
-    return {
-      name,
-      picture_url: data.profile_pic || null,
-    };
-  } catch (error) {
-    console.error("Error fetching Messenger profile:", error);
+    const res = await fetch(`/api/messenger/profile?psid=${encodeURIComponent(psid)}`);
+    if (!res.ok) return { name: null, picture_url: null };
+    return await res.json();
+  } catch {
     return { name: null, picture_url: null };
   }
 }

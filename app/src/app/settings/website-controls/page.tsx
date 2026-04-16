@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { ThemePicker } from "@/components/ThemePicker";
@@ -65,6 +66,12 @@ function RoleBadge({ role }: { role: string }) {
 
 /* ══════════════════════════════════════════════════════════════ */
 export default function WebsiteControlsPage() {
+  const searchParams = useSearchParams();
+
+  /* ── Facebook Messenger ── */
+  const [fbPage, setFbPage] = useState<{ page_name: string; page_id: string } | null>(null);
+  const [fbLoading, setFbLoading] = useState(true);
+  const [fbStatus, setFbStatus] = useState<"connected" | "error" | "access_denied" | "no_pages" | null>(null);
 
   /* ── Users ── */
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -107,6 +114,29 @@ export default function WebsiteControlsPage() {
     else { setError(json.error ?? "Failed to load users."); }
     setUsersLoading(false);
   }, []);
+
+  // Load FB connection status on mount
+  useEffect(() => {
+    supabase
+      .from("facebook_pages")
+      .select("page_id, page_name")
+      .maybeSingle()
+      .then(({ data }) => {
+        setFbPage(data ?? null);
+        setFbLoading(false);
+      });
+
+    // Handle redirect back from Facebook OAuth
+    const fbConnected = searchParams.get("fb_connected");
+    const fbError = searchParams.get("fb_error");
+    const pageName = searchParams.get("page_name");
+    if (fbConnected === "1") {
+      setFbStatus("connected");
+      if (pageName) setFbPage({ page_name: pageName, page_id: "" });
+    } else if (fbError) {
+      setFbStatus(fbError === "access_denied" ? "access_denied" : "error");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     loadUsers();
@@ -220,6 +250,65 @@ export default function WebsiteControlsPage() {
           <div className="card-title">Theme</div>
         </div>
         <ThemePicker />
+      </div>
+
+      {/* ── Facebook Messenger ───────────────────────────────── */}
+      <div className="card">
+        <div className="card-header mb-4">
+          <div>
+            <div className="card-title">Facebook Messenger</div>
+            <div className="text-xs text-slate-400 mt-0.5">Connect your clinic's Facebook Page to receive and reply to patient messages</div>
+          </div>
+        </div>
+
+        {fbStatus === "connected" && (
+          <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
+            ✓ Facebook Page connected successfully!
+          </div>
+        )}
+        {fbStatus === "access_denied" && (
+          <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+            Authorization cancelled. Click Connect to try again.
+          </div>
+        )}
+        {fbStatus === "error" && (
+          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            Something went wrong. Make sure your Facebook App is set up correctly and try again.
+          </div>
+        )}
+
+        <div className="flex flex-col gap-4 max-w-sm">
+          {fbLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500"><Spinner size="h-4 w-4" /> Checking connection…</div>
+          ) : fbPage?.page_name ? (
+            <div>
+              <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Page</div>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">f</div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-800">{fbPage.page_name}</div>
+                  <div className="text-xs text-emerald-600 font-medium">● Connected</div>
+                </div>
+              </div>
+              <a
+                href="/api/auth/facebook/connect"
+                className="mt-3 inline-block text-xs text-slate-400 hover:text-slate-600 underline"
+              >
+                Reconnect / switch page
+              </a>
+            </div>
+          ) : (
+            <div>
+              <div className="text-sm text-slate-500 mb-3">No Facebook Page connected yet.</div>
+              <a
+                href="/api/auth/facebook/connect"
+                className="save-btn inline-block text-center"
+              >
+                Connect Facebook Page
+              </a>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── My Account ───────────────────────────────────────── */}
