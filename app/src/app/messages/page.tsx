@@ -63,6 +63,8 @@ export default function MessagesPage() {
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
   const [showChat, setShowChat]           = useState(false); // mobile toggle
+  const [syncing, setSyncing]             = useState(false);
+  const [syncResult, setSyncResult]       = useState<string | null>(null);
 
   // Redirect to settings if Messenger is not connected
   useEffect(() => {
@@ -104,6 +106,22 @@ export default function MessagesPage() {
     return () => { sub.unsubscribe(); };
   }, [loadThreads]);
 
+  async function syncHistory() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/sync-messenger", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Sync failed");
+      setSyncResult(`Synced ${json.threads} conversation${json.threads !== 1 ? "s" : ""}, ${json.messages} message${json.messages !== 1 ? "s" : ""}`);
+      await loadThreads();
+    } catch (e: any) {
+      setSyncResult(`Error: ${e.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   function selectThread(id: string) {
     setSelectedId(id);
     setShowChat(true);
@@ -125,9 +143,27 @@ export default function MessagesPage() {
       ].join(" ")}>
 
         {/* Header */}
-        <div className="px-4 py-4 border-b border-slate-100/80 flex-shrink-0">
-          <h1 className="card-title leading-tight">Messages</h1>
+        <div className="px-4 py-3 border-b border-slate-100/80 flex-shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="card-title leading-tight">Messages</h1>
+            <button
+              onClick={syncHistory}
+              disabled={syncing}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors flex-shrink-0"
+              title="Import message history from Messenger"
+            >
+              <svg className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {syncing ? "Syncing…" : "Sync"}
+            </button>
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">SMS &amp; Messenger inbox</p>
+          {syncResult && (
+            <p className={`text-xs mt-1.5 font-medium ${syncResult.startsWith("Error") ? "text-red-500" : "text-emerald-600"}`}>
+              {syncResult}
+            </p>
+          )}
         </div>
 
         {/* List */}
