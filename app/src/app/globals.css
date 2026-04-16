@@ -220,7 +220,13 @@ select {
 }
 
 .form-input {
-  @apply h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-10 rounded-xl border bg-white px-3 text-sm focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.form-input:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .input-label {
@@ -228,7 +234,13 @@ select {
 }
 
 .form-input-full-focus {
-  @apply w-full px-3 py-2 border border-violet-100 bg-white/70 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply w-full px-3 py-2 border bg-white/70 rounded-lg text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.form-input-full-focus:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .modal-panel-raised {
@@ -237,16 +249,27 @@ select {
 }
 
 .form-textarea {
-  @apply rounded-lg border border-violet-100 bg-white/70 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply rounded-lg border bg-white/70 px-3 py-2 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.form-textarea:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .form-select {
-  @apply h-10 rounded-lg border border-violet-100 bg-white/70 px-3 pr-8 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply h-10 rounded-lg border bg-white/70 px-3 pr-8 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
   -webkit-appearance: none;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
+}
+.form-select:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  outline: none;
 }
 
 .form-error {
@@ -443,7 +466,13 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .entry-row-select {
-  @apply w-1/4 flex-shrink-0 h-10 rounded-lg border border-violet-100 bg-white/70 px-3 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply w-1/4 flex-shrink-0 h-10 rounded-lg border bg-white/70 px-3 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.entry-row-select:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .entry-row-input {
@@ -558,7 +587,13 @@ tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .loading-screen {
-  @apply min-h-screen flex items-center justify-center text-slate-400;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(148 163 184);
 }
 
 .loading-container {
@@ -654,19 +689,37 @@ tr.data-table-row-compact-odd:hover {
 
 /* Inputs */
 .field-input {
-  @apply h-10 w-full rounded-lg border border-violet-100 bg-white/70 px-3 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply h-10 w-full rounded-lg border bg-white/70 px-3 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.field-input:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .field-textarea {
-  @apply min-h-[88px] rounded-lg border border-violet-100 bg-white/70 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply min-h-[88px] rounded-lg border bg-white/70 px-3 py-2 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.field-textarea:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .field-input-readonly {
   @apply rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-slate-500;
+  box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.10);
 }
 
 .field-input-white {
-  @apply rounded-lg border border-violet-100 bg-white/70 px-3 py-2 text-slate-700;
+  @apply rounded-lg border bg-white/70 px-3 py-2 text-slate-700 transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.field-input-white:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  outline: none;
 }
 
 /* Modal footer */
@@ -963,11 +1016,23 @@ tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .input-standard {
-  @apply h-10 rounded-lg border border-violet-100 bg-white/70 px-3 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply h-10 rounded-lg border bg-white/70 px-3 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.input-standard:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .input-standard-sm {
-  @apply h-9 rounded-lg border border-violet-100 px-2 bg-white/70 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply h-9 rounded-lg border px-2 bg-white/70 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.input-standard-sm:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .textarea-standard {
@@ -1010,7 +1075,13 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .input-sm-text-sm {
-  @apply h-8 rounded-lg border border-slate-200 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-8 rounded-lg border px-2 text-sm focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.input-sm-text-sm:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .textarea-sm {
@@ -1026,7 +1097,12 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .form-select-standard {
-  @apply h-9 w-40 rounded-lg border border-violet-100 bg-white/70 px-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply h-9 w-40 rounded-lg border bg-white/70 px-2 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.form-select-standard:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  outline: none;
 }
 
 .empty-state {
@@ -1076,11 +1152,18 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .compact-input {
-  @apply w-full rounded-lg border border-violet-100 bg-white/70 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply w-full rounded-lg border bg-white/70 px-2 py-1 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.compact-input:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .readonly-input {
   @apply rounded-xl border border-slate-100 bg-slate-50 px-2 py-1 text-sm text-slate-500;
+  box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.10);
 }
 
 /* ========================================
@@ -1168,11 +1251,23 @@ tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .input-full {
-  @apply h-10 w-full rounded-lg border border-violet-100 bg-white/70 px-3 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply h-10 w-full rounded-lg border bg-white/70 px-3 text-sm text-slate-700 focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.input-full:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .textarea-input {
-  @apply w-full rounded-lg border border-violet-100 bg-white/70 px-3 py-2 text-sm text-slate-700 resize-none focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply w-full rounded-lg border bg-white/70 px-3 py-2 text-sm text-slate-700 resize-none focus:outline-none transition;
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+}
+.textarea-input:focus {
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
+  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  outline: none;
 }
 
 .input-xs {

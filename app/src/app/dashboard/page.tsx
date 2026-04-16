@@ -232,10 +232,9 @@ export default function DashboardPage() {
         {error && <div className="error-banner mb-4">{error}</div>}
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <PageLoader />
+          <PageLoader>
             {loadingTooLong && (
-              <div className="flex flex-col items-center gap-3 mt-4">
+              <div className="flex flex-col items-center gap-2 mt-3">
                 <p className="text-sm text-slate-500">Taking longer than usual…</p>
                 <button
                   onClick={() => {
@@ -249,7 +248,7 @@ export default function DashboardPage() {
                 </button>
               </div>
             )}
-          </div>
+          </PageLoader>
         ) : (
           <div className="flex flex-col gap-4">
             {/* Key Metrics - Row 1 */}

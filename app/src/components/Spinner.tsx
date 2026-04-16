@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 /**
  * SVG spinner — color driven by --accent-hue CSS variable (theme-aware).
  * Transparent background, no image file needed.
@@ -35,15 +37,17 @@ export function Spinner({ size = "h-12 w-12" }: { size?: string }) {
 }
 
 /**
- * Full-screen loading overlay — drop-in replacement for the old loading.gif block.
- * Usage: <PageLoader /> or <PageLoader text="Loading patients…" />
+ * Full-screen loading overlay — fixed to viewport center so it's always
+ * visually centered regardless of page scroll position or content above it.
+ * Usage: <PageLoader /> or <PageLoader text="Loading patients…">…children…</PageLoader>
  */
-export function PageLoader({ text = "Loading…" }: { text?: string }) {
+export function PageLoader({ text = "Loading…", children }: { text?: string; children?: React.ReactNode }) {
   return (
     <div className="loading-screen">
       <div className="loading-container">
         <Spinner />
         <div className="loading-text">{text}</div>
+        {children}
       </div>
     </div>
   );
