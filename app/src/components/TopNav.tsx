@@ -146,9 +146,11 @@ export default function TopNav({
   const isReports = pathname?.startsWith("/reports");
   const isSettings = pathname?.startsWith("/settings");
   const isAppointments = pathname?.startsWith("/appointments");
+  const isMessages = pathname?.startsWith("/messages");
 
   const navLinks = [
     { href: "/appointments", label: "Appointments", active: isAppointments },
+    { href: "/messages", label: "Messages", active: isMessages },
     { href: "/patients", label: "Patients", active: isPatients },
     { href: "/reports/payments", label: "Reports", active: isReports },
     { href: "/settings/clinic-profile", label: "Settings", active: isSettings },

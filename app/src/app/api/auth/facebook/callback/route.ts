@@ -1,5 +1,13 @@
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 /**
  * GET /api/auth/facebook/callback
@@ -76,7 +84,8 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Step 4: Save / update in Supabase ────────────────────────────────
-    const { error: dbError } = await supabase.from("facebook_pages").upsert(
+    const supabaseAdmin = getAdminClient();
+    const { error: dbError } = await supabaseAdmin.from("facebook_pages").upsert(
       {
         page_id: page.id,
         page_name: page.name,
