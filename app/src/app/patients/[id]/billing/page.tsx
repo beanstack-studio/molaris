@@ -858,7 +858,7 @@ export default function BillingPage() {
 
   return (
     <>
-      {error ? <div className="mb-4 rounded-lg border bg-white p-3 text-sm text-red-600">{error}</div> : null}
+      {error ? <div className="mb-4 rounded-lg border border-red-200 bg-white p-3 text-sm text-red-600">{error}</div> : null}
 
             {/* Billing Overview (MUST COME FIRST) */}
             <div className="card">
@@ -867,17 +867,17 @@ export default function BillingPage() {
               </div>
 
                 <div className="mt-3 grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-lg border bg-blue-50 p-3">
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
                     <div className="text-xs text-blue-600 font-medium">Total Invoiced</div>
                     <div className="text-lg font-semibold text-blue-900">{formatMoney(billingOverview.totalInvoiced)}</div>
                   </div>
 
-                  <div className="rounded-lg border bg-green-50 p-3">
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-3">
                     <div className="text-xs text-green-600 font-medium">Total Paid</div>
                     <div className="text-lg font-semibold text-green-900">{formatMoney(billingOverview.totalPaid)}</div>
                   </div>
 
-                  <div className={`rounded-lg border p-3 ${billingOverview.balance > 0 ? "bg-red-50" : "bg-gray-50"}`}>
+                  <div className={`rounded-lg border p-3 ${billingOverview.balance > 0 ? "border-red-200 bg-red-50" : "border-slate-200 bg-gray-50"}`}>
                     <div className={`text-xs font-medium ${billingOverview.balance > 0 ? "text-red-600" : "text-gray-600"}`}>
                       Outstanding Balance
                     </div>

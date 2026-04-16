@@ -58,7 +58,7 @@ export function VerifyPaymentModal({
           </div>
 
           {verifyingPaymentDetails.details?.proof_file_data && (
-            <div className="rounded-lg border bg-slate-50 p-3 flex items-center justify-between">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 flex items-center justify-between">
               <span className="text-sm text-slate-700 font-medium">
                 📎 {verifyingPaymentDetails.details?.proof_file_name || "Proof attached"}
               </span>
@@ -93,7 +93,7 @@ export function VerifyPaymentModal({
             <span className="text-slate-700 font-medium">Type "VERIFY" to confirm *</span>
             <input
               type="text"
-              className="h-10 rounded-lg border px-3 uppercase"
+              className="h-10 rounded-lg border border-slate-300 px-3 uppercase focus:outline-none"
               value={verificationConfirmation}
               onChange={(e) => setVerificationConfirmation(e.target.value)}
               placeholder="Type VERIFY"

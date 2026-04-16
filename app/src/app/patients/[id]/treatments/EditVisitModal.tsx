@@ -201,7 +201,7 @@ export function EditVisitModal({
             </div>
 
             {visitTreatments.map((t) => (
-              <div key={t.id} className="rounded-lg border bg-slate-50 p-3 space-y-2">
+              <div key={t.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
                 <div className="three-col-row">
                   <div className="grid gap-1">
                     <label className="field-sublabel">Tooth #</label>

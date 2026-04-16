@@ -66,7 +66,7 @@ export function AddPaymentModal({
       <div className="grid gap-4">
           <div className="grid gap-2 text-sm">
             <label className="text-slate-700 font-medium">Invoices</label>
-            <div className="space-y-2 border rounded-lg bg-slate-50 p-3">
+            <div className="space-y-2 border border-slate-200 rounded-lg bg-slate-50 p-3">
               {invoices
                 .map((inv: any) => {
                   const invoicePayments = payments.filter((p) => p.invoice_id === inv.id && !p.voided_at);

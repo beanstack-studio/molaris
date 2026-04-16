@@ -604,16 +604,16 @@ export default function OrthoPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-lg border bg-slate-50 p-3 text-sm text-slate-600">No inclusions selected</div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">No inclusions selected</div>
                     )}
                   </div>
 
                   <div className="field-label flex flex-col">
                     <span className="field-label-text">Notes</span>
                     {orthoCase.notes ? (
-                      <div className="rounded-lg border bg-slate-50 p-3 text-sm whitespace-pre-wrap">{orthoCase.notes}</div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm whitespace-pre-wrap">{orthoCase.notes}</div>
                     ) : (
-                      <div className="rounded-lg border bg-slate-50 p-3 text-sm text-slate-600">No notes</div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">No notes</div>
                     )}
                   </div>
                 </div>
@@ -996,7 +996,7 @@ export default function OrthoPage() {
 
                     {/* Row 2: Inclusions (taller height, more rounded) */}
                     {orthoCase.inclusions && Object.values(orthoCase.inclusions).some(v => v) ? (
-                      <div className="grid grid-cols-2 gap-2 bg-white p-2 text-xs rounded-lg overflow-hidden max-h-24 border">
+                      <div className="grid grid-cols-2 gap-2 bg-white p-2 text-xs rounded-lg overflow-hidden max-h-24 border border-slate-200">
                         {[
                           { key: "case_analysis", label: "Case Analysis & Diagnostics" },
                           { key: "ortho_kit", label: "Ortho Kit" },
@@ -1016,7 +1016,7 @@ export default function OrthoPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-lg border bg-white p-2 text-xs text-slate-500">No inclusions</div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-500">No inclusions</div>
                     )}
                   </div>
                 </div>

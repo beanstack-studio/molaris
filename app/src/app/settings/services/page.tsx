@@ -346,7 +346,7 @@ export default function ServicesSettingsPage() {
           <div className="grid grid-cols-2 gap-3">
             <label className="field-label">
               <span className="field-label-text">Fee</span>
-              <div className="flex items-center border rounded-lg bg-white overflow-hidden">
+              <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden">
                 <span className="px-3 py-2 text-slate-600 bg-slate-50 font-medium text-sm">₱</span>
                 <input
                   className="flex-1 h-10 border-0 bg-transparent px-2 focus:outline-none text-sm"
@@ -448,7 +448,7 @@ export default function ServicesSettingsPage() {
             <div className="grid grid-cols-2 gap-3">
               <label className="field-label">
                 <span className="field-label-text">Fee</span>
-                <div className="flex items-center border rounded-lg bg-white overflow-hidden">
+                <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden">
                   <span className="px-3 py-2 text-slate-600 bg-slate-50 font-medium text-sm">₱</span>
                   <input
                     className="flex-1 h-10 border-0 bg-transparent px-2 focus:outline-none text-sm"
