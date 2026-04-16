@@ -63,7 +63,8 @@ export async function POST() {
         const user = participants.find((p) => p.id !== pageId);
         if (!user) return { threads: 0, messages: 0 };
 
-        const threadId = await upsertThread(supabase, user.id, user.name ?? null);
+        const profilePicUrl = await fetchProfilePic(user.id, pageToken);
+        const threadId = await upsertThread(supabase, user.id, user.name ?? null, profilePicUrl);
         if (!threadId) {
           errors.push(`Could not upsert thread for PSID ${user.id}`);
           return { threads: 0, messages: 0 };
@@ -100,34 +101,52 @@ type Participant = { id: string; name?: string };
 type ConvItem    = { id: string; participants?: { data: Participant[] } };
 type FbMessage   = { id: string; message?: string; from?: { id: string; name?: string }; created_time: string };
 
+async function fetchProfilePic(psid: string, pageToken: string): Promise<string | null> {
+  try {
+    const res: Response = await fetch(
+      `${FB}/${psid}?fields=profile_pic&access_token=${pageToken}`
+    );
+    if (!res.ok) return null;
+    const data = await res.json() as { profile_pic?: string };
+    return data.profile_pic ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function upsertThread(
   supabase: ReturnType<typeof getAdminClient>,
   psid: string,
-  name: string | null
+  name: string | null,
+  profilePicUrl: string | null
 ): Promise<string | null> {
-  // Try to find existing thread first
   const { data: existing } = await supabase
     .from("message_threads")
-    .select("id")
+    .select("id, metadata")
     .eq("channel", "messenger")
     .eq("external_thread_id", psid)
     .maybeSingle();
 
   if (existing) {
-    // Update name if we now have one
-    if (name) {
-      await supabase
-        .from("message_threads")
-        .update({ external_user_name: name })
-        .eq("id", (existing as { id: string }).id);
-    }
-    return (existing as { id: string }).id;
+    const row = existing as { id: string; metadata: Record<string, unknown> | null };
+    await supabase
+      .from("message_threads")
+      .update({
+        ...(name ? { external_user_name: name } : {}),
+        metadata: { ...(row.metadata ?? {}), ...(profilePicUrl ? { profile_pic_url: profilePicUrl } : {}) },
+      })
+      .eq("id", row.id);
+    return row.id;
   }
 
-  // Insert new thread
   const { data: inserted, error } = await supabase
     .from("message_threads")
-    .insert({ channel: "messenger", external_thread_id: psid, external_user_name: name })
+    .insert({
+      channel: "messenger",
+      external_thread_id: psid,
+      external_user_name: name,
+      metadata: profilePicUrl ? { profile_pic_url: profilePicUrl } : {},
+    })
     .select("id")
     .single();
 

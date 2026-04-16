@@ -97,20 +97,22 @@ async function handleIncomingMessage(
     if (!threadId) {
       // ── New sender — look up their name from Graph API ───────────────
       let senderName: string | null = null;
+      let profilePicUrl: string | null = null;
       if (pageToken) {
         try {
-          const nameRes = await fetch(
-            `https://graph.facebook.com/v18.0/${senderId}?fields=first_name,last_name&access_token=${pageToken}`
+          const profileRes = await fetch(
+            `https://graph.facebook.com/v18.0/${senderId}?fields=first_name,last_name,profile_pic&access_token=${pageToken}`
           );
-          if (nameRes.ok) {
-            const nd = await nameRes.json();
+          if (profileRes.ok) {
+            const nd = await profileRes.json();
             senderName =
               nd.first_name && nd.last_name
                 ? `${nd.first_name} ${nd.last_name}`
                 : nd.first_name || null;
+            profilePicUrl = nd.profile_pic ?? null;
           }
         } catch {
-          // Non-critical — thread will just show "Unknown"
+          // Non-critical
         }
       }
 
@@ -121,6 +123,7 @@ async function handleIncomingMessage(
           channel: "messenger",
           external_thread_id: senderId,
           external_user_name: senderName,
+          metadata: profilePicUrl ? { profile_pic_url: profilePicUrl } : {},
         })
         .select("id")
         .single();
