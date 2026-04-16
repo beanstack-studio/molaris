@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { MessageThread, Patient } from "@/lib/types";
@@ -24,7 +24,26 @@ function channelBadge(channel: string) {
   );
 }
 
-function ThreadAvatar({ name }: { name: string | null }) {
+const CHANNEL_BADGE: Record<string, { bg: string; icon: React.ReactNode }> = {
+  messenger: {
+    bg: "bg-blue-600",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2">
+        <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
+      </svg>
+    ),
+  },
+  sms: {
+    bg: "bg-violet-600",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" className="w-2 h-2">
+        <path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
+      </svg>
+    ),
+  },
+};
+
+function ThreadAvatar({ name, channel }: { name: string | null; channel: string }) {
   const palette = [
     "bg-violet-500", "bg-blue-500", "bg-indigo-500", "bg-pink-500",
     "bg-teal-500",   "bg-amber-500", "bg-green-500", "bg-rose-500",
@@ -34,9 +53,17 @@ function ThreadAvatar({ name }: { name: string | null }) {
   const initials = name
     ? name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
     : "?";
+  const badge = CHANNEL_BADGE[channel];
   return (
-    <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
-      {initials}
+    <div className="relative flex-shrink-0">
+      <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center text-white text-sm font-bold`}>
+        {initials}
+      </div>
+      {badge && (
+        <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full ${badge.bg} border-2 border-white flex items-center justify-center text-white`}>
+          {badge.icon}
+        </div>
+      )}
     </div>
   );
 }
@@ -203,10 +230,10 @@ export default function MessagesPage() {
                       : "border-l-transparent hover:bg-white/60",
                   ].join(" ")}
                 >
-                  <ThreadAvatar name={name} />
+                  <ThreadAvatar name={name} channel={t.channel} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className={`text-sm font-semibold truncate ${active ? "text-violet-700" : "text-slate-800"}`}>
+                      <p className={`text-sm truncate ${active ? "text-violet-700 font-semibold" : (t.unread_count ?? 0) > 0 ? "text-slate-900 font-bold" : "text-slate-700 font-normal"}`}>
                         {name}
                       </p>
                       {t.last_message_at && (

@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Patient } from "@/lib/types";
 import { linkThreadToPatient } from "@/lib/messageHelpers";
 import { formatPhoneLocal } from "@/lib/helpers";
 
-interface LinkPatientModalProps {
+interface Props {
   threadId: string;
   externalUserName: string | null;
+  /** Currently linked patient ID (if any) */
+  currentPatientId?: string | null;
   onLinked: () => void;
   onCancel: () => void;
 }
@@ -16,187 +18,188 @@ interface LinkPatientModalProps {
 export default function LinkPatientModal({
   threadId,
   externalUserName,
+  currentPatientId,
   onLinked,
   onCancel,
-}: LinkPatientModalProps) {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [linking, setLinking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmStep, setConfirmStep] = useState(false);
+}: Props) {
+  const [patients, setPatients]         = useState<Patient[]>([]);
+  const [search, setSearch]             = useState("");
+  const [showDrop, setShowDrop]         = useState(false);
+  const [selected, setSelected]         = useState<Patient | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [linking, setLinking]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [confirmed, setConfirmed]       = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadPatients();
-  }, []);
+    supabase
+      .from("patients")
+      .select("id, full_name, first_name, last_name, phone")
+      .is("deleted_at", null)
+      .order("full_name", { ascending: true })
+      .then(({ data, error: err }) => {
+        if (err) { setError("Failed to load patients"); return; }
+        setPatients((data as Patient[]) ?? []);
+        // Pre-fill if already linked
+        if (currentPatientId) {
+          const existing = (data as Patient[]).find((p) => p.id === currentPatientId);
+          if (existing) setSelected(existing);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [currentPatientId]);
 
-  const loadPatients = async () => {
-    try {
-      const { data, error: err } = await supabase
-        .from("patients")
-        .select("*")
-        .is("deleted_at", null)
-        .order("full_name", { ascending: true });
+  const filtered = search.length >= 1
+    ? patients.filter((p) => {
+        const q = search.toLowerCase();
+        return (
+          (p.full_name ?? "").toLowerCase().includes(q) ||
+          (p.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, ""))
+        );
+      })
+    : [];
 
-      if (err) throw err;
-      setPatients(data || []);
-    } catch (err) {
-      console.error("Error loading patients:", err);
-      setError("Failed to load patients");
-    } finally {
-      setLoading(false);
-    }
-  };
+  function pickPatient(p: Patient) {
+    setSelected(p);
+    setSearch(p.full_name ?? "");
+    setShowDrop(false);
+    setConfirmed(false);
+  }
 
-  const selectedPatientData = patients.find((p) => p.id === selectedPatient);
-
-  const handleConfirm = async () => {
-    if (!selectedPatient) {
-      setError("Please select a patient");
-      return;
-    }
-
+  async function handleLink() {
+    if (!selected) { setError("Please select a patient first"); return; }
     try {
       setLinking(true);
       setError(null);
-
-      await linkThreadToPatient(threadId, selectedPatient);
+      await linkThreadToPatient(threadId, selected.id);
       onLinked();
-    } catch (err) {
-      console.error("Error linking patient:", err);
-      setError("Failed to link patient");
+    } catch {
+      setError("Failed to link patient. Please try again.");
     } finally {
       setLinking(false);
     }
-  };
+  }
+
+  const initials = externalUserName
+    ? externalUserName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
+    : "?";
 
   return (
     <div className="modal-container">
-      <div className="modal-wrapper">
-        <h3 className="modal-heading">Link to Patient</h3>
+      <div className="modal-panel">
 
-        {error && (
-          <div className="error-msg">
-            {error}
-          </div>
-        )}
-
-        {/* External User Info */}
-        <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-          <p className="text-xs font-semibold text-slate-600 uppercase mb-3">
-            Incoming Message From
-          </p>
-          <div className="flex-center-gap">
-            <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
-              {externalUserName?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'}
-            </div>
-            <div>
-              <p className="font-medium text-slate-900">
-                {externalUserName || "Unknown"}
-              </p>
-              <p className="text-muted-xs">Messenger</p>
-            </div>
-          </div>
+        {/* Header */}
+        <div className="modal-header">
+          <h3 className="modal-title">Link to Patient</h3>
         </div>
 
-        {/* Patient Selection */}
-        {!confirmStep ? (
-          <>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Select Patient
-              </label>
-              {loading ? (
-                <div className="p-3 text-slate-600 text-sm text-center">
-                  Loading patients...
+        <div className="modal-body">
+          {error && <p className="error-banner">{error}</p>}
+
+          {/* Who sent the message */}
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              {initials}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{externalUserName ?? "Unknown"}</p>
+              <p className="text-xs text-slate-400">Messenger</p>
+            </div>
+          </div>
+
+          {/* Searchable patient picker */}
+          <div className="grid gap-1 text-sm">
+            <span className="field-label-text">
+              {currentPatientId ? "Change linked patient" : "Search patient"}
+            </span>
+            <div className="relative">
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setShowDrop(true); setSelected(null); }}
+                onFocus={() => { if (search) setShowDrop(true); }}
+                onBlur={() => setTimeout(() => setShowDrop(false), 150)}
+                placeholder="Start typing name or phone…"
+                className="field-input w-full"
+                disabled={loading}
+              />
+
+              {showDrop && search.length >= 1 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-xl shadow-lg z-10 max-h-52 overflow-y-auto">
+                  {filtered.length === 0 ? (
+                    <div className="px-3 py-3 text-sm text-slate-400 text-center">
+                      No patients matching &ldquo;{search}&rdquo;
+                    </div>
+                  ) : (
+                    filtered.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={() => pickPatient(p)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-violet-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
+                      >
+                        <span className="text-sm text-slate-800 font-medium">{p.full_name}</span>
+                        {p.phone && (
+                          <span className="text-xs text-slate-400 flex-shrink-0">{formatPhoneLocal(p.phone)}</span>
+                        )}
+                      </button>
+                    ))
+                  )}
                 </div>
-              ) : patients.length === 0 ? (
-                <div className="p-3 text-slate-600 text-sm text-center">
-                  No patients found
-                </div>
-              ) : (
-                <select
-                  value={selectedPatient || ""}
-                  onChange={(e) => setSelectedPatient(e.target.value || null)}
-                  className="input-full"
-                >
-                  <option value="">-- Select a patient --</option>
-                  {patients.map((patient) => (
-                    <option key={patient.id} value={patient.id}>
-                      {patient.full_name}
-                      {patient.phone ? ` (${formatPhoneLocal(patient.phone)})` : ""}
-                    </option>
-                  ))}
-                </select>
               )}
             </div>
 
-            <div className="button-group">
-              <button
-                onClick={onCancel}
-                className="flex-1 cancel-btn"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setConfirmStep(true)}
-                disabled={!selectedPatient}
-                className="flex-1 save-btn"
-              >
-                Next
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Confirmation Step */}
-            <div className="mb-6 space-y-4">
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-slate-700 mb-2">
-                  <span className="font-semibold">Confirming:</span> Link messages from{" "}
-                  <span className="font-medium text-blue-900">{externalUserName}</span> to
-                </p>
-                <div className="flex-center-gap-sm mt-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-300 flex items-center justify-center text-slate-600 text-sm font-medium">
-                    {selectedPatientData?.full_name?.[0]?.toUpperCase() || "?"}
+            {/* Selected patient confirmation card */}
+            {selected && (
+              <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {selected.full_name?.[0]?.toUpperCase() ?? "?"}
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900">
-                      {selectedPatientData?.full_name}
-                    </p>
-                    <p className="text-muted-sm">
-                      {selectedPatientData?.phone ? formatPhoneLocal(selectedPatientData.phone) : "No phone"}
+                    <p className="text-sm font-semibold text-slate-800">{selected.full_name}</p>
+                    <p className="text-xs text-slate-400">
+                      {selected.phone ? formatPhoneLocal(selected.phone) : "No phone"}
                     </p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => { setSelected(null); setSearch(""); inputRef.current?.focus(); }}
+                  className="text-slate-300 hover:text-slate-500 text-lg leading-none flex-shrink-0"
+                >
+                  ×
+                </button>
               </div>
+            )}
+          </div>
 
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-xs text-amber-800">
-                  ⚠️ <strong>Verify carefully:</strong> Future messages from this number will be
-                  linked to {selectedPatientData?.full_name}. This cannot be easily undone.
-                </p>
-              </div>
+          {/* Warning */}
+          {selected && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
+              <p className="text-xs text-amber-700">
+                All messages in this conversation will be associated with{" "}
+                <strong>{selected.full_name}</strong>. You can change this later.
+              </p>
             </div>
+          )}
+        </div>
 
-            <div className="button-group">
-              <button
-                onClick={() => setConfirmStep(false)}
-                disabled={linking}
-                className="flex-1 cancel-btn"
-              >
-                Back
-              </button>
-              <button
-                onClick={handleConfirm}
-                disabled={linking}
-                className="flex-1 save-btn"
-              >
-                {linking ? "Linking..." : "Confirm & Link"}
-              </button>
-            </div>
-          </>
-        )}
+        {/* Footer */}
+        <div className="modal-footer">
+          <button className="cancel-btn" onClick={onCancel} disabled={linking}>
+            Cancel
+          </button>
+          <button
+            className="save-btn"
+            onClick={handleLink}
+            disabled={!selected || linking}
+          >
+            {linking ? "Linking…" : currentPatientId ? "Update Link" : "Link Patient"}
+          </button>
+        </div>
       </div>
     </div>
   );

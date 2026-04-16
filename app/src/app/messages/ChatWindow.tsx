@@ -202,14 +202,12 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {!thread.patient_id && (
-              <button onClick={() => setShowLinkModal(true)} className="btn btn-secondary text-xs h-8 px-3">
-                Link Patient
-              </button>
-            )}
+            <button onClick={() => setShowLinkModal(true)} className="btn btn-secondary text-xs h-8 px-3">
+              {thread.patient_id ? "+ Patient" : "Link Patient"}
+            </button>
             {thread.patient_id && (
               <button onClick={() => setShowApptModal(true)} className="save-btn h-8 px-3 text-xs">
-                + Appointment
+                + Appt
               </button>
             )}
           </div>
@@ -273,6 +271,8 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
             placeholder="Type a message… (Enter to send)"
             rows={1}
             disabled={sending}
+            id="message-reply"
+            name="message-reply"
             className="flex-1 resize-none rounded-xl px-4 py-2.5 text-sm text-slate-700 transition field-textarea"
             style={{ maxHeight: "6rem", overflowY: "auto", minHeight: "unset" }}
             onInput={(e) => {
@@ -304,6 +304,7 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
         <LinkPatientModal
           threadId={threadId}
           externalUserName={thread.external_user_name}
+          currentPatientId={thread.patient_id}
           onLinked={() => { setShowLinkModal(false); loadThreadData(); onThreadUpdated(); }}
           onCancel={() => setShowLinkModal(false)}
         />

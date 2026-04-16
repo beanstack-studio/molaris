@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
+export const maxDuration = 300; // 5 min — needed for large history imports
+
 function getAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
