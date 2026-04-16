@@ -96,8 +96,9 @@ export async function GET(request: NextRequest) {
     );
 
     if (dbError) {
-      console.error("Supabase upsert error:", dbError);
-      return NextResponse.redirect(`${settingsUrl}?fb_error=db_error`);
+      console.error("Supabase upsert error:", JSON.stringify(dbError));
+      const code = (dbError as { code?: string }).code ?? "unknown";
+      return NextResponse.redirect(`${settingsUrl}?fb_error=db_error&db_code=${encodeURIComponent(code)}&db_msg=${encodeURIComponent(dbError.message ?? "")}`);
     }
 
     return NextResponse.redirect(

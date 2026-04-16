@@ -130,11 +130,16 @@ export default function WebsiteControlsPage() {
     const fbConnected = searchParams.get("fb_connected");
     const fbError = searchParams.get("fb_error");
     const pageName = searchParams.get("page_name");
+    const dbCode = searchParams.get("db_code");
+    const dbMsg = searchParams.get("db_msg");
     if (fbConnected === "1") {
       setFbStatus("connected");
       if (pageName) setFbPage({ page_name: pageName, page_id: "" });
     } else if (fbError) {
       setFbStatus(fbError === "access_denied" ? "access_denied" : "error");
+      if (dbCode || dbMsg) {
+        console.error("FB db error detail — code:", dbCode, "message:", dbMsg);
+      }
     }
   }, [searchParams]);
 
