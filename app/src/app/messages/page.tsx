@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { MessageThread, Patient } from "@/lib/types";
 import ChatWindow from "./ChatWindow";
@@ -56,11 +57,19 @@ function relativeTime(iso: string | null) {
 type Thread = MessageThread & { patients: Patient | null };
 
 export default function MessagesPage() {
+  const router = useRouter();
   const [threads, setThreads]             = useState<Thread[]>([]);
   const [selectedId, setSelectedId]       = useState<string | null>(null);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
   const [showChat, setShowChat]           = useState(false); // mobile toggle
+
+  // Redirect to settings if Messenger is not connected
+  useEffect(() => {
+    supabase.from("facebook_pages").select("page_id").maybeSingle().then(({ data }) => {
+      if (!data) router.replace("/settings/website-controls");
+    });
+  }, [router]);
 
   const loadThreads = useCallback(async () => {
     try {

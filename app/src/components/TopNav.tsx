@@ -26,6 +26,7 @@ export default function TopNav({
   // null = show emoji fallback. Populated from Supabase (and cached in localStorage).
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState(title);
+  const [messengerConnected, setMessengerConnected] = useState(false);
 
   useEffect(() => {
     // Show cached logo immediately (no flash of emoji on repeat visits)
@@ -46,6 +47,13 @@ export default function TopNav({
           if (data[0].clinic_name) setClinicName(data[0].clinic_name);
         }
       });
+
+    // Check if Messenger is connected
+    supabase
+      .from("facebook_pages")
+      .select("page_id")
+      .maybeSingle()
+      .then(({ data }) => setMessengerConnected(!!data));
   }, []);
 
   // Listen for clinic profile saves — more reliable than realtime subscriptions
@@ -150,7 +158,7 @@ export default function TopNav({
 
   const navLinks = [
     { href: "/appointments", label: "Appointments", active: isAppointments },
-    { href: "/messages", label: "Messages", active: isMessages },
+    ...(messengerConnected ? [{ href: "/messages", label: "Messages", active: isMessages }] : []),
     { href: "/patients", label: "Patients", active: isPatients },
     { href: "/reports/payments", label: "Reports", active: isReports },
     { href: "/settings/clinic-profile", label: "Settings", active: isSettings },

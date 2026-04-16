@@ -304,12 +304,15 @@ export default function WebsiteControlsPage() {
             </div>
           ) : (
             <div>
-              <div className="text-sm text-slate-500 mb-3">No Facebook Page connected yet.</div>
+              <div className="text-sm text-slate-500 mb-3">No Messenger page connected yet.</div>
               <a
                 href="/api/auth/facebook/connect"
-                className="save-btn inline-block text-center"
+                className="save-btn inline-flex items-center justify-center gap-2"
               >
-                Connect Facebook Page
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
+                </svg>
+                Connect Messenger
               </a>
             </div>
           )}
