@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   oauthUrl.searchParams.set("redirect_uri", redirectUri);
   oauthUrl.searchParams.set(
     "scope",
-    "pages_messaging,pages_show_list,pages_read_engagement,pages_manage_metadata"
+    "pages_messaging,pages_manage_metadata"
   );
   oauthUrl.searchParams.set("response_type", "code");
 
