@@ -158,14 +158,17 @@ export default function MessagesPage() {
     return () => { sub.unsubscribe(); };
   }, [loadThreads]);
 
-  async function syncHistory() {
+  async function syncHistory(full = false) {
     setSyncing(true);
     setSyncResult(null);
     try {
-      const res = await fetch("/api/admin/sync-messenger", { method: "POST" });
+      const url = full ? "/api/admin/sync-messenger?full=true" : "/api/admin/sync-messenger";
+      const res = await fetch(url, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Sync failed");
-      setSyncResult(`Synced ${json.threads} conversation${json.threads !== 1 ? "s" : ""}, ${json.messages} message${json.messages !== 1 ? "s" : ""}`);
+      setSyncResult(
+        `Found ${json.conversations_found ?? "?"} convs · ${json.threads} updated · ${json.messages} new messages`
+      );
       await loadThreads();
     } catch (e: any) {
       setSyncResult(`Error: ${e.message}`);
@@ -198,17 +201,27 @@ export default function MessagesPage() {
         <div className="px-4 py-3 border-b border-slate-100/80 flex-shrink-0">
           <div className="flex items-center justify-between gap-2">
             <h1 className="card-title leading-tight">Messages</h1>
-            <button
-              onClick={syncHistory}
-              disabled={syncing}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors flex-shrink-0"
-              title="Import message history from Messenger"
-            >
-              <svg className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {syncing ? "Syncing…" : "Sync"}
-            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => syncHistory(false)}
+                disabled={syncing}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                title="Sync new messages (last 365 days)"
+              >
+                <svg className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {syncing ? "Syncing…" : "Sync"}
+              </button>
+              <button
+                onClick={() => syncHistory(true)}
+                disabled={syncing}
+                className="px-2 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                title="Full sync — all history (slower)"
+              >
+                All
+              </button>
+            </div>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">SMS &amp; Messenger inbox</p>
           {syncResult && (
