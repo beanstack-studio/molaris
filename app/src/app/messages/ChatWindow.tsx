@@ -7,13 +7,16 @@ import { Spinner } from "@/components/Spinner";
 import { Message, MessageThread, Patient } from "@/lib/types";
 import {
   getMessageThread,
-  getThreadMessages,
+  getThreadMessagesPaginated,
   sendThreadMessage,
   sendAppointmentConfirmation,
   createAppointment,
 } from "@/lib/messageHelpers";
 import AppointmentModal from "./AppointmentModal";
 import LinkPatientModal from "./LinkPatientModal";
+
+const PAGE_SIZE  = 20;
+const LOAD_MORE  = 10;
 
 interface ChatWindowProps {
   threadId: string;
@@ -39,18 +42,23 @@ function getInitials(name: string | null | undefined) {
 }
 
 export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWindowProps) {
-  const [thread, setThread]               = useState<(MessageThread & { patients: Patient }) | null>(null);
-  const [messages, setMessages]           = useState<Message[]>([]);
+  const [thread, setThread]                 = useState<(MessageThread & { patients: Patient }) | null>(null);
+  const [messages, setMessages]             = useState<Message[]>([]);
   const [linkedPatients, setLinkedPatients] = useState<Patient[]>([]);
-  const [replyText, setReplyText]         = useState("");
-  const [loading, setLoading]             = useState(true);
-  const [sending, setSending]             = useState(false);
-  const [syncing, setSyncing]             = useState(false);
-  const [error, setError]                 = useState<string | null>(null);
-  const [picError, setPicError]           = useState(false);
-  const [showApptModal, setShowApptModal] = useState(false);
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [replyText, setReplyText]           = useState("");
+  const [loading, setLoading]               = useState(true);
+  const [loadingMore, setLoadingMore]       = useState(false);
+  const [hasMore, setHasMore]               = useState(false);
+  const [oldestAt, setOldestAt]             = useState<string | null>(null);
+  const [sending, setSending]               = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
+  const [picError, setPicError]             = useState(false);
+  const [showApptModal, setShowApptModal]   = useState(false);
+  const [showLinkModal, setShowLinkModal]   = useState(false);
+  const messagesEndRef      = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  // Track scroll position before prepending so we can restore it
+  const prevScrollHeightRef = useRef<number>(0);
 
   const loadLinkedPatients = useCallback(async () => {
     try {
@@ -68,23 +76,36 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
     loadLinkedPatients();
     const sub = supabase
       .channel(`thread:${threadId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `thread_id=eq.${threadId}` }, loadMessages)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `thread_id=eq.${threadId}` }, appendNewMessage)
       .subscribe();
     return () => { sub.unsubscribe(); };
   }, [threadId]);
 
+  // Restore scroll position after prepending older messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (prevScrollHeightRef.current && messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      container.scrollTop = container.scrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = 0;
+    }
   }, [messages]);
+
+  // Scroll to bottom on initial load
+  useEffect(() => {
+    if (!loading) messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+  }, [loading]);
 
   async function loadThreadData() {
     try {
       setLoading(true);
-      const [t, msgs] = await Promise.all([getMessageThread(threadId), getThreadMessages(threadId)]);
+      const t = await getMessageThread(threadId);
       setThread(t);
-      setMessages(msgs);
-      // Reset pic error on thread change
       setPicError(false);
+
+      const msgs = await getThreadMessagesPaginated(threadId, PAGE_SIZE);
+      setMessages(msgs);
+      setHasMore(msgs.length === PAGE_SIZE);
+      if (msgs.length > 0) setOldestAt(msgs[0].created_at);
     } catch {
       setError("Failed to load conversation");
     } finally {
@@ -92,24 +113,43 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
     }
   }
 
-  async function loadMessages() {
-    try { setMessages(await getThreadMessages(threadId)); } catch { /* non-critical */ }
+  async function loadMoreMessages() {
+    if (!hasMore || loadingMore || !oldestAt) return;
+    setLoadingMore(true);
+    try {
+      const container = messagesContainerRef.current;
+      if (container) prevScrollHeightRef.current = container.scrollHeight;
+
+      const older = await getThreadMessagesPaginated(threadId, LOAD_MORE, oldestAt);
+      if (older.length > 0) {
+        setMessages((prev) => [...older, ...prev]);
+        setOldestAt(older[0].created_at);
+        setHasMore(older.length === LOAD_MORE);
+      } else {
+        setHasMore(false);
+      }
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
-  async function handleSyncThread() {
-    if (!thread || thread.channel !== "messenger") return;
-    setSyncing(true);
-    setError(null);
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    if (e.currentTarget.scrollTop < 80) loadMoreMessages();
+  }
+
+  async function appendNewMessage() {
+    // Pull only the latest message to append (realtime insert)
     try {
-      const res = await fetch(`/api/admin/sync-thread?thread_id=${threadId}`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Sync failed");
-      if (json.messages > 0) await loadMessages();
-    } catch {
-      setError("Failed to sync messages");
-    } finally {
-      setSyncing(false);
-    }
+      const newer = await getThreadMessagesPaginated(threadId, 1);
+      if (newer.length > 0) {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.id === newer[0].id) return prev;
+          return [...prev, newer[0]];
+        });
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      }
+    } catch { /* non-critical */ }
   }
 
   async function handleSend() {
@@ -120,7 +160,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
       const recipientId = thread.external_thread_id || linkedPatients[0]?.phone || "";
       await sendThreadMessage(threadId, replyText, thread.channel as "sms" | "messenger", recipientId);
       setReplyText("");
-      await loadMessages();
       onThreadUpdated();
     } catch {
       setError("Failed to send message");
@@ -136,7 +175,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
       const recipientId = thread?.external_thread_id || linkedPatients[0]?.phone || "";
       await sendAppointmentConfirmation(appt.id, threadId, date, time, thread?.channel as "sms" | "messenger", recipientId);
       setShowApptModal(false);
-      await loadMessages();
       onThreadUpdated();
     } catch {
       setError("Failed to confirm appointment");
@@ -160,7 +198,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   const initials     = getInitials(displayName);
   const hasPatients  = linkedPatients.length > 0;
 
-  // Use profile-pic proxy for messenger threads (always fresh, never expires)
   const activePic = thread.channel === "messenger" && thread.external_thread_id && !picError
     ? `/api/messenger/profile-pic?psid=${encodeURIComponent(thread.external_thread_id)}`
     : null;
@@ -204,19 +241,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {thread.channel === "messenger" && (
-              <button
-                onClick={handleSyncThread}
-                disabled={syncing}
-                className="inline-flex items-center gap-1 px-2.5 h-8 rounded-lg text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors"
-                title="Sync latest messages from Messenger"
-              >
-                <svg className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {syncing ? "Syncing…" : "Sync"}
-              </button>
-            )}
             <button onClick={() => setShowLinkModal(true)} className="btn btn-secondary text-xs h-8 px-3">
               {hasPatients ? "+ Patient" : "Link Patient"}
             </button>
@@ -230,9 +254,31 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
       </div>
 
       {/* ── Messages ─────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-white/40">
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-white/40"
+      >
         {error && (
           <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">{error}</div>
+        )}
+
+        {/* Load more indicator at top */}
+        {loadingMore && (
+          <div className="flex justify-center py-2">
+            <Spinner size="h-4 w-4" />
+          </div>
+        )}
+        {!loadingMore && hasMore && (
+          <button
+            onClick={loadMoreMessages}
+            className="w-full py-2 text-xs text-slate-400 hover:text-violet-600 transition-colors"
+          >
+            Scroll up or tap to load older messages
+          </button>
+        )}
+        {!hasMore && messages.length > 0 && (
+          <p className="text-center text-xs text-slate-300 py-1">Beginning of conversation</p>
         )}
 
         {messages.length === 0 ? (

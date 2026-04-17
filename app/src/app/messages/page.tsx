@@ -158,20 +158,38 @@ export default function MessagesPage() {
     return () => { sub.unsubscribe(); };
   }, [loadThreads]);
 
-  async function syncHistory(mode: "threads_only" | "incremental" | "full" = "incremental") {
+  async function loadAllThreads() {
     setSyncing(true);
-    setSyncResult(null);
+    setSyncResult("Connecting to Facebook…");
     try {
-      const params = mode === "threads_only" ? "?threads_only=true" : mode === "full" ? "?full=true" : "";
-      const res = await fetch(`/api/admin/sync-messenger${params}`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Sync failed");
-      setSyncResult(
-        mode === "threads_only"
-          ? `Loaded ${json.threads} threads from Facebook`
-          : `Found ${json.conversations_found ?? "?"} convs · ${json.threads} updated · ${json.messages} new messages`
-      );
-      await loadThreads();
+      const res = await fetch("/api/admin/load-threads-stream", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to start stream");
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.error) { setSyncResult(`Error: ${data.error}`); return; }
+            if (data.total != null) {
+              setSyncResult(
+                data.done
+                  ? `Done — loaded ${data.upserted} threads`
+                  : `Loading threads… ${data.upserted} / ${data.total}`
+              );
+            }
+          } catch { /* ignore malformed line */ }
+        }
+      }
     } catch (e: any) {
       setSyncResult(`Error: ${e.message}`);
     } finally {
@@ -205,10 +223,10 @@ export default function MessagesPage() {
             <h1 className="card-title leading-tight">Messages</h1>
             <div className="flex items-center gap-1 flex-shrink-0">
               <button
-                onClick={() => syncHistory("threads_only")}
+                onClick={loadAllThreads}
                 disabled={syncing}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors"
-                title="Load all threads from Facebook (fast — no messages)"
+                title="Load all threads from Facebook (streams in — no page refresh needed)"
               >
                 <svg className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

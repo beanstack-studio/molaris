@@ -81,6 +81,29 @@ export async function getThreadMessages(threadId: string) {
   return data;
 }
 
+/**
+ * Paginated message fetch — returns `limit` messages in ascending order.
+ * Pass `before` (ISO timestamp) to get messages older than that point.
+ */
+export async function getThreadMessagesPaginated(
+  threadId: string,
+  limit: number,
+  before?: string
+): Promise<Message[]> {
+  let query = supabase
+    .from('messages')
+    .select('*')
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (before) query = query.lt('created_at', before);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return ((data ?? []) as Message[]).reverse(); // oldest first
+}
+
 export async function createMessage(
   threadId: string,
   content: string,

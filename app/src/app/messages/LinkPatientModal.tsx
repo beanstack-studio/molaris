@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { Patient } from "@/lib/types";
 import { formatPhoneLocal } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
 
 interface LinkedPatient {
-  id: string; // thread_patients row id
+  id: string;
   patient_id: string;
   patients: Patient;
 }
@@ -22,8 +21,8 @@ interface Props {
 export default function LinkPatientModal({ threadId, externalUserName, onLinked, onCancel }: Props) {
   const [allPatients, setAllPatients]       = useState<Patient[]>([]);
   const [linkedPatients, setLinkedPatients] = useState<LinkedPatient[]>([]);
+  const [addingRow, setAddingRow]           = useState(false);
   const [search, setSearch]                 = useState("");
-  const [showSearch, setShowSearch]         = useState(false);
   const [showDrop, setShowDrop]             = useState(false);
   const [loadingAll, setLoadingAll]         = useState(true);
   const [saving, setSaving]                 = useState(false);
@@ -37,28 +36,18 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
   }, [threadId]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { data, error: err } = await supabase
-          .from("patients")
-          .select("id, full_name, first_name, last_name, phone")
-          .order("full_name", { ascending: true });
-        if (err) throw err;
-        setAllPatients((data as Patient[]) ?? []);
-      } catch (e: any) {
-        setError(`Failed to load patients: ${e?.message ?? "Unknown error"}`);
-      } finally {
-        setLoadingAll(false);
-      }
-    })();
-
+    // Use API route (admin client) to bypass RLS on the patients table
+    fetch("/api/patients")
+      .then((r) => r.json())
+      .then((data) => setAllPatients(Array.isArray(data) ? data : []))
+      .catch((e: any) => setError(`Failed to load patients: ${e?.message ?? "Unknown error"}`))
+      .finally(() => setLoadingAll(false));
     loadLinked();
   }, [loadLinked]);
 
-  // Focus search input when it appears
   useEffect(() => {
-    if (showSearch) setTimeout(() => inputRef.current?.focus(), 50);
-  }, [showSearch]);
+    if (addingRow) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [addingRow]);
 
   const linkedIds = new Set(linkedPatients.map((lp) => lp.patient_id));
 
@@ -76,7 +65,7 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
   async function addPatient(p: Patient) {
     setShowDrop(false);
     setSearch("");
-    setShowSearch(false);
+    setAddingRow(false);
     setSaving(true);
     setError(null);
     try {
@@ -139,107 +128,100 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
           </div>
         </div>
 
-        {/* Linked patients list */}
+        {/* Linked patients — row per patient */}
         <div className="grid gap-2">
           {linkedPatients.length > 0 && (
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Linked patients</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+              Linked patients ({linkedPatients.length}/5)
+            </p>
           )}
 
-          {linkedPatients.map((lp) => {
-            const p = lp.patients;
-            const initials2 = p.full_name?.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() ?? "?";
-            return (
-              <div key={lp.patient_id} className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                    {initials2}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{p.full_name}</p>
-                    <p className="text-xs text-slate-400">{p.phone ? formatPhoneLocal(p.phone) : "No phone"}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removePatient(lp)}
-                  disabled={removing === lp.patient_id}
-                  className="text-slate-300 hover:text-red-400 text-lg leading-none flex-shrink-0 disabled:opacity-50 transition-colors"
-                  title="Remove link"
-                >
-                  {removing === lp.patient_id ? "…" : "×"}
-                </button>
+          {linkedPatients.map((lp) => (
+            <div key={lp.patient_id} className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 truncate">{lp.patients.full_name}</p>
+                {lp.patients.phone && (
+                  <p className="text-xs text-slate-400">{formatPhoneLocal(lp.patients.phone)}</p>
+                )}
               </div>
-            );
-          })}
-
-          {/* Add patient — search or dashed button */}
-          {showSearch ? (
-            <div className="relative">
-              <input
-                ref={inputRef}
-                type="text"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setShowDrop(true); }}
-                onBlur={() => setTimeout(() => { setShowDrop(false); if (!search) setShowSearch(false); }, 150)}
-                placeholder={loadingAll ? "Loading patients…" : "Search name or phone…"}
-                className="input-standard w-full"
-                disabled={loadingAll || saving}
-              />
-              {showDrop && search.length >= 3 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
-                  {filtered.length === 0 ? (
-                    <div className="px-3 py-3 text-sm text-slate-400 text-center">
-                      No patients matching &ldquo;{search}&rdquo;
-                    </div>
-                  ) : (
-                    filtered.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onMouseDown={() => addPatient(p)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-violet-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
-                      >
-                        <span className="text-sm text-slate-800 font-medium">{p.full_name}</span>
-                        {p.phone && (
-                          <span className="text-xs text-slate-400 flex-shrink-0">{formatPhoneLocal(p.phone)}</span>
-                        )}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-              {search.length > 0 && search.length < 3 && (
-                <p className="text-xs text-slate-400 mt-1 px-1">Type at least 3 characters to search</p>
-              )}
+              <button
+                type="button"
+                onClick={() => removePatient(lp)}
+                disabled={removing === lp.patient_id}
+                className="flex-shrink-0 text-xs font-medium text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {removing === lp.patient_id ? "…" : "Unlink"}
+              </button>
             </div>
-          ) : (
+          ))}
+
+          {/* Search row — appears when "+ Link Patient" is clicked */}
+          {addingRow && (
+            <div className="flex items-start gap-2">
+              <div className="relative flex-[4]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setShowDrop(e.target.value.length >= 3); }}
+                  onBlur={() => setTimeout(() => setShowDrop(false), 200)}
+                  placeholder={loadingAll ? "Loading patients…" : "Start typing to search"}
+                  className="input-standard w-full"
+                  disabled={loadingAll || saving}
+                />
+                {showDrop && search.length >= 3 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                      <div className="px-3 py-3 text-sm text-slate-400 text-center">
+                        No patients matching &ldquo;{search}&rdquo;
+                      </div>
+                    ) : (
+                      filtered.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onMouseDown={() => addPatient(p)}
+                          className="w-full text-left px-3 py-2.5 hover:bg-violet-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
+                        >
+                          <span className="text-sm text-slate-800 font-medium">{p.full_name}</span>
+                          {p.phone && (
+                            <span className="text-xs text-slate-400 flex-shrink-0">{formatPhoneLocal(p.phone)}</span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                {search.length > 0 && search.length < 3 && (
+                  <p className="text-xs text-slate-400 mt-1 px-1">Type at least 3 characters to search</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setAddingRow(false); setSearch(""); setShowDrop(false); }}
+                className="flex-[1] text-xs font-medium text-slate-400 hover:text-slate-600 py-2.5 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {/* + Link Patient */}
+          {!addingRow && linkedPatients.length < 5 && (
             <button
               type="button"
-              onClick={() => setShowSearch(true)}
+              onClick={() => setAddingRow(true)}
               disabled={saving || loadingAll}
               className="w-full rounded-xl border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/40 py-3 text-sm font-medium text-slate-400 hover:text-violet-600 transition-colors disabled:opacity-50"
             >
-              {saving ? "Linking…" : linkedPatients.length === 0 ? "+ Link Patient" : "+ Link Another Patient"}
+              {saving ? "Linking…" : "+ Link Patient"}
             </button>
           )}
         </div>
 
-        {/* Note */}
-        {linkedPatients.length > 0 && (
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
-            <p className="text-xs text-amber-700">
-              {linkedPatients.length === 1
-                ? "Messages will be associated with this patient. You can link additional patients above."
-                : `${linkedPatients.length} patients are linked to this conversation.`}
-            </p>
-          </div>
-        )}
-
         {/* Footer */}
         <div className="flex justify-end border-t border-slate-100 pt-3">
-          <button className="cancel-btn" onClick={onCancel}>
-            Done
-          </button>
+          <button className="cancel-btn" onClick={onCancel}>Done</button>
         </div>
       </div>
     </EditModal>
