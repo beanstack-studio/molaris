@@ -41,7 +41,7 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
       try {
         let all: Patient[] = [];
         let offset = 0;
-        const pageSize = 10000;
+        const pageSize = 1000;
         while (true) {
           const { data, error: err } = await supabase
             .from("patients")
@@ -53,7 +53,7 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
             full_name: p.full_name?.trim() || combineFullName(p.first_name, p.last_name),
           }));
           all = [...all, ...normalized];
-          if (data.length < pageSize) break;
+          if (data.length < 1000) break;
           offset += data.length;
         }
         all.sort((a, b) => {
@@ -239,12 +239,12 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
           </div>
         )}
 
-        {/* + Link Patient — always visible when slots remain and not currently searching */}
-        {!addingRow && linkedPatients.length < 5 && (
+        {/* + Link Patient — always visible when slots remain */}
+        {linkedPatients.length < 5 && (
           <button
             type="button"
-            onClick={() => setAddingRow(true)}
-            disabled={saving || loadingAll}
+            onClick={() => { if (!addingRow) setAddingRow(true); }}
+            disabled={saving || loadingAll || addingRow}
             className="w-full rounded-xl border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/40 py-3 text-sm font-medium text-slate-400 hover:text-violet-600 transition-colors disabled:opacity-50"
           >
             {saving ? "Linking…" : loadingAll ? "Loading…" : "+ Link Patient"}

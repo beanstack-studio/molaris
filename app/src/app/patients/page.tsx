@@ -94,7 +94,7 @@ export default function PatientsPage() {
 
       // Load all patients with pagination (Supabase caps at 1000 rows per request)
       const allPatients: any[] = [];
-      const BATCH_SIZE = 10000;
+      const BATCH_SIZE = 1000;
       let offset = 0;
       let hasMore = true;
 
@@ -112,7 +112,7 @@ export default function PatientsPage() {
         } else {
           allPatients.push(...data);
           offset += data.length;
-          hasMore = data.length === BATCH_SIZE; // stop when we get a partial page
+          hasMore = data.length === 1000; // stop when we get a partial page
         }
       }
 

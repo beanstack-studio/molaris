@@ -211,9 +211,8 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
     return <div className="flex-1 flex items-center justify-center"><p className="text-sm text-red-500">Failed to load conversation.</p></div>;
   }
 
-  const patientName  = linkedPatients[0]?.full_name ?? null;
   const externalName = thread.external_user_name ?? null;
-  const displayName  = patientName ?? externalName ?? "Unknown";
+  const displayName  = externalName ?? linkedPatients[0]?.full_name ?? "Unknown";
   const color        = avatarColor(displayName);
   const initials     = getInitials(displayName);
   const hasPatients  = linkedPatients.length > 0;

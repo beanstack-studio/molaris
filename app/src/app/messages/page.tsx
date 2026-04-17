@@ -203,7 +203,7 @@ export default function MessagesPage() {
   }
 
   function getDisplayName(t: Thread) {
-    return t.patients?.full_name ?? t.external_user_name ?? "Unknown";
+    return t.external_user_name ?? t.patients?.full_name ?? "Unknown";
   }
 
   return (

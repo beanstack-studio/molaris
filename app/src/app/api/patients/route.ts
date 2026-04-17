@@ -12,7 +12,7 @@ function getAdminClient() {
 /** GET /api/patients — returns ALL patients (paginated past Supabase 1000-row limit) */
 export async function GET() {
   const supabase = getAdminClient();
-  const PAGE = 10000;
+  const PAGE = 1000;
   let all: any[] = [];
   let offset = 0;
 

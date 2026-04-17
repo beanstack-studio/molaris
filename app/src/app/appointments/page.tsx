@@ -123,7 +123,7 @@ export default function AppointmentsPage() {
     try {
       let allPatients: Patient[] = [];
       let offset = 0;
-      const pageSize = 10000;
+      const pageSize = 1000;
 
       while (true) {
         const { data, error: err } = await supabase
@@ -141,7 +141,7 @@ export default function AppointmentsPage() {
         }));
 
         allPatients = [...allPatients, ...normalized];
-        if (data.length < pageSize) break;
+        if (data.length < 1000) break;
         offset += data.length;
       }
 
