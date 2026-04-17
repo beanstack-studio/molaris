@@ -45,7 +45,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   const [thread, setThread]                 = useState<(MessageThread & { patients: Patient }) | null>(null);
   const [messages, setMessages]             = useState<Message[]>([]);
   const [linkedPatients, setLinkedPatients] = useState<Patient[]>([]);
-  const [allPatients, setAllPatients]       = useState<Patient[]>([]);
   const [replyText, setReplyText]           = useState("");
   const [loading, setLoading]               = useState(true);
   const [autoSyncing, setAutoSyncing]       = useState(false);
@@ -71,13 +70,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
     } catch { /* non-critical */ }
   }, [threadId]);
 
-  // Load all patients once for the Link Patient modal (same pattern as CreateAppointmentModal)
-  useEffect(() => {
-    fetch("/api/patients")
-      .then((r) => r.json())
-      .then((d) => setAllPatients(Array.isArray(d) ? d : []))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     loadThreadData();
@@ -389,7 +381,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
         <LinkPatientModal
           threadId={threadId}
           externalUserName={thread.external_user_name}
-          patients={allPatients}
           onLinked={() => { loadLinkedPatients(); onThreadUpdated(); }}
           onCancel={() => setShowLinkModal(false)}
         />

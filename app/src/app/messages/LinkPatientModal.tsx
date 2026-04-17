@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { Patient } from "@/lib/types";
-import { formatPhoneLocal } from "@/lib/helpers";
+import { combineFullName, formatPhoneLocal } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
 
 interface LinkedPatient {
@@ -14,17 +15,18 @@ interface LinkedPatient {
 interface Props {
   threadId: string;
   externalUserName: string | null;
-  patients: Patient[]; // all patients — passed from parent (same as CreateAppointmentModal)
   onLinked: () => void;
   onCancel: () => void;
 }
 
-export default function LinkPatientModal({ threadId, externalUserName, patients, onLinked, onCancel }: Props) {
+export default function LinkPatientModal({ threadId, externalUserName, onLinked, onCancel }: Props) {
+  const [allPatients, setAllPatients]       = useState<Patient[]>([]);
   const [linkedPatients, setLinkedPatients] = useState<LinkedPatient[]>([]);
+  const [addingRow, setAddingRow]           = useState(false);
   const [search, setSearch]                 = useState("");
-  const [showDrop, setShowDrop]             = useState(false);
   const [saving, setSaving]                 = useState(false);
   const [removing, setRemoving]             = useState<string | null>(null);
+  const [loadingAll, setLoadingAll]         = useState(true);
   const [error, setError]                   = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -33,13 +35,53 @@ export default function LinkPatientModal({ threadId, externalUserName, patients,
     if (res.ok) setLinkedPatients(await res.json());
   }, [threadId]);
 
-  useEffect(() => { loadLinked(); }, [loadLinked]);
+  // Paginated load — exact same logic as CreateAppointmentModal / appointments page
+  useEffect(() => {
+    (async () => {
+      try {
+        let all: Patient[] = [];
+        let offset = 0;
+        const pageSize = 10000;
+        while (true) {
+          const { data, error: err } = await supabase
+            .from("patients")
+            .select("id, full_name, first_name, last_name, phone")
+            .range(offset, offset + pageSize - 1);
+          if (err || !data || data.length === 0) break;
+          const normalized = data.map((p: any) => ({
+            ...p,
+            full_name: p.full_name?.trim() || combineFullName(p.first_name, p.last_name),
+          }));
+          all = [...all, ...normalized];
+          if (data.length < pageSize) break;
+          offset += data.length;
+        }
+        all.sort((a, b) => {
+          const al = (a.last_name ?? "").toLowerCase();
+          const bl = (b.last_name ?? "").toLowerCase();
+          if (al !== bl) return al.localeCompare(bl);
+          return (a.first_name ?? "").toLowerCase().localeCompare((b.first_name ?? "").toLowerCase());
+        });
+        setAllPatients(all);
+      } catch {
+        setAllPatients([]);
+      } finally {
+        setLoadingAll(false);
+      }
+    })();
+    loadLinked();
+  }, [loadLinked]);
+
+  // Focus search input when row opens
+  useEffect(() => {
+    if (addingRow) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [addingRow]);
 
   const linkedIds = new Set(linkedPatients.map((lp) => lp.patient_id));
 
-  // Same filter logic as CreateAppointmentModal
+  // Exact same filter as CreateAppointmentModal
   const filtered = search.length >= 3
-    ? patients.filter((p) => {
+    ? allPatients.filter((p) => {
         if (linkedIds.has(p.id)) return false;
         const q     = search.toLowerCase();
         const full  = (p.full_name ?? "").toLowerCase();
@@ -50,8 +92,8 @@ export default function LinkPatientModal({ threadId, externalUserName, patients,
     : [];
 
   async function addPatient(p: Patient) {
-    setShowDrop(false);
     setSearch("");
+    setAddingRow(false);
     setSaving(true);
     setError(null);
     try {
@@ -90,15 +132,18 @@ export default function LinkPatientModal({ threadId, externalUserName, patients,
     }
   }
 
+  function cancelAdd() {
+    setAddingRow(false);
+    setSearch("");
+  }
+
   const initials = externalUserName
     ? externalUserName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
     : "?";
 
-  const canAddMore = linkedPatients.length < 5;
-
   return (
     <EditModal open={true} title="Link to Patient" onClose={onCancel}>
-      <div className="grid gap-4">
+      <div className="grid gap-3">
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-100 p-3">
             <p className="text-sm text-red-700">{error}</p>
@@ -116,14 +161,12 @@ export default function LinkPatientModal({ threadId, externalUserName, patients,
           </div>
         </div>
 
-        {/* Linked patients count label */}
+        {/* Linked patients — one row per patient [name · 80%] [Unlink · 20%] */}
         {linkedPatients.length > 0 && (
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide -mb-2">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
             Linked patients ({linkedPatients.length}/5)
           </p>
         )}
-
-        {/* Linked patient rows */}
         {linkedPatients.map((lp) => (
           <div key={lp.patient_id} className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
             <div className="flex-1 min-w-0">
@@ -136,28 +179,39 @@ export default function LinkPatientModal({ threadId, externalUserName, patients,
               type="button"
               onClick={() => removePatient(lp)}
               disabled={removing === lp.patient_id}
-              className="flex-shrink-0 text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+              className="flex-shrink-0 text-xs font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
             >
               {removing === lp.patient_id ? "…" : "Unlink"}
             </button>
           </div>
         ))}
 
-        {/* Search row — inline, same pattern as CreateAppointmentModal */}
-        {canAddMore && (
-          <div className="relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setShowDrop(e.target.value.length >= 3); }}
-              onBlur={() => setTimeout(() => setShowDrop(false), 200)}
-              placeholder="Search patient to link…"
-              className="input-standard w-full"
-              disabled={saving}
-            />
-            {showDrop && search.length >= 3 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
+        {/* Search row — appears only after clicking + Link Patient */}
+        {addingRow && (
+          <div>
+            {/* [search 80%] [Cancel 20%] */}
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={loadingAll ? "Loading patients…" : "Start typing to search"}
+                className="input-standard flex-[4]"
+                disabled={loadingAll || saving}
+              />
+              <button
+                type="button"
+                onClick={cancelAdd}
+                className="flex-[1] text-xs font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 py-2.5 rounded-lg transition-colors text-center"
+              >
+                Cancel
+              </button>
+            </div>
+
+            {/* Inline results (no absolute — avoids overflow clipping) */}
+            {search.length >= 3 && (
+              <div className="mt-1 bg-white border border-violet-100 rounded-xl shadow-sm max-h-48 overflow-y-auto">
                 {filtered.length === 0 ? (
                   <div className="px-3 py-3 text-sm text-slate-400 text-center">
                     No patients matching &ldquo;{search}&rdquo;
@@ -167,7 +221,7 @@ export default function LinkPatientModal({ threadId, externalUserName, patients,
                     <button
                       key={p.id}
                       type="button"
-                      onMouseDown={() => addPatient(p)}
+                      onClick={() => addPatient(p)}
                       className="w-full text-left px-3 py-2.5 hover:bg-violet-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-0"
                     >
                       <span className="text-sm text-slate-800 font-medium">{p.full_name}</span>
@@ -185,15 +239,15 @@ export default function LinkPatientModal({ threadId, externalUserName, patients,
           </div>
         )}
 
-        {/* + Link Patient dashed button — always visible while slots remain, shown below search */}
-        {canAddMore && (
+        {/* + Link Patient — always visible when slots remain and not currently searching */}
+        {!addingRow && linkedPatients.length < 5 && (
           <button
             type="button"
-            onClick={() => { inputRef.current?.focus(); }}
-            disabled={saving}
+            onClick={() => setAddingRow(true)}
+            disabled={saving || loadingAll}
             className="w-full rounded-xl border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/40 py-3 text-sm font-medium text-slate-400 hover:text-violet-600 transition-colors disabled:opacity-50"
           >
-            {saving ? "Linking…" : "+ Link Patient"}
+            {saving ? "Linking…" : loadingAll ? "Loading…" : "+ Link Patient"}
           </button>
         )}
 

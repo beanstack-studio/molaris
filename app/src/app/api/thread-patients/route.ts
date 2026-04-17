@@ -48,9 +48,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Check if already linked to this same thread — idempotent
+  const { data: duplicate } = await supabase
+    .from("thread_patients")
+    .select("id")
+    .eq("thread_id", thread_id)
+    .eq("patient_id", patient_id)
+    .maybeSingle();
+
+  if (duplicate) return NextResponse.json({ ok: true });
+
   const { error } = await supabase
     .from("thread_patients")
-    .upsert({ thread_id, patient_id }, { onConflict: "patient_id" });
+    .insert({ thread_id, patient_id });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

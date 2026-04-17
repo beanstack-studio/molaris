@@ -123,7 +123,7 @@ export default function AppointmentsPage() {
     try {
       let allPatients: Patient[] = [];
       let offset = 0;
-      const pageSize = 1000; // Supabase caps at 1000 rows per request
+      const pageSize = 10000;
 
       while (true) {
         const { data, error: err } = await supabase

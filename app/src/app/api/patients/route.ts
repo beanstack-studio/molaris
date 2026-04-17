@@ -9,14 +9,26 @@ function getAdminClient() {
   );
 }
 
-/** GET /api/patients — returns all non-deleted patients for staff use */
+/** GET /api/patients — returns ALL patients (paginated past Supabase 1000-row limit) */
 export async function GET() {
   const supabase = getAdminClient();
-  const { data, error } = await supabase
-    .from("patients")
-    .select("id, full_name, first_name, last_name, phone")
-    .order("full_name", { ascending: true });
+  const PAGE = 10000;
+  let all: any[] = [];
+  let offset = 0;
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+  while (true) {
+    const { data, error } = await supabase
+      .from("patients")
+      .select("id, full_name, first_name, last_name, phone")
+      .order("full_name", { ascending: true })
+      .range(offset, offset + PAGE - 1);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data || data.length === 0) break;
+    all = [...all, ...data];
+    if (data.length < PAGE) break;
+    offset += data.length;
+  }
+
+  return NextResponse.json(all);
 }

@@ -94,7 +94,7 @@ export default function PatientsPage() {
 
       // Load all patients with pagination (Supabase caps at 1000 rows per request)
       const allPatients: any[] = [];
-      const BATCH_SIZE = 1000;
+      const BATCH_SIZE = 10000;
       let offset = 0;
       let hasMore = true;
 
