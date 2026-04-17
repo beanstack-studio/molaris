@@ -71,13 +71,14 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
           const first    = (p.first_name ?? "").toLowerCase();
           const last     = (p.last_name ?? "").toLowerCase();
           const combined = `${first} ${last}`;
-          const phone    = (p.phone ?? "").replace(/\D/g, "");
+          const phone      = (p.phone ?? "").replace(/\D/g, "");
+          const phoneQuery = q.replace(/\D/g, "");
           return (
             full.includes(q) ||
             first.includes(q) ||
             last.includes(q) ||
             combined.includes(q) ||
-            phone.includes(q.replace(/\D/g, ""))
+            (phoneQuery.length > 0 && phone.includes(phoneQuery))
           );
         })
         .slice(0, 5)

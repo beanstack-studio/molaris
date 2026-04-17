@@ -206,28 +206,42 @@ async function syncMessages(
   pageId: string,
   pageToken: string,
   threadId: string,
-  sinceTimestamp: number // unix seconds — only fetch messages newer than this
+  sinceTimestamp: number // unix seconds — stop when we see messages older than this
 ): Promise<number> {
-  const sinceParam = sinceTimestamp > 0 ? `&since=${sinceTimestamp}` : "";
-  const allMessages: FbMessage[] = [];
+  // FB returns messages newest-first. We paginate until we hit messages older
+  // than sinceTimestamp (or run out of pages). This correctly handles the case
+  // where FB's `since` param behaves as a pagination cursor rather than a filter.
+  const newMessages: FbMessage[] = [];
 
-  let msgUrl = `${FB}/${convId}/messages?fields=id,message,from,created_time&limit=100${sinceParam}&access_token=${pageToken}`;
+  let msgUrl = `${FB}/${convId}/messages?fields=id,message,from,created_time&limit=100&access_token=${pageToken}`;
 
   while (msgUrl) {
     const res: Response = await fetch(msgUrl);
     if (!res.ok) break;
     const data = await res.json() as { data: FbMessage[]; paging?: { next?: string } };
-    allMessages.push(...(data.data ?? []));
+    const page = data.data ?? [];
+
+    let reachedOld = false;
+    for (const msg of page) {
+      const msgTs = Math.floor(new Date(msg.created_time).getTime() / 1000);
+      if (sinceTimestamp > 0 && msgTs <= sinceTimestamp) {
+        reachedOld = true;
+        break;
+      }
+      newMessages.push(msg);
+    }
+
+    if (reachedOld) break;
     msgUrl = data.paging?.next ?? "";
   }
 
-  if (allMessages.length === 0) return 0;
+  if (newMessages.length === 0) return 0;
 
-  // Oldest first
-  allMessages.reverse();
+  // Oldest first for correct ordering
+  newMessages.reverse();
 
   let count = 0;
-  for (const msg of allMessages) {
+  for (const msg of newMessages) {
     if (!msg.message) continue;
     const { error } = await supabase.from("messages").upsert(
       {
@@ -246,10 +260,11 @@ async function syncMessages(
     if (!error) count++;
   }
 
-  // Update last_message_at
+  // Update last_message_at to the newest message we just synced
+  const newestMsg = newMessages[newMessages.length - 1];
   await supabase
     .from("message_threads")
-    .update({ last_message_at: allMessages[allMessages.length - 1].created_time })
+    .update({ last_message_at: newestMsg.created_time })
     .eq("id", threadId);
 
   return count;
