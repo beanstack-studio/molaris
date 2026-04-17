@@ -42,7 +42,6 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
         const { data, error: err } = await supabase
           .from("patients")
           .select("id, full_name, first_name, last_name, phone")
-          .is("deleted_at", null)
           .order("full_name", { ascending: true });
         if (err) throw err;
         setAllPatients((data as Patient[]) ?? []);

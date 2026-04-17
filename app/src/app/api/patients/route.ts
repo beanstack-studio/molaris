@@ -15,7 +15,6 @@ export async function GET() {
   const { data, error } = await supabase
     .from("patients")
     .select("id, full_name, first_name, last_name, phone")
-    .is("deleted_at", null)
     .order("full_name", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

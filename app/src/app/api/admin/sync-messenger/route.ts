@@ -62,10 +62,15 @@ export async function POST() {
 
   // Fetch all folders — inbox, other (message requests), spam, and no-folder (default)
   await fetchConvs("");                       // default / no folder filter
+  console.log(`[sync] after default: ${allConvs.length} convs`);
   await fetchConvs("&folder=inbox");
+  console.log(`[sync] after inbox: ${allConvs.length} convs`);
   await fetchConvs("&folder=other");
+  console.log(`[sync] after other: ${allConvs.length} convs`);
   await fetchConvs("&folder=other_inbox");   // some API versions use this name
+  console.log(`[sync] after other_inbox: ${allConvs.length} convs`);
   await fetchConvs("&folder=spam");
+  console.log(`[sync] after spam: ${allConvs.length} convs — total unique: ${allConvs.length}`);
 
   // ── Process conversations in parallel batches of 8 ───────────────────
   const BATCH = 8;

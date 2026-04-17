@@ -132,7 +132,9 @@ export default function MessagesPage() {
         .is("deleted_at", null)
         .order("last_message_at", { ascending: false });
       if (err) throw err;
-      setThreads((data as Thread[]) ?? []);
+      const threads = (data as Thread[]) ?? [];
+      console.log(`[Messages] Loaded ${threads.length} threads from DB`, threads.map(t => ({ id: t.id, name: t.external_user_name, last: t.last_message_at })));
+      setThreads(threads);
     } catch {
       setError("Failed to load messages");
     } finally {
