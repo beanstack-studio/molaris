@@ -2,44 +2,38 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { DentistRow } from "@/lib/types";
+import { DentistRow, Patient } from "@/lib/types";
 import { DatePickerField } from "@/components/DatePickerField";
 import { EditModal } from "@/components/EditModal";
 
 interface AppointmentModalProps {
-  patientId: string;
-  onConfirm: (date: string, time: string, dentistId?: string, concerns?: string) => void;
+  patients: Patient[];
+  onConfirm: (date: string, time: string, patientId: string, dentistId?: string, concerns?: string) => void;
   onCancel: () => void;
   isSending: boolean;
 }
 
-// Kalibo-Aklan PH holidays (2026)
 const PH_HOLIDAYS_2026 = [
   "2026-01-01", "2026-02-10", "2026-02-25", "2026-04-09", "2026-04-10",
   "2026-04-14", "2026-06-12", "2026-08-21", "2026-11-01", "2026-11-30",
   "2026-12-08", "2026-12-25", "2026-12-30",
 ];
 
-const formatTime12Hr = (time24: string): string => {
-  const [hours] = time24.split(":").map(Number);
-  const period = hours >= 12 ? "PM" : "AM";
-  const displayHours = hours % 12 || 12;
-  return `${displayHours}:00 ${period}`;
+const formatTime12Hr = (h: number) => {
+  const period = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:00 ${period}`;
 };
 
-export default function AppointmentModal({
-  onConfirm,
-  onCancel,
-  isSending,
-}: AppointmentModalProps) {
+export default function AppointmentModal({ patients, onConfirm, onCancel, isSending }: AppointmentModalProps) {
+  const [patientId, setPatientId]           = useState(patients[0]?.id ?? "");
   const [appointmentDate, setAppointmentDate] = useState(new Date().toISOString().split("T")[0]);
   const [appointmentTime, setAppointmentTime] = useState("");
-  const [dentistId, setDentistId]             = useState("");
-  const [concerns, setConcerns]               = useState("");
-  const [dentists, setDentists]               = useState<DentistRow[]>([]);
-  const [availableSlots, setAvailableSlots]   = useState<string[]>([]);
-  const [loading, setLoading]                 = useState(true);
-  const [error, setError]                     = useState<string | null>(null);
+  const [dentistId, setDentistId]           = useState("");
+  const [concerns, setConcerns]             = useState("");
+  const [dentists, setDentists]             = useState<DentistRow[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState<string | null>(null);
 
   const MAX_PER_SLOT = 2;
 
@@ -66,19 +60,17 @@ export default function AppointmentModal({
   }, [appointmentDate]);
 
   async function generateSlots(dateStr: string) {
-    const date       = new Date(dateStr + "T00:00:00");
-    const dayOfWeek  = date.getDay();
-    const isHoliday  = PH_HOLIDAYS_2026.includes(dateStr);
-    const isToday    = dateStr === new Date().toISOString().split("T")[0];
-    const now        = new Date();
-    const endHour    = (dayOfWeek === 0 || isHoliday) ? 12 : 17;
+    const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
+    const isHoliday = PH_HOLIDAYS_2026.includes(dateStr);
+    const isToday   = dateStr === new Date().toISOString().split("T")[0];
+    const now       = new Date();
+    const endHour   = dayOfWeek === 0 || isHoliday ? 12 : 17;
 
     const slots: string[] = [];
     for (let h = 8; h < endHour; h++) {
-      if (h === 12) continue; // lunch
+      if (h === 12) continue;
       const timeStr = `${String(h).padStart(2, "0")}:00`;
       if (isToday && new Date(dateStr + `T${timeStr}:00`) <= now) continue;
-
       const { data } = await supabase
         .from("appointments")
         .select("id")
@@ -88,17 +80,14 @@ export default function AppointmentModal({
         .is("deleted_at", null);
       if ((data?.length ?? 0) < MAX_PER_SLOT) slots.push(timeStr);
     }
-
     setAvailableSlots(slots);
     if (appointmentTime && !slots.includes(appointmentTime)) setAppointmentTime("");
   }
 
   function handleConfirm() {
-    if (!appointmentDate || !appointmentTime) {
-      setError("Please select date and time");
-      return;
-    }
-    onConfirm(appointmentDate, appointmentTime, dentistId || undefined, concerns || undefined);
+    if (!patientId)        { setError("Please select a patient"); return; }
+    if (!appointmentTime)  { setError("Please select a time"); return; }
+    onConfirm(appointmentDate, appointmentTime, patientId, dentistId || undefined, concerns || undefined);
   }
 
   return (
@@ -108,6 +97,18 @@ export default function AppointmentModal({
           <div className="rounded-lg bg-red-50 border border-red-100 p-3">
             <p className="text-sm text-red-700">{error}</p>
           </div>
+        )}
+
+        {/* Patient — picker if multiple */}
+        {patients.length > 1 && (
+          <label className="grid gap-1 text-sm">
+            <span className="text-slate-700">Patient *</span>
+            <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="input-standard">
+              {patients.map((p) => (
+                <option key={p.id} value={p.id}>{p.full_name}</option>
+              ))}
+            </select>
+          </label>
         )}
 
         {/* Date */}
@@ -126,15 +127,12 @@ export default function AppointmentModal({
               <p className="text-sm text-amber-700">No available slots for this date (closed or fully booked)</p>
             </div>
           ) : (
-            <select
-              value={appointmentTime}
-              onChange={(e) => setAppointmentTime(e.target.value)}
-              className="input-standard"
-            >
+            <select value={appointmentTime} onChange={(e) => setAppointmentTime(e.target.value)} className="input-standard">
               <option value="">Select time</option>
-              {availableSlots.map((t) => (
-                <option key={t} value={t}>{formatTime12Hr(t)}</option>
-              ))}
+              {availableSlots.map((t) => {
+                const h = parseInt(t.split(":")[0], 10);
+                return <option key={t} value={t}>{formatTime12Hr(h)}</option>;
+              })}
             </select>
           )}
           <span className="text-xs text-slate-400">Mon–Sat: 8am–5pm · Sun/Holidays: 8am–12nn · Lunch closed 12–1pm</span>
@@ -146,11 +144,7 @@ export default function AppointmentModal({
           {loading ? (
             <p className="text-sm text-slate-400">Loading dentists…</p>
           ) : (
-            <select
-              value={dentistId}
-              onChange={(e) => setDentistId(e.target.value)}
-              className="input-standard"
-            >
+            <select value={dentistId} onChange={(e) => setDentistId(e.target.value)} className="input-standard">
               <option value="">Select dentist</option>
               {dentists.map((d) => (
                 <option key={d.id} value={d.id}>{d.full_name}</option>
@@ -161,11 +155,11 @@ export default function AppointmentModal({
 
         {/* Concerns */}
         <label className="grid gap-1 text-sm">
-          <span className="text-slate-700">Concern / reason for visit (optional)</span>
+          <span className="text-slate-700">Concern / reason (optional)</span>
           <textarea
             value={concerns}
             onChange={(e) => setConcerns(e.target.value)}
-            placeholder="e.g., Toothache, cleaning, checkup, emergency…"
+            placeholder="e.g., Toothache, cleaning, checkup…"
             className="input-standard resize-none"
             rows={3}
           />
@@ -173,14 +167,8 @@ export default function AppointmentModal({
 
         {/* Footer */}
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-          <button onClick={onCancel} disabled={isSending} className="cancel-btn">
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={isSending || !appointmentTime}
-            className="save-btn"
-          >
+          <button onClick={onCancel} disabled={isSending} className="cancel-btn">Cancel</button>
+          <button onClick={handleConfirm} disabled={isSending || !appointmentTime} className="save-btn">
             {isSending ? "Creating…" : "Confirm & Send"}
           </button>
         </div>

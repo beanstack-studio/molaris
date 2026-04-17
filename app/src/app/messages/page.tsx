@@ -53,6 +53,7 @@ const CHANNEL_BADGE: Record<string, { bg: string; icon: React.ReactNode }> = {
 };
 
 function ThreadAvatar({ name, channel, profilePicUrl }: { name: string | null; channel: string; profilePicUrl?: string | null }) {
+  const [imgError, setImgError] = React.useState(false);
   const palette = [
     "bg-violet-500", "bg-blue-500", "bg-indigo-500", "bg-pink-500",
     "bg-teal-500",   "bg-amber-500", "bg-green-500", "bg-rose-500",
@@ -65,12 +66,12 @@ function ThreadAvatar({ name, channel, profilePicUrl }: { name: string | null; c
   const badge = CHANNEL_BADGE[channel];
   return (
     <div className="relative flex-shrink-0">
-      {profilePicUrl ? (
+      {profilePicUrl && !imgError ? (
         <img
           src={profilePicUrl}
           alt={name ?? "User"}
           className="w-10 h-10 rounded-full object-cover"
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+          onError={() => setImgError(true)}
         />
       ) : (
         <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center text-white text-sm font-bold`}>
