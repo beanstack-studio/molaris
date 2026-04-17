@@ -52,6 +52,7 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   const [hasMore, setHasMore]               = useState(false);
   const [oldestAt, setOldestAt]             = useState<string | null>(null);
   const [sending, setSending]               = useState(false);
+  const [unlinkingId, setUnlinkingId]       = useState<string | null>(null);
   const [error, setError]                   = useState<string | null>(null);
   const [picError, setPicError]             = useState(false);
   const [showApptModal, setShowApptModal]   = useState(false);
@@ -69,6 +70,20 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
       setLinkedPatients(rows.map((r) => r.patients));
     } catch { /* non-critical */ }
   }, [threadId]);
+
+  async function unlinkPatient(patientId: string) {
+    setUnlinkingId(patientId);
+    try {
+      await fetch("/api/thread-patients", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ thread_id: threadId, patient_id: patientId }),
+      });
+      await loadLinkedPatients();
+      onThreadUpdated();
+    } catch { /* non-critical */ }
+    finally { setUnlinkingId(null); }
+  }
 
 
   useEffect(() => {
@@ -260,9 +275,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => setShowLinkModal(true)} className="btn btn-secondary text-xs h-8 px-3">
-              {hasPatients ? "+ Patient" : "Link Patient"}
-            </button>
             {hasPatients && (
               <button onClick={() => setShowApptModal(true)} className="save-btn h-8 px-3 text-xs">
                 + Appt
@@ -270,6 +282,42 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Linked Patients ──────────────────────────────────────── */}
+      <div className="flex-shrink-0 border-b border-white/60 bg-white/80 px-4 py-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+          Linked Patients ({linkedPatients.length}/5)
+        </p>
+
+        {linkedPatients.map((p) => (
+          <div key={p.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-800 truncate">{p.full_name}</p>
+              {p.phone && (
+                <p className="text-xs text-slate-400">{formatPhoneLocal(p.phone)}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => unlinkPatient(p.id)}
+              disabled={unlinkingId === p.id}
+              className="flex-shrink-0 text-xs font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {unlinkingId === p.id ? "…" : "Unlink"}
+            </button>
+          </div>
+        ))}
+
+        {linkedPatients.length < 5 && (
+          <button
+            type="button"
+            onClick={() => setShowLinkModal(true)}
+            className="w-full rounded-xl border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/40 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-600 transition-colors"
+          >
+            + Link Patient
+          </button>
+        )}
       </div>
 
       {/* ── Messages ─────────────────────────────────────────────── */}
