@@ -1,5 +1,13 @@
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
 
 /**
  * GET /api/messenger/profile?psid=PSID
@@ -11,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (!psid) return NextResponse.json({ name: null, picture_url: null });
 
   try {
-    const { data: page } = await supabase
+    const { data: page } = await getAdminClient()
       .from("facebook_pages")
       .select("page_access_token")
       .maybeSingle();

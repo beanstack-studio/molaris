@@ -11,7 +11,6 @@ import {
   sendThreadMessage,
   sendAppointmentConfirmation,
   createAppointment,
-  getMessengerUserProfile,
 } from "@/lib/messageHelpers";
 import AppointmentModal from "./AppointmentModal";
 import LinkPatientModal from "./LinkPatientModal";
@@ -47,7 +46,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   const [loading, setLoading]             = useState(true);
   const [sending, setSending]             = useState(false);
   const [error, setError]                 = useState<string | null>(null);
-  const [profilePic, setProfilePic]       = useState<string | null>(null);
   const [picError, setPicError]           = useState(false);
   const [showApptModal, setShowApptModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
@@ -84,11 +82,8 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
       const [t, msgs] = await Promise.all([getMessageThread(threadId), getThreadMessages(threadId)]);
       setThread(t);
       setMessages(msgs);
-      if (t.channel === "messenger" && !t.patient_id && t.external_thread_id) {
-        getMessengerUserProfile(t.external_thread_id)
-          .then((p) => { if (p?.picture_url) { setProfilePic(p.picture_url); setPicError(false); } })
-          .catch(() => {});
-      }
+      // Reset pic error on thread change
+      setPicError(false);
     } catch {
       setError("Failed to load conversation");
     } finally {
@@ -148,9 +143,10 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   const initials     = getInitials(displayName);
   const hasPatients  = linkedPatients.length > 0;
 
-  // Profile pic: prefer stored metadata, then live-fetched
-  const storedPic   = (thread.metadata as any)?.profile_pic_url ?? null;
-  const activePic   = !picError ? (profilePic ?? storedPic) : null;
+  // Use profile-pic proxy for messenger threads (always fresh, never expires)
+  const activePic = thread.channel === "messenger" && thread.external_thread_id && !picError
+    ? `/api/messenger/profile-pic?psid=${encodeURIComponent(thread.external_thread_id)}`
+    : null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

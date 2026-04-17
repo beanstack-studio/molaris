@@ -52,7 +52,7 @@ const CHANNEL_BADGE: Record<string, { bg: string; icon: React.ReactNode }> = {
   },
 };
 
-function ThreadAvatar({ name, channel, profilePicUrl }: { name: string | null; channel: string; profilePicUrl?: string | null }) {
+function ThreadAvatar({ name, channel, psid }: { name: string | null; channel: string; psid?: string | null }) {
   const [imgError, setImgError] = React.useState(false);
   const palette = [
     "bg-violet-500", "bg-blue-500", "bg-indigo-500", "bg-pink-500",
@@ -64,11 +64,15 @@ function ThreadAvatar({ name, channel, profilePicUrl }: { name: string | null; c
     ? name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
     : "?";
   const badge = CHANNEL_BADGE[channel];
+  // Use profile-pic proxy for messenger threads (always fresh, never expires)
+  const picSrc = channel === "messenger" && psid && !imgError
+    ? `/api/messenger/profile-pic?psid=${encodeURIComponent(psid)}`
+    : null;
   return (
     <div className="relative flex-shrink-0">
-      {profilePicUrl && !imgError ? (
+      {picSrc ? (
         <img
-          src={profilePicUrl}
+          src={picSrc}
           alt={name ?? "User"}
           className="w-10 h-10 rounded-full object-cover"
           onError={() => setImgError(true)}
@@ -249,7 +253,7 @@ export default function MessagesPage() {
                       : "border-l-transparent hover:bg-white/60",
                   ].join(" ")}
                 >
-                  <ThreadAvatar name={name} channel={t.channel} profilePicUrl={t.metadata?.profile_pic_url ?? null} />
+                  <ThreadAvatar name={name} channel={t.channel} psid={t.external_thread_id} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <p className={`text-sm truncate ${active ? "text-violet-700 font-semibold" : (t.unread_count ?? 0) > 0 ? "text-slate-900 font-bold" : "text-slate-700 font-normal"}`}>

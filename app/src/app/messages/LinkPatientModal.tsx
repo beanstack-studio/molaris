@@ -172,7 +172,7 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setShowDrop(true); }}
                 onBlur={() => setTimeout(() => { setShowDrop(false); if (!search) setShowSearch(false); }, 150)}
-                placeholder="Search name or phone…"
+                placeholder={loadingAll ? "Loading patients…" : "Search name or phone…"}
                 className="input-standard w-full"
                 disabled={loadingAll || saving}
               />
@@ -180,7 +180,9 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-xl shadow-lg z-10 max-h-52 overflow-y-auto">
                   {filtered.length === 0 ? (
                     <div className="px-3 py-3 text-sm text-slate-400 text-center">
-                      No patients matching &ldquo;{search}&rdquo;
+                      {allPatients.length === 0
+                        ? "No patients found in database"
+                        : `No patients matching "${search}" (${allPatients.length} total loaded)`}
                     </div>
                   ) : (
                     filtered.map((p) => (
