@@ -161,30 +161,30 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
           </div>
         </div>
 
-        {/* Linked patients — one row per patient [name · 80%] [Unlink · 20%] */}
-        {linkedPatients.length > 0 && (
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-            Linked patients ({linkedPatients.length}/5)
-          </p>
-        )}
-        {linkedPatients.map((lp) => (
-          <div key={lp.patient_id} className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800 truncate">{lp.patients.full_name}</p>
-              {lp.patients.phone && (
-                <p className="text-xs text-slate-400">{formatPhoneLocal(lp.patients.phone)}</p>
-              )}
+        {/* Linked patients */}
+        <div className="space-y-2">
+          <p className="text-field-label">Linked Patients ({linkedPatients.length}/5)</p>
+          {linkedPatients.map((lp) => (
+            <div key={lp.patient_id} className="info-box">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{lp.patients.full_name}</p>
+                  {lp.patients.phone && (
+                    <p className="text-xs text-slate-400">{formatPhoneLocal(lp.patients.phone)}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removePatient(lp)}
+                  disabled={removing === lp.patient_id}
+                  className="flex-shrink-0 text-xs font-semibold text-red-500 hover:text-red-600 disabled:opacity-50 transition-colors"
+                >
+                  {removing === lp.patient_id ? "…" : "Unlink"}
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => removePatient(lp)}
-              disabled={removing === lp.patient_id}
-              className="flex-shrink-0 text-xs font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-            >
-              {removing === lp.patient_id ? "…" : "Unlink"}
-            </button>
-          </div>
-        ))}
+          ))}
+        </div>
 
         {/* Search row — appears only after clicking + Link Patient */}
         {addingRow && (
@@ -245,7 +245,7 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
             type="button"
             onClick={() => { if (!addingRow) setAddingRow(true); }}
             disabled={saving || loadingAll || addingRow}
-            className="w-full rounded-xl border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/40 py-3 text-sm font-medium text-slate-400 hover:text-violet-600 transition-colors disabled:opacity-50"
+            className="add-row-btn disabled:opacity-50"
           >
             {saving ? "Linking…" : loadingAll ? "Loading…" : "+ Link Patient"}
           </button>
