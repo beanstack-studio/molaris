@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { MessageThread, Patient } from "@/lib/types";
+import { MessageThread } from "@/lib/types";
 import ChatWindow from "./ChatWindow";
 import { Spinner } from "@/components/Spinner";
 
@@ -104,7 +104,7 @@ function relativeTime(iso: string | null) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-type Thread = MessageThread & { patients: Patient | null };
+type Thread = MessageThread;
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -128,7 +128,7 @@ export default function MessagesPage() {
       setLoading(true);
       const { data, error: err } = await supabase
         .from("message_threads")
-        .select("*, patients(id, full_name, phone, email)")
+        .select("*")
         .is("deleted_at", null)
         .order("last_message_at", { ascending: false, nullsFirst: false });
       if (err) throw err;
@@ -203,7 +203,7 @@ export default function MessagesPage() {
   }
 
   function getDisplayName(t: Thread) {
-    return t.external_user_name ?? t.patients?.full_name ?? "Unknown";
+    return t.external_user_name ?? "Unknown";
   }
 
   return (
@@ -294,11 +294,6 @@ export default function MessagesPage() {
                     </div>
                     <div className="flex items-center gap-1.5 mt-1">
                       {channelBadge(t.channel)}
-                      {!t.patient_id && (
-                        <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
-                          Unlinked
-                        </span>
-                      )}
                       {(t.unread_count ?? 0) > 0 && (
                         <span className="ml-auto bg-violet-600 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
                           {t.unread_count}
