@@ -45,8 +45,10 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   const [thread, setThread]                 = useState<(MessageThread & { patients: Patient }) | null>(null);
   const [messages, setMessages]             = useState<Message[]>([]);
   const [linkedPatients, setLinkedPatients] = useState<Patient[]>([]);
+  const [allPatients, setAllPatients]       = useState<Patient[]>([]);
   const [replyText, setReplyText]           = useState("");
   const [loading, setLoading]               = useState(true);
+  const [autoSyncing, setAutoSyncing]       = useState(false);
   const [loadingMore, setLoadingMore]       = useState(false);
   const [hasMore, setHasMore]               = useState(false);
   const [oldestAt, setOldestAt]             = useState<string | null>(null);
@@ -66,10 +68,16 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
       if (!res.ok) return;
       const rows: Array<{ patient_id: string; patients: Patient }> = await res.json();
       setLinkedPatients(rows.map((r) => r.patients));
-    } catch {
-      // non-critical
-    }
+    } catch { /* non-critical */ }
   }, [threadId]);
+
+  // Load all patients once for the Link Patient modal (same pattern as CreateAppointmentModal)
+  useEffect(() => {
+    fetch("/api/patients")
+      .then((r) => r.json())
+      .then((d) => setAllPatients(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadThreadData();
@@ -106,11 +114,31 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
       setMessages(msgs);
       setHasMore(msgs.length === PAGE_SIZE);
       if (msgs.length > 0) setOldestAt(msgs[0].created_at);
+
+      // Auto-sync if this is a Messenger thread with no messages yet
+      if (msgs.length === 0 && (t as any)?.channel === "messenger") {
+        autoSyncThread();
+      }
     } catch {
       setError("Failed to load conversation");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function autoSyncThread() {
+    setAutoSyncing(true);
+    try {
+      const res = await fetch(`/api/admin/sync-thread?thread_id=${threadId}`, { method: "POST" });
+      const json = await res.json();
+      if (res.ok && json.messages > 0) {
+        const msgs = await getThreadMessagesPaginated(threadId, PAGE_SIZE);
+        setMessages(msgs);
+        setHasMore(msgs.length === PAGE_SIZE);
+        if (msgs.length > 0) setOldestAt(msgs[0].created_at);
+      }
+    } catch { /* non-critical */ }
+    finally { setAutoSyncing(false); }
   }
 
   async function loadMoreMessages() {
@@ -283,7 +311,14 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
 
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-10">
-            <p className="text-slate-400 text-sm">No messages yet</p>
+            {autoSyncing ? (
+              <>
+                <Spinner size="h-5 w-5" />
+                <p className="text-slate-400 text-sm mt-3">Fetching messages from Messenger…</p>
+              </>
+            ) : (
+              <p className="text-slate-400 text-sm">No messages yet</p>
+            )}
           </div>
         ) : (
           messages.map((msg) => {
@@ -354,6 +389,7 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
         <LinkPatientModal
           threadId={threadId}
           externalUserName={thread.external_user_name}
+          patients={allPatients}
           onLinked={() => { loadLinkedPatients(); onThreadUpdated(); }}
           onCancel={() => setShowLinkModal(false)}
         />

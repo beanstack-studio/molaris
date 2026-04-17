@@ -130,7 +130,7 @@ export default function MessagesPage() {
         .from("message_threads")
         .select("*, patients(id, full_name, phone, email)")
         .is("deleted_at", null)
-        .order("last_message_at", { ascending: false });
+        .order("last_message_at", { ascending: false, nullsFirst: false });
       if (err) throw err;
       const threads = (data as Thread[]) ?? [];
       console.log(`[Messages] Loaded ${threads.length} threads from DB`, threads.map(t => ({ id: t.id, name: t.external_user_name, last: t.last_message_at })));
