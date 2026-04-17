@@ -36,20 +36,35 @@ export async function POST() {
 
   const errors: string[] = [];
 
-  // ── Collect all conversations across pages first ─────────────────────
+  // ── Collect all conversations from all folders ───────────────────────
+  // Messenger splits conversations across inbox, other (message requests), and spam
   const allConvs: ConvItem[] = [];
-  let convUrl = `${FB}/${pageId}/conversations?platform=messenger&fields=id,participants&limit=100&access_token=${pageToken}`;
+  const convsSeen = new Set<string>();
 
-  while (convUrl) {
-    const convRes: Response = await fetch(convUrl);
-    if (!convRes.ok) {
-      errors.push(`Conversations fetch failed: ${await convRes.text()}`);
-      break;
+  async function fetchConvFolder(folder: string) {
+    let url = `${FB}/${pageId}/conversations?platform=messenger&folder=${folder}&fields=id,participants&limit=100&access_token=${pageToken}`;
+    let pageNum = 0;
+    while (url) {
+      pageNum++;
+      const res: Response = await fetch(url);
+      if (!res.ok) {
+        errors.push(`Conversations (${folder} p${pageNum}) failed: ${await res.text()}`);
+        break;
+      }
+      const data = await res.json() as { data: ConvItem[]; paging?: { next?: string } };
+      for (const conv of (data.data ?? [])) {
+        if (!convsSeen.has(conv.id)) {
+          convsSeen.add(conv.id);
+          allConvs.push(conv);
+        }
+      }
+      url = data.paging?.next ?? "";
     }
-    const convData = await convRes.json() as { data: ConvItem[]; paging?: { next?: string } };
-    allConvs.push(...(convData.data ?? []));
-    convUrl = convData.paging?.next ?? "";
   }
+
+  await fetchConvFolder("inbox");
+  await fetchConvFolder("other");
+  await fetchConvFolder("spam");
 
   // ── Process conversations in parallel batches of 8 ───────────────────
   const BATCH = 8;
