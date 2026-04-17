@@ -62,23 +62,25 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
 
   const linkedIds = new Set(linkedPatients.map((lp) => lp.patient_id));
 
-  const filtered = search.length >= 1
-    ? allPatients.filter((p) => {
-        if (linkedIds.has(p.id)) return false;
-        const q        = search.toLowerCase().trim();
-        const full     = (p.full_name ?? "").toLowerCase();
-        const first    = (p.first_name ?? "").toLowerCase();
-        const last     = (p.last_name ?? "").toLowerCase();
-        const combined = `${first} ${last}`;
-        const phone    = (p.phone ?? "").replace(/\D/g, "");
-        return (
-          full.includes(q) ||
-          first.includes(q) ||
-          last.includes(q) ||
-          combined.includes(q) ||
-          phone.includes(q.replace(/\D/g, ""))
-        );
-      })
+  const filtered = search.length >= 3
+    ? allPatients
+        .filter((p) => {
+          if (linkedIds.has(p.id)) return false;
+          const q        = search.toLowerCase().trim();
+          const full     = (p.full_name ?? "").toLowerCase();
+          const first    = (p.first_name ?? "").toLowerCase();
+          const last     = (p.last_name ?? "").toLowerCase();
+          const combined = `${first} ${last}`;
+          const phone    = (p.phone ?? "").replace(/\D/g, "");
+          return (
+            full.includes(q) ||
+            first.includes(q) ||
+            last.includes(q) ||
+            combined.includes(q) ||
+            phone.includes(q.replace(/\D/g, ""))
+          );
+        })
+        .slice(0, 5)
     : [];
 
   async function addPatient(p: Patient) {
@@ -193,13 +195,11 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
                 className="input-standard w-full"
                 disabled={loadingAll || saving}
               />
-              {showDrop && search.length >= 1 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-xl shadow-lg z-10 max-h-52 overflow-y-auto">
+              {showDrop && search.length >= 3 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-violet-100 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
                   {filtered.length === 0 ? (
                     <div className="px-3 py-3 text-sm text-slate-400 text-center">
-                      {allPatients.length === 0
-                        ? "No patients found in database"
-                        : `No patients matching "${search}" (${allPatients.length} total loaded)`}
+                      No patients matching &ldquo;{search}&rdquo;
                     </div>
                   ) : (
                     filtered.map((p) => (
@@ -217,6 +217,9 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
                     ))
                   )}
                 </div>
+              )}
+              {search.length > 0 && search.length < 3 && (
+                <p className="text-xs text-slate-400 mt-1 px-1">Type at least 3 characters to search</p>
               )}
             </div>
           ) : (
