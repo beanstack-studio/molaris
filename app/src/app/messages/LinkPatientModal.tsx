@@ -31,8 +31,19 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadLinked = useCallback(async () => {
-    const res = await fetch(`/api/thread-patients?thread_id=${threadId}`);
-    if (res.ok) setLinkedPatients(await res.json());
+    try {
+      const res = await fetch(`/api/thread-patients?thread_id=${threadId}`);
+      if (!res.ok) return;
+      const rows: any[] = await res.json();
+      // Supabase may return the joined `patients` as an object or as a single-item array
+      const normalized: LinkedPatient[] = rows
+        .map((r) => ({
+          ...r,
+          patients: Array.isArray(r.patients) ? r.patients[0] : r.patients,
+        }))
+        .filter((r) => r.patients != null);
+      setLinkedPatients(normalized);
+    } catch { /* non-critical */ }
   }, [threadId]);
 
   // Paginated load — exact same logic as CreateAppointmentModal / appointments page
