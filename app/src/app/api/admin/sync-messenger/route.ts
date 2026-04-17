@@ -41,14 +41,12 @@ export async function POST() {
   const allConvs: ConvItem[] = [];
   const convsSeen = new Set<string>();
 
-  async function fetchConvFolder(folder: string) {
-    let url = `${FB}/${pageId}/conversations?platform=messenger&folder=${folder}&fields=id,participants&limit=100&access_token=${pageToken}`;
-    let pageNum = 0;
+  async function fetchConvs(extraParams: string) {
+    let url = `${FB}/${pageId}/conversations?platform=messenger&fields=id,participants&limit=100${extraParams}&access_token=${pageToken}`;
     while (url) {
-      pageNum++;
       const res: Response = await fetch(url);
       if (!res.ok) {
-        errors.push(`Conversations (${folder} p${pageNum}) failed: ${await res.text()}`);
+        errors.push(`Conversations fetch failed (${extraParams}): ${await res.text()}`);
         break;
       }
       const data = await res.json() as { data: ConvItem[]; paging?: { next?: string } };
@@ -62,9 +60,12 @@ export async function POST() {
     }
   }
 
-  await fetchConvFolder("inbox");
-  await fetchConvFolder("other");
-  await fetchConvFolder("spam");
+  // Fetch all folders — inbox, other (message requests), spam, and no-folder (default)
+  await fetchConvs("");                       // default / no folder filter
+  await fetchConvs("&folder=inbox");
+  await fetchConvs("&folder=other");
+  await fetchConvs("&folder=other_inbox");   // some API versions use this name
+  await fetchConvs("&folder=spam");
 
   // ── Process conversations in parallel batches of 8 ───────────────────
   const BATCH = 8;

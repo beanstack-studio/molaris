@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { Patient } from "@/lib/types";
 import { formatPhoneLocal } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
@@ -36,12 +37,21 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
   }, [threadId]);
 
   useEffect(() => {
-    // Load all patients (admin API, bypasses RLS)
-    fetch("/api/patients")
-      .then((r) => r.json())
-      .then((data) => setAllPatients(Array.isArray(data) ? data : []))
-      .catch(() => setError("Failed to load patients"))
-      .finally(() => setLoadingAll(false));
+    (async () => {
+      try {
+        const { data, error: err } = await supabase
+          .from("patients")
+          .select("id, full_name, first_name, last_name, phone")
+          .is("deleted_at", null)
+          .order("full_name", { ascending: true });
+        if (err) throw err;
+        setAllPatients((data as Patient[]) ?? []);
+      } catch (e: any) {
+        setError(`Failed to load patients: ${e?.message ?? "Unknown error"}`);
+      } finally {
+        setLoadingAll(false);
+      }
+    })();
 
     loadLinked();
   }, [loadLinked]);
