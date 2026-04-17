@@ -24,7 +24,8 @@ const FB = "https://graph.facebook.com/v18.0";
  */
 export async function POST(request: NextRequest) {
   const supabase = getAdminClient();
-  const full = request.nextUrl.searchParams.get("full") === "true";
+  const full        = request.nextUrl.searchParams.get("full") === "true";
+  const threadsOnly = request.nextUrl.searchParams.get("threads_only") === "true";
 
   const { data: pageRow } = await supabase
     .from("facebook_pages")
@@ -40,8 +41,9 @@ export async function POST(request: NextRequest) {
   const errors: string[] = [];
 
   // ── Step 1: Collect conversation list ────────────────────────────────
-  // Limit to conversations updated in the last 365 days (unless ?full=true skips limit)
-  const sinceTs = full
+  // threads_only / full: no time limit — get everything
+  // default incremental: last 365 days
+  const sinceTs = (full || threadsOnly)
     ? 0
     : Math.floor(Date.now() / 1000) - 365 * 24 * 3600;
 
@@ -79,7 +81,27 @@ export async function POST(request: NextRequest) {
 
   console.log(`[sync] ${allConvs.length} conversations to process (since=${new Date(sinceTs * 1000).toISOString()})`);
 
-  // ── Step 2: Load existing threads so we know what's already synced ───
+  // ── Step 2: threads_only — fast bulk upsert, no messages, no profile pics ──
+  if (threadsOnly) {
+    const rows = allConvs.flatMap((conv) => {
+      const user = (conv.participants?.data ?? []).find((p) => p.id !== pageId);
+      if (!user) return [];
+      return [{ channel: "messenger", external_thread_id: user.id, external_user_name: user.name ?? null }];
+    });
+
+    // Bulk upsert in chunks of 100
+    const CHUNK = 100;
+    let upserted = 0;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await supabase
+        .from("message_threads")
+        .upsert(rows.slice(i, i + CHUNK), { onConflict: "channel,external_thread_id", ignoreDuplicates: true });
+      if (!error) upserted += rows.slice(i, i + CHUNK).length;
+    }
+    return NextResponse.json({ ok: true, conversations_found: allConvs.length, threads: upserted, messages: 0 });
+  }
+
+  // ── Step 3: Load existing threads so we know what's already synced ───
   const { data: existingThreads } = await supabase
     .from("message_threads")
     .select("id, external_thread_id, last_message_at")
@@ -90,7 +112,7 @@ export async function POST(request: NextRequest) {
     threadByPsid.set(t.external_thread_id, { id: t.id, last_message_at: t.last_message_at });
   }
 
-  // ── Step 3: Process in batches of 5 ─────────────────────────────────
+  // ── Step 4: Process in batches of 5 ─────────────────────────────────
   const BATCH = 5;
   let totalThreads = 0;
   let totalMessages = 0;

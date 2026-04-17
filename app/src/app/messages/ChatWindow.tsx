@@ -45,6 +45,7 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   const [replyText, setReplyText]         = useState("");
   const [loading, setLoading]             = useState(true);
   const [sending, setSending]             = useState(false);
+  const [syncing, setSyncing]             = useState(false);
   const [error, setError]                 = useState<string | null>(null);
   const [picError, setPicError]           = useState(false);
   const [showApptModal, setShowApptModal] = useState(false);
@@ -93,6 +94,22 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
 
   async function loadMessages() {
     try { setMessages(await getThreadMessages(threadId)); } catch { /* non-critical */ }
+  }
+
+  async function handleSyncThread() {
+    if (!thread || thread.channel !== "messenger") return;
+    setSyncing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/sync-thread?thread_id=${threadId}`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Sync failed");
+      if (json.messages > 0) await loadMessages();
+    } catch {
+      setError("Failed to sync messages");
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function handleSend() {
@@ -187,6 +204,19 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            {thread.channel === "messenger" && (
+              <button
+                onClick={handleSyncThread}
+                disabled={syncing}
+                className="inline-flex items-center gap-1 px-2.5 h-8 rounded-lg text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                title="Sync latest messages from Messenger"
+              >
+                <svg className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {syncing ? "Syncing…" : "Sync"}
+              </button>
+            )}
             <button onClick={() => setShowLinkModal(true)} className="btn btn-secondary text-xs h-8 px-3">
               {hasPatients ? "+ Patient" : "Link Patient"}
             </button>

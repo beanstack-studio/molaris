@@ -63,25 +63,14 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
   const linkedIds = new Set(linkedPatients.map((lp) => lp.patient_id));
 
   const filtered = search.length >= 3
-    ? allPatients
-        .filter((p) => {
-          if (linkedIds.has(p.id)) return false;
-          const q        = search.toLowerCase().trim();
-          const full     = (p.full_name ?? "").toLowerCase();
-          const first    = (p.first_name ?? "").toLowerCase();
-          const last     = (p.last_name ?? "").toLowerCase();
-          const combined = `${first} ${last}`;
-          const phone      = (p.phone ?? "").replace(/\D/g, "");
-          const phoneQuery = q.replace(/\D/g, "");
-          return (
-            full.includes(q) ||
-            first.includes(q) ||
-            last.includes(q) ||
-            combined.includes(q) ||
-            (phoneQuery.length > 0 && phone.includes(phoneQuery))
-          );
-        })
-        .slice(0, 5)
+    ? allPatients.filter((p) => {
+        if (linkedIds.has(p.id)) return false;
+        const q     = search.toLowerCase();
+        const full  = (p.full_name ?? "").toLowerCase();
+        const first = (p.first_name ?? "").toLowerCase();
+        const last  = (p.last_name ?? "").toLowerCase();
+        return full.includes(q) || first.includes(q) || last.includes(q);
+      })
     : [];
 
   async function addPatient(p: Patient) {
