@@ -124,40 +124,44 @@ export default function MessagesPage() {
     });
   }, [router]);
 
-  const loadThreads = useCallback(async () => {
+  // Fetch threads from DB — silent=true skips the full-page spinner (used for realtime refreshes)
+  const fetchThreads = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const { data, error: err } = await supabase
         .from("message_threads")
         .select("*")
         .is("deleted_at", null)
         .order("last_message_at", { ascending: false, nullsFirst: false });
       if (err) throw err;
-      const threads = (data as Thread[]) ?? [];
-      console.log(`[Messages] Loaded ${threads.length} threads from DB`, threads.map(t => ({ id: t.id, name: t.external_user_name, last: t.last_message_at })));
-      setThreads(threads);
+      setThreads((data as Thread[]) ?? []);
     } catch {
-      setError("Failed to load messages");
+      if (!silent) setError("Failed to load messages");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadThreads(); }, [loadThreads]);
+  // Alias used by Load Threads button and other explicit refreshes
+  const loadThreads = useCallback(() => fetchThreads(false), [fetchThreads]);
+
+  useEffect(() => { fetchThreads(false); }, [fetchThreads]);
 
   // Auto-select first thread on desktop after load
   useEffect(() => {
     if (!selectedId && threads.length > 0) setSelectedId(threads[0].id);
   }, [threads, selectedId]);
 
-  // Realtime: refresh thread list on any change
+  // Realtime: silent refresh when message_threads OR messages change
   useEffect(() => {
+    const silentRefresh = () => fetchThreads(true);
     const sub = supabase
-      .channel("msg_threads_list")
-      .on("postgres_changes", { event: "*", schema: "public", table: "message_threads" }, loadThreads)
+      .channel("msg_threads_realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_threads" }, silentRefresh)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, silentRefresh)
       .subscribe();
     return () => { sub.unsubscribe(); };
-  }, [loadThreads]);
+  }, [fetchThreads]);
 
   async function loadAllThreads() {
     setSyncing(true);
@@ -258,7 +262,7 @@ export default function MessagesPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name or message…"
+              placeholder="Search name…"
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white/80 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400"
             />
             {search && (

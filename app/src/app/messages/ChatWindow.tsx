@@ -71,6 +71,12 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   }, [threadId]);
 
 
+  // Close modals when switching threads
+  useEffect(() => {
+    setShowApptModal(false);
+    setShowLinkModal(false);
+  }, [threadId]);
+
   useEffect(() => {
     loadThreadData();
     loadLinkedPatients();
@@ -191,13 +197,20 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   async function handleConfirmAppt(date: string, time: string, patientId: string, dentistId?: string, concerns?: string) {
     try {
       setSending(true);
+      setError(null);
+      // Step 1: create appointment — close modal immediately on success
       const appt = await createAppointment(patientId, date, time, dentistId || null, `Booked via ${thread?.channel}`, threadId, concerns);
-      const recipientId = thread?.external_thread_id || linkedPatients[0]?.phone || "";
-      await sendAppointmentConfirmation(appt.id, threadId, date, time, thread?.channel as "sms" | "messenger", recipientId);
       setShowApptModal(false);
       onThreadUpdated();
+      // Step 2: send confirmation message — best effort, don't block the UX
+      const recipientId = thread?.external_thread_id || linkedPatients[0]?.phone || "";
+      try {
+        await sendAppointmentConfirmation(appt.id, threadId, date, time, thread?.channel as "sms" | "messenger", recipientId);
+      } catch {
+        setError("Appointment created, but confirmation message failed to send.");
+      }
     } catch {
-      setError("Failed to confirm appointment");
+      setError("Failed to create appointment");
     } finally {
       setSending(false);
     }
@@ -265,7 +278,7 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
             </button>
             {hasPatients && (
               <button onClick={() => setShowApptModal(true)} className="save-btn h-8 px-3 text-xs">
-                + Appt
+                New Appointment
               </button>
             )}
           </div>

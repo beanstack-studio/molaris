@@ -232,7 +232,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-1">
           <button onClick={onClose} className="cancel-btn">Cancel</button>
-          <button onClick={handleCreate} className="save-btn">Create</button>
+          <button onClick={handleCreate} className="save-btn">Confirm</button>
         </div>
       </div>
     </EditModal>

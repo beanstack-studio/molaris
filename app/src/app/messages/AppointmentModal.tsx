@@ -87,7 +87,8 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
   function handleConfirm() {
     if (!patientId)        { setError("Please select a patient"); return; }
     if (!appointmentTime)  { setError("Please select a time"); return; }
-    onConfirm(appointmentDate, appointmentTime, patientId, dentistId || undefined, concerns || undefined);
+    if (!dentistId)        { setError("Please select a dentist"); return; }
+    onConfirm(appointmentDate, appointmentTime, patientId, dentistId, concerns || undefined);
   }
 
   return (
@@ -99,17 +100,16 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
           </div>
         )}
 
-        {/* Patient — picker if multiple */}
-        {patients.length > 1 && (
-          <label className="grid gap-1 text-sm">
-            <span className="text-slate-700">Patient *</span>
-            <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="input-standard">
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>{p.full_name}</option>
-              ))}
-            </select>
-          </label>
-        )}
+        {/* Patient — always shown */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Patient *</span>
+          <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="input-standard">
+            <option value="">Select patient</option>
+            {patients.map((p) => (
+              <option key={p.id} value={p.id}>{p.full_name}</option>
+            ))}
+          </select>
+        </label>
 
         {/* Date */}
         <DatePickerField
@@ -138,9 +138,9 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
           <span className="text-xs text-slate-400">Mon–Sat: 8am–5pm · Sun/Holidays: 8am–12nn · Lunch closed 12–1pm</span>
         </label>
 
-        {/* Dentist */}
+        {/* Dentist — required */}
         <label className="grid gap-1 text-sm">
-          <span className="text-slate-700">Dentist (optional)</span>
+          <span className="text-slate-700">Dentist *</span>
           {loading ? (
             <p className="text-sm text-slate-400">Loading dentists…</p>
           ) : (
@@ -169,7 +169,7 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
           <button onClick={onCancel} disabled={isSending} className="cancel-btn">Cancel</button>
           <button onClick={handleConfirm} disabled={isSending || !appointmentTime} className="save-btn">
-            {isSending ? "Creating…" : "Confirm & Send"}
+            {isSending ? "Creating…" : "Confirm"}
           </button>
         </div>
       </div>

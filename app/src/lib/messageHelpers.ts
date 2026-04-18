@@ -151,7 +151,7 @@ export async function createAppointment(
       appointment_time: appointmentTime,
       dentist_id: dentistId || null,
       notes: notes || null,
-      concerns: concerns || null,
+      concern_type: concerns || null,
       message_thread_id: messageThreadId || null,
       status: 'confirmed',
     })
