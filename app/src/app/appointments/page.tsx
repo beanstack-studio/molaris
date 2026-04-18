@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import { formatPhoneLocal, combineFullName } from "@/lib/helpers";
-import { Appointment, Patient, DentistRow } from "@/lib/types";
+import { Appointment, Patient, DentistRow, dentistLabel } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
 import { ContactPatientModal } from "./ContactPatientModal";
@@ -63,6 +63,9 @@ export default function AppointmentsPage() {
   const [editingAppointment, setEditingAppointment] = useState<AppointmentWithRelations | null>(null);
   const [contactingAppointment, setContactingAppointment] = useState<AppointmentWithRelations | null>(null);
   const [sundayEndHour, setSundayEndHour] = useState(11);
+  const [filterDentistId, setFilterDentistId] = useState<string>("");
+  const [calDentistBlockouts, setCalDentistBlockouts] = useState<{ start_date: string; end_date: string; reason: string | null }[]>([]);
+  const [calDentistSchedule, setCalDentistSchedule] = useState<{ day_of_week: number; is_working: boolean }[]>([]);
 
   // Read URL params on mount (e.g. from dashboard appointment links)
   useEffect(() => {
@@ -132,7 +135,7 @@ export default function AppointmentsPage() {
       await autoMarkMissed();
       const { data, error: err } = await supabase
         .from("appointments")
-        .select("*, patients(id, full_name, phone), dentists(id, full_name)")
+        .select("*, patients(id, full_name, phone), dentists(id, full_name, nickname, color)")
         .is("deleted_at", null)
         .order("appointment_date", { ascending: true })
         .order("appointment_time", { ascending: true });
@@ -147,7 +150,7 @@ export default function AppointmentsPage() {
     try {
       const { data, error: err } = await supabase
         .from("dentists")
-        .select("id, full_name, color")
+        .select("id, full_name, nickname, color")
         .eq("is_active", true)
         .order("full_name");
       if (err) throw err;
@@ -155,6 +158,16 @@ export default function AppointmentsPage() {
     } catch {
       // dentists unavailable
     }
+  };
+
+  const loadDentistCalendarInfo = async (dentistId: string) => {
+    if (!dentistId) { setCalDentistBlockouts([]); setCalDentistSchedule([]); return; }
+    const [schedRes, blockRes] = await Promise.all([
+      supabase.from("dentist_schedules").select("day_of_week, is_working").eq("dentist_id", dentistId),
+      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId),
+    ]);
+    setCalDentistSchedule(schedRes.data ?? []);
+    setCalDentistBlockouts(blockRes.data ?? []);
   };
 
   const loadPatients = async () => {
@@ -251,13 +264,13 @@ export default function AppointmentsPage() {
                 <td className="data-table-cell">
                   {apt.dentists?.full_name ? (
                     <span
-                      className="inline-block rounded-full px-2 py-0.5 text-sm font-medium"
+                      className="inline-block rounded-full px-2 py-0.5 text-sm font-medium whitespace-nowrap"
                       style={{
                         backgroundColor: (dentistColorMap[apt.dentist_id!] || "#6366f1") + "22",
                         color: dentistColorMap[apt.dentist_id!] || "#6366f1",
                       }}
                     >
-                      {apt.dentists.full_name}
+                      {dentistLabel(apt.dentists)}
                     </span>
                   ) : (
                     <span className="text-slate-300">—</span>
@@ -306,7 +319,7 @@ export default function AppointmentsPage() {
                     color: dentistColorMap[apt.dentist_id!] || "#6366f1",
                   }}
                 >
-                  {apt.dentists.full_name}
+                  {dentistLabel(apt.dentists)}
                 </span>
               )}
               {(apt as any).concern_type && (
@@ -323,7 +336,11 @@ export default function AppointmentsPage() {
     </>
   );
 
-  const appointmentsByDate = appointments.reduce((acc, apt) => {
+  const filteredAppointments = filterDentistId
+    ? appointments.filter((a) => a.dentist_id === filterDentistId)
+    : appointments;
+
+  const appointmentsByDate = filteredAppointments.reduce((acc, apt) => {
     const date = apt.appointment_date;
     if (!acc[date]) acc[date] = [];
     acc[date].push(apt);
@@ -358,20 +375,55 @@ export default function AppointmentsPage() {
             <div className="error-msg">{error}</div>
           )}
 
-            {/* View mode toggle */}
-            <div className="action-row">
-              <button
-                onClick={() => setViewMode("list")}
-                className={viewMode === "list" ? "toggle-btn-active" : "toggle-btn"}
-              >
-                List View
-              </button>
-              <button
-                onClick={() => setViewMode("calendar")}
-                className={viewMode === "calendar" ? "toggle-btn-active" : "toggle-btn"}
-              >
-                Calendar View
-              </button>
+            {/* View mode toggle + dentist filter */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="action-row">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={viewMode === "list" ? "toggle-btn-active" : "toggle-btn"}
+                >
+                  List View
+                </button>
+                <button
+                  onClick={() => setViewMode("calendar")}
+                  className={viewMode === "calendar" ? "toggle-btn-active" : "toggle-btn"}
+                >
+                  Calendar View
+                </button>
+              </div>
+
+              {/* Dentist filter pills */}
+              {dentists.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    onClick={() => { setFilterDentistId(""); setCalDentistBlockouts([]); setCalDentistSchedule([]); }}
+                    className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                      filterDentistId === ""
+                        ? "bg-slate-700 text-white border-slate-700"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                    }`}
+                  >
+                    All
+                  </button>
+                  {dentists.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => {
+                        const next = filterDentistId === d.id ? "" : d.id;
+                        setFilterDentistId(next);
+                        loadDentistCalendarInfo(next);
+                      }}
+                      className="rounded-full px-3 py-1 text-xs font-medium border transition-colors"
+                      style={filterDentistId === d.id
+                        ? { backgroundColor: d.color || "#6366f1", color: "#fff", borderColor: d.color || "#6366f1" }
+                        : { backgroundColor: (d.color || "#6366f1") + "15", color: d.color || "#6366f1", borderColor: (d.color || "#6366f1") + "50" }
+                      }
+                    >
+                      {dentistLabel(d)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* List View */}
@@ -447,6 +499,12 @@ export default function AppointmentsPage() {
                     const isToday = dateStr === new Date().toISOString().split("T")[0];
                     const isPast = !!(dateStr && new Date(dateStr) < new Date() && !isToday);
                     const isHoliday = dateStr ? PH_HOLIDAYS_2026.includes(dateStr) : false;
+                    const isDentistBlockout = dateStr && filterDentistId
+                      ? calDentistBlockouts.some((b) => b.start_date <= dateStr && b.end_date >= dateStr)
+                      : false;
+                    const isDentistOffDay = dateStr && filterDentistId && calDentistSchedule.length > 0
+                      ? (() => { const dow = new Date(dateStr + "T00:00:00").getDay(); const s = calDentistSchedule.find((r) => r.day_of_week === dow); return s ? !s.is_working : false; })()
+                      : false;
 
                     return (
                       <div
@@ -458,6 +516,10 @@ export default function AppointmentsPage() {
                               ? "bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed opacity-60"
                               : selectedDate === dateStr
                               ? "bg-indigo-100 border-indigo-500 shadow-md cursor-pointer"
+                              : isDentistBlockout
+                              ? "bg-rose-50 border-rose-300 cursor-pointer"
+                              : isDentistOffDay
+                              ? "bg-slate-50 border-slate-200 opacity-60 cursor-pointer"
                               : isHoliday
                               ? "bg-red-50 border-red-400 cursor-pointer"
                               : isToday
@@ -496,6 +558,14 @@ export default function AppointmentsPage() {
                           )}
                         </div>
 
+                        {isDentistBlockout && (
+                          <div className="text-[10px] text-rose-600 font-medium leading-tight mt-0.5">
+                            {(() => { const b = calDentistBlockouts.find((x) => dateStr && x.start_date <= dateStr && x.end_date >= dateStr); return b?.reason || "Unavailable"; })()}
+                          </div>
+                        )}
+                        {isDentistOffDay && !isDentistBlockout && (
+                          <div className="text-[10px] text-slate-400 italic leading-tight mt-0.5">Day off</div>
+                        )}
                         {dayAppointments.length > 0 && (
                           <div className="space-y-0.5">
                             {dayAppointments.slice(0, 2).map((apt) => (
@@ -518,6 +588,15 @@ export default function AppointmentsPage() {
                     );
                   })}
                 </div>
+
+                {/* Dentist schedule legend */}
+                {filterDentistId && (
+                  <div className="flex flex-wrap gap-3 text-xs text-slate-500 mb-4 -mt-2">
+                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-rose-100 border border-rose-300" /> Blockout / unavailable</span>
+                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-slate-100 border border-slate-200 opacity-60" /> Day off</span>
+                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-orange-100 border border-orange-300" /> Has appointments</span>
+                  </div>
+                )}
 
                 {/* Selected date details */}
                 {selectedDate && (

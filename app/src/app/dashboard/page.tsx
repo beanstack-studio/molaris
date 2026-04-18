@@ -78,7 +78,7 @@ interface UpcomingAppt {
   appointment_time: string;
   status: string;
   patients: { full_name: string | null } | null;
-  dentists:  { full_name: string | null; color: string | null } | null;
+  dentists:  { full_name: string | null; nickname: string | null; color: string | null } | null;
 }
 interface Transaction {
   id: string;
@@ -160,7 +160,7 @@ export default function DashboardPage() {
 
         // ── Upcoming appointments ────────────────────────────
         supabase.from("appointments")
-          .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name, color)")
+          .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name, nickname, color)")
           .gte("appointment_date", today).lte("appointment_date", upcomingEnd)
           .is("deleted_at", null).neq("status", "cancelled")
           .order("appointment_date", { ascending: true }).order("appointment_time", { ascending: true })
@@ -282,7 +282,7 @@ export default function DashboardPage() {
                                       className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
                                       style={{ backgroundColor: dentistHex + "22", color: dentistHex }}
                                     >
-                                      {apt.dentists.full_name}
+                                      {apt.dentists.nickname?.trim() || apt.dentists.full_name}
                                     </span>
                                   ) : <span className="text-xs text-slate-400">—</span>}
                                 </td>

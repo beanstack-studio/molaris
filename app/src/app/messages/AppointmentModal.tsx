@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { DentistRow, Patient } from "@/lib/types";
+import { DentistRow, Patient, dentistLabel } from "@/lib/types";
 import { DatePickerField } from "@/components/DatePickerField";
 import { EditModal } from "@/components/EditModal";
 
@@ -42,7 +42,7 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
       try {
         const { data, error: err } = await supabase
           .from("dentists")
-          .select("id, full_name")
+          .select("id, full_name, nickname")
           .eq("is_active", true)
           .order("full_name", { ascending: true });
         if (err) throw err;
@@ -134,7 +134,7 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
             <select value={dentistId} onChange={(e) => setDentistId(e.target.value)} className="input-standard">
               <option value="">Select dentist</option>
               {dentists.map((d) => (
-                <option key={d.id} value={d.id}>{d.full_name}</option>
+                <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
               ))}
             </select>
           )}

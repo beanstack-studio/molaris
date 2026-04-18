@@ -36,11 +36,11 @@ export default function AppointmentsReportPage() {
     try {
       const [{ data: appts }, { data: dentists }] = await Promise.all([
         supabase.from("appointments").select("id, dentist_id, appointment_date, status").is("deleted_at", null),
-        supabase.from("dentists").select("id, full_name"),
+        supabase.from("dentists").select("id, full_name, nickname"),
       ]);
 
       const dentistMap: Record<string, string> = {};
-      for (const d of dentists || []) dentistMap[d.id] = d.full_name;
+      for (const d of (dentists || []) as any[]) dentistMap[d.id] = d.nickname?.trim() || d.full_name;
 
       let total = 0, confirmed = 0, cancelled = 0, pending = 0;
       const dentistStats: Record<string, DentistStat> = {};

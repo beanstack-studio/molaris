@@ -5,6 +5,7 @@ import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { supabase } from "@/lib/supabaseClient";
 import type { DentistRow, ServicePriceRow, DraftLine } from "@/lib/types";
+import { dentistLabel } from "@/lib/types";
 import { todayLocalISO } from "@/lib/helpers";
 
 interface ConfirmedAppt {
@@ -186,7 +187,7 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
             >
               <option value="">Select dentist…</option>
               {dentists.map((d) => (
-                <option key={d.id} value={d.id}>{d.full_name}</option>
+                <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
               ))}
             </select>
           </div>

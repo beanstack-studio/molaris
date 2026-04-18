@@ -499,11 +499,11 @@ export default function TeamSettingsPage() {
               <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
-                  <col className="col-25" />
-                  <col className="col-20" />
-                  <col className="col-17" />
-                  <col className="col-17" />
-                  <col className="col-11" />
+                  <col className="col-35" />
+                  <col className="col-18" />
+                  <col className="col-15" />
+                  <col className="col-12" />
+                  <col className="col-10" />
                   <col className="col-10" />
                 </colgroup>
                 <thead className="data-table-head">
