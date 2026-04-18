@@ -9,12 +9,58 @@ function getAdminClient() {
   );
 }
 
-/** GET /api/thread-patients?thread_id=xxx — list patients linked to a thread */
+/** GET /api/thread-patients?thread_id=xxx — list patients linked to a thread
+ *  GET /api/thread-patients?patient_id=xxx — reverse: find threads for a patient */
 export async function GET(request: NextRequest) {
-  const threadId = request.nextUrl.searchParams.get("thread_id");
-  if (!threadId) return NextResponse.json({ error: "thread_id required" }, { status: 400 });
+  const threadId  = request.nextUrl.searchParams.get("thread_id");
+  const patientId = request.nextUrl.searchParams.get("patient_id");
+
+  if (!threadId && !patientId) {
+    return NextResponse.json({ error: "thread_id or patient_id required" }, { status: 400 });
+  }
 
   const supabase = getAdminClient();
+
+  // ── Reverse lookup: threads for a given patient ──────────────────────────
+  if (patientId) {
+    const { data: links, error: linksErr } = await supabase
+      .from("thread_patients")
+      .select("id, thread_id, patient_id")
+      .eq("patient_id", patientId)
+      .order("linked_at", { ascending: false });
+
+    if (linksErr) return NextResponse.json({ error: linksErr.message }, { status: 500 });
+    if (!links || links.length === 0) return NextResponse.json([]);
+
+    const threadIds = links.map((l) => l.thread_id);
+    const { data: threads, error: tErr } = await supabase
+      .from("message_threads")
+      .select("id, external_thread_id, channel, external_user_name")
+      .in("id", threadIds)
+      .is("deleted_at", null);
+
+    if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 });
+
+    const threadMap = new Map((threads ?? []).map((t) => [t.id, t]));
+    const result = links
+      .map((l) => {
+        const t = threadMap.get(l.thread_id);
+        if (!t) return null;
+        return {
+          id: l.id,
+          thread_id: l.thread_id,
+          patient_id: l.patient_id,
+          external_thread_id: t.external_thread_id,
+          channel: t.channel,
+          external_user_name: t.external_user_name,
+        };
+      })
+      .filter((r) => r != null && r.external_thread_id);
+
+    return NextResponse.json(result);
+  }
+
+  // ── Forward lookup: patients for a given thread ──────────────────────────
 
   // Step 1: get link rows (table uses linked_at, not created_at)
   const { data: links, error: linksErr } = await supabase

@@ -110,21 +110,6 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
           </div>
         )}
 
-        {/* Dentist — first so we avoid double-booking */}
-        <label className="grid gap-1 text-sm">
-          <span className="text-slate-700">Dentist *</span>
-          <select
-            value={formData.dentistId}
-            onChange={(e) => setFormData({ ...formData, dentistId: e.target.value })}
-            className="input-standard"
-          >
-            <option value="">Select dentist</option>
-            {dentists.map((d) => (
-              <option key={d.id} value={d.id}>{d.full_name}</option>
-            ))}
-          </select>
-        </label>
-
         {/* Patient - Searchable */}
         <div className="relative">
           <label className="grid gap-1 text-sm">
@@ -187,6 +172,21 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
           variant="case-modal"
           min={new Date().toISOString().split("T")[0]}
         />
+
+        {/* Dentist — before time to avoid double-booking */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Dentist *</span>
+          <select
+            value={formData.dentistId}
+            onChange={(e) => setFormData({ ...formData, dentistId: e.target.value })}
+            className="input-standard"
+          >
+            <option value="">Select dentist</option>
+            {dentists.map((d) => (
+              <option key={d.id} value={d.id}>{d.full_name}</option>
+            ))}
+          </select>
+        </label>
 
         {/* Time */}
         <label className="grid gap-1 text-sm">

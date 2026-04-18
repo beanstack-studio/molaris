@@ -106,21 +106,6 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
           </div>
         )}
 
-        {/* Dentist — first to enable per-dentist slot filtering */}
-        <label className="grid gap-1 text-sm">
-          <span className="text-slate-700">Dentist *</span>
-          {loading ? (
-            <p className="text-sm text-slate-400">Loading dentists…</p>
-          ) : (
-            <select value={dentistId} onChange={(e) => setDentistId(e.target.value)} className="input-standard">
-              <option value="">Select dentist</option>
-              {dentists.map((d) => (
-                <option key={d.id} value={d.id}>{d.full_name}</option>
-              ))}
-            </select>
-          )}
-        </label>
-
         {/* Patient — always shown */}
         <label className="grid gap-1 text-sm">
           <span className="text-slate-700">Patient *</span>
@@ -139,6 +124,21 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
           onChange={setAppointmentDate}
           min={new Date().toISOString().split("T")[0]}
         />
+
+        {/* Dentist — before time so slots filter by dentist */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Dentist *</span>
+          {loading ? (
+            <p className="text-sm text-slate-400">Loading dentists…</p>
+          ) : (
+            <select value={dentistId} onChange={(e) => setDentistId(e.target.value)} className="input-standard">
+              <option value="">Select dentist</option>
+              {dentists.map((d) => (
+                <option key={d.id} value={d.id}>{d.full_name}</option>
+              ))}
+            </select>
+          )}
+        </label>
 
         {/* Time */}
         <label className="grid gap-1 text-sm">

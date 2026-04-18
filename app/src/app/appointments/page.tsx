@@ -8,6 +8,7 @@ import { formatPhoneLocal, combineFullName } from "@/lib/helpers";
 import { Appointment, Patient, DentistRow } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
+import { ContactPatientModal } from "./ContactPatientModal";
 import { PageLoader } from "@/components/Spinner";
 
 interface AppointmentWithRelations extends Appointment {
@@ -59,6 +60,7 @@ export default function AppointmentsPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentWithRelations | null>(null);
+  const [contactingAppointment, setContactingAppointment] = useState<AppointmentWithRelations | null>(null);
   const [sundayEndHour, setSundayEndHour] = useState(11);
 
   useEffect(() => {
@@ -205,9 +207,6 @@ export default function AppointmentsPage() {
                 </td>
                 <td className="data-table-cell">
                   <div className="font-medium text-slate-900">{apt.patients?.full_name || "—"}</div>
-                  {apt.patients?.phone && (
-                    <div className="text-xs text-slate-500 mt-0.5">📞 {formatPhoneLocal(apt.patients.phone)}</div>
-                  )}
                 </td>
                 <td className="data-table-cell text-slate-600 italic">
                   {(apt as any).concern_type ? getVisitReasonLabel((apt as any).concern_type) : <span className="text-slate-300">—</span>}
@@ -231,9 +230,18 @@ export default function AppointmentsPage() {
                   <span className={statusBadge(apt.status)}>{apt.status}</span>
                 </td>
                 <td className="data-table-cell">
-                  <button onClick={() => setEditingAppointment(apt)} className="data-table-btn justify-center">
-                    Edit
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setContactingAppointment(apt)}
+                      className="data-table-btn text-blue-600 border-blue-200 hover:bg-blue-50 justify-center"
+                      title="Contact patient"
+                    >
+                      Contact
+                    </button>
+                    <button onClick={() => setEditingAppointment(apt)} className="data-table-btn justify-center">
+                      Edit
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -248,9 +256,6 @@ export default function AppointmentsPage() {
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-slate-900 text-sm">{apt.patients?.full_name || "—"}</div>
-                {apt.patients?.phone && (
-                  <div className="text-xs text-slate-500 mt-0.5">📞 {formatPhoneLocal(apt.patients.phone)}</div>
-                )}
               </div>
               <span className={statusBadge(apt.status)}>{apt.status}</span>
             </div>
@@ -271,7 +276,8 @@ export default function AppointmentsPage() {
                 <span className="italic text-slate-500">{getVisitReasonLabel((apt as any).concern_type)}</span>
               )}
             </div>
-            <div className="mt-2 flex justify-end">
+            <div className="mt-2 flex justify-end gap-1">
+              <button onClick={() => setContactingAppointment(apt)} className="data-table-btn text-blue-600 border-blue-200 hover:bg-blue-50">Contact</button>
               <button onClick={() => setEditingAppointment(apt)} className="data-table-btn">Edit</button>
             </div>
           </div>
@@ -516,6 +522,13 @@ export default function AppointmentsPage() {
         dentists={dentists}
         patients={patients}
         sundayEndHour={sundayEndHour}
+      />
+
+      <ContactPatientModal
+        open={!!contactingAppointment}
+        patient={contactingAppointment?.patients ?? null}
+        appointment={contactingAppointment}
+        onClose={() => setContactingAppointment(null)}
       />
     </main>
   );

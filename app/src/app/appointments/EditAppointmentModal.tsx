@@ -210,7 +210,16 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
           )}
         </div>
 
-        {/* Dentist — first so we avoid double-booking */}
+        {/* Date */}
+        <DatePickerField
+          label="Date"
+          value={editFormData.appointmentDate}
+          onChange={(val) => setEditFormData({ ...editFormData, appointmentDate: val })}
+          inputRef={dateRef}
+          min={new Date().toISOString().split("T")[0]}
+        />
+
+        {/* Dentist — before time to avoid double-booking */}
         <label className="grid gap-1 text-sm">
           <span className="text-slate-700">Dentist *</span>
           <select
@@ -224,15 +233,6 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
             ))}
           </select>
         </label>
-
-        {/* Date */}
-        <DatePickerField
-          label="Date"
-          value={editFormData.appointmentDate}
-          onChange={(val) => setEditFormData({ ...editFormData, appointmentDate: val })}
-          inputRef={dateRef}
-          min={new Date().toISOString().split("T")[0]}
-        />
 
         {/* Time */}
         <label className="grid gap-1 text-sm">
