@@ -16,12 +16,12 @@ export async function GET(request: NextRequest) {
 
   const supabase = getAdminClient();
 
-  // Step 1: get link rows
+  // Step 1: get link rows (table uses linked_at, not created_at)
   const { data: links, error: linksErr } = await supabase
     .from("thread_patients")
-    .select("id, patient_id, created_at")
+    .select("id, patient_id, linked_at")
     .eq("thread_id", threadId)
-    .order("created_at", { ascending: true });
+    .order("linked_at", { ascending: true });
 
   if (linksErr) return NextResponse.json({ error: linksErr.message }, { status: 500 });
   if (!links || links.length === 0) return NextResponse.json([]);
