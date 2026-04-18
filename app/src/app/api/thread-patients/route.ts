@@ -15,14 +15,33 @@ export async function GET(request: NextRequest) {
   if (!threadId) return NextResponse.json({ error: "thread_id required" }, { status: 400 });
 
   const supabase = getAdminClient();
-  const { data, error } = await supabase
+
+  // Step 1: get link rows
+  const { data: links, error: linksErr } = await supabase
     .from("thread_patients")
-    .select("id, patient_id, patients(id, full_name, first_name, last_name, phone)")
+    .select("id, patient_id, created_at")
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+  if (linksErr) return NextResponse.json({ error: linksErr.message }, { status: 500 });
+  if (!links || links.length === 0) return NextResponse.json([]);
+
+  // Step 2: fetch patient records directly (avoids reliance on FK join)
+  const patientIds = links.map((l) => l.patient_id);
+  const { data: patients, error: pErr } = await supabase
+    .from("patients")
+    .select("id, full_name, first_name, last_name, phone")
+    .in("id", patientIds);
+
+  if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 });
+
+  const patientMap = new Map((patients ?? []).map((p) => [p.id, p]));
+
+  const result = links
+    .map((l) => ({ id: l.id, patient_id: l.patient_id, patients: patientMap.get(l.patient_id) ?? null }))
+    .filter((r) => r.patients != null);
+
+  return NextResponse.json(result);
 }
 
 /** POST /api/thread-patients — link a patient to a thread */

@@ -115,6 +115,7 @@ export default function MessagesPage() {
   const [showChat, setShowChat]           = useState(false); // mobile toggle
   const [syncing, setSyncing]             = useState(false);
   const [syncResult, setSyncResult]       = useState<string | null>(null);
+  const [search, setSearch]               = useState("");
 
   // Redirect to settings if Messenger is not connected
   useEffect(() => {
@@ -206,6 +207,13 @@ export default function MessagesPage() {
     return t.external_user_name ?? "Unknown";
   }
 
+  const filteredThreads = search.trim().length === 0
+    ? threads
+    : threads.filter((t) => {
+        const q = search.toLowerCase();
+        return (t.external_user_name ?? "").toLowerCase().includes(q);
+      });
+
   return (
     // Fill viewport below sticky TopNav (3.5rem ≈ 56 px)
     <div className="flex overflow-hidden" style={{ height: "calc(100dvh - 3.5rem)" }}>
@@ -241,6 +249,29 @@ export default function MessagesPage() {
               {syncResult}
             </p>
           )}
+          {/* Search */}
+          <div className="relative mt-2">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or message…"
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white/80 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* List */}
@@ -264,8 +295,10 @@ export default function MessagesPage() {
                 Messages from SMS &amp; Messenger will appear here
               </p>
             </div>
+          ) : filteredThreads.length === 0 && search ? (
+            <p className="px-4 py-6 text-sm text-slate-400 text-center">No results for &ldquo;{search}&rdquo;</p>
           ) : (
-            threads.map((t) => {
+            filteredThreads.map((t) => {
               const name    = getDisplayName(t);
               const active  = t.id === selectedId;
               return (
@@ -274,20 +307,20 @@ export default function MessagesPage() {
                   onClick={() => selectThread(t.id)}
                   className={[
                     "w-full px-4 py-3 text-left flex items-center gap-3 transition-colors",
-                    "border-b border-slate-100/60 border-l-2",
+                    "border-b border-slate-100/60 border-l-[3px]",
                     active
-                      ? "bg-violet-50 border-l-violet-500"
+                      ? "bg-violet-100 border-l-violet-600 shadow-[inset_0_0_0_1px_rgba(124,58,237,0.08)]"
                       : "border-l-transparent hover:bg-white/60",
                   ].join(" ")}
                 >
                   <ThreadAvatar name={name} channel={t.channel} psid={t.external_thread_id} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className={`text-sm truncate ${active ? "text-violet-700 font-semibold" : (t.unread_count ?? 0) > 0 ? "text-slate-900 font-bold" : "text-slate-700 font-normal"}`}>
+                      <p className={`text-sm truncate ${active ? "text-violet-800 font-bold" : (t.unread_count ?? 0) > 0 ? "text-slate-900 font-bold" : "text-slate-700 font-normal"}`}>
                         {name}
                       </p>
                       {t.last_message_at && (
-                        <span className="text-[11px] text-slate-400 flex-shrink-0">
+                        <span className={`text-[11px] flex-shrink-0 ${active ? "text-violet-500" : "text-slate-400"}`}>
                           {relativeTime(t.last_message_at)}
                         </span>
                       )}
