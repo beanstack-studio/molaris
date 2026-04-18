@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { MessageThread } from "@/lib/types";
 import ChatWindow from "./ChatWindow";
+import ThreadInfoPanel from "./ThreadInfoPanel";
 import { Spinner } from "@/components/Spinner";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -112,7 +113,9 @@ export default function MessagesPage() {
   const [selectedId, setSelectedId]       = useState<string | null>(null);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
-  const [showChat, setShowChat]           = useState(false); // mobile toggle
+  // Mobile: "list" | "chat" | "info" — desktop shows all panels simultaneously
+  const [mobileView, setMobileView]       = useState<"list" | "chat" | "info">("list");
+  const [showInfo, setShowInfo]           = useState(false); // desktop info panel toggle
   const [syncing, setSyncing]             = useState(false);
   const [syncResult, setSyncResult]       = useState<string | null>(null);
   const [search, setSearch]               = useState("");
@@ -204,7 +207,8 @@ export default function MessagesPage() {
 
   function selectThread(id: string) {
     setSelectedId(id);
-    setShowChat(true);
+    setMobileView("chat");
+    setShowInfo(false);
   }
 
   function getDisplayName(t: Thread) {
@@ -219,14 +223,14 @@ export default function MessagesPage() {
       });
 
   return (
-    // Fill viewport below sticky TopNav (3.5rem ≈ 56 px)
     <div className="flex overflow-hidden" style={{ height: "calc(100dvh - 3.5rem)" }}>
 
-      {/* ── Thread list sidebar ──────────────────────────────────── */}
+      {/* ── Thread list ──────────────────────────────────────────── */}
       <aside className={[
         "flex-col flex-shrink-0 border-r border-white/60 bg-white/85 backdrop-blur-sm",
         "w-full md:w-72 lg:w-80",
-        showChat ? "hidden md:flex" : "flex",
+        // Mobile: show only in "list" view; Desktop: always visible
+        mobileView === "list" ? "flex" : "hidden md:flex",
       ].join(" ")}>
 
         {/* Header */}
@@ -347,14 +351,21 @@ export default function MessagesPage() {
 
       {/* ── Chat area ────────────────────────────────────────────── */}
       <main className={[
-        "flex-1 flex-col overflow-hidden bg-white/70 backdrop-blur-sm",
-        showChat ? "flex" : "hidden md:flex",
+        "flex-1 flex-col overflow-hidden bg-white/70 backdrop-blur-sm min-w-0",
+        // Mobile: show only in "chat" view; Desktop: always visible unless info covers it
+        mobileView === "chat" ? "flex" : "hidden md:flex",
+        // On mobile info view, hide chat
+        mobileView === "info" ? "hidden" : "",
       ].join(" ")}>
         {selectedId ? (
           <ChatWindow
             threadId={selectedId}
             onThreadUpdated={loadThreads}
-            onBack={() => setShowChat(false)}
+            onBack={() => setMobileView("list")}
+            onOpenInfo={() => {
+              setShowInfo(true);
+              setMobileView("info");
+            }}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -366,13 +377,31 @@ export default function MessagesPage() {
                 </svg>
               </div>
               <p className="font-semibold text-slate-700">Select a conversation</p>
-              <p className="text-sm text-slate-400 mt-1">
-                Messages from SMS &amp; Messenger will appear here
-              </p>
+              <p className="text-sm text-slate-400 mt-1">Messages from SMS &amp; Messenger will appear here</p>
             </div>
           </div>
         )}
       </main>
+
+      {/* ── Info / media panel ───────────────────────────────────── */}
+      {/* Desktop: shown when showInfo=true, fixed width beside chat */}
+      {/* Mobile: shown when mobileView="info", full screen */}
+      {selectedId && (showInfo || mobileView === "info") && (
+        <aside className={[
+          "flex-col flex-shrink-0 overflow-hidden",
+          "w-full md:w-72 lg:w-80",
+          // Mobile: always flex when info view active; Desktop: flex alongside chat
+          mobileView === "info" ? "flex md:flex" : "hidden md:flex",
+        ].join(" ")}>
+          <ThreadInfoPanel
+            threadId={selectedId}
+            onBack={() => {
+              setShowInfo(false);
+              setMobileView("chat");
+            }}
+          />
+        </aside>
+      )}
     </div>
   );
 }

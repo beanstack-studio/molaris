@@ -89,9 +89,10 @@ interface ChatWindowProps {
   threadId: string;
   onThreadUpdated: () => void;
   onBack?: () => void;
+  onOpenInfo?: () => void;
 }
 
-export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWindowProps) {
+export default function ChatWindow({ threadId, onThreadUpdated, onBack, onOpenInfo }: ChatWindowProps) {
   const [thread, setThread]                 = useState<(MessageThread & { patients: Patient }) | null>(null);
   const [messages, setMessages]             = useState<Message[]>([]);
   const [linkedPatients, setLinkedPatients] = useState<Patient[]>([]);
@@ -346,21 +347,28 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
               </svg>
             </button>
           )}
-          {activePic ? (
-            <img src={activePic} alt={displayName} className="w-9 h-9 rounded-full object-cover flex-shrink-0" onError={() => setPicError(true)} />
-          ) : (
-            <div className={`w-9 h-9 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{initials}</div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
-              {!hasPatients && <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">Not linked</span>}
+          {/* Avatar + name — tapping opens info panel */}
+          <button
+            onClick={onOpenInfo}
+            disabled={!onOpenInfo}
+            className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity disabled:cursor-default disabled:hover:opacity-100"
+          >
+            {activePic ? (
+              <img src={activePic} alt={displayName} className="w-9 h-9 rounded-full object-cover flex-shrink-0" onError={() => setPicError(true)} />
+            ) : (
+              <div className={`w-9 h-9 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{initials}</div>
+            )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
+                {!hasPatients && <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">Not linked</span>}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {thread.channel.toUpperCase()}
+                {linkedPatients[0]?.phone ? ` · ${formatPhoneLocal(linkedPatients[0].phone)}` : ""}
+              </p>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {thread.channel.toUpperCase()}
-              {linkedPatients[0]?.phone ? ` · ${formatPhoneLocal(linkedPatients[0].phone)}` : ""}
-            </p>
-          </div>
+          </button>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => setShowLinkModal(true)} className="btn btn-secondary text-xs h-8 px-3">
               {hasPatients ? "+ Patient" : "Link Patient"}
