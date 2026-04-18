@@ -158,10 +158,10 @@ export default function ThreadInfoPanel({ threadId, onBack }: Props) {
                   <p className="text-xs text-slate-400 italic">No patients linked</p>
                 ) : (
                   <div className="space-y-1.5">
-                    {linkedPatients.map((p) => (
+                    {linkedPatients.filter((p) => p.id).map((p) => (
                       <Link
                         key={p.id}
-                        href={`/patients/${p.id}`}
+                        href={`/patients/${p.id}/info`}
                         className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-violet-50 hover:text-violet-700 transition-colors group"
                         style={{ background: "var(--color-violet-50)" }}
                       >
