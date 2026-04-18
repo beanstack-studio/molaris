@@ -43,6 +43,8 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
   const [isOrthoPatient, setIsOrthoPatient] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement | null>(null);
+  const [dentistSchedule, setDentistSchedule] = useState<{ day_of_week: number; start_time: string; end_time: string; is_working: boolean }[]>([]);
+  const [dentistBlockouts, setDentistBlockouts] = useState<{ start_date: string; end_date: string; reason: string | null }[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -58,6 +60,16 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
       });
     }
   }, [open, selectedDate]);
+
+  async function loadDentistSchedule(dentistId: string) {
+    if (!dentistId) { setDentistSchedule([]); setDentistBlockouts([]); return; }
+    const [sched, block] = await Promise.all([
+      supabase.from("dentist_schedules").select("day_of_week, start_time, end_time, is_working").eq("dentist_id", dentistId),
+      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId),
+    ]);
+    setDentistSchedule(sched.data ?? []);
+    setDentistBlockouts(block.data ?? []);
+  }
 
   async function checkOrthoStatus(patientId: string) {
     if (!patientId) { setIsOrthoPatient(false); return; }
@@ -93,9 +105,21 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
     }
   }
 
+  function isBlockedOut(dateStr: string) {
+    return dentistBlockouts.some((b) => b.start_date <= dateStr && b.end_date >= dateStr);
+  }
+
   function getValidHours(dateStr: string) {
     const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
     const isHoliday = PH_HOLIDAYS_2026.includes(dateStr);
+    if (isBlockedOut(dateStr)) return [];
+    const daySched = dentistSchedule.find((s) => s.day_of_week === dayOfWeek);
+    if (daySched) {
+      if (!daySched.is_working) return [];
+      const start = parseInt(daySched.start_time.split(":")[0]);
+      const end = parseInt(daySched.end_time.split(":")[0]);
+      return Array.from({ length: end - start }, (_, i) => start + i).filter((h) => h !== 13);
+    }
     return (dayOfWeek === 0 || isHoliday)
       ? Array.from({ length: sundayEndHour - 7 }, (_, i) => 8 + i)
       : [8, 9, 10, 11, 12, 14, 15, 16];
@@ -178,7 +202,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
           <span className="text-slate-700">Dentist *</span>
           <select
             value={formData.dentistId}
-            onChange={(e) => setFormData({ ...formData, dentistId: e.target.value })}
+            onChange={(e) => { setFormData({ ...formData, dentistId: e.target.value }); loadDentistSchedule(e.target.value); }}
             className="input-standard"
           >
             <option value="">Select dentist</option>
@@ -191,18 +215,26 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
         {/* Time */}
         <label className="grid gap-1 text-sm">
           <span className="text-slate-700">Time *</span>
-          <select
-            value={formData.appointmentTime}
-            onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })}
-            className="input-standard"
-          >
-            {getValidHours(formData.appointmentDate).map((hour) => {
-              const timeStr = `${String(hour).padStart(2, "0")}:00`;
-              return (
-                <option key={hour} value={timeStr}>{formatTime12Hr(timeStr)}</option>
-              );
-            })}
-          </select>
+          {isBlockedOut(formData.appointmentDate) ? (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700 font-medium">
+              {(() => { const b = dentistBlockouts.find((x) => x.start_date <= formData.appointmentDate && x.end_date >= formData.appointmentDate); return b ? `Dentist unavailable${b.reason ? ` — ${b.reason}` : ""}` : "Dentist unavailable on this date"; })()}
+            </div>
+          ) : getValidHours(formData.appointmentDate).length === 0 && formData.dentistId ? (
+            <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500">
+              Dentist is off on this day
+            </div>
+          ) : (
+            <select
+              value={formData.appointmentTime}
+              onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })}
+              className="input-standard"
+            >
+              {getValidHours(formData.appointmentDate).map((hour) => {
+                const timeStr = `${String(hour).padStart(2, "0")}:00`;
+                return <option key={hour} value={timeStr}>{formatTime12Hr(timeStr)}</option>;
+              })}
+            </select>
+          )}
         </label>
 
         {/* Concern Type */}

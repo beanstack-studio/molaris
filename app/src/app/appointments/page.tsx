@@ -110,10 +110,26 @@ export default function AppointmentsPage() {
     }
   };
 
+  const autoMarkMissed = async () => {
+    try {
+      const now = new Date();
+      const today = now.toISOString().split("T")[0];
+      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      await Promise.all([
+        supabase.from("appointments").update({ status: "missed" })
+          .in("status", ["confirmed", "pending"]).is("deleted_at", null).lt("appointment_date", today),
+        supabase.from("appointments").update({ status: "missed" })
+          .in("status", ["confirmed", "pending"]).is("deleted_at", null)
+          .eq("appointment_date", today).lt("appointment_time", currentTime),
+      ]);
+    } catch { /* non-critical */ }
+  };
+
   const loadAppointments = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login"); return; }
+      await autoMarkMissed();
       const { data, error: err } = await supabase
         .from("appointments")
         .select("*, patients(id, full_name, phone), dentists(id, full_name)")
@@ -200,6 +216,7 @@ export default function AppointmentsPage() {
       completed: "badge badge-info",
       cancelled: "badge badge-secondary",
       pending: "badge badge-warning",
+      missed: "badge badge-danger",
     };
     return map[status] ?? "badge badge-secondary";
   };

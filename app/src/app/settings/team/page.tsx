@@ -10,6 +10,16 @@ import { Toggle } from "@/components/Toggle";
 
 const TogglePill = Toggle;
 
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const TIME_OPTIONS = Array.from({ length: 14 }, (_, i) => {
+  const h = 6 + i;
+  const label = h < 12 ? `${h}:00 AM` : h === 12 ? "12:00 PM" : `${h - 12}:00 PM`;
+  return { value: `${String(h).padStart(2, "0")}:00`, label };
+});
+
+type DaySchedule = { isWorking: boolean; startTime: string; endTime: string };
+type BlockoutRow = { id: string; start_date: string; end_date: string; reason: string | null };
+
 const DENTIST_COLORS = [
   { hex: "#6366f1", label: "Indigo" },
   { hex: "#0d9488", label: "Teal" },
@@ -65,6 +75,17 @@ export default function TeamSettingsPage() {
   const [dentistColor, setDentistColor] = useState<string>(DENTIST_COLORS[0].hex);
   const [editingDentist, setEditingDentist] = useState<DentistRow | null>(null);
   const dentistDobRef = useRef<HTMLInputElement | null>(null);
+
+  // Dentist schedule modal
+  const [scheduleDentist, setScheduleDentist] = useState<DentistRow | null>(null);
+  const [weekSchedule, setWeekSchedule] = useState<DaySchedule[]>(
+    DAYS.map(() => ({ isWorking: true, startTime: "08:00", endTime: "17:00" }))
+  );
+  const [blockouts, setBlockouts] = useState<BlockoutRow[]>([]);
+  const [newBlockoutStart, setNewBlockoutStart] = useState("");
+  const [newBlockoutEnd, setNewBlockoutEnd] = useState("");
+  const [newBlockoutReason, setNewBlockoutReason] = useState("");
+  const [schedBusy, setSchedBusy] = useState(false);
 
   // Staff form & modal
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
@@ -384,6 +405,62 @@ export default function TeamSettingsPage() {
     }
   }
 
+  async function openScheduleModal(d: DentistRow) {
+    setScheduleDentist(d);
+    setSchedBusy(true);
+    const [schedRes, blockRes] = await Promise.all([
+      supabase.from("dentist_schedules").select("*").eq("dentist_id", d.id),
+      supabase.from("dentist_blockouts").select("*").eq("dentist_id", d.id).order("start_date"),
+    ]);
+    const existing: DaySchedule[] = DAYS.map((_, idx) => {
+      const row = (schedRes.data ?? []).find((s: any) => s.day_of_week === idx);
+      return row
+        ? { isWorking: row.is_working, startTime: row.start_time.substring(0, 5), endTime: row.end_time.substring(0, 5) }
+        : { isWorking: idx >= 1 && idx <= 5, startTime: "08:00", endTime: "17:00" };
+    });
+    setWeekSchedule(existing);
+    setBlockouts(blockRes.data ?? []);
+    setNewBlockoutStart(""); setNewBlockoutEnd(""); setNewBlockoutReason("");
+    setSchedBusy(false);
+  }
+
+  async function saveSchedule() {
+    if (!scheduleDentist) return;
+    setSchedBusy(true);
+    const rows = weekSchedule.map((day, idx) => ({
+      dentist_id: scheduleDentist.id,
+      day_of_week: idx,
+      start_time: day.startTime,
+      end_time: day.endTime,
+      is_working: day.isWorking,
+    }));
+    const { error } = await supabase.from("dentist_schedules").upsert(rows, { onConflict: "dentist_id,day_of_week" });
+    setSchedBusy(false);
+    if (error) setError(error.message);
+  }
+
+  async function addBlockout() {
+    if (!scheduleDentist || !newBlockoutStart || !newBlockoutEnd) return;
+    setSchedBusy(true);
+    const { data, error } = await supabase.from("dentist_blockouts").insert({
+      dentist_id: scheduleDentist.id,
+      start_date: newBlockoutStart,
+      end_date: newBlockoutEnd,
+      reason: newBlockoutReason.trim() || null,
+    }).select().single();
+    setSchedBusy(false);
+    if (error) { setError(error.message); return; }
+    setBlockouts((prev) => [...prev, data as BlockoutRow].sort((a, b) => a.start_date.localeCompare(b.start_date)));
+    setNewBlockoutStart(""); setNewBlockoutEnd(""); setNewBlockoutReason("");
+  }
+
+  async function deleteBlockout(id: string) {
+    setSchedBusy(true);
+    await supabase.from("dentist_blockouts").delete().eq("id", id);
+    setBlockouts((prev) => prev.filter((b) => b.id !== id));
+    setSchedBusy(false);
+  }
+
   if (loading) return <LoadingBlock />;
 
   return (
@@ -464,21 +541,30 @@ export default function TeamSettingsPage() {
                           />
                         </td>
                         <td className="data-table-cell-right">
-                          <button
-                            className="data-table-btn"
-                            onClick={() => {
-                              setEditingDentist(d);
-                              setDentistName(d.full_name);
-                              setDentistDob(d.date_of_birth || "");
-                              setDentistPrc(d.prc_number || "");
-                              setDentistPtr(d.ptr_number || "");
-                              setDentistColor(d.color || DENTIST_COLORS[0].hex);
-                              setShowAddDentistModal(true);
-                            }}
-                            disabled={busy}
-                          >
-                            Edit
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              className="data-table-btn"
+                              onClick={() => openScheduleModal(d)}
+                              disabled={busy}
+                            >
+                              Schedule
+                            </button>
+                            <button
+                              className="data-table-btn"
+                              onClick={() => {
+                                setEditingDentist(d);
+                                setDentistName(d.full_name);
+                                setDentistDob(d.date_of_birth || "");
+                                setDentistPrc(d.prc_number || "");
+                                setDentistPtr(d.ptr_number || "");
+                                setDentistColor(d.color || DENTIST_COLORS[0].hex);
+                                setShowAddDentistModal(true);
+                              }}
+                              disabled={busy}
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -763,6 +849,131 @@ export default function TeamSettingsPage() {
                 disabled={busy || !staffName.trim() || !staffRole.trim()}
               >
                 {busy ? "Saving…" : editingStaff ? "Update" : "Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
+
+      {/* DENTIST SCHEDULE MODAL */}
+      <EditModal
+        open={!!scheduleDentist}
+        title={`Schedule — ${scheduleDentist?.full_name ?? ""}`}
+        onClose={() => setScheduleDentist(null)}
+      >
+        <div className="spacing-vertical-lg">
+          {schedBusy && <p className="text-xs text-slate-400">Loading…</p>}
+
+          {/* Weekly schedule */}
+          <div>
+            <p className="field-label-text mb-2">Weekly schedule</p>
+            <div className="space-y-2">
+              {DAYS.map((day, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <div className="w-24 flex-shrink-0">
+                    <TogglePill
+                      checked={weekSchedule[idx].isWorking}
+                      onChange={(v) =>
+                        setWeekSchedule((prev) => prev.map((d, i) => i === idx ? { ...d, isWorking: v } : d))
+                      }
+                      disabled={schedBusy}
+                    />
+                  </div>
+                  <span className={`text-sm w-24 flex-shrink-0 ${weekSchedule[idx].isWorking ? "text-slate-700 font-medium" : "text-slate-400 line-through"}`}>
+                    {day}
+                  </span>
+                  {weekSchedule[idx].isWorking ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <select
+                        className="input-standard text-xs py-1"
+                        value={weekSchedule[idx].startTime}
+                        onChange={(e) =>
+                          setWeekSchedule((prev) => prev.map((d, i) => i === idx ? { ...d, startTime: e.target.value } : d))
+                        }
+                        disabled={schedBusy}
+                      >
+                        {TIME_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                      <span className="text-xs text-slate-400">to</span>
+                      <select
+                        className="input-standard text-xs py-1"
+                        value={weekSchedule[idx].endTime}
+                        onChange={(e) =>
+                          setWeekSchedule((prev) => prev.map((d, i) => i === idx ? { ...d, endTime: e.target.value } : d))
+                        }
+                        disabled={schedBusy}
+                      >
+                        {TIME_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">Day off</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end mt-3">
+              <button className="save-btn" onClick={saveSchedule} disabled={schedBusy}>
+                {schedBusy ? "Saving…" : "Save schedule"}
+              </button>
+            </div>
+          </div>
+
+          {/* Blockouts */}
+          <div className="border-t border-slate-100 pt-4">
+            <p className="field-label-text mb-2">Leave / blockouts</p>
+            {blockouts.length === 0 ? (
+              <p className="text-xs text-slate-400 italic mb-3">No blockouts set.</p>
+            ) : (
+              <div className="space-y-1.5 mb-3">
+                {blockouts.map((b) => (
+                  <div key={b.id} className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    <div>
+                      <p className="text-xs font-medium text-slate-700">
+                        {b.start_date === b.end_date ? b.start_date : `${b.start_date} → ${b.end_date}`}
+                      </p>
+                      {b.reason && <p className="text-xs text-slate-500">{b.reason}</p>}
+                    </div>
+                    <button
+                      onClick={() => deleteBlockout(b.id)}
+                      disabled={schedBusy}
+                      className="text-xs text-red-500 hover:text-red-700 flex-shrink-0"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid gap-2">
+              <p className="text-xs text-slate-500 font-medium">Add blockout</p>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-slate-500 mb-1 block">From</label>
+                  <input type="date" className="input-standard text-xs" value={newBlockoutStart}
+                    onChange={(e) => setNewBlockoutStart(e.target.value)} disabled={schedBusy} />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-slate-500 mb-1 block">To</label>
+                  <input type="date" className="input-standard text-xs" value={newBlockoutEnd}
+                    onChange={(e) => setNewBlockoutEnd(e.target.value)} disabled={schedBusy}
+                    min={newBlockoutStart} />
+                </div>
+              </div>
+              <input
+                type="text"
+                className="input-standard text-xs"
+                placeholder="Reason (e.g. Vacation, Conference)"
+                value={newBlockoutReason}
+                onChange={(e) => setNewBlockoutReason(e.target.value)}
+                disabled={schedBusy}
+              />
+              <button
+                className="save-btn self-end"
+                onClick={addBlockout}
+                disabled={schedBusy || !newBlockoutStart || !newBlockoutEnd}
+              >
+                Add blockout
               </button>
             </div>
           </div>
