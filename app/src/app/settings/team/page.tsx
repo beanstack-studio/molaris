@@ -36,6 +36,7 @@ const DENTIST_COLORS = [
 type DentistRow = {
   id: string;
   full_name: string;
+  nickname: string | null;
   prc_number: string | null;
   ptr_number: string | null;
   date_of_birth: string | null;
@@ -73,6 +74,7 @@ export default function TeamSettingsPage() {
   const [dentistPrc, setDentistPrc] = useState("");
   const [dentistPtr, setDentistPtr] = useState("");
   const [dentistColor, setDentistColor] = useState<string>(DENTIST_COLORS[0].hex);
+  const [dentistNickname, setDentistNickname] = useState("");
   const [editingDentist, setEditingDentist] = useState<DentistRow | null>(null);
   const dentistDobRef = useRef<HTMLInputElement | null>(null);
 
@@ -86,6 +88,8 @@ export default function TeamSettingsPage() {
   const [newBlockoutEnd, setNewBlockoutEnd] = useState("");
   const [newBlockoutReason, setNewBlockoutReason] = useState("");
   const [schedBusy, setSchedBusy] = useState(false);
+  const blockoutStartRef = useRef<HTMLInputElement | null>(null);
+  const blockoutEndRef   = useRef<HTMLInputElement | null>(null);
 
   // Staff form & modal
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
@@ -110,6 +114,7 @@ export default function TeamSettingsPage() {
       const dentistData = (dentistRes.data || []).map((d: any) => ({
         id: d.id,
         full_name: d.full_name,
+        nickname: d.nickname || null,
         prc_number: d.prc_number || null,
         ptr_number: d.ptr_number || null,
         date_of_birth: d.date_of_birth || null,
@@ -170,6 +175,7 @@ export default function TeamSettingsPage() {
 
       const { error } = await supabase.from("dentists").insert({
         full_name: dentistName.trim(),
+        nickname: dentistNickname.trim() || null,
         date_of_birth: dentistDob || null,
         prc_number: dentistPrc.trim() || null,
         ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
@@ -207,6 +213,7 @@ export default function TeamSettingsPage() {
         .from("dentists")
         .update({
           full_name: dentistName.trim(),
+          nickname: dentistNickname.trim() || null,
           date_of_birth: dentistDob || null,
           prc_number: dentistPrc.trim() || null,
           ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
@@ -219,12 +226,13 @@ export default function TeamSettingsPage() {
 
       setEditingDentist(null);
       setDentistName("");
+      setDentistNickname("");
       setDentistDob("");
       setDentistPrc("");
       setDentistPtr("");
       setShowAddDentistModal(false);
       setError(null);
-      
+
       // Small delay to ensure database is updated
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -474,6 +482,7 @@ export default function TeamSettingsPage() {
                   className="save-btn"
                   onClick={() => {
                     setDentistName("");
+                    setDentistNickname("");
                     setDentistDob("");
                     setDentistPrc("");
                     setDentistPtr("");
@@ -523,7 +532,10 @@ export default function TeamSettingsPage() {
                         <td className="data-table-cell">
                           <div className="flex items-center gap-2">
                             <span className="inline-block w-3 h-3 rounded-full flex-shrink-0" style={{ background: d.color || DENTIST_COLORS[0].hex }} />
-                            {d.full_name}
+                            <span>
+                              {d.full_name}
+                              {d.nickname && <span className="ml-1.5 text-xs text-slate-400">({d.nickname})</span>}
+                            </span>
                           </div>
                         </td>
                         <td className="data-table-cell">
@@ -554,6 +566,7 @@ export default function TeamSettingsPage() {
                               onClick={() => {
                                 setEditingDentist(d);
                                 setDentistName(d.full_name);
+                                setDentistNickname(d.nickname || "");
                                 setDentistDob(d.date_of_birth || "");
                                 setDentistPrc(d.prc_number || "");
                                 setDentistPtr(d.ptr_number || "");
@@ -669,6 +682,7 @@ export default function TeamSettingsPage() {
           setShowAddDentistModal(false);
           setEditingDentist(null);
           setDentistName("");
+          setDentistNickname("");
           setDentistDob("");
           setDentistPrc("");
           setDentistPtr("");
@@ -681,6 +695,16 @@ export default function TeamSettingsPage() {
               className="field-input"
               value={dentistName}
               onChange={(e) => setDentistName(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional — shown in UI)</span></span>
+            <input
+              className="field-input"
+              placeholder="e.g. Dr. Ana"
+              value={dentistNickname}
+              onChange={(e) => setDentistNickname(e.target.value)}
               disabled={busy}
             />
           </label>
@@ -752,6 +776,7 @@ export default function TeamSettingsPage() {
                   setShowAddDentistModal(false);
                   setEditingDentist(null);
                   setDentistName("");
+                  setDentistNickname("");
                   setDentistDob("");
                   setDentistPrc("");
                   setDentistPtr("");
@@ -930,7 +955,9 @@ export default function TeamSettingsPage() {
                   <div key={b.id} className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                     <div>
                       <p className="text-xs font-medium text-slate-700">
-                        {b.start_date === b.end_date ? b.start_date : `${b.start_date} → ${b.end_date}`}
+                        {b.start_date === b.end_date
+                          ? formatDateStandard(b.start_date)
+                          : `${formatDateStandard(b.start_date)} → ${formatDateStandard(b.end_date)}`}
                       </p>
                       {b.reason && <p className="text-xs text-slate-500">{b.reason}</p>}
                     </div>
@@ -949,15 +976,23 @@ export default function TeamSettingsPage() {
               <p className="text-xs text-slate-500 font-medium">Add blockout</p>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <label className="text-xs text-slate-500 mb-1 block">From</label>
-                  <input type="date" className="input-standard text-xs" value={newBlockoutStart}
-                    onChange={(e) => setNewBlockoutStart(e.target.value)} disabled={schedBusy} />
+                  <DatePickerField
+                    label="From"
+                    value={newBlockoutStart}
+                    onChange={setNewBlockoutStart}
+                    inputRef={blockoutStartRef}
+                    variant="case-modal"
+                  />
                 </div>
                 <div className="flex-1">
-                  <label className="text-xs text-slate-500 mb-1 block">To</label>
-                  <input type="date" className="input-standard text-xs" value={newBlockoutEnd}
-                    onChange={(e) => setNewBlockoutEnd(e.target.value)} disabled={schedBusy}
-                    min={newBlockoutStart} />
+                  <DatePickerField
+                    label="To"
+                    value={newBlockoutEnd}
+                    onChange={setNewBlockoutEnd}
+                    inputRef={blockoutEndRef}
+                    variant="case-modal"
+                    min={newBlockoutStart}
+                  />
                 </div>
               </div>
               <input

@@ -6,6 +6,7 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType } from "@/lib/visitReasonHelpers";
 import { EditModal } from "@/components/EditModal";
 import type { Patient, DentistRow, Appointment } from "@/lib/types";
+import { dentistLabel } from "@/lib/types";
 
 const PH_HOLIDAYS_2026 = [
   "2026-01-01", "2026-02-10", "2026-02-25", "2026-04-09", "2026-04-10",
@@ -235,16 +236,7 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
           )}
         </div>
 
-        {/* Date */}
-        <DatePickerField
-          label="Date"
-          value={editFormData.appointmentDate}
-          onChange={(val) => setEditFormData({ ...editFormData, appointmentDate: val })}
-          inputRef={dateRef}
-          min={new Date().toISOString().split("T")[0]}
-        />
-
-        {/* Dentist — before time to avoid double-booking */}
+        {/* Dentist — before date so schedule filters dates/times */}
         <label className="grid gap-1 text-sm">
           <span className="text-slate-700">Dentist *</span>
           <select
@@ -254,10 +246,19 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
           >
             <option value="">Select dentist</option>
             {dentists.map((d) => (
-              <option key={d.id} value={d.id}>{d.full_name}</option>
+              <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
             ))}
           </select>
         </label>
+
+        {/* Date */}
+        <DatePickerField
+          label="Date"
+          value={editFormData.appointmentDate}
+          onChange={(val) => setEditFormData({ ...editFormData, appointmentDate: val })}
+          inputRef={dateRef}
+          min={new Date().toISOString().split("T")[0]}
+        />
 
         {/* Time */}
         <label className="grid gap-1 text-sm">
@@ -295,7 +296,6 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
             <option value="completed">Completed</option>
-            <option value="missed">Missed (no-show)</option>
             <option value="cancelled">Cancelled</option>
           </select>
         </label>

@@ -142,7 +142,7 @@ export default function DashboardPage() {
         )]);
 
       const [
-        monthInvoicesRes, monthPaymentsRes, newPatientsRes, monthApptsRes,
+        monthInvoicesRes, monthPaymentsRes, newPatientsRes, monthTreatmentsSeenRes,
         upcomingRes, chartInvoicesRes, chartPaymentsRes, treatmentsRes, transactionsRes,
       ] = await withTimeout(Promise.all([
         // ── Stat card queries ────────────────────────────────
@@ -155,9 +155,8 @@ export default function DashboardPage() {
         supabase.from("patients").select("id", { count: "exact" }).limit(1)
           .gte("created_at", monthStart + "T00:00:00"),
 
-        supabase.from("appointments").select("patient_id")
-          .gte("appointment_date", monthStart).lte("appointment_date", today)
-          .is("deleted_at", null).neq("status", "cancelled"),
+        supabase.from("treatments").select("patient_id")
+          .gte("treatment_date", monthStart).lte("treatment_date", today),
 
         // ── Upcoming appointments ────────────────────────────
         supabase.from("appointments")
@@ -189,7 +188,7 @@ export default function DashboardPage() {
       // Stat cards
       const monthInvoiced  = (monthInvoicesRes.data ?? []).reduce((s, r) => s + (r.total  ?? 0), 0);
       const monthCollected = (monthPaymentsRes.data  ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
-      const patientsSeen   = new Set((monthApptsRes.data ?? []).map((a: any) => a.patient_id).filter(Boolean)).size;
+      const patientsSeen   = new Set((monthTreatmentsSeenRes.data ?? []).map((a: any) => a.patient_id).filter(Boolean)).size;
 
       setMonthStats({ invoiced: monthInvoiced, collected: monthCollected, patientsSeen, newPatients: newPatientsRes.count ?? 0 });
       setUpcoming((upcomingRes.data as unknown as UpcomingAppt[]) ?? []);
@@ -297,7 +296,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <DashboardCard title="Patients Seen"  value={monthStats.patientsSeen} icon={DashIcons.activity} subtext="Patients with appts this month" href="/patients" />
+              <DashboardCard title="Patients Seen"  value={monthStats.patientsSeen} icon={DashIcons.activity} subtext="Unique patients treated this month" href="/patients" />
               <DashboardCard title="New Patients"   value={monthStats.newPatients}  icon={DashIcons.userPlus} subtext="Registered this month"    href="/patients" />
             </div>
 

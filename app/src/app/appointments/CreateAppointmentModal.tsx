@@ -6,6 +6,7 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType } from "@/lib/visitReasonHelpers";
 import { EditModal } from "@/components/EditModal";
 import type { Patient, DentistRow } from "@/lib/types";
+import { dentistLabel } from "@/lib/types";
 
 const PH_HOLIDAYS_2026 = [
   "2026-01-01", "2026-02-10", "2026-02-25", "2026-04-09", "2026-04-10",
@@ -187,17 +188,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
           )}
         </div>
 
-        {/* Date */}
-        <DatePickerField
-          label="Date *"
-          value={formData.appointmentDate}
-          onChange={(val) => setFormData({ ...formData, appointmentDate: val })}
-          inputRef={dateRef}
-          variant="case-modal"
-          min={new Date().toISOString().split("T")[0]}
-        />
-
-        {/* Dentist — before time to avoid double-booking */}
+        {/* Dentist — first so schedule filters the date/time below */}
         <label className="grid gap-1 text-sm">
           <span className="text-slate-700">Dentist *</span>
           <select
@@ -207,10 +198,20 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
           >
             <option value="">Select dentist</option>
             {dentists.map((d) => (
-              <option key={d.id} value={d.id}>{d.full_name}</option>
+              <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
             ))}
           </select>
         </label>
+
+        {/* Date */}
+        <DatePickerField
+          label="Date *"
+          value={formData.appointmentDate}
+          onChange={(val) => setFormData({ ...formData, appointmentDate: val })}
+          inputRef={dateRef}
+          variant="case-modal"
+          min={new Date().toISOString().split("T")[0]}
+        />
 
         {/* Time */}
         <label className="grid gap-1 text-sm">
