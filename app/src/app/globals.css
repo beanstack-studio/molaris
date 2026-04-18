@@ -1359,3 +1359,62 @@ tr.data-table-row-compact-odd:hover {
 .form-textarea-full-focus {
   @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
 }
+
+/* ========================================
+   CHANNEL / TYPE TOGGLE PILLS
+   Used in ContactPatientModal and similar channel selectors
+   ======================================== */
+
+.channel-pill {
+  @apply flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors;
+}
+.channel-pill-inactive {
+  @apply border-slate-200 bg-white text-slate-500 hover:border-slate-300;
+}
+.channel-pill-active-blue {
+  @apply border-blue-500 bg-blue-50 text-blue-700;
+}
+.channel-pill-active-accent {
+  border-color: var(--color-violet-500);
+  background-color: var(--color-violet-50);
+  color: var(--color-violet-700);
+}
+
+.type-pill {
+  @apply flex-1 py-2 rounded-xl text-xs font-semibold border-2 transition-colors;
+}
+.type-pill-inactive {
+  @apply border-slate-200 bg-white text-slate-500 hover:border-slate-300;
+}
+.type-pill-active {
+  border-color: var(--color-violet-500);
+  background-color: var(--color-violet-50);
+  color: var(--color-violet-700);
+}
+
+/* Patient summary card in contact/info modals */
+.patient-summary-card {
+  @apply rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 flex items-center gap-3;
+}
+
+.patient-avatar {
+  @apply w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0;
+  background-color: var(--color-violet-500);
+}
+
+/* Appointment context chip */
+.appt-context-chip {
+  @apply text-xs rounded-lg px-3 py-2 text-slate-600;
+  background-color: var(--color-violet-50);
+}
+
+/* Alert boxes (success / error / warning) used in modals */
+.alert-success {
+  @apply rounded-lg bg-green-50 border border-green-100 p-3 text-sm text-green-700;
+}
+.alert-error {
+  @apply rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-700;
+}
+.alert-warning {
+  @apply rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-700;
+}

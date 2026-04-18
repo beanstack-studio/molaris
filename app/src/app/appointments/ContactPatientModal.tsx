@@ -13,7 +13,7 @@ interface Props {
 }
 
 function fmt12Hr(time: string) {
-  const t = time.substring(0, 5); // strip seconds
+  const t = time.substring(0, 5);
   const [h, m] = t.split(":").map(Number);
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
@@ -25,16 +25,16 @@ function fmtDateLong(dateStr: string) {
 }
 
 export function ContactPatientModal({ open, patient, appointment, onClose }: Props) {
-  const [threadInfo, setThreadInfo]     = useState<{ threadId: string; psid: string } | null>(null);
+  const [threadInfo, setThreadInfo]       = useState<{ threadId: string; psid: string } | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
-  const [channel, setChannel]           = useState<"messenger" | "sms">("sms");
-  const [msgType, setMsgType]           = useState<"reminder" | "custom">("reminder");
-  const [text, setText]                 = useState("");
-  const [sending, setSending]           = useState(false);
-  const [success, setSuccess]           = useState(false);
-  const [error, setError]               = useState<string | null>(null);
+  const [channel, setChannel]             = useState<"messenger" | "sms">("sms");
+  const [msgType, setMsgType]             = useState<"reminder" | "custom">("reminder");
+  const [text, setText]                   = useState("");
+  const [sending, setSending]             = useState(false);
+  const [success, setSuccess]             = useState(false);
+  const [error, setError]                 = useState<string | null>(null);
 
-  const firstName = patient?.full_name?.split(" ")[0] ?? "";
+  const firstName    = patient?.full_name?.split(" ")[0] ?? "";
   const reminderText = appointment
     ? `Hi ${firstName}! This is a reminder for your appointment at Matira Dental Studio on ${fmtDateLong(appointment.appointment_date)} at ${fmt12Hr(appointment.appointment_time)}. Please come on time. Thank you! 😊`
     : "";
@@ -71,6 +71,13 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [msgType]);
 
+  // Auto-close 1.5 s after a successful send
+  useEffect(() => {
+    if (!success) return;
+    const t = setTimeout(onClose, 1500);
+    return () => clearTimeout(t);
+  }, [success, onClose]);
+
   async function handleSend() {
     if (!text.trim()) return;
     setSending(true);
@@ -103,14 +110,16 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
   const hasSMS       = !!patient?.phone;
   const noMethods    = !loadingThread && !hasMessenger && !hasSMS;
 
+  const avatarInitials = (patient?.full_name ?? "?")
+    .split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+
   return (
     <EditModal open={open} title="Contact Patient" onClose={onClose}>
       <div className="grid gap-4">
+
         {/* Patient summary */}
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-violet-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-            {(patient?.full_name ?? "?").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
-          </div>
+        <div className="patient-summary-card">
+          <div className="patient-avatar">{avatarInitials}</div>
           <div>
             <p className="text-sm font-semibold text-slate-800">{patient?.full_name ?? "—"}</p>
             {patient?.phone && (
@@ -121,8 +130,9 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
 
         {/* Appointment context */}
         {appointment && (
-          <div className="text-xs bg-violet-50 rounded-lg px-3 py-2 text-slate-600">
-            Appointment: <span className="font-semibold text-slate-800">
+          <div className="appt-context-chip">
+            Appointment:{" "}
+            <span className="font-semibold text-slate-800">
               {fmtDateLong(appointment.appointment_date)} at {fmt12Hr(appointment.appointment_time)}
             </span>
           </div>
@@ -131,8 +141,8 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
         {loadingThread ? (
           <p className="text-xs text-slate-400 text-center py-2">Checking contact options…</p>
         ) : noMethods ? (
-          <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
-            <p className="text-sm text-amber-700">No contact methods available for this patient. Add a phone number or link them to a Messenger thread.</p>
+          <div className="alert-warning">
+            No contact methods available for this patient. Add a phone number or link them to a Messenger thread.
           </div>
         ) : (
           <>
@@ -144,11 +154,7 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
                   <button
                     type="button"
                     onClick={() => setChannel("messenger")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
-                      channel === "messenger"
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                    }`}
+                    className={`channel-pill ${channel === "messenger" ? "channel-pill-active-blue" : "channel-pill-inactive"}`}
                   >
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0">
                       <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
@@ -160,11 +166,7 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
                   <button
                     type="button"
                     onClick={() => setChannel("sms")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
-                      channel === "sms"
-                        ? "border-violet-500 bg-violet-50 text-violet-700"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                    }`}
+                    className={`channel-pill ${channel === "sms" ? "channel-pill-active-accent" : "channel-pill-inactive"}`}
                   >
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0">
                       <path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
@@ -182,22 +184,14 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
                 <button
                   type="button"
                   onClick={() => setMsgType("reminder")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-semibold border-2 transition-colors ${
-                    msgType === "reminder"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                  }`}
+                  className={`type-pill ${msgType === "reminder" ? "type-pill-active" : "type-pill-inactive"}`}
                 >
                   Appointment Reminder
                 </button>
                 <button
                   type="button"
                   onClick={() => setMsgType("custom")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-semibold border-2 transition-colors ${
-                    msgType === "custom"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                  }`}
+                  className={`type-pill ${msgType === "custom" ? "type-pill-active" : "type-pill-inactive"}`}
                 >
                   Custom Message
                 </button>
@@ -210,27 +204,19 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                rows={4}
-                className="input-standard resize-none"
+                rows={6}
+                className="textarea-input w-full"
                 placeholder="Type your message…"
               />
             </label>
           </>
         )}
 
-        {error && (
-          <div className="rounded-lg bg-red-50 border border-red-100 p-3">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-        {success && (
-          <div className="rounded-lg bg-green-50 border border-green-100 p-3">
-            <p className="text-sm text-green-700">Message sent successfully!</p>
-          </div>
-        )}
+        {error && <div className="alert-error">{error}</div>}
+        {success && <div className="alert-success">Message sent! Closing…</div>}
 
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-          <button onClick={onClose} className="cancel-btn">{success ? "Close" : "Cancel"}</button>
+          <button onClick={onClose} className="cancel-btn">Close</button>
           {!success && !noMethods && !loadingThread && (
             <button
               onClick={handleSend}

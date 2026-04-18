@@ -188,7 +188,7 @@ export default function AppointmentsPage() {
     <>
       {/* Desktop table */}
       <div className="table-wrapper hidden md:block">
-        <table className="data-table">
+        <table className="data-table min-w-[700px]">
           <thead className="data-table-head">
             <tr>
               <th className="data-table-head-cell w-28">Time</th>
@@ -196,7 +196,7 @@ export default function AppointmentsPage() {
               <th className="data-table-head-cell">Concern / Reason</th>
               <th className="data-table-head-cell">Dentist</th>
               <th className="data-table-head-cell w-28">Status</th>
-              <th className="data-table-head-cell w-20">Actions</th>
+              <th className="data-table-head-cell w-44">Actions</th>
             </tr>
           </thead>
           <tbody>
