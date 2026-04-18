@@ -107,8 +107,8 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
   }
 
   const hasMessenger = !!threadInfo;
-  const hasSMS       = !!patient?.phone;
-  const noMethods    = !loadingThread && !hasMessenger && !hasSMS;
+  // SMS send is not yet integrated — always disabled
+  const noMethods    = !loadingThread && !hasMessenger;
 
   const avatarInitials = (patient?.full_name ?? "?")
     .split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
@@ -138,45 +138,56 @@ export function ContactPatientModal({ open, patient, appointment, onClose }: Pro
           </div>
         )}
 
+        {/* Channel selector — always visible */}
+        {!loadingThread && (
+          <div className="grid gap-1.5">
+            <p className="text-field-label">Send via</p>
+            <div className="flex gap-2">
+              {/* Messenger */}
+              <button
+                type="button"
+                onClick={() => hasMessenger && setChannel("messenger")}
+                disabled={!hasMessenger}
+                className={`channel-pill ${
+                  hasMessenger
+                    ? channel === "messenger"
+                      ? "channel-pill-active-blue"
+                      : "channel-pill-inactive"
+                    : "channel-pill-inactive opacity-40 cursor-not-allowed"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0">
+                  <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
+                </svg>
+                Messenger
+                {!hasMessenger && <span className="text-[10px] ml-1 text-slate-400">(not linked)</span>}
+              </button>
+
+              {/* SMS — disabled until integrated */}
+              <button
+                type="button"
+                disabled
+                className="channel-pill channel-pill-inactive opacity-50 cursor-not-allowed"
+                title="SMS integration coming soon"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0">
+                  <path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
+                </svg>
+                SMS
+                <span className="text-[10px] ml-1 font-semibold text-amber-500">(soon)</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {loadingThread ? (
           <p className="text-xs text-slate-400 text-center py-2">Checking contact options…</p>
         ) : noMethods ? (
           <div className="alert-warning">
-            No contact methods available for this patient. Add a phone number or link them to a Messenger thread.
+            No Messenger thread linked to this patient. Link them from the Messages page, or wait for SMS integration.
           </div>
         ) : (
           <>
-            {/* Channel selector */}
-            <div className="grid gap-1.5">
-              <p className="text-field-label">Send via</p>
-              <div className="flex gap-2">
-                {hasMessenger && (
-                  <button
-                    type="button"
-                    onClick={() => setChannel("messenger")}
-                    className={`channel-pill ${channel === "messenger" ? "channel-pill-active-blue" : "channel-pill-inactive"}`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0">
-                      <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
-                    </svg>
-                    Messenger
-                  </button>
-                )}
-                {hasSMS && (
-                  <button
-                    type="button"
-                    onClick={() => setChannel("sms")}
-                    className={`channel-pill ${channel === "sms" ? "channel-pill-active-accent" : "channel-pill-inactive"}`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0">
-                      <path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
-                    </svg>
-                    SMS
-                  </button>
-                )}
-              </div>
-            </div>
-
             {/* Message type */}
             <div className="grid gap-1.5">
               <p className="text-field-label">Message type</p>

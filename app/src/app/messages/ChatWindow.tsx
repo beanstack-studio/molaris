@@ -56,10 +56,11 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
   const [picError, setPicError]             = useState(false);
   const [showApptModal, setShowApptModal]   = useState(false);
   const [showLinkModal, setShowLinkModal]   = useState(false);
-  const messagesEndRef      = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  // Track scroll position before prepending so we can restore it
-  const prevScrollHeightRef = useRef<number>(0);
+  const messagesEndRef        = useRef<HTMLDivElement>(null);
+  const messagesContainerRef  = useRef<HTMLDivElement>(null);
+  const prevScrollHeightRef   = useRef<number>(0);
+  // Always holds the latest message's created_at without causing effect re-runs
+  const latestMessageAtRef    = useRef<string | null>(null);
 
   const loadLinkedPatients = useCallback(async () => {
     try {
@@ -85,6 +86,40 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `thread_id=eq.${threadId}` }, appendNewMessage)
       .subscribe();
     return () => { sub.unsubscribe(); };
+  }, [threadId]);
+
+  // Keep ref up-to-date with latest message timestamp (no effect re-runs)
+  useEffect(() => {
+    if (messages.length > 0) {
+      latestMessageAtRef.current = messages[messages.length - 1].created_at;
+    }
+  }, [messages]);
+
+  // Polling fallback: catches messages if the webhook was delayed or realtime missed the event
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const since = latestMessageAtRef.current;
+        let query = supabase
+          .from("messages")
+          .select("*")
+          .eq("thread_id", threadId)
+          .order("created_at", { ascending: true })
+          .limit(10);
+        if (since) query = (query as any).gt("created_at", since);
+        const { data } = await query;
+        if (!data || data.length === 0) return;
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newOnes = (data as Message[]).filter((m) => !existingIds.has(m.id));
+          if (newOnes.length === 0) return prev;
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+          return [...prev, ...newOnes];
+        });
+      } catch { /* non-critical */ }
+    };
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
   }, [threadId]);
 
   // Restore scroll position after prepending older messages

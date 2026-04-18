@@ -257,66 +257,90 @@ export default function WebsiteControlsPage() {
         <ThemePicker />
       </div>
 
-      {/* ── Facebook Messenger ───────────────────────────────── */}
-      <div className="card">
-        <div className="card-header mb-4">
-          <div>
-            <div className="card-title">Facebook Messenger</div>
-            <div className="text-xs text-slate-400 mt-0.5">Connect your clinic's Facebook Page to receive and reply to patient messages</div>
-          </div>
-        </div>
+      {/* ── Messaging Integrations — responsive 2-col grid ──── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {fbStatus === "connected" && (
-          <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
-            ✓ Facebook Page connected successfully!
-          </div>
-        )}
-        {fbStatus === "access_denied" && (
-          <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-            Authorization cancelled. Click Connect to try again.
-          </div>
-        )}
-        {fbStatus === "error" && (
-          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            Something went wrong. Make sure your Facebook App is set up correctly and try again.
-          </div>
-        )}
-
-        <div className="flex flex-col gap-4 max-w-sm">
-          {fbLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500"><Spinner size="h-4 w-4" /> Checking connection…</div>
-          ) : fbPage?.page_name ? (
+        {/* Facebook Messenger */}
+        <div className="card">
+          <div className="card-header mb-4">
             <div>
-              <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Page</div>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">f</div>
-                <div>
-                  <div className="text-sm font-semibold text-slate-800">{fbPage.page_name}</div>
-                  <div className="text-xs text-emerald-600 font-medium">● Connected</div>
-                </div>
-              </div>
-              <a
-                href="/api/auth/facebook/connect"
-                className="mt-3 inline-block text-xs text-slate-400 hover:text-slate-600 underline"
-              >
-                Reconnect / switch page
-              </a>
+              <div className="card-title">Facebook Messenger</div>
+              <div className="text-xs text-slate-400 mt-0.5">Connect your clinic's Facebook Page to receive and reply to patient messages</div>
             </div>
-          ) : (
-            <div>
-              <div className="text-sm text-slate-500 mb-3">No Messenger page connected yet.</div>
-              <a
-                href="/api/auth/facebook/connect"
-                className="save-btn inline-flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
-                </svg>
-                Connect Messenger
-              </a>
+          </div>
+
+          {fbStatus === "connected" && (
+            <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
+              ✓ Facebook Page connected successfully!
             </div>
           )}
+          {fbStatus === "access_denied" && (
+            <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+              Authorization cancelled. Click Connect to try again.
+            </div>
+          )}
+          {fbStatus === "error" && (
+            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              Something went wrong. Make sure your Facebook App is set up correctly and try again.
+            </div>
+          )}
+
+          <div className="flex flex-col gap-4">
+            {fbLoading ? (
+              <div className="flex items-center gap-2 text-sm text-slate-500"><Spinner size="h-4 w-4" /> Checking connection…</div>
+            ) : fbPage?.page_name ? (
+              <div>
+                <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Page</div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">f</div>
+                  <div>
+                    <div className="text-sm font-semibold text-slate-800">{fbPage.page_name}</div>
+                    <div className="text-xs text-emerald-600 font-medium">● Connected</div>
+                  </div>
+                </div>
+                <a href="/api/auth/facebook/connect" className="mt-3 inline-block text-xs text-slate-400 hover:text-slate-600 underline">
+                  Reconnect / switch page
+                </a>
+              </div>
+            ) : (
+              <div>
+                <div className="text-sm text-slate-500 mb-3">No Messenger page connected yet.</div>
+                <a href="/api/auth/facebook/connect" className="save-btn inline-flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
+                  </svg>
+                  Connect Messenger
+                </a>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* SMS — placeholder, not yet integrated */}
+        <div className="card opacity-70">
+          <div className="card-header mb-4">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="card-title">SMS Messaging</div>
+                <span className="badge badge-warning">Coming soon</span>
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">Send appointment reminders and updates directly via SMS</div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div>
+              <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Provider</div>
+              <div className="field-input-readonly text-sm text-slate-400 italic">Not configured</div>
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Sender ID / Number</div>
+              <div className="field-input-readonly text-sm text-slate-400 italic">—</div>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">SMS integration will be available in a future update. Messenger is fully supported now.</p>
+          </div>
+        </div>
+
       </div>
 
       {/* ── My Account ───────────────────────────────────────── */}
