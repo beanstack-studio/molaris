@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { formatMoney } from "@/lib/helpers";
 import { DashboardCard, DashIcons } from "@/components/DashboardCard";
@@ -16,11 +15,22 @@ function fmt12Hr(time: string) {
 
 function fmtApptDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
-  return {
-    day:   d.getDate(),
-    month: d.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
-    dow:   d.toLocaleDateString("en-US", { weekday: "short" }),
-  };
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+const DENTIST_COLORS = [
+  { bg: "bg-violet-100", text: "text-violet-700" },
+  { bg: "bg-blue-100",   text: "text-blue-700"   },
+  { bg: "bg-emerald-100",text: "text-emerald-700" },
+  { bg: "bg-amber-100",  text: "text-amber-700"   },
+  { bg: "bg-rose-100",   text: "text-rose-700"    },
+  { bg: "bg-cyan-100",   text: "text-cyan-700"    },
+];
+
+function dentistColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return DENTIST_COLORS[Math.abs(h) % DENTIST_COLORS.length];
 }
 
 /* ── Types ────────────────────────────────────────────────── */
@@ -29,13 +39,6 @@ interface MonthStats {
   collected:    number;
   patientsSeen: number;
   newPatients:  number;
-}
-
-interface OverviewStats {
-  totalPatients: number;
-  orthoPatients: number;
-  outstandingCount:  number;
-  outstandingAmount: number;
 }
 
 interface UpcomingAppt {
@@ -49,14 +52,13 @@ interface UpcomingAppt {
 
 /* ══════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
-  const [loading, setLoading]           = useState(true);
+  const [loading, setLoading]               = useState(true);
   const [loadingTooLong, setLoadingTooLong] = useState(false);
-  const [error, setError]               = useState<string | null>(null);
-  const [monthStats, setMonthStats]     = useState<MonthStats>({ invoiced: 0, collected: 0, patientsSeen: 0, newPatients: 0 });
-  const [overview, setOverview]         = useState<OverviewStats>({ totalPatients: 0, orthoPatients: 0, outstandingCount: 0, outstandingAmount: 0 });
-  const [upcoming, setUpcoming]         = useState<UpcomingAppt[]>([]);
+  const [error, setError]                   = useState<string | null>(null);
+  const [monthStats, setMonthStats]         = useState<MonthStats>({ invoiced: 0, collected: 0, patientsSeen: 0, newPatients: 0 });
+  const [upcoming, setUpcoming]             = useState<UpcomingAppt[]>([]);
 
-  const now       = new Date();
+  const now        = new Date();
   const monthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   useEffect(() => {
@@ -73,10 +75,9 @@ export default function DashboardPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setError("No active session. Please log in."); return; }
 
-      // ── Date ranges ────────────────────────────────────────
-      const today      = now.toISOString().split("T")[0];
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-      const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      const today       = now.toISOString().split("T")[0];
+      const monthStart  = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      const monthEnd    = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
       const upcomingEnd = new Date(now.getTime() + 30 * 86_400_000).toISOString().split("T")[0];
 
       const withTimeout = <T,>(p: Promise<T>, ms = 20_000): Promise<T> =>
@@ -84,18 +85,14 @@ export default function DashboardPage() {
           setTimeout(() => rej(new Error("Database timeout — please retry")), ms)
         )]);
 
-      // ── All queries in parallel (targeted, no big full-table scans) ──
       const [
         monthInvoicesRes,
         monthPaymentsRes,
-        pendingInvoicesRes,
-        totalPatientsRes,
-        orthoPatientsRes,
         newPatientsRes,
         monthApptsRes,
         upcomingRes,
       ] = await withTimeout(Promise.all([
-        // This month's invoices — for total invoiced
+        // This month's invoices
         supabase
           .from("invoices")
           .select("id, total")
@@ -103,26 +100,13 @@ export default function DashboardPage() {
           .lte("invoice_date", monthEnd)
           .is("deleted_at", null),
 
-        // This month's non-voided payments — for total collected
+        // This month's non-voided payments
         supabase
           .from("payments")
           .select("id, amount")
           .gte("payment_date", monthStart)
           .lte("payment_date", monthEnd)
           .is("voided_at", null),
-
-        // All unpaid invoices — for outstanding balance
-        supabase
-          .from("invoices")
-          .select("id, total")
-          .not("status", "eq", "paid")
-          .is("deleted_at", null),
-
-        // Total patient count
-        supabase.from("patients").select("id", { count: "exact" }).limit(1),
-
-        // Ortho patient count
-        supabase.from("patients").select("id", { count: "exact" }).limit(1).eq("ortho_patient", true),
 
         // New patients this month
         supabase
@@ -131,12 +115,12 @@ export default function DashboardPage() {
           .limit(1)
           .gte("created_at", monthStart + "T00:00:00"),
 
-        // Appointments this month — for patients seen
+        // Patients seen: month-to-date only (exclude future appointments)
         supabase
           .from("appointments")
           .select("patient_id")
           .gte("appointment_date", monthStart)
-          .lte("appointment_date", monthEnd)
+          .lte("appointment_date", today)
           .is("deleted_at", null)
           .neq("status", "cancelled"),
 
@@ -150,34 +134,21 @@ export default function DashboardPage() {
           .neq("status", "cancelled")
           .order("appointment_date", { ascending: true })
           .order("appointment_time",  { ascending: true })
-          .limit(12),
+          .limit(20),
       ]));
 
-      // ── Compute month stats ────────────────────────────────
-      const monthInvoiced  = (monthInvoicesRes.data  ?? []).reduce((s, r) => s + (r.total  ?? 0), 0);
-      const monthCollected = (monthPaymentsRes.data   ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+      const monthInvoiced  = (monthInvoicesRes.data ?? []).reduce((s, r) => s + (r.total  ?? 0), 0);
+      const monthCollected = (monthPaymentsRes.data  ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
       const patientsSeen   = new Set(
         (monthApptsRes.data ?? []).map((a: any) => a.patient_id).filter(Boolean)
       ).size;
 
-      // ── Compute overview stats ─────────────────────────────
-      const pendingList       = pendingInvoicesRes.data ?? [];
-      const outstandingAmount = pendingList.reduce((s, r) => s + (r.total ?? 0), 0);
-
       setMonthStats({
-        invoiced:     monthInvoiced,
-        collected:    monthCollected,
+        invoiced:    monthInvoiced,
+        collected:   monthCollected,
         patientsSeen,
-        newPatients:  newPatientsRes.count ?? 0,
+        newPatients: newPatientsRes.count ?? 0,
       });
-
-      setOverview({
-        totalPatients:    totalPatientsRes.count  ?? 0,
-        orthoPatients:    orthoPatientsRes.count  ?? 0,
-        outstandingCount:  pendingList.length,
-        outstandingAmount,
-      });
-
       setUpcoming((upcomingRes.data as unknown as UpcomingAppt[]) ?? []);
 
     } catch (err) {
@@ -212,173 +183,110 @@ export default function DashboardPage() {
             )}
           </PageLoader>
         ) : (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4">
 
-            {/* ── Monthly stats ──────────────────────────────── */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="dash-month-label">{monthLabel}</span>
-                <span className="text-xs text-slate-400">— monthly overview</span>
-              </div>
-              <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-                <DashboardCard
-                  title="Total Invoiced"
-                  value={formatMoney(monthStats.invoiced)}
-                  icon={DashIcons.receipt}
-                  href="/reports/payments"
-                />
-                <DashboardCard
-                  title="Total Collected"
-                  value={formatMoney(monthStats.collected)}
-                  icon={DashIcons.checkCircle}
-                  valueClassName="text-2xl font-bold text-emerald-600"
-                  href="/reports/payments"
-                />
-                <DashboardCard
-                  title="Patients Seen"
-                  value={monthStats.patientsSeen}
-                  icon={DashIcons.activity}
-                  subtext="Unique patients with appt"
-                  href="/patients"
-                />
-                <DashboardCard
-                  title="New Patients"
-                  value={monthStats.newPatients}
-                  icon={DashIcons.userPlus}
-                  subtext="Registered this month"
-                  href="/patients"
-                />
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="dash-month-label">{monthLabel}</span>
+              <span className="text-xs text-slate-400">— monthly overview</span>
             </div>
 
-            {/* ── All-time overview ──────────────────────────── */}
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+            {/*
+              Desktop (lg): 3-col grid
+                Col 1, Row 1 → Total Invoiced
+                Col 2, Row 1 → Total Collected
+                Col 3, Rows 1–2 → Appointment list (row-span-2)
+                Col 1, Row 2 → Patients Seen
+                Col 2, Row 2 → New Patients
+
+              Tablet (md): 2-col, appointment list spans full width
+              Mobile: single column stack
+            */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+
+              {/* Col 1, Row 1 */}
               <DashboardCard
-                title="Total Patients"
-                value={overview.totalPatients.toLocaleString()}
-                icon={DashIcons.users}
-                href="/patients"
-              />
-              <DashboardCard
-                title="Active Ortho"
-                value={overview.orthoPatients}
-                icon={DashIcons.tooth}
-                subtext="Braces & aligners"
-                href="/patients"
-              />
-              <DashboardCard
-                title="Outstanding Balance"
-                value={formatMoney(overview.outstandingAmount)}
-                icon={DashIcons.alertCircle}
-                subtext={`${overview.outstandingCount} unpaid invoice${overview.outstandingCount !== 1 ? "s" : ""}`}
-                valueClassName="text-2xl font-bold text-orange-600"
+                title="Total Invoiced"
+                value={formatMoney(monthStats.invoiced)}
+                icon={DashIcons.receipt}
                 href="/reports/payments"
               />
-            </div>
 
-            {/* ── Main content ───────────────────────────────── */}
-            <div className="grid gap-4 lg:grid-cols-3">
+              {/* Col 2, Row 1 */}
+              <DashboardCard
+                title="Total Collected"
+                value={formatMoney(monthStats.collected)}
+                icon={DashIcons.checkCircle}
+                valueClassName="text-2xl font-bold text-emerald-600"
+                href="/reports/payments"
+              />
 
-              {/* Upcoming appointments */}
-              <div className="lg:col-span-2">
-                <div className="card">
-                  <div className="card-header mb-4">
+              {/* Col 3, Rows 1–2 (appointment list) */}
+              <div className="md:col-span-2 lg:col-span-1 lg:row-span-2">
+                <div className="card h-full">
+                  <div className="card-header mb-3">
                     <div className="card-title">Upcoming Appointments</div>
-                    <Link href="/appointments" className="dash-card-link">View all →</Link>
                   </div>
 
                   {upcoming.length === 0 ? (
                     <p className="text-center text-sm text-slate-400 py-8">No upcoming appointments in the next 30 days</p>
                   ) : (
-                    <div className="divide-y divide-slate-50">
-                      {upcoming.map((apt) => {
-                        const { day, month, dow } = fmtApptDate(apt.appointment_date);
-                        return (
-                          <div key={apt.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                            {/* Date block */}
-                            <div className="flex-shrink-0 w-12 text-center">
-                              <p className="text-[10px] font-semibold text-slate-400 uppercase leading-none">{dow}</p>
-                              <p className="text-xl font-bold text-slate-800 leading-tight">{day}</p>
-                              <p className="text-[10px] font-medium uppercase leading-none" style={{ color: "var(--accent-text)" }}>{month}</p>
-                            </div>
-                            <div className="w-px h-8 bg-slate-100 flex-shrink-0" />
-                            {/* Details */}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-800 truncate">
-                                {apt.patients?.full_name ?? "—"}
-                              </p>
-                              <p className="text-xs text-slate-400 truncate">
-                                {fmt12Hr(apt.appointment_time)}
-                                {apt.dentists?.full_name ? ` · ${apt.dentists.full_name}` : ""}
-                              </p>
-                            </div>
-                            <span className={`badge flex-shrink-0 ${apt.status === "confirmed" ? "badge-success" : "badge-secondary"}`}>
-                              {apt.status}
-                            </span>
-                          </div>
-                        );
-                      })}
+                    <div className="overflow-x-auto -mx-5">
+                      <table className="data-table-compact w-full">
+                        <thead className="data-table-head">
+                          <tr>
+                            <th className="data-table-head-cell whitespace-nowrap">Date</th>
+                            <th className="data-table-head-cell whitespace-nowrap">Time</th>
+                            <th className="data-table-head-cell">Patient</th>
+                            <th className="data-table-head-cell">Dentist</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {upcoming.map((apt, i) => (
+                            <tr
+                              key={apt.id}
+                              className={i % 2 === 0 ? "data-table-row data-table-row-even" : "data-table-row data-table-row-odd"}
+                            >
+                              <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmtApptDate(apt.appointment_date)}</td>
+                              <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmt12Hr(apt.appointment_time)}</td>
+                              <td className="data-table-cell-compact text-xs font-medium">{apt.patients?.full_name ?? "—"}</td>
+                              <td className="data-table-cell-compact">
+                                {apt.dentists?.full_name ? (() => {
+                                  const c = dentistColor(apt.dentists.full_name!);
+                                  return (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${c.bg} ${c.text}`}>
+                                      {apt.dentists.full_name}
+                                    </span>
+                                  );
+                                })() : (
+                                  <span className="text-xs text-slate-400">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Right sidebar */}
-              <div className="flex flex-col gap-4">
-                {/* Quick stats card */}
-                <div className="card">
-                  <div className="card-header mb-4">
-                    <div className="card-title">Quick Links</div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {[
-                      { label: "Appointments",    href: "/appointments" },
-                      { label: "Messages",         href: "/messages" },
-                      { label: "Patients",         href: "/patients" },
-                      { label: "Payment Reports",  href: "/reports/payments" },
-                      { label: "Settings",         href: "/settings" },
-                    ].map(({ label, href }) => (
-                      <Link
-                        key={href}
-                        href={href}
-                        className="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors group"
-                        style={{ background: "var(--color-violet-50)" }}
-                      >
-                        <span>{label}</span>
-                        <svg className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+              {/* Col 1, Row 2 */}
+              <DashboardCard
+                title="Patients Seen"
+                value={monthStats.patientsSeen}
+                icon={DashIcons.activity}
+                subtext="Unique patients with visit"
+                href="/patients"
+              />
 
-                {/* Collection rate */}
-                {monthStats.invoiced > 0 && (
-                  <div className="card">
-                    <div className="card-title mb-3">Collection Rate</div>
-                    <div className="text-center py-2">
-                      <p className="text-4xl font-bold" style={{ color: "var(--accent-text)" }}>
-                        {Math.round((monthStats.collected / monthStats.invoiced) * 100)}%
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">{monthLabel}</p>
-                    </div>
-                    <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${Math.min(100, Math.round((monthStats.collected / monthStats.invoiced) * 100))}%`,
-                          background: "var(--color-violet-500)",
-                        }}
-                      />
-                    </div>
-                    <div className="flex justify-between mt-1.5 text-[11px] text-slate-400">
-                      <span>Collected {formatMoney(monthStats.collected)}</span>
-                      <span>of {formatMoney(monthStats.invoiced)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Col 2, Row 2 */}
+              <DashboardCard
+                title="New Patients"
+                value={monthStats.newPatients}
+                icon={DashIcons.userPlus}
+                subtext="Registered this month"
+                href="/patients"
+              />
 
             </div>
           </div>
