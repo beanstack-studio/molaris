@@ -92,7 +92,6 @@ export default function DashboardPage() {
         monthApptsRes,
         upcomingRes,
       ] = await withTimeout(Promise.all([
-        // This month's invoices
         supabase
           .from("invoices")
           .select("id, total")
@@ -100,7 +99,6 @@ export default function DashboardPage() {
           .lte("invoice_date", monthEnd)
           .is("deleted_at", null),
 
-        // This month's non-voided payments
         supabase
           .from("payments")
           .select("id, amount")
@@ -108,14 +106,13 @@ export default function DashboardPage() {
           .lte("payment_date", monthEnd)
           .is("voided_at", null),
 
-        // New patients this month
         supabase
           .from("patients")
           .select("id", { count: "exact" })
           .limit(1)
           .gte("created_at", monthStart + "T00:00:00"),
 
-        // Patients seen: month-to-date only (exclude future appointments)
+        // Patients seen: month-to-date only, no future appointments
         supabase
           .from("appointments")
           .select("patient_id")
@@ -124,7 +121,6 @@ export default function DashboardPage() {
           .is("deleted_at", null)
           .neq("status", "cancelled"),
 
-        // Upcoming appointments with names
         supabase
           .from("appointments")
           .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name)")
@@ -134,7 +130,7 @@ export default function DashboardPage() {
           .neq("status", "cancelled")
           .order("appointment_date", { ascending: true })
           .order("appointment_time",  { ascending: true })
-          .limit(20),
+          .limit(10),
       ]));
 
       const monthInvoiced  = (monthInvoicesRes.data ?? []).reduce((s, r) => s + (r.total  ?? 0), 0);
@@ -191,17 +187,17 @@ export default function DashboardPage() {
             </div>
 
             {/*
-              Desktop (lg): 3-col grid
+              Desktop (lg, 4-col):
                 Col 1, Row 1 → Total Invoiced
                 Col 2, Row 1 → Total Collected
-                Col 3, Rows 1–2 → Appointment list (row-span-2)
+                Cols 3-4, Rows 1-2 → Upcoming Appointments (col-span-2 row-span-2)
                 Col 1, Row 2 → Patients Seen
                 Col 2, Row 2 → New Patients
 
-              Tablet (md): 2-col, appointment list spans full width
-              Mobile: single column stack
+              Tablet (md, 2-col): stat cards pair in each row, appt list full-width
+              Mobile: single-column stack
             */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
 
               {/* Col 1, Row 1 */}
               <DashboardCard
@@ -220,19 +216,19 @@ export default function DashboardPage() {
                 href="/reports/payments"
               />
 
-              {/* Col 3, Rows 1–2 (appointment list) */}
-              <div className="md:col-span-2 lg:col-span-1 lg:row-span-2">
-                <div className="card h-full">
-                  <div className="card-header mb-3">
-                    <div className="card-title">Upcoming Appointments</div>
-                  </div>
+              {/* Cols 3-4, Rows 1-2 — appointment list, fixed height with scroll */}
+              <div className="md:col-span-2 lg:row-span-2 h-full">
+                <div className="card h-full flex flex-col">
+                  <p className="dash-month-label mb-3">Upcoming Appointments</p>
 
                   {upcoming.length === 0 ? (
-                    <p className="text-center text-sm text-slate-400 py-8">No upcoming appointments in the next 30 days</p>
+                    <p className="flex-1 flex items-center justify-center text-sm text-slate-400">
+                      No upcoming appointments in the next 30 days
+                    </p>
                   ) : (
-                    <div className="overflow-x-auto -mx-5">
+                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto -mx-5">
                       <table className="data-table-compact w-full">
-                        <thead className="data-table-head">
+                        <thead className="data-table-head sticky top-0 z-10">
                           <tr>
                             <th className="data-table-head-cell whitespace-nowrap">Date</th>
                             <th className="data-table-head-cell whitespace-nowrap">Time</th>
