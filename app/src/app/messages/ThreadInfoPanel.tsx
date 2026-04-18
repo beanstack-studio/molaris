@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import { Patient } from "@/lib/types";
 import { formatPhoneLocal } from "@/lib/helpers";
 
 /* ── Types ──────────────────────────────────────────────── */
+interface LinkedPatient {
+  id: string;        // patient UUID — sourced from patient_id on the join row
+  full_name: string;
+}
+
 interface ThreadInfo {
   id: string;
   channel: string;
@@ -29,7 +33,7 @@ interface Props {
 /* ══════════════════════════════════════════════════════════ */
 export default function ThreadInfoPanel({ threadId, onBack }: Props) {
   const [thread, setThread]               = useState<ThreadInfo | null>(null);
-  const [linkedPatients, setLinkedPatients] = useState<Patient[]>([]);
+  const [linkedPatients, setLinkedPatients] = useState<LinkedPatient[]>([]);
   const [photos, setPhotos]               = useState<AttachmentItem[]>([]);
   const [files, setFiles]                 = useState<AttachmentItem[]>([]);
   const [loading, setLoading]             = useState(true);
@@ -65,16 +69,17 @@ export default function ThreadInfoPanel({ threadId, onBack }: Props) {
 
       if (linkedRes.ok) {
         const rows: any[] = await linkedRes.json();
+        // Build from the flat join-row fields — never trust nested object id
         setLinkedPatients(
           rows
+            .filter((r) => r.patient_id)
             .map((r) => {
               const p = Array.isArray(r.patients) ? r.patients[0] : r.patients;
-              if (!p) return null;
-              // Use patient_id from the join row — p.id can be undefined when Supabase
-              // returns the nested object without re-selecting id
-              return { ...p, id: r.patient_id ?? p.id };
+              return {
+                id: r.patient_id as string,
+                full_name: p?.full_name ?? "Unknown",
+              };
             })
-            .filter(Boolean)
         );
       }
 
