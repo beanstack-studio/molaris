@@ -289,16 +289,18 @@ export default function WebsiteControlsPage() {
             {fbLoading ? (
               <div className="flex items-center gap-2 text-sm text-slate-500"><Spinner size="h-4 w-4" /> Checking connection…</div>
             ) : fbPage?.page_name ? (
-              <div>
-                <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Page</div>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">f</div>
-                  <div>
-                    <div className="text-sm font-semibold text-slate-800">{fbPage.page_name}</div>
-                    <div className="text-xs text-emerald-600 font-medium">● Connected</div>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Page</div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">f</div>
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800">{fbPage.page_name}</div>
+                      <div className="text-xs text-emerald-600 font-medium">● Connected</div>
+                    </div>
                   </div>
                 </div>
-                <a href="/api/auth/facebook/connect" className="mt-3 inline-block text-xs text-slate-400 hover:text-slate-600 underline">
+                <a href="/api/auth/facebook/connect" className="text-xs text-slate-400 hover:text-slate-600 underline self-start">
                   Reconnect / switch page
                 </a>
               </div>
@@ -317,7 +319,7 @@ export default function WebsiteControlsPage() {
         </div>
 
         {/* SMS — placeholder, not yet integrated */}
-        <div className="card opacity-70">
+        <div className="card">
           <div className="card-header mb-4">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -328,16 +330,16 @@ export default function WebsiteControlsPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             <div>
               <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Provider</div>
-              <div className="field-input-readonly text-sm text-slate-400 italic">Not configured</div>
+              <div className="text-sm text-slate-400 italic">Not configured</div>
             </div>
             <div>
               <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Sender ID / Number</div>
-              <div className="field-input-readonly text-sm text-slate-400 italic">—</div>
+              <div className="text-sm text-slate-400 italic">—</div>
             </div>
-            <p className="text-xs text-slate-400 mt-1">SMS integration will be available in a future update. Messenger is fully supported now.</p>
+            <p className="text-xs text-slate-400">SMS integration will be available in a future update. Messenger is fully supported now.</p>
           </div>
         </div>
 

@@ -303,7 +303,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack }: ChatWi
             <p className="text-xs text-slate-400 mt-0.5">
               {thread.channel.toUpperCase()}
               {linkedPatients[0]?.phone ? ` · ${formatPhoneLocal(linkedPatients[0].phone)}` : ""}
-              {linkedPatients.length > 1 ? ` · +${linkedPatients.length - 1} more` : ""}
             </p>
           </div>
 

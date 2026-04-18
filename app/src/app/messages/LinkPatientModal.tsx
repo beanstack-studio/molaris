@@ -22,31 +22,36 @@ interface Props {
 export default function LinkPatientModal({ threadId, externalUserName, onLinked, onCancel }: Props) {
   const [allPatients, setAllPatients]       = useState<Patient[]>([]);
   const [linkedPatients, setLinkedPatients] = useState<LinkedPatient[]>([]);
+  const [primaryId, setPrimaryId]           = useState<string | null>(null);
   const [addingRow, setAddingRow]           = useState(false);
   const [search, setSearch]                 = useState("");
   const [saving, setSaving]                 = useState(false);
   const [removing, setRemoving]             = useState<string | null>(null);
+  const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
   const [loadingAll, setLoadingAll]         = useState(true);
   const [error, setError]                   = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadLinked = useCallback(async () => {
     try {
-      const res = await fetch(`/api/thread-patients?thread_id=${threadId}`);
-      if (!res.ok) return;
-      const rows: any[] = await res.json();
-      // Supabase may return the joined `patients` as an object or as a single-item array
-      const normalized: LinkedPatient[] = rows
-        .map((r) => ({
-          ...r,
-          patients: Array.isArray(r.patients) ? r.patients[0] : r.patients,
-        }))
-        .filter((r) => r.patients != null);
-      setLinkedPatients(normalized);
+      const [linkedRes, threadRes] = await Promise.all([
+        fetch(`/api/thread-patients?thread_id=${threadId}`),
+        supabase.from("message_threads").select("patient_id").eq("id", threadId).single(),
+      ]);
+      if (linkedRes.ok) {
+        const rows: any[] = await linkedRes.json();
+        const normalized: LinkedPatient[] = rows
+          .map((r) => ({
+            ...r,
+            patients: Array.isArray(r.patients) ? r.patients[0] : r.patients,
+          }))
+          .filter((r) => r.patients != null);
+        setLinkedPatients(normalized);
+      }
+      setPrimaryId(threadRes.data?.patient_id ?? null);
     } catch { /* non-critical */ }
   }, [threadId]);
 
-  // Paginated load — exact same logic as CreateAppointmentModal / appointments page
   useEffect(() => {
     (async () => {
       try {
@@ -83,14 +88,12 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
     loadLinked();
   }, [loadLinked]);
 
-  // Focus search input when row opens
   useEffect(() => {
     if (addingRow) setTimeout(() => inputRef.current?.focus(), 50);
   }, [addingRow]);
 
   const linkedIds = new Set(linkedPatients.map((lp) => lp.patient_id));
 
-  // Exact same filter as CreateAppointmentModal
   const filtered = search.length >= 3
     ? allPatients.filter((p) => {
         if (linkedIds.has(p.id)) return false;
@@ -115,6 +118,8 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to link");
+      // If this is the first patient, auto-set as primary
+      if (linkedPatients.length === 0) setPrimaryId(p.id);
       await loadLinked();
       onLinked();
     } catch (e: any) {
@@ -143,6 +148,20 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
     }
   }
 
+  async function handleSetPrimary(patientId: string) {
+    if (patientId === primaryId) return;
+    setSettingPrimary(patientId);
+    try {
+      await supabase
+        .from("message_threads")
+        .update({ patient_id: patientId })
+        .eq("id", threadId);
+      setPrimaryId(patientId);
+      onLinked();
+    } catch { /* non-critical */ }
+    finally { setSettingPrimary(null); }
+  }
+
   function cancelAdd() {
     setAddingRow(false);
     setSearch("");
@@ -155,14 +174,10 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
   return (
     <EditModal open={true} title="Link to Patient" onClose={onCancel}>
       <div className="grid gap-3">
-        {error && (
-          <div className="rounded-lg bg-red-50 border border-red-100 p-3">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
+        {error && <div className="alert-error">{error}</div>}
 
         {/* Messenger sender */}
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 flex items-center gap-3">
+        <div className="patient-summary-card">
           <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
             {initials}
           </div>
@@ -174,16 +189,43 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
 
         {/* Linked patients */}
         <div className="space-y-2">
-          <p className="text-field-label">Linked Patients ({linkedPatients.length}/5)</p>
-          {linkedPatients.map((lp) => (
-            <div key={lp.patient_id} className="info-box">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
+          <p className="text-field-label">Linked Patients</p>
+          {linkedPatients.map((lp) => {
+            const isPrimary = primaryId === lp.patient_id;
+            const onlyOne   = linkedPatients.length === 1;
+            return (
+              <div
+                key={lp.patient_id}
+                className={`rounded-xl border px-4 py-3 flex items-center gap-3 transition-colors ${
+                  isPrimary
+                    ? "border-violet-300 bg-violet-50"
+                    : "border-slate-200 bg-white"
+                }`}
+              >
+                {/* Primary radio */}
+                <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0" title="Set as primary patient">
+                  <input
+                    type="radio"
+                    name="primary-patient"
+                    checked={isPrimary}
+                    disabled={onlyOne || settingPrimary !== null}
+                    onChange={() => handleSetPrimary(lp.patient_id)}
+                    className="accent-violet-600 w-4 h-4 cursor-pointer"
+                  />
+                  <span className={`text-[11px] font-semibold ${isPrimary ? "text-violet-600" : "text-slate-400"}`}>
+                    {isPrimary ? "Primary" : "Set primary"}
+                  </span>
+                </label>
+
+                {/* Patient info */}
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800 truncate">{lp.patients.full_name}</p>
                   {lp.patients.phone && (
                     <p className="text-xs text-slate-400">{formatPhoneLocal(lp.patients.phone)}</p>
                   )}
                 </div>
+
+                {/* Unlink */}
                 <button
                   type="button"
                   onClick={() => removePatient(lp)}
@@ -193,14 +235,13 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
                   {removing === lp.patient_id ? "…" : "Unlink"}
                 </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Search row — appears only after clicking + Link Patient */}
+        {/* Search row */}
         {addingRow && (
           <div>
-            {/* [search 80%] [Cancel 20%] */}
             <div className="flex items-center gap-2">
               <input
                 ref={inputRef}
@@ -220,7 +261,6 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
               </button>
             </div>
 
-            {/* Inline results (no absolute — avoids overflow clipping) */}
             {search.length >= 3 && (
               <div className="mt-1 bg-white border border-violet-100 rounded-xl shadow-sm max-h-48 overflow-y-auto">
                 {filtered.length === 0 ? (
@@ -250,7 +290,6 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
           </div>
         )}
 
-        {/* + Link Patient — always visible when slots remain */}
         {linkedPatients.length < 5 && (
           <button
             type="button"
@@ -262,7 +301,6 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
           </button>
         )}
 
-        {/* Footer */}
         <div className="flex justify-end border-t border-slate-100 pt-3">
           <button className="cancel-btn" onClick={onCancel}>Done</button>
         </div>
