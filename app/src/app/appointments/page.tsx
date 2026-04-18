@@ -58,10 +58,30 @@ export default function AppointmentsPage() {
   );
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [targetDate, setTargetDate]     = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentWithRelations | null>(null);
   const [contactingAppointment, setContactingAppointment] = useState<AppointmentWithRelations | null>(null);
   const [sundayEndHour, setSundayEndHour] = useState(11);
+
+  // Read URL params on mount (e.g. from dashboard appointment links)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get("view");
+    const dateParam = params.get("date");
+    if (viewParam === "list") setViewMode("list");
+    if (dateParam) { setSelectedDate(dateParam); setTargetDate(dateParam); }
+  }, []);
+
+  // Scroll to target date in list view after data loads
+  useEffect(() => {
+    if (loading || !targetDate) return;
+    const t = setTimeout(() => {
+      document.getElementById(`appt-date-${targetDate}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [loading, targetDate]);
 
   useEffect(() => {
     const timeout = new Promise<void>((_, reject) =>
@@ -346,7 +366,7 @@ export default function AppointmentsPage() {
                   </div>
                 ) : (
                   datesList.map((date) => (
-                    <div key={date}>
+                    <div key={date} id={`appt-date-${date}`}>
                       <div className="px-1 pb-2 flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">{formatDateHeading(date)}</span>
                         {PH_HOLIDAYS_2026.includes(date) && (

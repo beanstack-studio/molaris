@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -31,19 +32,6 @@ function fmtDate(dateStr: string) {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 }
 
-const DENTIST_COLORS = [
-  { bg: "bg-violet-100", text: "text-violet-700" },
-  { bg: "bg-blue-100",   text: "text-blue-700"   },
-  { bg: "bg-emerald-100",text: "text-emerald-700" },
-  { bg: "bg-amber-100",  text: "text-amber-700"   },
-  { bg: "bg-rose-100",   text: "text-rose-700"    },
-  { bg: "bg-cyan-100",   text: "text-cyan-700"    },
-];
-function dentistColor(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return DENTIST_COLORS[Math.abs(h) % DENTIST_COLORS.length];
-}
 
 function buildChartData(
   invoices: { invoice_date: string; total: number }[],
@@ -90,7 +78,7 @@ interface UpcomingAppt {
   appointment_time: string;
   status: string;
   patients: { full_name: string | null } | null;
-  dentists:  { full_name: string | null } | null;
+  dentists:  { full_name: string | null; color: string | null } | null;
 }
 interface Transaction {
   id: string;
@@ -123,8 +111,8 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [dentistFilter, setDentistFilter] = useState("all");
 
+  const router     = useRouter();
   const now        = new Date();
-  const monthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -173,7 +161,7 @@ export default function DashboardPage() {
 
         // ── Upcoming appointments ────────────────────────────
         supabase.from("appointments")
-          .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name)")
+          .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name, color)")
           .gte("appointment_date", today).lte("appointment_date", upcomingEnd)
           .is("deleted_at", null).neq("status", "cancelled")
           .order("appointment_date", { ascending: true }).order("appointment_time", { ascending: true })
@@ -253,16 +241,11 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-4">
 
-            <div className="flex items-center gap-2">
-              <span className="dash-month-label">{monthLabel}</span>
-              <span className="text-xs text-slate-400">— monthly overview</span>
-            </div>
-
             {/* ── Row 1: Stat cards + Appointment list ───────── */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
 
-              <DashboardCard title="Total Invoiced"  value={formatMoney(monthStats.invoiced)}  icon={DashIcons.receipt}     href="/reports/payments" />
-              <DashboardCard title="Total Collected" value={formatMoney(monthStats.collected)} icon={DashIcons.checkCircle} href="/reports/payments"
+              <DashboardCard title="Total Invoiced"  value={formatMoney(monthStats.invoiced)}  icon={DashIcons.receipt}     href="/reports/payments" subtext="For this month" />
+              <DashboardCard title="Total Collected" value={formatMoney(monthStats.collected)} icon={DashIcons.checkCircle} href="/reports/payments" subtext="For this month"
                 valueClassName="text-2xl font-bold text-emerald-600" />
 
               {/* Appointment list — cols 3-4, rows 1-2 */}
@@ -283,19 +266,30 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {upcoming.map((apt, i) => (
-                            <tr key={apt.id} className={i % 2 === 0 ? "data-table-row data-table-row-even" : "data-table-row data-table-row-odd"}>
-                              <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmtApptDate(apt.appointment_date)}</td>
-                              <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmt12Hr(apt.appointment_time)}</td>
-                              <td className="data-table-cell-compact text-xs font-medium">{apt.patients?.full_name ?? "—"}</td>
-                              <td className="data-table-cell-compact">
-                                {apt.dentists?.full_name ? (() => {
-                                  const c = dentistColor(apt.dentists.full_name!);
-                                  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${c.bg} ${c.text}`}>{apt.dentists.full_name}</span>;
-                                })() : <span className="text-xs text-slate-400">—</span>}
-                              </td>
-                            </tr>
-                          ))}
+                          {upcoming.map((apt, i) => {
+                            const dentistHex = apt.dentists?.color || "#6366f1";
+                            return (
+                              <tr
+                                key={apt.id}
+                                className={`${i % 2 === 0 ? "data-table-row data-table-row-even" : "data-table-row data-table-row-odd"} cursor-pointer`}
+                                onClick={() => router.push(`/appointments?date=${apt.appointment_date}&view=list`)}
+                              >
+                                <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmtApptDate(apt.appointment_date)}</td>
+                                <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmt12Hr(apt.appointment_time)}</td>
+                                <td className="data-table-cell-compact text-xs font-medium">{apt.patients?.full_name ?? "—"}</td>
+                                <td className="data-table-cell-compact">
+                                  {apt.dentists?.full_name ? (
+                                    <span
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                                      style={{ backgroundColor: dentistHex + "22", color: dentistHex }}
+                                    >
+                                      {apt.dentists.full_name}
+                                    </span>
+                                  ) : <span className="text-xs text-slate-400">—</span>}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -303,7 +297,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <DashboardCard title="Patients Seen"  value={monthStats.patientsSeen} icon={DashIcons.activity} subtext="Unique patients with visit" href="/patients" />
+              <DashboardCard title="Patients Seen"  value={monthStats.patientsSeen} icon={DashIcons.activity} subtext="Patients with appts this month" href="/patients" />
               <DashboardCard title="New Patients"   value={monthStats.newPatients}  icon={DashIcons.userPlus} subtext="Registered this month"    href="/patients" />
             </div>
 
@@ -396,7 +390,7 @@ export default function DashboardPage() {
                         <tr
                           key={tx.id}
                           className={`${i % 2 === 0 ? "data-table-row data-table-row-even" : "data-table-row data-table-row-odd"} cursor-pointer`}
-                          onClick={() => window.location.href = `/patients/${tx.patient_id}/billing`}
+                          onClick={() => router.push(`/patients/${tx.patient_id}/billing`)}
                         >
                           <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmtDate(tx.invoice_date)}</td>
                           <td className="data-table-cell-compact text-xs font-medium">{tx.patients?.full_name ?? "—"}</td>
