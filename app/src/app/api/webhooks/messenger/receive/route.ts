@@ -63,15 +63,24 @@ async function processEntries(entries: any[]) {
     for (const messaging of (entry.messaging ?? [])) {
       if (!messaging.message || messaging.message.is_echo) continue;
 
+      const attachments: Array<{ type: string; url: string }> = (messaging.message.attachments ?? [])
+        .map((a: any) => ({ type: a.type ?? "file", url: a.payload?.url ?? null }))
+        .filter((a: any) => a.url);
+
       await handleIncomingMessage(
         pageToken,
         messaging.sender.id,
         messaging.recipient.id,
         messaging.message.text ?? "",
-        messaging.message.mid
+        messaging.message.mid,
+        attachments,
       );
     }
   }
+}
+
+function attachmentFallback(type: string) {
+  return ({ image: "📷 Photo", audio: "🎵 Audio message", video: "🎬 Video", file: "📎 File", sticker: "🎭 Sticker" } as Record<string, string>)[type] ?? "📎 Attachment";
 }
 
 async function handleIncomingMessage(
@@ -79,7 +88,8 @@ async function handleIncomingMessage(
   senderId: string,
   pageId: string,
   messageText: string,
-  externalMessageId: string
+  externalMessageId: string,
+  attachments: Array<{ type: string; url: string }> = [],
 ) {
   try {
     // ── Find existing thread ─────────────────────────────────────────────
@@ -136,15 +146,21 @@ async function handleIncomingMessage(
     }
 
     // ── Store the message ────────────────────────────────────────────────
+    const content = messageText || (attachments.length > 0 ? attachmentFallback(attachments[0].type) : "");
     const { error: msgErr } = await supabase.from("messages").insert({
       thread_id: threadId,
       sender_type: "patient",
       sender_id: patientId,
       sender_name: patientName ?? (existingThread as any)?.external_user_name ?? null,
-      content: messageText,
+      content,
       message_type: "text",
       external_id: externalMessageId,
-      metadata: { channel: "messenger", sender_psid: senderId, page_id: pageId },
+      metadata: {
+        channel: "messenger",
+        sender_psid: senderId,
+        page_id: pageId,
+        ...(attachments.length > 0 && { attachments }),
+      },
     });
 
     if (msgErr) throw msgErr;

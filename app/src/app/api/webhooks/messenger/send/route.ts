@@ -3,23 +3,25 @@ import { supabase } from "@/lib/supabaseClient";
 
 /**
  * POST /api/webhooks/messenger/send
- * Send a Messenger message via Facebook Graph API.
- * Token is read from the facebook_pages table (set via OAuth connect flow).
+ * Send a Messenger text or attachment message via Facebook Graph API.
+ *
+ * Body for text:       { recipient_id, message: string }
+ * Body for attachment: { recipient_id, attachment: { type: "image"|"audio"|"video"|"file", url: string } }
  */
 export async function POST(request: NextRequest) {
   try {
-    const { recipient_id, message } = await request.json();
+    const { recipient_id, message, attachment } = await request.json();
 
-    if (!recipient_id || !message) {
+    if (!recipient_id || (!message && !attachment)) {
       return NextResponse.json(
-        { error: "Missing recipient_id or message" },
+        { error: "Missing recipient_id and message/attachment" },
         { status: 400 }
       );
     }
 
     const { data: page } = await supabase
       .from("facebook_pages")
-      .select("page_access_token, page_name")
+      .select("page_access_token")
       .maybeSingle();
 
     const pageToken = (page as any)?.page_access_token as string | null;
@@ -31,12 +33,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Build the FB message payload
+    const fbMessage = attachment
+      ? {
+          attachment: {
+            type: attachment.type,           // "image" | "audio" | "video" | "file"
+            payload: { url: attachment.url, is_reusable: true },
+          },
+        }
+      : { text: message };
+
     const graphRes = await fetch("https://graph.facebook.com/v18.0/me/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        recipient: { id: recipient_id },
-        message: { text: message },
+        recipient:    { id: recipient_id },
+        message:      fbMessage,
         access_token: pageToken,
       }),
     });
