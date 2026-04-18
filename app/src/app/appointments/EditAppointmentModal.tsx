@@ -65,7 +65,8 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
       setEditFormData({
         patientId: appointment.patient_id,
         appointmentDate: appointment.appointment_date,
-        appointmentTime: appointment.appointment_time,
+        // DB stores "HH:MM:SS" — strip seconds so it matches select option values "HH:MM"
+        appointmentTime: appointment.appointment_time.substring(0, 5),
         dentistId: appointment.dentist_id || "",
         concernType: (appointment as any).concern_type || "",
         status: appointment.status,
@@ -209,6 +210,21 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
           )}
         </div>
 
+        {/* Dentist — first so we avoid double-booking */}
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">Dentist *</span>
+          <select
+            value={editFormData.dentistId}
+            onChange={(e) => setEditFormData({ ...editFormData, dentistId: e.target.value })}
+            className="input-standard"
+          >
+            <option value="">Select dentist</option>
+            {dentists.map((d) => (
+              <option key={d.id} value={d.id}>{d.full_name}</option>
+            ))}
+          </select>
+        </label>
+
         {/* Date */}
         <DatePickerField
           label="Date"
@@ -230,21 +246,6 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
               const timeStr = `${String(hour).padStart(2, "0")}:00`;
               return <option key={hour} value={timeStr}>{formatTime12Hr(timeStr)}</option>;
             })}
-          </select>
-        </label>
-
-        {/* Dentist */}
-        <label className="grid gap-1 text-sm">
-          <span className="text-slate-700">Dentist (optional)</span>
-          <select
-            value={editFormData.dentistId}
-            onChange={(e) => setEditFormData({ ...editFormData, dentistId: e.target.value })}
-            className="input-standard"
-          >
-            <option value="">Select dentist</option>
-            {dentists.map((d) => (
-              <option key={d.id} value={d.id}>{d.full_name}</option>
-            ))}
           </select>
         </label>
 

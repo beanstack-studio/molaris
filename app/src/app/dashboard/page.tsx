@@ -97,7 +97,7 @@ export default function DashboardPage() {
         // Use limit(1) + count instead of head:true — more compatible with all Supabase plans
         supabase.from("patients").select("id", { count: "exact" }).limit(1),
         supabase.from("patients").select("id", { count: "exact" }).limit(1).eq("ortho_patient", true),
-        supabase.from("patients").select("id").gte("created_at", firstDayOfMonth),
+        supabase.from("patients").select("id", { count: "exact" }).limit(1).gte("created_at", firstDayOfMonth),
         supabase
           .from("appointments")
           .select("id")
@@ -182,7 +182,7 @@ export default function DashboardPage() {
           ...p,
           payment_modes: { name: p.details?.payment_mode_name || "—", code: p.details?.payment_mode_code || "" },
         })),
-        newPatientCount: newPatientsRes.data?.length || 0,
+        newPatientCount: newPatientsRes.count || 0,
       });
 
       // Payment mode breakdown
