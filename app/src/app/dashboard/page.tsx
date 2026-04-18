@@ -3,487 +3,383 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import { formatMoney, formatDateStandard } from "@/lib/helpers";
-import { DashboardCard } from "@/components/DashboardCard";
+import { formatMoney } from "@/lib/helpers";
+import { DashboardCard, DashIcons } from "@/components/DashboardCard";
 import { PageLoader } from "@/components/Spinner";
 
+/* ── Helpers ──────────────────────────────────────────────── */
+function fmt12Hr(time: string) {
+  const t = time.substring(0, 5);
+  const [h, m] = t.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
 
-interface DashboardStats {
-  totalInvoiced: number;
-  totalPaid: number;
-  totalOutstanding: number;
+function fmtApptDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return {
+    day:   d.getDate(),
+    month: d.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+    dow:   d.toLocaleDateString("en-US", { weekday: "short" }),
+  };
+}
+
+/* ── Types ────────────────────────────────────────────────── */
+interface MonthStats {
+  invoiced:     number;
+  collected:    number;
+  patientsSeen: number;
+  newPatients:  number;
+}
+
+interface OverviewStats {
   totalPatients: number;
-  totalInvoices: number;
-  upcomingAppointments: number;
+  orthoPatients: number;
+  outstandingCount:  number;
+  outstandingAmount: number;
 }
 
-interface RecentActivity {
-  invoices: any[];
-  payments: any[];
-  newPatientCount: number;
+interface UpcomingAppt {
+  id: string;
+  appointment_date: string;
+  appointment_time: string;
+  status: string;
+  patients: { full_name: string | null } | null;
+  dentists:  { full_name: string | null } | null;
 }
 
+/* ══════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]           = useState(true);
   const [loadingTooLong, setLoadingTooLong] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]               = useState<string | null>(null);
+  const [monthStats, setMonthStats]     = useState<MonthStats>({ invoiced: 0, collected: 0, patientsSeen: 0, newPatients: 0 });
+  const [overview, setOverview]         = useState<OverviewStats>({ totalPatients: 0, orthoPatients: 0, outstandingCount: 0, outstandingAmount: 0 });
+  const [upcoming, setUpcoming]         = useState<UpcomingAppt[]>([]);
 
-  const [stats, setStats] = useState<DashboardStats>({
-    totalInvoiced: 0,
-    totalPaid: 0,
-    totalOutstanding: 0,
-    totalPatients: 0,
-    totalInvoices: 0,
-    upcomingAppointments: 0,
-  });
-
-  const [recent, setRecent] = useState<RecentActivity>({
-    invoices: [],
-    payments: [],
-    newPatientCount: 0,
-  });
-
-  const [outstanding, setOutstanding] = useState<any[]>([]);
-  const [paymentModes, setPaymentModes] = useState<any[]>([]);
-  const [orthoPatientCount, setOrthoPatientCount] = useState(0);
-  const [todayPayments, setTodayPayments] = useState<any[]>([]);
+  const now       = new Date();
+  const monthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   useEffect(() => {
-    setLoadingTooLong(false);
-    const slowTimer = setTimeout(() => setLoadingTooLong(true), 8000);
-    loadDashboardData().finally(() => clearTimeout(slowTimer));
+    const slowTimer = setTimeout(() => setLoadingTooLong(true), 10_000);
+    loadData().finally(() => clearTimeout(slowTimer));
   }, []);
 
-  async function loadDashboardData() {
+  async function loadData() {
     setLoading(true);
     setError(null);
+    setLoadingTooLong(false);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setError("No active session. Please login first.");
-        setLoading(false);
-        return;
-      }
+      if (!session) { setError("No active session. Please log in."); return; }
 
-      const today = new Date().toISOString().split("T")[0];
-      const endOfMonth = new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0];
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      // ── Date ranges ────────────────────────────────────────
+      const today      = now.toISOString().split("T")[0];
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      const upcomingEnd = new Date(now.getTime() + 30 * 86_400_000).toISOString().split("T")[0];
 
-      // Run all independent queries in parallel with a 15-second timeout
-      const withTimeout = <T,>(p: Promise<T>, ms = 15_000): Promise<T> =>
-        Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("Query timed out — check your connection")), ms))]);
+      const withTimeout = <T,>(p: Promise<T>, ms = 20_000): Promise<T> =>
+        Promise.race([p, new Promise<T>((_, rej) =>
+          setTimeout(() => rej(new Error("Database timeout — please retry")), ms)
+        )]);
 
+      // ── All queries in parallel (targeted, no big full-table scans) ──
       const [
-        invoicesRes,
-        paymentsRes,
-        patientCountRes,
-        orthoCountRes,
+        monthInvoicesRes,
+        monthPaymentsRes,
+        pendingInvoicesRes,
+        totalPatientsRes,
+        orthoPatientsRes,
         newPatientsRes,
-        appointmentsRes,
-        paymentModesRes,
+        monthApptsRes,
+        upcomingRes,
       ] = await withTimeout(Promise.all([
+        // This month's invoices — for total invoiced
         supabase
           .from("invoices")
-          .select("id, invoice_number, invoice_date, total, status, patient_id")
-          .order("invoice_date", { ascending: false })
-          .limit(200),
+          .select("id, total")
+          .gte("invoice_date", monthStart)
+          .lte("invoice_date", monthEnd)
+          .is("deleted_at", null),
+
+        // This month's non-voided payments — for total collected
         supabase
           .from("payments")
-          .select("id, amount, payment_date, status, voided_at, invoice_id, patient_id, transaction_id, reference_number, details")
-          .order("payment_date", { ascending: false })
-          .limit(500),
-        // Use limit(1) + count instead of head:true — more compatible with all Supabase plans
+          .select("id, amount")
+          .gte("payment_date", monthStart)
+          .lte("payment_date", monthEnd)
+          .is("voided_at", null),
+
+        // All unpaid invoices — for outstanding balance
+        supabase
+          .from("invoices")
+          .select("id, total")
+          .not("status", "eq", "paid")
+          .is("deleted_at", null),
+
+        // Total patient count
         supabase.from("patients").select("id", { count: "exact" }).limit(1),
+
+        // Ortho patient count
         supabase.from("patients").select("id", { count: "exact" }).limit(1).eq("ortho_patient", true),
-        supabase.from("patients").select("id", { count: "exact" }).limit(1).gte("created_at", firstDayOfMonth),
+
+        // New patients this month
+        supabase
+          .from("patients")
+          .select("id", { count: "exact" })
+          .limit(1)
+          .gte("created_at", monthStart + "T00:00:00"),
+
+        // Appointments this month — for patients seen
         supabase
           .from("appointments")
-          .select("id")
+          .select("patient_id")
+          .gte("appointment_date", monthStart)
+          .lte("appointment_date", monthEnd)
+          .is("deleted_at", null)
+          .neq("status", "cancelled"),
+
+        // Upcoming appointments with names
+        supabase
+          .from("appointments")
+          .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name)")
           .gte("appointment_date", today)
-          .lte("appointment_date", endOfMonth)
-          .is("deleted_at", null),
-        supabase.from("payment_modes").select("id, code, name").order("sort_order", { ascending: true }),
+          .lte("appointment_date", upcomingEnd)
+          .is("deleted_at", null)
+          .neq("status", "cancelled")
+          .order("appointment_date", { ascending: true })
+          .order("appointment_time",  { ascending: true })
+          .limit(12),
       ]));
 
-      if (invoicesRes.error) throw invoicesRes.error;
-      if (paymentsRes.error) throw paymentsRes.error;
+      // ── Compute month stats ────────────────────────────────
+      const monthInvoiced  = (monthInvoicesRes.data  ?? []).reduce((s, r) => s + (r.total  ?? 0), 0);
+      const monthCollected = (monthPaymentsRes.data   ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+      const patientsSeen   = new Set(
+        (monthApptsRes.data ?? []).map((a: any) => a.patient_id).filter(Boolean)
+      ).size;
 
-      const invoices = invoicesRes.data || [];
-      const payments = paymentsRes.data || [];
+      // ── Compute overview stats ─────────────────────────────
+      const pendingList       = pendingInvoicesRes.data ?? [];
+      const outstandingAmount = pendingList.reduce((s, r) => s + (r.total ?? 0), 0);
 
-      // Calculate paid amounts per invoice
-      const paidByInvoice: Record<string, number> = {};
-      payments.forEach((p: any) => {
-        if (!p.voided_at && p.invoice_id) {
-          paidByInvoice[p.invoice_id] = (paidByInvoice[p.invoice_id] || 0) + (p.amount || 0);
-        }
+      setMonthStats({
+        invoiced:     monthInvoiced,
+        collected:    monthCollected,
+        patientsSeen,
+        newPatients:  newPatientsRes.count ?? 0,
       });
 
-      // Aggregate stats
-      let totalInvoiced = 0;
-      let totalOutstanding = 0;
-      invoices.forEach((inv: any) => {
-        totalInvoiced += inv.total || 0;
-        const paid = paidByInvoice[inv.id] || 0;
-        totalOutstanding += Math.max(0, (inv.total || 0) - paid);
-      });
-      const totalPaid = totalInvoiced - totalOutstanding;
-
-      setStats({
-        totalInvoiced,
-        totalPaid,
-        totalOutstanding,
-        totalPatients: patientCountRes.count || 0,
-        totalInvoices: invoices.length,
-        upcomingAppointments: (appointmentsRes as any)?.data?.length || 0,
+      setOverview({
+        totalPatients:    totalPatientsRes.count  ?? 0,
+        orthoPatients:    orthoPatientsRes.count  ?? 0,
+        outstandingCount:  pendingList.length,
+        outstandingAmount,
       });
 
-      setOrthoPatientCount(orthoCountRes.count || 0);
-
-      // Outstanding invoices (top 10) + load patient names for just those
-      const outstandingList = invoices
-        .map((inv: any) => {
-          const paid = paidByInvoice[inv.id] || 0;
-          const balance = Math.max(0, (inv.total || 0) - paid);
-          return { ...inv, paid_amount: paid, balance, patients: { first_name: "", last_name: "" } };
-        })
-        .filter((inv: any) => inv.balance > 0)
-        .sort((a: any, b: any) => new Date(b.invoice_date).getTime() - new Date(a.invoice_date).getTime())
-        .slice(0, 10);
-
-      const patientIds = [...new Set(outstandingList.map((inv: any) => inv.patient_id).filter(Boolean))];
-      if (patientIds.length > 0) {
-        const { data: patientData } = await supabase
-          .from("patients")
-          .select("id, first_name, last_name")
-          .in("id", patientIds);
-        if (patientData) {
-          const pMap = Object.fromEntries(patientData.map((p: any) => [p.id, p]));
-          outstandingList.forEach((inv: any) => {
-            const p = pMap[inv.patient_id];
-            if (p) inv.patients = { first_name: p.first_name, last_name: p.last_name };
-          });
-        }
-      }
-      setOutstanding(outstandingList);
-
-      // Today's payments
-      const todayList = payments.filter((p: any) => {
-        const d = new Date(p.payment_date).toISOString().split("T")[0];
-        return d === today && !p.voided_at;
-      });
-      setTodayPayments(todayList);
-
-      setRecent({
-        invoices: invoices.slice(0, 5),
-        payments: payments.slice(0, 5).map((p: any) => ({
-          ...p,
-          payment_modes: { name: p.details?.payment_mode_name || "—", code: p.details?.payment_mode_code || "" },
-        })),
-        newPatientCount: newPatientsRes.count || 0,
-      });
-
-      // Payment mode breakdown
-      const modeCounts: Record<string, any> = {};
-      payments.forEach((p: any) => {
-        if (p.voided_at) return;
-        const key = p.status === "verified" ? "VERIFIED" : p.status === "pending" ? "PENDING" : "OTHER";
-        if (!modeCounts[key]) {
-          modeCounts[key] = {
-            code: key,
-            name: key === "VERIFIED" ? "Verified Payments" : key === "PENDING" ? "Pending Payments" : "Other",
-            count: 0,
-            total: 0,
-          };
-        }
-        modeCounts[key].count += 1;
-        modeCounts[key].total += p.amount || 0;
-      });
-      setPaymentModes(
-        Object.values(modeCounts)
-          .filter((m: any) => m.count > 0)
-          .sort((a: any, b: any) => b.total - a.total)
-          .slice(0, 5) as any
-      );
+      setUpcoming((upcomingRes.data as unknown as UpcomingAppt[]) ?? []);
 
     } catch (err) {
-      const msg = err instanceof Error ? err.message : (err as any)?.message || "Failed to load dashboard";
-      console.error("Dashboard error:", msg, err);
-      setError(msg);
+      setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
       setLoading(false);
     }
   }
 
-  const collectionRate =
-    stats.totalInvoiced > 0 ? Math.round((stats.totalPaid / stats.totalInvoiced) * 100) : 0;
-
+  /* ── Render ─────────────────────────────────────────────── */
   return (
     <div className="page-bg">
       <main className="app-section">
         <div className="app-section-header">
-          <div>
-            <div className="app-section-title">Dashboard</div>
-          </div>
+          <div className="app-section-title">Dashboard</div>
         </div>
 
-        {error && <div className="error-banner mb-4">{error}</div>}
+        {error && (
+          <div className="error-banner flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <button onClick={loadData} className="cancel-btn h-8 px-3 text-xs">Retry</button>
+          </div>
+        )}
 
         {loading ? (
           <PageLoader>
             {loadingTooLong && (
               <div className="flex flex-col items-center gap-2 mt-3">
                 <p className="text-sm text-slate-500">Taking longer than usual…</p>
-                <button
-                  onClick={() => {
-                    setLoadingTooLong(false);
-                    const slowTimer = setTimeout(() => setLoadingTooLong(true), 8000);
-                    loadDashboardData().finally(() => clearTimeout(slowTimer));
-                  }}
-                  className="px-4 py-2 text-sm font-medium rounded-lg bg-white/60 hover:bg-white/80 text-slate-700 border border-slate-200 transition-all"
-                >
-                  Retry
-                </button>
+                <button onClick={loadData} className="cancel-btn h-8 px-3 text-xs">Retry</button>
               </div>
             )}
           </PageLoader>
         ) : (
-          <div className="flex flex-col gap-4">
-            {/* Key Metrics - Row 1 */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <DashboardCard
-                title="Total Invoiced"
-                value={formatMoney(stats.totalInvoiced)}
-                icon="📋"
-                subtext={`${stats.totalInvoices} invoices`}
-              />
-              <DashboardCard
-                title="Total Collected"
-                value={formatMoney(stats.totalPaid)}
-                icon="✓"
-                subtext={`${collectionRate}% collection rate`}
-                valueClassName="text-3xl font-bold text-green-700"
-              />
-              <DashboardCard
-                title="Outstanding"
-                value={formatMoney(stats.totalOutstanding)}
-                icon="⏳"
-                subtext="Requires payment"
-                valueClassName="text-3xl font-bold text-orange-700"
-              />
-              <DashboardCard
-                title="Today's Payments"
-                value={formatMoney(todayPayments.reduce((s, p) => s + (p.amount || 0), 0))}
-                icon="💳"
-                subtext={`${todayPayments.length} payment${todayPayments.length !== 1 ? "s" : ""}`}
-                valueClassName="text-3xl font-bold text-blue-700"
-              />
+          <div className="flex flex-col gap-5">
+
+            {/* ── Monthly stats ──────────────────────────────── */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="dash-month-label">{monthLabel}</span>
+                <span className="text-xs text-slate-400">— monthly overview</span>
+              </div>
+              <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                <DashboardCard
+                  title="Total Invoiced"
+                  value={formatMoney(monthStats.invoiced)}
+                  icon={DashIcons.receipt}
+                  href="/reports/payments"
+                />
+                <DashboardCard
+                  title="Total Collected"
+                  value={formatMoney(monthStats.collected)}
+                  icon={DashIcons.checkCircle}
+                  valueClassName="text-2xl font-bold text-emerald-600"
+                  href="/reports/payments"
+                />
+                <DashboardCard
+                  title="Patients Seen"
+                  value={monthStats.patientsSeen}
+                  icon={DashIcons.activity}
+                  subtext="Unique patients with appt"
+                  href="/patients"
+                />
+                <DashboardCard
+                  title="New Patients"
+                  value={monthStats.newPatients}
+                  icon={DashIcons.userPlus}
+                  subtext="Registered this month"
+                  href="/patients"
+                />
+              </div>
             </div>
 
-            {/* Key Metrics - Row 2 */}
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-              <DashboardCard title="Total Patients" value={stats.totalPatients} icon="👥" />
+            {/* ── All-time overview ──────────────────────────── */}
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
               <DashboardCard
-                title="Active Ortho Patients"
-                value={orthoPatientCount}
-                icon="😁"
+                title="Total Patients"
+                value={overview.totalPatients.toLocaleString()}
+                icon={DashIcons.users}
+                href="/patients"
+              />
+              <DashboardCard
+                title="Active Ortho"
+                value={overview.orthoPatients}
+                icon={DashIcons.tooth}
                 subtext="Braces & aligners"
-                valueClassName="text-3xl font-bold text-blue-600"
+                href="/patients"
               />
               <DashboardCard
-                title="Upcoming Appointments"
-                value={stats.upcomingAppointments}
-                icon="📅"
-                subtext="Next 30 days"
-              />
-              <DashboardCard
-                title="New Patients"
-                value={recent.newPatientCount}
-                icon="⭐"
-                subtext="This month"
-                valueClassName="text-3xl font-bold text-violet-600"
+                title="Outstanding Balance"
+                value={formatMoney(overview.outstandingAmount)}
+                icon={DashIcons.alertCircle}
+                subtext={`${overview.outstandingCount} unpaid invoice${overview.outstandingCount !== 1 ? "s" : ""}`}
+                valueClassName="text-2xl font-bold text-orange-600"
+                href="/reports/payments"
               />
             </div>
 
-            {/* Content Grid */}
-            <div className="grid gap-6 lg:grid-cols-3">
-              {/* Left Column */}
-              <div className="lg:col-span-2 space-y-4">
-                {/* Recent Payments */}
-                <div className="card">
-                  <div className="card-header mb-4">
-                    <div className="card-title">Recent Payments</div>
-                  </div>
-                  {recent.payments.length > 0 ? (
-                    <div className="table-wrapper">
-                      <table className="data-table">
-                        <colgroup>
-                          <col className="col-30" />
-                          <col className="col-20" />
-                          <col className="col-25" />
-                          <col className="col-25" />
-                        </colgroup>
-                        <thead className="data-table-head">
-                          <tr>
-                            <th className="data-table-head-cell">Transaction ID</th>
-                            <th className="data-table-head-cell-right">Amount</th>
-                            <th className="data-table-head-cell">Mode</th>
-                            <th className="data-table-head-cell">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {recent.payments.map((payment, index) => (
-                            <tr
-                              key={payment.id}
-                              className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
-                            >
-                              <td className="data-table-cell">{payment.transaction_id || "—"}</td>
-                              <td className="data-table-cell-right font-semibold">{formatMoney(payment.amount)}</td>
-                              <td className="data-table-cell">{payment.payment_modes?.name || "—"}</td>
-                              <td className="data-table-cell">
-                                <span
-                                  className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
-                                    payment.status === "verified"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-yellow-100 text-yellow-700"
-                                  }`}
-                                >
-                                  {payment.status === "verified" ? "Verified" : "Pending"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="data-table-empty">No recent payments</p>
-                  )}
-                </div>
+            {/* ── Main content ───────────────────────────────── */}
+            <div className="grid gap-4 lg:grid-cols-3">
 
-                {/* Recent Invoices */}
+              {/* Upcoming appointments */}
+              <div className="lg:col-span-2">
                 <div className="card">
                   <div className="card-header mb-4">
-                    <div className="card-title">Recent Invoices</div>
+                    <div className="card-title">Upcoming Appointments</div>
+                    <Link href="/appointments" className="dash-card-link">View all →</Link>
                   </div>
-                  {recent.invoices.length > 0 ? (
-                    <div className="table-wrapper">
-                      <table className="data-table">
-                        <colgroup>
-                          <col className="col-30" />
-                          <col className="col-25" />
-                          <col className="col-20" />
-                          <col className="col-25" />
-                        </colgroup>
-                        <thead className="data-table-head">
-                          <tr>
-                            <th className="data-table-head-cell">Invoice</th>
-                            <th className="data-table-head-cell">Date</th>
-                            <th className="data-table-head-cell-right">Amount</th>
-                            <th className="data-table-head-cell">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {recent.invoices.map((invoice, index) => (
-                            <tr
-                              key={invoice.id}
-                              className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
-                            >
-                              <td className="data-table-cell">{invoice.invoice_number}</td>
-                              <td className="data-table-cell">{formatDateStandard(invoice.invoice_date)}</td>
-                              <td className="data-table-cell-right font-semibold">{formatMoney(invoice.total)}</td>
-                              <td className="data-table-cell">
-                                <span
-                                  className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
-                                    invoice.status === "paid"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-yellow-100 text-yellow-700"
-                                  }`}
-                                >
-                                  {invoice.status === "paid" ? "Paid" : "Pending"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+
+                  {upcoming.length === 0 ? (
+                    <p className="text-center text-sm text-slate-400 py-8">No upcoming appointments in the next 30 days</p>
                   ) : (
-                    <p className="data-table-empty">No recent invoices</p>
+                    <div className="divide-y divide-slate-50">
+                      {upcoming.map((apt) => {
+                        const { day, month, dow } = fmtApptDate(apt.appointment_date);
+                        return (
+                          <div key={apt.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                            {/* Date block */}
+                            <div className="flex-shrink-0 w-12 text-center">
+                              <p className="text-[10px] font-semibold text-slate-400 uppercase leading-none">{dow}</p>
+                              <p className="text-xl font-bold text-slate-800 leading-tight">{day}</p>
+                              <p className="text-[10px] font-medium uppercase leading-none" style={{ color: "var(--accent-text)" }}>{month}</p>
+                            </div>
+                            <div className="w-px h-8 bg-slate-100 flex-shrink-0" />
+                            {/* Details */}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-800 truncate">
+                                {apt.patients?.full_name ?? "—"}
+                              </p>
+                              <p className="text-xs text-slate-400 truncate">
+                                {fmt12Hr(apt.appointment_time)}
+                                {apt.dentists?.full_name ? ` · ${apt.dentists.full_name}` : ""}
+                              </p>
+                            </div>
+                            <span className={`badge flex-shrink-0 ${apt.status === "confirmed" ? "badge-success" : "badge-secondary"}`}>
+                              {apt.status}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Right Column */}
-              <div className="space-y-4">
+              {/* Right sidebar */}
+              <div className="flex flex-col gap-4">
+                {/* Quick stats card */}
                 <div className="card">
                   <div className="card-header mb-4">
-                    <div className="card-title">Quick Actions</div>
+                    <div className="card-title">Quick Links</div>
                   </div>
-                  <div className="space-y-2">
-                    <Link
-                      href="/patients"
-                      className="block rounded-lg bg-blue-50 px-4 py-2 text-center text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                    >
-                      View Patients
-                    </Link>
-                    <Link
-                      href="/reports/payments"
-                      className="block rounded-lg bg-green-50 px-4 py-2 text-center text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
-                    >
-                      Payment Reports
-                    </Link>
-                    <Link
-                      href="/settings"
-                      className="block rounded-lg bg-slate-50 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                    >
-                      Settings
-                    </Link>
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { label: "Appointments",    href: "/appointments" },
+                      { label: "Messages",         href: "/messages" },
+                      { label: "Patients",         href: "/patients" },
+                      { label: "Payment Reports",  href: "/reports/payments" },
+                      { label: "Settings",         href: "/settings" },
+                    ].map(({ label, href }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        className="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors group"
+                        style={{ background: "var(--color-violet-50)" }}
+                      >
+                        <span>{label}</span>
+                        <svg className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </Link>
+                    ))}
                   </div>
                 </div>
 
-                {paymentModes.length > 0 && (
+                {/* Collection rate */}
+                {monthStats.invoiced > 0 && (
                   <div className="card">
-                    <div className="card-header mb-4">
-                      <div className="card-title">Payment Breakdown</div>
+                    <div className="card-title mb-3">Collection Rate</div>
+                    <div className="text-center py-2">
+                      <p className="text-4xl font-bold" style={{ color: "var(--accent-text)" }}>
+                        {Math.round((monthStats.collected / monthStats.invoiced) * 100)}%
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">{monthLabel}</p>
                     </div>
-                    <div className="space-y-2">
-                      {paymentModes.map((mode) => (
-                        <div
-                          key={mode.code}
-                          className="flex items-center justify-between rounded-lg border border-slate-100 p-3 hover:bg-slate-50"
-                        >
-                          <div className="text-sm">
-                            <p className="font-medium text-slate-900">{mode.name}</p>
-                            <p className="text-muted-xs">{mode.count} payments</p>
-                          </div>
-                          <p className="item-value">{formatMoney(mode.total)}</p>
-                        </div>
-                      ))}
+                    <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, Math.round((monthStats.collected / monthStats.invoiced) * 100))}%`,
+                          background: "var(--color-violet-500)",
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1.5 text-[11px] text-slate-400">
+                      <span>Collected {formatMoney(monthStats.collected)}</span>
+                      <span>of {formatMoney(monthStats.invoiced)}</span>
                     </div>
                   </div>
                 )}
-
-                <div className="card">
-                  <div className="card-header mb-4">
-                    <div className="card-title">Outstanding Invoices</div>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-3xl font-bold text-orange-700">{outstanding.length}</p>
-                    <p className="text-sm text-slate-500 mt-2">
-                      Total: {formatMoney(outstanding.reduce((s, inv) => s + (inv.balance || 0), 0))}
-                    </p>
-                    <Link
-                      href="/reports/payments"
-                      className="mt-3 inline-block rounded-lg bg-orange-100 px-3 py-1 text-sm font-medium text-orange-700 hover:bg-orange-200 transition-colors"
-                    >
-                      View details →
-                    </Link>
-                  </div>
-                </div>
               </div>
+
             </div>
           </div>
         )}

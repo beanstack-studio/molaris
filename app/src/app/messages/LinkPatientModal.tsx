@@ -210,7 +210,7 @@ export default function LinkPatientModal({ threadId, externalUserName, onLinked,
                     checked={isPrimary}
                     disabled={onlyOne || settingPrimary !== null}
                     onChange={() => handleSetPrimary(lp.patient_id)}
-                    className="accent-violet-600 w-4 h-4 cursor-pointer"
+                    className="radio-themed w-4 h-4 cursor-pointer"
                   />
                   <span className={`text-[11px] font-semibold ${isPrimary ? "text-violet-600" : "text-slate-400"}`}>
                     {isPrimary ? "Primary" : "Set primary"}
