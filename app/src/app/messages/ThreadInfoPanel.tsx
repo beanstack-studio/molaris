@@ -67,7 +67,13 @@ export default function ThreadInfoPanel({ threadId, onBack }: Props) {
         const rows: any[] = await linkedRes.json();
         setLinkedPatients(
           rows
-            .map((r) => (Array.isArray(r.patients) ? r.patients[0] : r.patients))
+            .map((r) => {
+              const p = Array.isArray(r.patients) ? r.patients[0] : r.patients;
+              if (!p) return null;
+              // Use patient_id from the join row — p.id can be undefined when Supabase
+              // returns the nested object without re-selecting id
+              return { ...p, id: r.patient_id ?? p.id };
+            })
             .filter(Boolean)
         );
       }

@@ -116,6 +116,13 @@ export default function MessagesPage() {
   // Mobile: "list" | "chat" | "info" — desktop shows all panels simultaneously
   const [mobileView, setMobileView]       = useState<"list" | "chat" | "info">("list");
   const [showInfo, setShowInfo]           = useState(false); // desktop info panel toggle
+
+  // Auto-show info panel on wide screens
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1280) {
+      setShowInfo(true);
+    }
+  }, []);
   const [syncing, setSyncing]             = useState(false);
   const [syncResult, setSyncResult]       = useState<string | null>(null);
   const [search, setSearch]               = useState("");
@@ -208,7 +215,10 @@ export default function MessagesPage() {
   function selectThread(id: string) {
     setSelectedId(id);
     setMobileView("chat");
-    setShowInfo(false);
+    // Keep info panel open on wide screens when switching threads
+    if (typeof window !== "undefined" && window.innerWidth < 1280) {
+      setShowInfo(false);
+    }
   }
 
   function getDisplayName(t: Thread) {
@@ -363,8 +373,14 @@ export default function MessagesPage() {
             onThreadUpdated={loadThreads}
             onBack={() => setMobileView("list")}
             onOpenInfo={() => {
-              setShowInfo(true);
-              setMobileView("info");
+              if (typeof window !== "undefined" && window.innerWidth >= 768) {
+                // Desktop: toggle the info panel
+                setShowInfo((prev) => !prev);
+              } else {
+                // Mobile: navigate to info view
+                setShowInfo(true);
+                setMobileView("info");
+              }
             }}
           />
         ) : (
