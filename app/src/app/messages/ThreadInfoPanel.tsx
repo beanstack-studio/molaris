@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { formatPhoneLocal } from "@/lib/helpers";
 
@@ -159,7 +158,7 @@ export default function ThreadInfoPanel({ threadId, onBack }: Props) {
                 ) : (
                   <div className="space-y-1.5">
                     {linkedPatients.filter((p) => p.id).map((p) => (
-                      <Link
+                      <a
                         key={p.id}
                         href={`/patients/${p.id}/info`}
                         className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-violet-50 hover:text-violet-700 transition-colors group"
@@ -169,7 +168,7 @@ export default function ThreadInfoPanel({ threadId, onBack }: Props) {
                         <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-violet-400 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
-                      </Link>
+                      </a>
                     ))}
                   </div>
                 )}
