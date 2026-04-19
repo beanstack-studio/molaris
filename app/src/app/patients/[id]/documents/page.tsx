@@ -21,6 +21,7 @@ import {
   createDocument,
   getPatientDocuments,
   deleteDocument,
+  getNextDocNo,
 } from "@/lib/documentHelpers";
 import {
   generateInvoiceDocument,
@@ -29,6 +30,7 @@ import {
 import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 import { generateCertificateHTML } from "@/lib/certificateGenerator";
 import { generateReferralHTML } from "@/lib/referralGenerator";
+import { generatePatientRecordHTML } from "@/lib/patientRecordGenerator";
 import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { openDocumentViewer } from "@/components/DocumentViewer";
 import { PageLoader } from "@/components/Spinner";
@@ -168,7 +170,7 @@ export default function DocumentsPage() {
     setError(null);
 
     if (!selectedDocType) return setError("Select a document type.");
-    if (!docDentistId) return setError("Select a dentist.");
+    if (!docDentistId && selectedDocType !== DOC_TYPES.PATIENT_RECORD) return setError("Select a dentist.");
 
     setBusy(true);
 
@@ -180,6 +182,81 @@ export default function DocumentsPage() {
       const userEmail = sessionResult.data.session?.user?.email ?? "Unknown";
 
       let renderedHtml = previewHtml;
+
+      // ── Patient Record: fetch all data and generate HTML ──
+      if (selectedDocType === DOC_TYPES.PATIENT_RECORD) {
+        const [medRes, chartRes, statusRes, txRes] = await Promise.all([
+          supabase
+            .from("patient_medical_histories")
+            .select("allergies, medications, blood_pressure, conditions, notes")
+            .eq("patient_id", id)
+            .order("created_at", { ascending: false })
+            .limit(1),
+          supabase
+            .from("dental_chart_entries")
+            .select("tooth_number, surfaces, finding_code, finding_detail, notes, recorded_at")
+            .eq("patient_id", id)
+            .order("recorded_at", { ascending: false }),
+          supabase
+            .from("tooth_statuses")
+            .select("tooth_number, status, note")
+            .eq("patient_id", id)
+            .order("tooth_number", { ascending: true }),
+          supabase
+            .from("treatments")
+            .select("treatment_date, procedure, tooth_number, dentist_name, visit_concern, notes")
+            .eq("patient_id", id)
+            .order("treatment_date", { ascending: false })
+            .limit(200),
+        ]);
+
+        // Calc age for patient record
+        let patAge: number | null = null;
+        if (patient.birth_date) {
+          const dob = new Date(patient.birth_date);
+          const today = new Date();
+          patAge = today.getFullYear() - dob.getFullYear();
+          if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) patAge--;
+        }
+
+        const docNo = await getNextDocNo(DOC_TYPES.PATIENT_RECORD);
+        renderedHtml = generatePatientRecordHTML({
+          patientName: patient.full_name || "Unknown Patient",
+          birthDate: patient.birth_date || null,
+          age: patAge,
+          gender: patient.gender || null,
+          phone: patient.phone || null,
+          email: patient.email || null,
+          address: patient.address || null,
+          occupation: patient.occupation || null,
+          notes: patient.notes || null,
+          medHistory: medRes.data?.[0] ?? null,
+          chartEntries: (chartRes.data ?? []) as any[],
+          toothStatuses: (statusRes.data ?? []) as any[],
+          treatments: (txRes.data ?? []) as any[],
+          docNo,
+          generatedAt: new Date().toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }),
+          clinicMeta,
+        });
+
+        // Insert directly so we can use the same docNo that was embedded in the HTML
+        await supabase.from("documents").insert({
+          patient_id: id,
+          patient_name: patient.full_name || null,
+          doc_type: DOC_TYPES.PATIENT_RECORD,
+          doc_code: "PAT",
+          doc_no: docNo,
+          payload: { rendered_html: renderedHtml, clinic_meta: clinicMeta, generated_at: new Date().toISOString() },
+          clinic_meta: clinicMeta,
+          issued_by: userEmail,
+        });
+
+        setBusy(false);
+        setShowGenerateModal(false);
+        resetGenerateForm();
+        await loadData();
+        return;
+      }
 
       // Calculate patient age helper
       function calcAge(): number | undefined {
@@ -494,7 +571,7 @@ export default function DocumentsPage() {
           </div>
 
           {/* STEP 2: Common fields (visible when type is selected) */}
-          {selectedDocType && (
+          {selectedDocType && selectedDocType !== DOC_TYPES.PATIENT_RECORD && (
             <>
               <div className="section-columns">
                 <div className="w-1/2">
@@ -808,6 +885,13 @@ export default function DocumentsPage() {
             </>
           )}
 
+          {/* Patient Record — no extra fields needed */}
+          {selectedDocType === DOC_TYPES.PATIENT_RECORD && (
+            <div className="rounded-xl bg-violet-50 border border-violet-100 p-4 text-sm text-violet-700">
+              Generates a complete patient record including personal information, medical history, dental chart findings, and full treatment history. No additional fields required.
+            </div>
+          )}
+
           {/* Modal Actions */}
           <div className="modal-actions">
             <div className="modal-actions-right">
@@ -823,7 +907,7 @@ export default function DocumentsPage() {
               </button>
               <button
                 className="save-btn"
-                disabled={busy || !selectedDocType || !docDentistId}
+                disabled={busy || !selectedDocType || (!docDentistId && selectedDocType !== DOC_TYPES.PATIENT_RECORD)}
                 onClick={generateDocument}
               >
                 {busy ? "Generating…" : "Generate"}

@@ -16,6 +16,7 @@ export const DOC_TYPES = {
   PRESCRIPTION: "PRESCRIPTION",
   DENTAL_CERTIFICATE: "DENTAL_CERTIFICATE",
   REFERRAL_LETTER: "REFERRAL_LETTER",
+  PATIENT_RECORD: "PATIENT_RECORD",
 } as const;
 
 export type DocType = typeof DOC_TYPES[keyof typeof DOC_TYPES];
@@ -31,6 +32,7 @@ export const DOC_CODE_MAP: Record<DocType, string> = {
   [DOC_TYPES.PRESCRIPTION]: "RX",
   [DOC_TYPES.DENTAL_CERTIFICATE]: "CER",
   [DOC_TYPES.REFERRAL_LETTER]: "REF",
+  [DOC_TYPES.PATIENT_RECORD]: "PAT",
 };
 
 /**
@@ -43,6 +45,7 @@ export const CODE_TO_DOC_TYPE: Record<string, DocType> = {
   RX: DOC_TYPES.PRESCRIPTION,
   CER: DOC_TYPES.DENTAL_CERTIFICATE,
   REF: DOC_TYPES.REFERRAL_LETTER,
+  PAT: DOC_TYPES.PATIENT_RECORD,
 };
 
 /**
@@ -324,6 +327,7 @@ export function getDocTypeLabel(docType: DocType | string): string {
     [DOC_TYPES.PRESCRIPTION]: "Prescription",
     [DOC_TYPES.DENTAL_CERTIFICATE]: "Dental Certificate",
     [DOC_TYPES.REFERRAL_LETTER]: "Referral Letter",
+    [DOC_TYPES.PATIENT_RECORD]: "Patient Record",
   };
   return labels[docType] || "Document";
 }
@@ -334,6 +338,7 @@ export function getDocTypeLabel(docType: DocType | string): string {
  */
 export function getGenerableDocTypes(): DocType[] {
   return [
+    DOC_TYPES.PATIENT_RECORD,
     DOC_TYPES.PRESCRIPTION,
     DOC_TYPES.DENTAL_CERTIFICATE,
     DOC_TYPES.REFERRAL_LETTER,
