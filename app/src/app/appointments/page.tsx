@@ -376,7 +376,7 @@ export default function AppointmentsPage() {
           )}
 
             {/* View mode toggle + dentist filter */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="action-row">
                 <button
                   onClick={() => setViewMode("list")}
@@ -392,37 +392,21 @@ export default function AppointmentsPage() {
                 </button>
               </div>
 
-              {/* Dentist filter pills */}
+              {/* Dentist filter dropdown */}
               {dentists.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    onClick={() => { setFilterDentistId(""); setCalDentistBlockouts([]); setCalDentistSchedule([]); }}
-                    className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                      filterDentistId === ""
-                        ? "bg-slate-700 text-white border-slate-700"
-                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                    }`}
-                  >
-                    All
-                  </button>
+                <select
+                  className="input-standard w-auto min-w-[160px] text-sm"
+                  value={filterDentistId}
+                  onChange={(e) => {
+                    setFilterDentistId(e.target.value);
+                    loadDentistCalendarInfo(e.target.value);
+                  }}
+                >
+                  <option value="">All dentists</option>
                   {dentists.map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => {
-                        const next = filterDentistId === d.id ? "" : d.id;
-                        setFilterDentistId(next);
-                        loadDentistCalendarInfo(next);
-                      }}
-                      className="rounded-full px-3 py-1 text-xs font-medium border transition-colors"
-                      style={filterDentistId === d.id
-                        ? { backgroundColor: d.color || "#6366f1", color: "#fff", borderColor: d.color || "#6366f1" }
-                        : { backgroundColor: (d.color || "#6366f1") + "15", color: d.color || "#6366f1", borderColor: (d.color || "#6366f1") + "50" }
-                      }
-                    >
-                      {dentistLabel(d)}
-                    </button>
+                    <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
                   ))}
-                </div>
+                </select>
               )}
             </div>
 
@@ -431,7 +415,11 @@ export default function AppointmentsPage() {
               <div className="space-y-6">
                 {datesList.length === 0 ? (
                   <div className="text-center py-12 bg-slate-50 rounded-xl border border-slate-100">
-                    <p className="text-slate-500">No appointments scheduled</p>
+                    <p className="text-slate-500">
+                      {filterDentistId
+                        ? `No appointments for ${dentistLabel(dentists.find((d) => d.id === filterDentistId)!)}`
+                        : "No appointments scheduled"}
+                    </p>
                   </div>
                 ) : (
                   datesList.map((date) => (
