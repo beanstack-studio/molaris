@@ -114,27 +114,18 @@ function buildDentitionChartHTML(
   const plr = [85,84,83,82,81];
   const pll = [71,72,73,74,75];
 
-  // Vertical midline (3px) — present in EVERY row so the line is unbroken
+  // totalCols = 3 spacers + 5 primary + 1 mid + 5 primary + 3 spacers = 17
+  // (permanent row: 8 + 1 mid + 8 = 17 also)
+  const totalCols = 17;
+
   const mid = `<td style="width:3px;padding:0;background:#b8cce8;"></td>`;
   const sp3 = `<td></td>`;  // spacer cells — takes remaining space in fixed layout
 
-  // subLabel: 3-cell structure keeps mid column continuous
   const subLabel = (text: string) =>
-    `<tr>
-      <td colspan="8" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td>
-      ${mid}
-      <td colspan="8"></td>
-    </tr>`;
+    `<tr><td colspan="${totalCols}" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td></tr>`;
 
-  // Horizontal separator: full-width 3px fill — same thickness as mid column width
-  const hSep = `<tr>
-    <td colspan="8" style="height:3px;padding:0;background:#b8cce8;border:none;"></td>
-    <td style="width:3px;height:3px;padding:0;background:#b8cce8;"></td>
-    <td colspan="8" style="height:3px;padding:0;background:#b8cce8;border:none;"></td>
-  </tr>`;
-
-  // Section labels live OUTSIDE the table so they don't interrupt the vertical line
-  const secLabelStyle = `text-align:center;font-size:9px;font-weight:bold;color:${DOC_ACCENT};letter-spacing:0.06em;text-transform:uppercase;padding:4px 0 2px;`;
+  const sectionLabel = (text: string) =>
+    `<tr><td colspan="${totalCols}" style="text-align:center;font-size:9px;font-weight:bold;color:${DOC_ACCENT};letter-spacing:0.06em;text-transform:uppercase;padding:4px 0 2px;">${text}</td></tr>`;
 
   const legend = [
     ["#fca5a5","Caries"],["#86efac","Filled"],["#e2e8f0","Missing"],["#fed7aa","Extracted"],
@@ -146,8 +137,8 @@ function buildDentitionChartHTML(
   ).join("");
 
   return `<div style="margin-bottom:4px;">
-  <div style="${secLabelStyle}">UPPER DENTITION</div>
   <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
+    ${sectionLabel("UPPER DENTITION")}
     ${subLabel("Primary")}
     <tr>
       ${sp3}${sp3}${sp3}
@@ -162,7 +153,7 @@ function buildDentitionChartHTML(
       ${mid}
       ${ul.map(n => cell(sm, cm, n)).join("")}
     </tr>
-    ${hSep}
+    <tr><td colspan="${totalCols}" style="height:3px;padding:0;background:#b8cce8;border:none;"></td></tr>
     <tr>
       ${lr.map(n => cell(sm, cm, n)).join("")}
       ${mid}
@@ -177,8 +168,8 @@ function buildDentitionChartHTML(
       ${sp3}${sp3}${sp3}
     </tr>
     ${subLabel("Primary")}
+    ${sectionLabel("LOWER DENTITION")}
   </table>
-  <div style="${secLabelStyle}">LOWER DENTITION</div>
 </div>
 <div style="margin-bottom:10px;line-height:2;">${legend}</div>`;
 }
