@@ -99,6 +99,7 @@ export default function DocumentsPage() {
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const dentistNameById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -470,7 +471,7 @@ export default function DocumentsPage() {
   }
 
   async function handleDeleteDocument() {
-    if (!deleteDocId) return;
+    if (!deleteDocId || deleteConfirmation !== "DELETE") return;
     setError(null);
     setBusy(true);
 
@@ -478,6 +479,7 @@ export default function DocumentsPage() {
       await deleteDocument(deleteDocId);
       setShowDeleteModal(false);
       setDeleteDocId(null);
+      setDeleteConfirmation("");
       await loadData();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to delete document");
@@ -544,7 +546,7 @@ export default function DocumentsPage() {
                     <td className="data-table-cell-right">
                       <div className="flex items-center justify-end gap-2">
                         <button className="data-table-btn" onClick={() => handleOpenDocument(d)} disabled={busy}>Open</button>
-                        <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
+                        <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setDeleteConfirmation(""); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -571,7 +573,7 @@ export default function DocumentsPage() {
                     </div>
                     <div className="flex gap-1.5 flex-shrink-0">
                       <button className="data-table-btn" onClick={() => handleOpenDocument(d)} disabled={busy}>Open</button>
-                      <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
+                      <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setDeleteConfirmation(""); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
                     </div>
                   </div>
                 </div>
@@ -928,25 +930,25 @@ export default function DocumentsPage() {
 
           {/* Patient Record — section checkboxes */}
           {selectedDocType === DOC_TYPES.PATIENT_RECORD && (
-            <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-1.5">
+            <div className="section-check-container">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Sections to include</p>
 
               {/* Patient Info */}
-              <label className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 hover:border-violet-300 transition-colors">
+              <label className="section-check-row">
                 <input type="checkbox" checked={patRecInclInfo} onChange={e => setPatRecInclInfo(e.target.checked)} className="accent-violet-600" />
                 Patient Information
               </label>
 
               {/* Medical History */}
-              <label className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 hover:border-violet-300 transition-colors">
+              <label className="section-check-row">
                 <input type="checkbox" checked={patRecInclMed} onChange={e => setPatRecInclMed(e.target.checked)} className="accent-violet-600" />
                 Medical History
               </label>
 
               {/* Dental Chart — collapsible */}
-              <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+              <div className="section-check-group">
                 <div
-                  className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:border-violet-300 transition-colors select-none"
+                  className="section-check-group-header"
                   onClick={() => {
                     const allChecked = patRecInclToothChart || patRecInclToothStatus || patRecInclChartFindings;
                     setPatRecInclToothChart(!allChecked);
@@ -967,11 +969,11 @@ export default function DocumentsPage() {
                     className="accent-violet-600"
                     onClick={e => e.stopPropagation()}
                   />
-                  <span className="text-sm text-slate-700 flex-1 flex items-center gap-1">
+                  <span className="section-check-group-label">
                     Dental Chart
                     <button
                       type="button"
-                      className="text-slate-400 hover:text-slate-600 text-xs leading-none"
+                      className="section-check-expand-arrow"
                       onClick={e => { e.stopPropagation(); setPatRecChartExpanded(v => !v); }}
                     >
                       {patRecChartExpanded ? "▲" : "▼"}
@@ -979,16 +981,16 @@ export default function DocumentsPage() {
                   </span>
                 </div>
                 {patRecChartExpanded && (
-                  <div className="border-t border-slate-100 px-3 pb-2 pt-1.5 space-y-1.5 bg-slate-50">
-                    <label className="flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1.5 hover:border-violet-300 transition-colors">
+                  <div className="section-check-sub-area">
+                    <label className="section-check-sub-row">
                       <input type="checkbox" checked={patRecInclToothChart} onChange={e => setPatRecInclToothChart(e.target.checked)} className="accent-violet-600" />
                       Tooth Chart (FDI grid)
                     </label>
-                    <label className="flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1.5 hover:border-violet-300 transition-colors">
+                    <label className="section-check-sub-row">
                       <input type="checkbox" checked={patRecInclToothStatus} onChange={e => setPatRecInclToothStatus(e.target.checked)} className="accent-violet-600" />
                       Tooth Status
                     </label>
-                    <label className="flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1.5 hover:border-violet-300 transition-colors">
+                    <label className="section-check-sub-row">
                       <input type="checkbox" checked={patRecInclChartFindings} onChange={e => setPatRecInclChartFindings(e.target.checked)} className="accent-violet-600" />
                       Chart Findings
                     </label>
@@ -997,9 +999,9 @@ export default function DocumentsPage() {
               </div>
 
               {/* Treatment History — collapsible */}
-              <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+              <div className="section-check-group">
                 <div
-                  className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:border-violet-300 transition-colors select-none"
+                  className="section-check-group-header"
                   onClick={() => {
                     const newVal = !patRecInclTreatments;
                     setPatRecInclTreatments(newVal);
@@ -1018,7 +1020,7 @@ export default function DocumentsPage() {
                     className="accent-violet-600"
                     onClick={e => e.stopPropagation()}
                   />
-                  <span className="text-sm text-slate-700 flex-1 flex items-center gap-1">
+                  <span className="section-check-group-label">
                     Treatment History
                     {patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length && (
                       <span className="text-xs text-violet-600">({patRecSelectedVisits.size}/{patRecVisitDates.length} visits)</span>
@@ -1026,7 +1028,7 @@ export default function DocumentsPage() {
                     {patRecInclTreatments && patRecVisitDates.length > 0 && (
                       <button
                         type="button"
-                        className="text-slate-400 hover:text-slate-600 text-xs leading-none"
+                        className="section-check-expand-arrow"
                         onClick={e => { e.stopPropagation(); setPatRecTreatExpanded(v => !v); }}
                       >
                         {patRecTreatExpanded ? "▲" : "▼"}
@@ -1035,9 +1037,9 @@ export default function DocumentsPage() {
                   </span>
                 </div>
                 {patRecInclTreatments && patRecTreatExpanded && patRecVisitDates.length > 0 && (
-                  <div className="border-t border-slate-100 px-3 pb-2 pt-1.5 space-y-1.5 bg-slate-50 max-h-40 overflow-y-auto">
+                  <div className="section-check-sub-area-scroll">
                     {patRecVisitDates.map(d => (
-                      <label key={d} className="flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1.5 hover:border-violet-300 transition-colors">
+                      <label key={d} className="section-check-sub-row">
                         <input
                           type="checkbox"
                           checked={patRecSelectedVisits.has(d)}
@@ -1089,13 +1091,33 @@ export default function DocumentsPage() {
         onClose={() => {
           setShowDeleteModal(false);
           setDeleteDocId(null);
+          setDeleteConfirmation("");
         }}
       >
         <div className="spacing-vertical-lg">
-          <p className="text-sm text-slate-600">
-            This document will be permanently deleted. This action cannot be undone.
-          </p>
+          <div className="delete-confirmation">
+            <div className="delete-confirmation-title">Delete document?</div>
+            <div className="delete-confirmation-hint">
+              Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion of this document
+            </div>
+            <input
+              type="text"
+              className="delete-confirmation-input"
+              placeholder="DELETE"
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+            />
+          </div>
           <div className="modal-actions">
+            <div className="modal-actions-left">
+              <button
+                className="delete-btn"
+                disabled={busy || deleteConfirmation !== "DELETE"}
+                onClick={handleDeleteDocument}
+              >
+                {busy ? "Deleting…" : "Delete Document"}
+              </button>
+            </div>
             <div className="modal-actions-right">
               <button
                 className="cancel-btn"
@@ -1103,16 +1125,10 @@ export default function DocumentsPage() {
                 onClick={() => {
                   setShowDeleteModal(false);
                   setDeleteDocId(null);
+                  setDeleteConfirmation("");
                 }}
               >
                 Cancel
-              </button>
-              <button
-                className="save-btn bg-red-600 hover:bg-red-700"
-                disabled={busy}
-                onClick={handleDeleteDocument}
-              >
-                {busy ? "Deleting…" : "Delete"}
               </button>
             </div>
           </div>

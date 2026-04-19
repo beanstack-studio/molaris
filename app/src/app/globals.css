@@ -773,6 +773,43 @@ tr.data-table-row-compact-odd:hover {
   @apply h-10 rounded-xl bg-slate-100 px-4 text-sm font-medium text-slate-500 hover:bg-slate-200 transition-colors;
 }
 
+/* Section checkbox rows (Patient Record generate modal) */
+.section-check-container {
+  @apply rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-1.5;
+}
+
+.section-check-row {
+  @apply flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 hover:border-violet-300 transition-colors select-none;
+}
+
+.section-check-group {
+  @apply rounded-lg border border-slate-200 bg-white overflow-hidden;
+}
+
+.section-check-group-header {
+  @apply flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors select-none;
+}
+
+.section-check-group-label {
+  @apply text-sm text-slate-700 flex-1 flex items-center gap-1;
+}
+
+.section-check-expand-arrow {
+  @apply text-slate-400 hover:text-slate-600 text-xs leading-none;
+}
+
+.section-check-sub-area {
+  @apply border-t border-slate-100 px-3 pb-2 pt-1.5 space-y-1.5 bg-slate-50;
+}
+
+.section-check-sub-row {
+  @apply flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1.5 hover:border-violet-300 transition-colors select-none;
+}
+
+.section-check-sub-area-scroll {
+  @apply border-t border-slate-100 px-3 pb-2 pt-1.5 space-y-1.5 bg-slate-50 max-h-40 overflow-y-auto;
+}
+
 .toggle-btn-active {
   @apply h-10 rounded-xl bg-violet-50 px-4 text-sm font-medium text-violet-600 transition-colors;
 }
