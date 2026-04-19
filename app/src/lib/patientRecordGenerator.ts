@@ -118,7 +118,7 @@ function buildDentitionChartHTML(
   // (permanent row: 8 + 1 mid + 8 = 17 also)
   const totalCols = 17;
 
-  const mid = `<td style="width:3px;padding:0;background:#b8cce8;"></td>`;
+  const mid = `<td style="width:1.5px;padding:0;background:#b8cce8;"></td>`;
   const sp3 = `<td></td>`;  // spacer cells — takes remaining space in fixed layout
 
   const subLabel = (text: string) =>
@@ -153,7 +153,7 @@ function buildDentitionChartHTML(
       ${mid}
       ${ul.map(n => cell(sm, cm, n)).join("")}
     </tr>
-    <tr><td colspan="${totalCols}" style="height:3px;padding:0;background:#b8cce8;border:none;"></td></tr>
+    <tr><td colspan="${totalCols}" style="height:6px;padding:0;background:#b8cce8;border:none;"></td></tr>
     <tr>
       ${lr.map(n => cell(sm, cm, n)).join("")}
       ${mid}
