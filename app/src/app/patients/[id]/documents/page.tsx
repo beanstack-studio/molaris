@@ -236,7 +236,7 @@ export default function DocumentsPage() {
         if (patRecInclOrtho) {
           const { data: ocRows } = await supabase
             .from("ortho_cases")
-            .select("id, status, start_date, phase, provider_name, notes")
+            .select("*")
             .eq("patient_id", id)
             .order("created_at", { ascending: false })
             .limit(1);

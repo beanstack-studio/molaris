@@ -54,9 +54,12 @@ export interface PatientRecordData {
   orthoCase?: {
     status: string;
     start_date: string | null;
+    end_date?: string | null;
     phase: string | null;
     provider_name: string | null;
     notes: string | null;
+    inclusions?: Record<string, boolean> | null;
+    [key: string]: any; // accept any extra columns
   } | null;
   orthoEntries?: Array<{
     entry_date: string;
@@ -132,9 +135,11 @@ function buildDentitionChartHTML(
   // 16 cols (8 per side, no mid column — vertical line is an absolute-positioned div overlay)
   const sp3 = `<td></td>`;
 
-  // Full-width centered label row (no mid cell needed — vertical line is overlay)
+  // Full-width centered label row — white badge sits ON TOP of the vertical line
   const subLabel = (text: string) =>
-    `<tr><td colspan="16" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td></tr>`;
+    `<tr><td colspan="16" style="text-align:center;padding:3px 0;position:relative;z-index:2;">
+      <span style="display:inline-block;background:white;padding:1px 10px;border-radius:2px;font-size:9px;color:#555;font-style:italic;">${text}</span>
+    </td></tr>`;
 
   // Section labels are divs OUTSIDE the table
   const secDiv = (text: string) =>
@@ -152,13 +157,13 @@ function buildDentitionChartHTML(
   return `<div style="margin-bottom:4px;">
   ${secDiv("UPPER DENTITION")}
   <div style="position:relative;">
-    <div style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:#b8cce8;transform:translateX(-50%);z-index:1;pointer-events:none;"></div>
+    <div style="position:absolute;top:0;bottom:0;left:50%;width:9px;background:#b8cce8;transform:translateX(-50%);z-index:1;pointer-events:none;border-radius:1px;"></div>
     <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
       ${subLabel("Primary")}
       <tr>
         ${sp3}${sp3}${sp3}
-        ${pur.map(n => cell(sm, cm, n, true)).join("")}
-        ${pul.map(n => cell(sm, cm, n, true)).join("")}
+        ${pur.map(n => cell(sm, cm, n)).join("")}
+        ${pul.map(n => cell(sm, cm, n)).join("")}
         ${sp3}${sp3}${sp3}
       </tr>
       ${subLabel("Permanent")}
@@ -166,7 +171,7 @@ function buildDentitionChartHTML(
         ${ur.map(n => cell(sm, cm, n)).join("")}
         ${ul.map(n => cell(sm, cm, n)).join("")}
       </tr>
-      <tr><td colspan="16" style="height:3px;padding:0;background:#b8cce8;border:none;"></td></tr>
+      <tr><td colspan="16" style="height:9px;padding:0;background:#b8cce8;border:none;"></td></tr>
       <tr>
         ${lr.map(n => cell(sm, cm, n)).join("")}
         ${ll.map(n => cell(sm, cm, n)).join("")}
@@ -174,8 +179,8 @@ function buildDentitionChartHTML(
       ${subLabel("Permanent")}
       <tr>
         ${sp3}${sp3}${sp3}
-        ${plr.map(n => cell(sm, cm, n, true)).join("")}
-        ${pll.map(n => cell(sm, cm, n, true)).join("")}
+        ${plr.map(n => cell(sm, cm, n)).join("")}
+        ${pll.map(n => cell(sm, cm, n)).join("")}
         ${sp3}${sp3}${sp3}
       </tr>
       ${subLabel("Primary")}
@@ -348,24 +353,35 @@ ${visitBlocks}`;
   // ── Ortho Treatments & Visits ────────────────────────────────────────────
   let orthoHTML = "";
   if (inclOrtho) {
+    const inclList = orthoCase?.inclusions
+      ? Object.entries(orthoCase.inclusions).filter(([,v]) => v).map(([k]) =>
+          k.replace(/_/g," ").replace(/\b\w/g, c => c.toUpperCase())
+        )
+      : [];
+
     const caseCard = (inclOrthoCaseCard && orthoCase) ? `
 <div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;">
     <div style="padding:6px 9px;border-right:1px solid #ddd;">
       <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Status</div>
-      <div style="font-size:11px;margin-top:2px;">${orthoCase.status || "—"}</div>
+      <div style="font-size:11px;margin-top:2px;">${orthoCase.status ? orthoCase.status.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase()) : "—"}</div>
+    </div>
+    <div style="padding:6px 9px;border-right:1px solid #ddd;">
+      <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Phase</div>
+      <div style="font-size:11px;margin-top:2px;">${orthoCase.phase ? orthoCase.phase.replace(/\b\w/g,c=>c.toUpperCase()) : "—"}</div>
     </div>
     <div style="padding:6px 9px;border-right:1px solid #ddd;">
       <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Start Date</div>
       <div style="font-size:11px;margin-top:2px;">${orthoCase.start_date ? formatDateStandard(orthoCase.start_date.split("T")[0]) : "—"}</div>
     </div>
     <div style="padding:6px 9px;">
-      <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Phase</div>
-      <div style="font-size:11px;margin-top:2px;">${orthoCase.phase || "—"}</div>
+      <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">End Date</div>
+      <div style="font-size:11px;margin-top:2px;">${orthoCase.end_date ? formatDateStandard(orthoCase.end_date.split("T")[0]) : "—"}</div>
     </div>
   </div>
   ${orthoCase.provider_name ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Provider</div><div style="font-size:11px;margin-top:2px;">${orthoCase.provider_name}</div></div>` : ""}
-  ${orthoCase.notes ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Notes</div><div style="font-size:11px;margin-top:2px;">${orthoCase.notes}</div></div>` : ""}
+  ${inclList.length > 0 ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Inclusions</div><div style="font-size:11px;margin-top:2px;">${inclList.join(" · ")}</div></div>` : ""}
+  ${orthoCase.notes ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Notes</div><div style="font-size:11px;margin-top:2px;white-space:pre-wrap;">${orthoCase.notes}</div></div>` : ""}
 </div>` : "";
 
     const entryRows = orthoEntries.map(e => `<tr>

@@ -102,7 +102,9 @@ body { font-family: Arial, sans-serif; color:#333; background:#f5f5f5; }
 .divider { border:none; border-top:1px solid #e0e0e0; margin:14px 0; }
 @media print {
   body { background:white; }
-  .page { margin:0; box-shadow:none; padding:0.5in; }
+  .page { margin:0; box-shadow:none; padding:0.5in 0.8in; }
   @page { size:letter; margin:0; }
+  .section-title { page-break-inside:avoid; }
+  tr { page-break-inside:avoid; }
 }`;
 }
