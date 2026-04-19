@@ -242,6 +242,15 @@ export default function DocumentsPage() {
             .limit(1);
           if (ocRows?.length) {
             const { id: caseId, ...caseFields } = ocRows[0] as any;
+            // Resolve provider name from FK if not stored directly
+            if (!caseFields.provider_name && caseFields.provider_dentist_id) {
+              const { data: dentistRow } = await supabase
+                .from("dentists")
+                .select("full_name")
+                .eq("id", caseFields.provider_dentist_id)
+                .single();
+              caseFields.provider_name = dentistRow?.full_name || null;
+            }
             orthoCase = caseFields;
             const { data: oeData } = await supabase
               .from("ortho_entries")

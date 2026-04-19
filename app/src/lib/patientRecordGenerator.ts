@@ -163,7 +163,7 @@ function buildDentitionChartHTML(
     </span>`
   ).join("");
 
-  return `<div style="margin-bottom:4px;">
+  return `<div style="margin-bottom:4px;page-break-inside:avoid;">
   ${secDiv("UPPER DENTITION")}
   <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
     ${subLabel("Primary")}
@@ -179,11 +179,6 @@ function buildDentitionChartHTML(
       ${ur.map(n => cell(sm, cm, n)).join("")}
       ${mid}
       ${ul.map(n => cell(sm, cm, n)).join("")}
-    </tr>
-    <tr>
-      <td colspan="8" style="height:9px;padding:0;background:#b8cce8;border:none;"></td>
-      <td style="width:9px;height:9px;padding:0;background:#b8cce8;"></td>
-      <td colspan="8" style="height:9px;padding:0;background:#b8cce8;border:none;"></td>
     </tr>
     <tr>
       ${lr.map(n => cell(sm, cm, n)).join("")}

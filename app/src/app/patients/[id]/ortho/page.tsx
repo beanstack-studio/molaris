@@ -545,10 +545,10 @@ export default function OrthoPage() {
                   </label>
                 </div>
 
-                {/* Row 2: Dentist, Package, Next Appointment */}
+                {/* Row 2: Orthodontist, Package, Next Appointment */}
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                   <label className="field-label">
-                    <span className="field-label-text">Dentist</span>
+                    <span className="field-label-text">Orthodontist</span>
                     <input 
                       className="field-input-readonly" 
                       value={
@@ -816,9 +816,9 @@ export default function OrthoPage() {
               </div>
             </div>
 
-            {/* Row 3: Dentist */}
+            {/* Row 3: Orthodontist */}
             <div className="field-label">
-              <span className="field-label-text">Dentist</span>
+              <span className="field-label-text">Orthodontist</span>
               <select className="field-input" value={editProviderDentistId} onChange={(e) => setEditProviderDentistId(e.target.value)}>
                 <option value="">— None —</option>
                 {dentists.map((d) => (
