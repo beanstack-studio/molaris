@@ -58,15 +58,17 @@ export interface PatientRecordData {
   };
 }
 
-// ── Status colours (FDI chart) ─────────────────────────────────────────────
+// ── Status colours — matches ToothChart.tsx web app colors ────────────────
 const STATUS_COLORS: Record<string, string> = {
-  DECAYED: "#fde68a", CARIES: "#fde68a",
-  FILLED: "#bfdbfe",
-  EXTRACTED: "#fca5a5", MISSING: "#fca5a5",
-  CROWNED: "#ddd6fe", CROWN: "#ddd6fe",
-  IMPLANT: "#a7f3d0",
-  RCT: "#fef08a", "ROOT CANAL": "#fef08a",
-  PRESENT: "#f0fdf4", SOUND: "#f0fdf4",
+  DECAYED: "#fca5a5", CARIES: "#fca5a5",       // rose-300
+  FILLED: "#86efac",                             // emerald-300
+  EXTRACTED: "#fed7aa",                          // orange-300
+  MISSING: "#e2e8f0",                            // slate-200
+  CROWNED: "#fcd34d", CROWN: "#fcd34d",          // amber-300
+  IMPLANT: "#a5f3fc",                            // cyan-300
+  RCT: "#c4b5fd", "ROOT CANAL": "#c4b5fd",      // violet-300
+  DENTURE: "#e2e8f0",                            // slate-200
+  PRESENT: "#f1f5f9", SOUND: "#f1f5f9", HEALTHY: "#f1f5f9",  // slate-100
   RETAINED: "#fed7aa", IMPACTED: "#e9d5ff",
 };
 
@@ -116,7 +118,7 @@ function buildDentitionChartHTML(
   // (permanent row: 8 + 1 mid + 8 = 17 also)
   const totalCols = 17;
 
-  const mid = `<td style="width:2px;padding:0;border-left:1px solid #b8cce8;background:transparent;"></td>`;
+  const mid = `<td style="width:3px;padding:0;background:#b8cce8;"></td>`;
   const sp3 = `<td></td>`;  // spacer cells — takes remaining space in fixed layout
 
   const subLabel = (text: string) =>
@@ -126,8 +128,8 @@ function buildDentitionChartHTML(
     `<tr><td colspan="${totalCols}" style="text-align:center;font-size:9px;font-weight:bold;color:${DOC_ACCENT};letter-spacing:0.06em;text-transform:uppercase;padding:4px 0 2px;">${text}</td></tr>`;
 
   const legend = [
-    ["#fde68a","Decayed/Caries"],["#bfdbfe","Filled"],["#fca5a5","Extracted/Missing"],
-    ["#ddd6fe","Crown"],["#a7f3d0","Implant"],["#fef08a","RCT"],["#fed7aa","Retained"],["#e9d5ff","Impacted"],
+    ["#fca5a5","Caries"],["#86efac","Filled"],["#e2e8f0","Missing"],["#fed7aa","Extracted"],
+    ["#fcd34d","Crown"],["#c4b5fd","RCT"],["#a5f3fc","Implant"],["#e9d5ff","Impacted"],
   ].map(([c, l]) =>
     `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:8px;color:#555;white-space:nowrap;">
       <span style="display:inline-block;width:9px;height:9px;background:${c};border:1px solid #ddd;border-radius:1px;flex-shrink:0;"></span>${l}
@@ -151,7 +153,7 @@ function buildDentitionChartHTML(
       ${mid}
       ${ul.map(n => cell(sm, cm, n)).join("")}
     </tr>
-    <tr><td colspan="${totalCols}" style="height:0;padding:0;border-top:1px solid #b8cce8;"></td></tr>
+    <tr><td colspan="${totalCols}" style="height:3px;padding:0;background:#b8cce8;border:none;"></td></tr>
     <tr>
       ${lr.map(n => cell(sm, cm, n)).join("")}
       ${mid}
@@ -266,7 +268,7 @@ ${notes ? `<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14p
 <div style="border:1px solid #ddd;border-radius:3px;overflow:hidden;margin-bottom:14px;">
 <table style="${TBL}">
   <colgroup>
-    <col style="width:18%"><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:43%">
+    <col style="width:22%"><col style="width:13%"><col style="width:13%"><col style="width:22%"><col style="width:30%">
   </colgroup>
   <thead><tr>
     <th style="${TH}">Date</th>
@@ -304,11 +306,10 @@ ${notes ? `<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14p
       </tr>`).join("");
 
       return `<div style="margin-bottom:10px;border:1px solid #ddd;border-radius:3px;overflow:hidden;">
-        <div style="background:#f0f4fa;padding:5px 8px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd;">
-          <span style="font-size:11px;font-weight:bold;color:${DOC_ACCENT};">${formatDateStandard(date)}</span>
-          ${dentist ? `<span style="font-size:10px;color:#555;">${dentist}</span>` : ""}
+        <div style="padding:5px 9px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd;">
+          <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">${formatDateStandard(date)}</div>
+          ${dentist ? `<div style="font-size:9px;color:#555;">${dentist}</div>` : ""}
         </div>
-        ${concern ? `<div style="background:#ede9fe;padding:4px 8px;font-size:10px;color:#5b21b6;font-style:italic;border-bottom:1px solid #ddd;">Chief concern: ${concern}</div>` : ""}
         <table style="${TBL}">
           <colgroup>
             <col style="width:45%"><col style="width:20%"><col style="width:35%">
@@ -334,9 +335,7 @@ ${visitBlocks}`;
 ${toothChartHTML}
 ${chartFindingsHTML}`;
 
-  const printedLabel = generatedAt
-    ? `<div style="font-size:9px;color:#888;margin-top:2px;">Generated ${generatedAt}</div>`
-    : "";
+  const printedLabel = "";
 
   const generatedAtLabel = generatedAt
     ? `Generated ${generatedAt}`
@@ -357,7 +356,7 @@ ${chartFindingsHTML}`;
 <div class="page">
   ${buildDocHeaderHTML(clinicMeta, docNo)}
   <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};text-decoration:underline;margin-bottom:4px;letter-spacing:0.04em;">PATIENT RECORD</div>
-  ${printedLabel ? `<div style="text-align:center;margin-bottom:16px;">${printedLabel}</div>` : `<div style="margin-bottom:16px;"></div>`}
+  <div style="margin-bottom:16px;"></div>
   ${patientInfoHTML}
   ${medHistHTML}
   ${chartWrap}
