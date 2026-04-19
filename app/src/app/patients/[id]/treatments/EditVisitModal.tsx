@@ -339,7 +339,7 @@ export function EditVisitModal({
           </div>
 
           {/* Delete Entire Visit */}
-          <div className="delete-confirmation">
+          <div className="delete-confirmation delete-confirmation-section">
             <div className="delete-confirmation-title">Delete entire visit?</div>
             <div className="delete-confirmation-hint">
               Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion of all treatments on this date

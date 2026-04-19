@@ -1,11 +1,10 @@
-import { buildDocHeaderHTML, buildPageCSS, DOC_ACCENT } from "./documentUtils";
+import { buildDocHeaderHTML, buildPatientRowHTML, buildPageCSS, DOC_ACCENT } from "./documentUtils";
 import { formatDateStandard } from "./helpers";
 
 export interface PatientRecordSections {
   info?: boolean;
   medicalHistory?: boolean;
   toothChart?: boolean;
-  toothStatus?: boolean;
   chartFindings?: boolean;
   treatments?: boolean;
   selectedVisitDates?: string[] | null; // null = all
@@ -84,7 +83,7 @@ function toothShort(statusMap: Record<number, string>, codeMap: Record<number, s
 function cell(statusMap: Record<number, string>, codeMap: Record<number, string>, n: number, sm = false) {
   const bg = toothBg(statusMap, codeMap, n);
   const lbl = toothShort(statusMap, codeMap, n);
-  const sz = sm ? "14px" : "18px";
+  const sz = sm ? "17px" : "22px";
   return `<td style="padding:1px 2px;border:none;">
     <div style="width:${sz};height:${sz};background:${bg};border:1px solid #d1d5db;border-radius:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto;" title="${n}${lbl ? ": " + lbl : ""}">
       <div style="font-size:${sm ? "6" : "7"}px;font-weight:bold;color:#1e3a5f;line-height:1;">${n}</div>
@@ -111,10 +110,16 @@ function buildDentitionChartHTML(
   const plr = [85,84,83,82,81];
   const pll = [71,72,73,74,75];
 
-  const mid = `<td style="width:3px;background:${DOC_ACCENT};"></td>`;
+  const mid = `<td style="width:4px;background:${DOC_ACCENT};"></td>`;
   const sp3 = `<td style="width:3px;"></td>`;
-  const lbl = (t: string, right = false) =>
-    `<td style="font-size:7px;color:#888;padding:0 3px;vertical-align:middle;text-align:${right ? "right" : "left"};">${t}</td>`;
+
+  const subLabel = (text: string, colSpan: number) =>
+    `<tr><td colspan="${colSpan}" style="text-align:center;font-size:8px;color:#888;padding:2px 0;">${text}</td></tr>`;
+
+  const sectionLabel = (text: string, colSpan: number) =>
+    `<tr><td colspan="${colSpan}" style="text-align:center;font-size:10px;font-weight:bold;color:${DOC_ACCENT};padding:4px 0 2px;">${text}</td></tr>`;
+
+  const totalCols = 22; // approximate column count
 
   const legend = [
     ["#fde68a","Decayed/Caries"],["#bfdbfe","Filled"],["#fca5a5","Extracted/Missing"],
@@ -127,37 +132,37 @@ function buildDentitionChartHTML(
 
   return `<div style="overflow-x:auto;margin-bottom:4px;">
   <table style="border-collapse:collapse;margin:4px auto;">
+    ${sectionLabel("UPPER DENTITION", totalCols)}
+    ${subLabel("Primary", totalCols)}
     <tr>
-      ${lbl("UR", true)}
-      ${ur.map(n => cell(sm, cm, n)).join("")}
-      ${mid}
-      ${ul.map(n => cell(sm, cm, n)).join("")}
-      ${lbl("UL")}
-    </tr>
-    <tr>
-      ${lbl("", true)}
       ${sp3}${sp3}${sp3}
       ${pur.map(n => cell(sm, cm, n, true)).join("")}
       ${mid}
       ${pul.map(n => cell(sm, cm, n, true)).join("")}
       ${sp3}${sp3}${sp3}
     </tr>
-    <tr><td colspan="22" style="height:4px;background:white;border-top:1px dashed #e5e7eb;border-bottom:1px dashed #e5e7eb;"></td></tr>
+    ${subLabel("Permanent", totalCols)}
     <tr>
-      ${lbl("", true)}
+      ${ur.map(n => cell(sm, cm, n)).join("")}
+      ${mid}
+      ${ul.map(n => cell(sm, cm, n)).join("")}
+    </tr>
+    <tr><td colspan="${totalCols}" style="height:5px;background:white;border-top:1px dashed #e5e7eb;border-bottom:1px dashed #e5e7eb;"></td></tr>
+    <tr>
+      ${lr.map(n => cell(sm, cm, n)).join("")}
+      ${mid}
+      ${ll.map(n => cell(sm, cm, n)).join("")}
+    </tr>
+    ${subLabel("Permanent", totalCols)}
+    <tr>
       ${sp3}${sp3}${sp3}
       ${plr.map(n => cell(sm, cm, n, true)).join("")}
       ${mid}
       ${pll.map(n => cell(sm, cm, n, true)).join("")}
       ${sp3}${sp3}${sp3}
     </tr>
-    <tr>
-      ${lbl("LR", true)}
-      ${lr.map(n => cell(sm, cm, n)).join("")}
-      ${mid}
-      ${ll.map(n => cell(sm, cm, n)).join("")}
-      ${lbl("LL")}
-    </tr>
+    ${subLabel("Primary", totalCols)}
+    ${sectionLabel("LOWER DENTITION", totalCols)}
   </table>
 </div>
 <div style="margin-bottom:10px;line-height:2;">${legend}</div>`;
@@ -182,7 +187,6 @@ export function generatePatientRecordHTML(
   const inclInfo      = sections.info          !== false;
   const inclMed       = sections.medicalHistory !== false;
   const inclToothChart= sections.toothChart     !== false;
-  const inclToothStat = sections.toothStatus    !== false;
   const inclChartFind = sections.chartFindings  !== false;
   const inclTreat     = sections.treatments     !== false;
   const selVisits     = sections.selectedVisitDates ?? null;
@@ -192,30 +196,25 @@ export function generatePatientRecordHTML(
     ? `${formatDateStandard(birthDate.split("T")[0])}${age != null ? ` (${age} yrs)` : ""}`
     : "—";
 
-  // ── Patient Information ──────────────────────────────────────────────────
+  // ── Patient Information — matches dental certificate style ───────────────
   const patientInfoHTML = !inclInfo ? "" : `
 <div class="section-title">PATIENT INFORMATION</div>
-<table style="${TBL}border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
-  <colgroup>
-    <col style="width:16%"><col style="width:34%">
-    <col style="width:16%"><col style="width:34%">
-  </colgroup>
-  <tbody>
-    <tr>
-      <th style="${TH}">Full Name</th><td style="${TD}">${patientName}</td>
-      <th style="${TH}">Date of Birth</th><td style="${TD}">${birthLabel}</td>
-    </tr>
-    <tr>
-      <th style="${TH}">Gender</th><td style="${TD}">${genderLabel}</td>
-      <th style="${TH}">Email</th><td style="${TD}">${email || "—"}</td>
-    </tr>
-    <tr>
-      <th style="${TH}">Phone</th><td style="${TD}">${phone || "—"}</td>
-      <th style="${TH}">Address</th><td style="${TD}">${address || "—"}</td>
-    </tr>
-    ${notes ? `<tr><th style="${TH}">Notes</th><td style="${TD}" colspan="3">${notes}</td></tr>` : ""}
-  </tbody>
-</table>`;
+${buildPatientRowHTML(patientName, age ?? undefined, gender ?? undefined, address ?? undefined)}
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
+  <div style="padding:6px 9px;border-right:1px solid #ddd;">
+    <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Date of Birth</div>
+    <div style="font-size:11px;margin-top:2px;">${birthLabel}</div>
+  </div>
+  <div style="padding:6px 9px;border-right:1px solid #ddd;">
+    <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Phone</div>
+    <div style="font-size:11px;margin-top:2px;">${phone || "—"}</div>
+  </div>
+  <div style="padding:6px 9px;">
+    <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Email</div>
+    <div style="font-size:11px;margin-top:2px;">${email || "—"}</div>
+  </div>
+</div>
+${notes ? `<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14px;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Notes</div><div style="font-size:11px;margin-top:2px;">${notes}</div></div>` : ""}`;
 
   // ── Medical History ──────────────────────────────────────────────────────
   let medHistHTML = "";
@@ -247,34 +246,6 @@ export function generatePatientRecordHTML(
 
   // ── Tooth Chart (FDI grid) ───────────────────────────────────────────────
   const toothChartHTML = inclToothChart ? buildDentitionChartHTML(toothStatuses, chartEntries) : "";
-
-  // ── Tooth Status table ───────────────────────────────────────────────────
-  let toothStatusHTML = "";
-  if (inclToothStat && toothStatuses.length > 0) {
-    const rows = [...toothStatuses]
-      .sort((a, b) => a.tooth_number - b.tooth_number)
-      .map(ts => `<tr>
-        <td style="${TD}">${ts.tooth_number}</td>
-        <td style="${TD}font-weight:bold;">${ts.status}</td>
-        <td style="${TD}">${ts.updated_at ? formatDateStandard(ts.updated_at.split("T")[0]) : "—"}</td>
-        <td style="${TDG}">${ts.note || "—"}</td>
-      </tr>`).join("");
-
-    toothStatusHTML = `
-<div style="font-size:9px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:0.04em;margin:10px 0 4px;">Tooth Status</div>
-<table style="${TBL}border:1px solid #ddd;border-radius:3px;margin-bottom:10px;">
-  <colgroup>
-    <col style="width:15%"><col style="width:25%"><col style="width:25%"><col style="width:35%">
-  </colgroup>
-  <thead><tr>
-    <th style="${TH}">Tooth</th>
-    <th style="${TH}">Status</th>
-    <th style="${TH}">Date Added</th>
-    <th style="${TH}">Note</th>
-  </tr></thead>
-  <tbody>${rows}</tbody>
-</table>`;
-  }
 
   // ── Chart Findings table ─────────────────────────────────────────────────
   let chartFindingsHTML = "";
@@ -349,19 +320,16 @@ export function generatePatientRecordHTML(
       </div>`;
     }).join("");
 
-    const visitCount = dates.length;
-    const procCount  = dates.reduce((s, d) => s + byDate[d].length, 0);
-
     treatmentsHTML = `
-<div class="section-title">TREATMENT HISTORY (${visitCount} VISIT${visitCount !== 1 ? "S" : ""}, ${procCount} PROCEDURE${procCount !== 1 ? "S" : ""})</div>
+<div class="section-title">TREATMENT HISTORY</div>
 ${visitBlocks}`;
   }
 
-  const hasChart = inclToothChart || inclToothStat || inclChartFind;
+  const hasChart = inclToothChart || inclChartFind;
   const chartWrap = !hasChart ? "" : `
-<div class="section-title">DENTAL CHART (FDI NOTATION — PH STANDARD)</div>
-${inclToothChart ? `<div style="font-size:9px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:0.04em;margin:6px 0 4px;">Tooth Chart</div>${buildDentitionChartHTML(toothStatuses, chartEntries)}` : ""}
-${toothStatusHTML}${chartFindingsHTML}`;
+<div class="section-title">DENTAL CHART</div>
+${toothChartHTML}
+${chartFindingsHTML}`;
 
   const printedLabel = generatedAt
     ? `<div style="font-size:9px;color:#888;margin-top:2px;">Generated ${generatedAt}</div>`

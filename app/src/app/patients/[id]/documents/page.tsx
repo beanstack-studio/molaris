@@ -88,7 +88,6 @@ export default function DocumentsPage() {
   const [patRecInclInfo, setPatRecInclInfo]       = useState(true);
   const [patRecInclMed, setPatRecInclMed]         = useState(true);
   const [patRecInclToothChart, setPatRecInclToothChart] = useState(true);
-  const [patRecInclToothStatus, setPatRecInclToothStatus] = useState(true);
   const [patRecInclChartFindings, setPatRecInclChartFindings] = useState(true);
   const [patRecInclTreatments, setPatRecInclTreatments] = useState(true);
   const [patRecVisitDates, setPatRecVisitDates]   = useState<string[]>([]);
@@ -251,7 +250,6 @@ export default function DocumentsPage() {
           info: patRecInclInfo,
           medicalHistory: patRecInclMed,
           toothChart: patRecInclToothChart,
-          toothStatus: patRecInclToothStatus,
           chartFindings: patRecInclChartFindings,
           treatments: patRecInclTreatments,
           selectedVisitDates: patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length
@@ -421,7 +419,6 @@ export default function DocumentsPage() {
     setPatRecInclInfo(true);
     setPatRecInclMed(true);
     setPatRecInclToothChart(true);
-    setPatRecInclToothStatus(true);
     setPatRecInclChartFindings(true);
     setPatRecInclTreatments(true);
     setPatRecVisitDates([]);
@@ -471,7 +468,7 @@ export default function DocumentsPage() {
   }
 
   async function handleDeleteDocument() {
-    if (!deleteDocId || deleteConfirmation !== "DELETE") return;
+    if (!deleteDocId || deleteConfirmation.toUpperCase() !== "DELETE") return;
     setError(null);
     setBusy(true);
 
@@ -950,19 +947,17 @@ export default function DocumentsPage() {
                 <div
                   className="section-check-group-header"
                   onClick={() => {
-                    const allChecked = patRecInclToothChart || patRecInclToothStatus || patRecInclChartFindings;
+                    const allChecked = patRecInclToothChart || patRecInclChartFindings;
                     setPatRecInclToothChart(!allChecked);
-                    setPatRecInclToothStatus(!allChecked);
                     setPatRecInclChartFindings(!allChecked);
                     if (allChecked) setPatRecChartExpanded(false);
                   }}
                 >
                   <input
                     type="checkbox"
-                    checked={patRecInclToothChart || patRecInclToothStatus || patRecInclChartFindings}
+                    checked={patRecInclToothChart || patRecInclChartFindings}
                     onChange={e => {
                       setPatRecInclToothChart(e.target.checked);
-                      setPatRecInclToothStatus(e.target.checked);
                       setPatRecInclChartFindings(e.target.checked);
                       if (!e.target.checked) setPatRecChartExpanded(false);
                     }}
@@ -985,10 +980,6 @@ export default function DocumentsPage() {
                     <label className="section-check-sub-row">
                       <input type="checkbox" checked={patRecInclToothChart} onChange={e => setPatRecInclToothChart(e.target.checked)} className="accent-violet-600" />
                       Tooth Chart (FDI grid)
-                    </label>
-                    <label className="section-check-sub-row">
-                      <input type="checkbox" checked={patRecInclToothStatus} onChange={e => setPatRecInclToothStatus(e.target.checked)} className="accent-violet-600" />
-                      Tooth Status
                     </label>
                     <label className="section-check-sub-row">
                       <input type="checkbox" checked={patRecInclChartFindings} onChange={e => setPatRecInclChartFindings(e.target.checked)} className="accent-violet-600" />
@@ -1094,43 +1085,41 @@ export default function DocumentsPage() {
           setDeleteConfirmation("");
         }}
       >
-        <div className="spacing-vertical-lg">
-          <div className="delete-confirmation">
-            <div className="delete-confirmation-title">Delete document?</div>
-            <div className="delete-confirmation-hint">
-              Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion of this document
-            </div>
-            <input
-              type="text"
-              className="delete-confirmation-input"
-              placeholder="DELETE"
-              value={deleteConfirmation}
-              onChange={(e) => setDeleteConfirmation(e.target.value)}
-            />
+        <div className="delete-confirmation">
+          <div className="delete-confirmation-title">Delete document?</div>
+          <div className="delete-confirmation-hint">
+            Type <span className="delete-confirmation-code">DELETE</span> to confirm deletion of this document
           </div>
-          <div className="modal-actions">
-            <div className="modal-actions-left">
-              <button
-                className="delete-btn"
-                disabled={busy || deleteConfirmation !== "DELETE"}
-                onClick={handleDeleteDocument}
-              >
-                {busy ? "Deleting…" : "Delete Document"}
-              </button>
-            </div>
-            <div className="modal-actions-right">
-              <button
-                className="cancel-btn"
-                disabled={busy}
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeleteDocId(null);
-                  setDeleteConfirmation("");
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+          <input
+            type="text"
+            className="delete-confirmation-input"
+            placeholder="DELETE"
+            value={deleteConfirmation}
+            onChange={(e) => setDeleteConfirmation(e.target.value)}
+          />
+        </div>
+        <div className="modal-actions">
+          <div className="modal-actions-left">
+            <button
+              className="delete-btn"
+              disabled={busy || deleteConfirmation.toUpperCase() !== "DELETE"}
+              onClick={handleDeleteDocument}
+            >
+              {busy ? "Deleting…" : "Delete Document"}
+            </button>
+          </div>
+          <div className="modal-actions-right">
+            <button
+              className="cancel-btn"
+              disabled={busy}
+              onClick={() => {
+                setShowDeleteModal(false);
+                setDeleteDocId(null);
+                setDeleteConfirmation("");
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </EditModal>

@@ -433,6 +433,10 @@ tr.data-table-row-compact-odd:hover {
 ========================= */
 
 .delete-confirmation {
+  @apply space-y-2;
+}
+
+.delete-confirmation-section {
   @apply border-t border-slate-100 pt-3 mt-4;
 }
 
