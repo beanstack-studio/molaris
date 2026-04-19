@@ -55,17 +55,25 @@ export default function PatientPrintPage() {
   useEffect(() => {
     if (!patientId) return;
     async function load() {
+      // Must await session first — new tab may not have auth restored yet
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = `/login?redirect=/patients/${patientId}/print`;
+        return;
+      }
+
       const [patRes, medRes, txRes, clinicRes] = await Promise.all([
         supabase.from("patients").select("*").eq("id", patientId).single(),
         supabase.from("patient_medical_histories").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }).limit(1),
         supabase.from("treatments").select("treatment_date, procedure, tooth_number, dentist_name, visit_concern, notes")
           .eq("patient_id", patientId).order("treatment_date", { ascending: false }).limit(50),
-        supabase.from("clinic_profile").select("clinic_name, address, phone").limit(1).single(),
+        supabase.from("clinic_profile").select("clinic_name, address, phone").limit(1),
       ]);
+
       if (patRes.data) setPatient(patRes.data as PatientInfo);
       if (medRes.data?.length) setMedHist(medRes.data[0] as MedHist);
       setTreatments((txRes.data ?? []) as TreatmentRow[]);
-      if (clinicRes.data) setClinic(clinicRes.data as ClinicInfo);
+      if (clinicRes.data?.[0]) setClinic(clinicRes.data[0] as ClinicInfo);
       setLoading(false);
     }
     load();
