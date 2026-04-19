@@ -116,14 +116,14 @@ function buildDentitionChartHTML(
   // (permanent row: 8 + 1 mid + 8 = 17 also)
   const totalCols = 17;
 
-  const mid = `<td style="width:6px;background:${DOC_ACCENT};"></td>`;
+  const mid = `<td style="width:4px;border-left:1px solid ${DOC_ACCENT};border-right:1px solid ${DOC_ACCENT};background:#e8f0fb;"></td>`;
   const sp3 = `<td></td>`;  // spacer cells — takes remaining space in fixed layout
 
   const subLabel = (text: string) =>
     `<tr><td colspan="${totalCols}" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td></tr>`;
 
   const sectionLabel = (text: string) =>
-    `<tr><td colspan="${totalCols}" style="text-align:center;font-size:12px;font-weight:bold;color:${DOC_ACCENT};padding:5px 0 3px;">${text}</td></tr>`;
+    `<tr><td colspan="${totalCols}" style="text-align:center;font-size:9px;font-weight:bold;color:${DOC_ACCENT};letter-spacing:0.06em;text-transform:uppercase;padding:4px 0 2px;">${text}</td></tr>`;
 
   const legend = [
     ["#fde68a","Decayed/Caries"],["#bfdbfe","Filled"],["#fca5a5","Extracted/Missing"],
@@ -264,7 +264,7 @@ ${notes ? `<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14p
       </tr>`).join("");
 
     chartFindingsHTML = `
-<div style="font-size:9px;font-weight:bold;color:#555;text-transform:uppercase;letter-spacing:0.04em;margin:10px 0 4px;">Chart Findings</div>
+<div class="section-title">CHART FINDINGS</div>
 <table style="${TBL}border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
   <colgroup>
     <col style="width:18%"><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:43%">

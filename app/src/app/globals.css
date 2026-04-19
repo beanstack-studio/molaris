@@ -783,7 +783,7 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .section-check-row {
-  @apply flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer py-1 select-none;
+  @apply flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer py-1 px-3 select-none;
 }
 
 .section-check-group {

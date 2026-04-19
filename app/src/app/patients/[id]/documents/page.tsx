@@ -20,7 +20,6 @@ import {
   getGenerableDocTypes,
   createDocument,
   getPatientDocuments,
-  deleteDocument,
   getNextDocNo,
 } from "@/lib/documentHelpers";
 import {
@@ -69,8 +68,6 @@ export default function DocumentsPage() {
     instructions?: string;
   }>>([]);
   const [rxRemarks, setRxRemarks] = useState("");
-  const [rxNextCheckup, setRxNextCheckup] = useState(""); // Next check-up date (optional)
-  const rxNextCheckupRef = useRef<HTMLInputElement>(null);
 
   // Certificate fields
   const [cerPurpose, setCerPurpose] = useState("");
@@ -341,7 +338,6 @@ export default function DocumentsPage() {
         payload.fields = {
           medications: cleanMedications,
           remarks: rxRemarks || null,
-          next_checkup_date: rxNextCheckup || null,
           patient_age: calcAge(),
           patient_address: patient.address || "",
           patient_gender: patient.gender || "",
@@ -373,24 +369,6 @@ export default function DocumentsPage() {
         issuedBy: userEmail,
       });
 
-      // If prescription has a next checkup date, create an appointment
-      if (selectedDocType === DOC_TYPES.PRESCRIPTION && rxNextCheckup) {
-        try {
-          await supabase.from("appointments").insert({
-            patient_id: id,
-            appointment_date: rxNextCheckup,
-            appointment_time: "09:00", // Default morning time
-            appointment_type: "CHECKUP",
-            status: "SCHEDULED",
-            notes: `Follow-up checkup from prescription dated ${formatDateStandard(docVisitDate)}`,
-            created_by: sessionResult.data.session?.user?.id,
-          });
-        } catch (appointmentError) {
-          // Don't fail the entire document generation, just log the appointment error
-          console.warn("Failed to create appointment for next checkup:", appointmentError);
-        }
-      }
-
       setBusy(false);
       setShowGenerateModal(false);
       resetGenerateForm();
@@ -408,7 +386,6 @@ export default function DocumentsPage() {
     setDocDentistId("");
     setRxMedications([]);
     setRxRemarks("");
-    setRxNextCheckup("");
     setCerPurpose("");
     setCerFindings([]);
     setCerTreatmentDone([]);
@@ -474,7 +451,15 @@ export default function DocumentsPage() {
     setBusy(true);
 
     try {
-      await deleteDocument(deleteDocId, deleteDocType);
+      const res = await fetch("/api/delete-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteDocId, docType: deleteDocType }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to delete document");
+      }
       setShowDeleteModal(false);
       setDeleteDocId(null);
       setDeleteDocType("");
@@ -739,27 +724,7 @@ export default function DocumentsPage() {
                     />
                   </div>
 
-                  <div>
-                    {(() => {
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      const minDate = tomorrow.toISOString().split("T")[0];
-                      return (
-                        <DatePickerField
-                          label="Next check-up date (optional)"
-                          value={rxNextCheckup}
-                          onChange={setRxNextCheckup}
-                          inputRef={rxNextCheckupRef}
-                          variant="visit-modal"
-                          min={minDate}
-                        />
-                      );
-                    })()}
-                    <div className="hint-text-below">
-                      If provided, an appointment will be automatically created
-                    </div>
-                  </div>
-                </>
+                </>}
               )}
 
               {/* Dental Certificate */}
