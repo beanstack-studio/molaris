@@ -724,7 +724,7 @@ export default function DocumentsPage() {
                     />
                   </div>
 
-                </>}
+                </>
               )}
 
               {/* Dental Certificate */}
