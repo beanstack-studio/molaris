@@ -93,6 +93,8 @@ export default function DocumentsPage() {
   const [patRecInclTreatments, setPatRecInclTreatments] = useState(true);
   const [patRecVisitDates, setPatRecVisitDates]   = useState<string[]>([]);
   const [patRecSelectedVisits, setPatRecSelectedVisits] = useState<Set<string>>(new Set());
+  const [patRecChartExpanded, setPatRecChartExpanded]     = useState(false);
+  const [patRecTreatExpanded, setPatRecTreatExpanded]     = useState(false);
 
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -280,7 +282,7 @@ export default function DocumentsPage() {
           patient_id: id,
           patient_name: patient.full_name || null,
           doc_type: DOC_TYPES.PATIENT_RECORD,
-          doc_code: "PAT",
+          doc_code: "REC",
           doc_no: docNo,
           payload: { rendered_html: renderedHtml, clinic_meta: clinicMeta, generated_at: new Date().toISOString() },
           clinic_meta: clinicMeta,
@@ -424,6 +426,8 @@ export default function DocumentsPage() {
     setPatRecInclTreatments(true);
     setPatRecVisitDates([]);
     setPatRecSelectedVisits(new Set());
+    setPatRecChartExpanded(false);
+    setPatRecTreatExpanded(false);
     setError(null);
   }
 
@@ -931,57 +935,94 @@ export default function DocumentsPage() {
 
           {/* Patient Record — section checkboxes */}
           {selectedDocType === DOC_TYPES.PATIENT_RECORD && (
-            <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sections to include</p>
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-2.5">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Sections to include</p>
 
+              {/* Patient Info */}
               <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                 <input type="checkbox" checked={patRecInclInfo} onChange={e => setPatRecInclInfo(e.target.checked)} className="accent-violet-600" />
-                (1) Patient Information
+                Patient Information
               </label>
 
+              {/* Medical History */}
               <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                 <input type="checkbox" checked={patRecInclMed} onChange={e => setPatRecInclMed(e.target.checked)} className="accent-violet-600" />
-                (2) Medical History
+                Medical History
               </label>
 
+              {/* Dental Chart — collapsible */}
               <div>
-                <p className="text-sm text-slate-700 font-medium mb-1">(3) Dental Chart</p>
-                <div className="ml-5 space-y-1">
-                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input type="checkbox" checked={patRecInclToothChart} onChange={e => setPatRecInclToothChart(e.target.checked)} className="accent-violet-600" />
-                    (3a) Tooth Chart (FDI grid)
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input type="checkbox" checked={patRecInclToothStatus} onChange={e => setPatRecInclToothStatus(e.target.checked)} className="accent-violet-600" />
-                    (3b) Tooth Status
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input type="checkbox" checked={patRecInclChartFindings} onChange={e => setPatRecInclChartFindings(e.target.checked)} className="accent-violet-600" />
-                    (3c) Chart Findings
-                  </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={patRecInclToothChart || patRecInclToothStatus || patRecInclChartFindings}
+                    onChange={e => {
+                      setPatRecInclToothChart(e.target.checked);
+                      setPatRecInclToothStatus(e.target.checked);
+                      setPatRecInclChartFindings(e.target.checked);
+                      if (!e.target.checked) setPatRecChartExpanded(false);
+                    }}
+                    className="accent-violet-600"
+                  />
+                  <span className="text-sm text-slate-700 flex-1">Dental Chart</span>
+                  <button
+                    type="button"
+                    className="text-slate-400 hover:text-slate-600 text-xs px-1"
+                    onClick={() => setPatRecChartExpanded(v => !v)}
+                  >
+                    {patRecChartExpanded ? "▲ collapse" : "▼ customize"}
+                  </button>
                 </div>
+                {patRecChartExpanded && (
+                  <div className="ml-6 mt-1.5 space-y-1.5 border-l-2 border-slate-200 pl-3">
+                    <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                      <input type="checkbox" checked={patRecInclToothChart} onChange={e => setPatRecInclToothChart(e.target.checked)} className="accent-violet-600" />
+                      Tooth Chart (FDI grid)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                      <input type="checkbox" checked={patRecInclToothStatus} onChange={e => setPatRecInclToothStatus(e.target.checked)} className="accent-violet-600" />
+                      Tooth Status
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                      <input type="checkbox" checked={patRecInclChartFindings} onChange={e => setPatRecInclChartFindings(e.target.checked)} className="accent-violet-600" />
+                      Chart Findings
+                    </label>
+                  </div>
+                )}
               </div>
 
+              {/* Treatment History — collapsible */}
               <div>
-                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer mb-1">
-                  <input type="checkbox" checked={patRecInclTreatments} onChange={e => {
-                    setPatRecInclTreatments(e.target.checked);
-                    if (e.target.checked) setPatRecSelectedVisits(new Set(patRecVisitDates));
-                  }} className="accent-violet-600" />
-                  (4) Treatment History
-                </label>
-                {patRecInclTreatments && patRecVisitDates.length > 0 && (
-                  <div className="ml-5 space-y-1 max-h-40 overflow-y-auto">
-                    <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={patRecSelectedVisits.size === patRecVisitDates.length}
-                        onChange={e => setPatRecSelectedVisits(e.target.checked ? new Set(patRecVisitDates) : new Set())}
-                        className="accent-violet-600"
-                      />
-                      All visits
-                    </label>
-                    {patRecVisitDates.map((d, i) => (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={patRecInclTreatments}
+                    onChange={e => {
+                      setPatRecInclTreatments(e.target.checked);
+                      if (e.target.checked) setPatRecSelectedVisits(new Set(patRecVisitDates));
+                      else { setPatRecSelectedVisits(new Set()); setPatRecTreatExpanded(false); }
+                    }}
+                    className="accent-violet-600"
+                  />
+                  <span className="text-sm text-slate-700 flex-1">
+                    Treatment History
+                    {patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length && (
+                      <span className="ml-1.5 text-xs text-violet-600">({patRecSelectedVisits.size}/{patRecVisitDates.length} visits)</span>
+                    )}
+                  </span>
+                  {patRecInclTreatments && patRecVisitDates.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-slate-400 hover:text-slate-600 text-xs px-1"
+                      onClick={() => setPatRecTreatExpanded(v => !v)}
+                    >
+                      {patRecTreatExpanded ? "▲ collapse" : "▼ customize"}
+                    </button>
+                  )}
+                </div>
+                {patRecInclTreatments && patRecTreatExpanded && patRecVisitDates.length > 0 && (
+                  <div className="ml-6 mt-1.5 space-y-1.5 border-l-2 border-slate-200 pl-3 max-h-40 overflow-y-auto">
+                    {patRecVisitDates.map(d => (
                       <label key={d} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                         <input
                           type="checkbox"
@@ -993,7 +1034,7 @@ export default function DocumentsPage() {
                           }}
                           className="accent-violet-600"
                         />
-                        ({4 + i + 1 - 1}n) {formatDateStandard(d)}
+                        {formatDateStandard(d)}
                       </label>
                     ))}
                   </div>
