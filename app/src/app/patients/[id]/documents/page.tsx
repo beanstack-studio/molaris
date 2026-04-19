@@ -30,7 +30,7 @@ import {
 import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 import { generateCertificateHTML } from "@/lib/certificateGenerator";
 import { generateReferralHTML } from "@/lib/referralGenerator";
-import { generatePatientRecordHTML } from "@/lib/patientRecordGenerator";
+import { generatePatientRecordHTML, type PatientRecordSections } from "@/lib/patientRecordGenerator";
 import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { openDocumentViewer } from "@/components/DocumentViewer";
 import { PageLoader } from "@/components/Spinner";
@@ -83,6 +83,16 @@ export default function DocumentsPage() {
   const [refClinic, setRefClinic] = useState("");
   const [refDoctor, setRefDoctor] = useState("");
   const [refRemarks, setRefRemarks] = useState("");
+
+  // Patient Record section selections
+  const [patRecInclInfo, setPatRecInclInfo]       = useState(true);
+  const [patRecInclMed, setPatRecInclMed]         = useState(true);
+  const [patRecInclToothChart, setPatRecInclToothChart] = useState(true);
+  const [patRecInclToothStatus, setPatRecInclToothStatus] = useState(true);
+  const [patRecInclChartFindings, setPatRecInclChartFindings] = useState(true);
+  const [patRecInclTreatments, setPatRecInclTreatments] = useState(true);
+  const [patRecVisitDates, setPatRecVisitDates]   = useState<string[]>([]);
+  const [patRecSelectedVisits, setPatRecSelectedVisits] = useState<Set<string>>(new Set());
 
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -162,6 +172,21 @@ export default function DocumentsPage() {
     loadData();
   }, [loadData]);
 
+  // Load visit dates when Patient Record type is selected
+  useEffect(() => {
+    if (selectedDocType !== DOC_TYPES.PATIENT_RECORD) return;
+    supabase
+      .from("treatments")
+      .select("treatment_date")
+      .eq("patient_id", id)
+      .order("treatment_date", { ascending: false })
+      .then(({ data }) => {
+        const dates = [...new Set((data ?? []).map((t: any) => t.treatment_date as string))];
+        setPatRecVisitDates(dates);
+        setPatRecSelectedVisits(new Set(dates)); // default: all selected
+      });
+  }, [selectedDocType, id]);
+
   /**
    * Generate document with type-first UX
    */
@@ -199,7 +224,7 @@ export default function DocumentsPage() {
             .order("recorded_at", { ascending: false }),
           supabase
             .from("tooth_statuses")
-            .select("tooth_number, status, note")
+            .select("tooth_number, status, note, updated_at")
             .eq("patient_id", id)
             .order("tooth_number", { ascending: true }),
           supabase
@@ -220,6 +245,18 @@ export default function DocumentsPage() {
         }
 
         const docNo = await getNextDocNo(DOC_TYPES.PATIENT_RECORD);
+        const patRecSections: PatientRecordSections = {
+          info: patRecInclInfo,
+          medicalHistory: patRecInclMed,
+          toothChart: patRecInclToothChart,
+          toothStatus: patRecInclToothStatus,
+          chartFindings: patRecInclChartFindings,
+          treatments: patRecInclTreatments,
+          selectedVisitDates: patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length
+            ? [...patRecSelectedVisits]
+            : null,
+        };
+
         renderedHtml = generatePatientRecordHTML({
           patientName: patient.full_name || "Unknown Patient",
           birthDate: patient.birth_date || null,
@@ -236,7 +273,7 @@ export default function DocumentsPage() {
           docNo,
           generatedAt: new Date().toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }),
           clinicMeta,
-        });
+        }, patRecSections);
 
         // Insert directly so we can use the same docNo that was embedded in the HTML
         await supabase.from("documents").insert({
@@ -379,6 +416,14 @@ export default function DocumentsPage() {
     setRefClinic("");
     setRefDoctor("");
     setRefRemarks("");
+    setPatRecInclInfo(true);
+    setPatRecInclMed(true);
+    setPatRecInclToothChart(true);
+    setPatRecInclToothStatus(true);
+    setPatRecInclChartFindings(true);
+    setPatRecInclTreatments(true);
+    setPatRecVisitDates([]);
+    setPatRecSelectedVisits(new Set());
     setError(null);
   }
 
@@ -884,10 +929,76 @@ export default function DocumentsPage() {
             </>
           )}
 
-          {/* Patient Record — no extra fields needed */}
+          {/* Patient Record — section checkboxes */}
           {selectedDocType === DOC_TYPES.PATIENT_RECORD && (
-            <div className="rounded-xl bg-violet-50 border border-violet-100 p-4 text-sm text-violet-700">
-              Generates a complete patient record including personal information, medical history, dental chart findings, and full treatment history. No additional fields required.
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sections to include</p>
+
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={patRecInclInfo} onChange={e => setPatRecInclInfo(e.target.checked)} className="accent-violet-600" />
+                (1) Patient Information
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={patRecInclMed} onChange={e => setPatRecInclMed(e.target.checked)} className="accent-violet-600" />
+                (2) Medical History
+              </label>
+
+              <div>
+                <p className="text-sm text-slate-700 font-medium mb-1">(3) Dental Chart</p>
+                <div className="ml-5 space-y-1">
+                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={patRecInclToothChart} onChange={e => setPatRecInclToothChart(e.target.checked)} className="accent-violet-600" />
+                    (3a) Tooth Chart (FDI grid)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={patRecInclToothStatus} onChange={e => setPatRecInclToothStatus(e.target.checked)} className="accent-violet-600" />
+                    (3b) Tooth Status
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={patRecInclChartFindings} onChange={e => setPatRecInclChartFindings(e.target.checked)} className="accent-violet-600" />
+                    (3c) Chart Findings
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer mb-1">
+                  <input type="checkbox" checked={patRecInclTreatments} onChange={e => {
+                    setPatRecInclTreatments(e.target.checked);
+                    if (e.target.checked) setPatRecSelectedVisits(new Set(patRecVisitDates));
+                  }} className="accent-violet-600" />
+                  (4) Treatment History
+                </label>
+                {patRecInclTreatments && patRecVisitDates.length > 0 && (
+                  <div className="ml-5 space-y-1 max-h-40 overflow-y-auto">
+                    <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={patRecSelectedVisits.size === patRecVisitDates.length}
+                        onChange={e => setPatRecSelectedVisits(e.target.checked ? new Set(patRecVisitDates) : new Set())}
+                        className="accent-violet-600"
+                      />
+                      All visits
+                    </label>
+                    {patRecVisitDates.map((d, i) => (
+                      <label key={d} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={patRecSelectedVisits.has(d)}
+                          onChange={e => {
+                            const s = new Set(patRecSelectedVisits);
+                            e.target.checked ? s.add(d) : s.delete(d);
+                            setPatRecSelectedVisits(s);
+                          }}
+                          className="accent-violet-600"
+                        />
+                        ({4 + i + 1 - 1}n) {formatDateStandard(d)}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
