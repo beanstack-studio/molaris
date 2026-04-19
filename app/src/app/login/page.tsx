@@ -78,6 +78,9 @@ export default function LoginPage() {
           <p className="text-xs text-slate-400 mt-0.5">Clinic management portal</p>
         </div>
 
+        {/* Divider */}
+        <div className="border-t border-slate-100 -mx-6 mb-6" />
+
         {/* ── Forgot password view ── */}
         {showForgot ? (
           <form onSubmit={sendReset} className="flex flex-col gap-4">
@@ -179,6 +182,14 @@ export default function LoginPage() {
             </button>
           </form>
         )}
+        {/* Molaris branding footer */}
+        <div className="border-t border-slate-100 -mx-6 mt-6 pt-4 px-6 flex flex-col items-center gap-0.5">
+          <p className="text-[11px] text-slate-400">
+            Powered by{" "}
+            <span className="font-semibold text-slate-500 tracking-wide">MOLARIS</span>
+          </p>
+          <p className="text-[10px] text-slate-300">by BeanStack Studio</p>
+        </div>
       </div>
     </main>
   );

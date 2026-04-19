@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MDS Clinic Portal",
-  description: "Manage patient records and appointments",
+  title: "Molaris — Clinic Portal",
+  description: "Clinic management portal by Molaris",
 };
 
 export default function RootLayout({
