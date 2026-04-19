@@ -140,3 +140,5 @@ vite.config.ts.timestamp-*
 
 # ENV file (Supabase project URL, keys)
 .env.local
+.vercel
+.env*.local

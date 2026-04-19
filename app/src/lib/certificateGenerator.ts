@@ -1,4 +1,4 @@
-import { buildDocHeaderHTML, buildPatientRowHTML, buildSignatureHTML, buildPageCSS, DOC_ACCENT } from "./documentUtils";
+import { buildDocHeaderHTML, buildPatientRowHTML, buildSignatureHTML, buildPageCSS, buildMolarisFooterHTML, DOC_ACCENT } from "./documentUtils";
 
 export interface CertificateData {
   patientName: string;
@@ -97,6 +97,7 @@ export function generateCertificateHTML(data: CertificateData): string {
     </div>
   </div>
   <div style="text-align:right;font-size:10px;color:#666;margin-top:12px;">Date: ${formattedDate}</div>
+  ${buildMolarisFooterHTML()}
 </div>
 </body>
 </html>`;

@@ -78,6 +78,7 @@ export default function Page() {
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editGender, setEditGender] = useState<"" | "male" | "female">("");
   const [editAddress, setEditAddress] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editOrtho, setEditOrtho] = useState(false);
   const [deletePatientText, setDeletePatientText] = useState("");
 
@@ -127,6 +128,7 @@ export default function Page() {
     setEditBirthDate(pat.birth_date ?? "");
     setEditGender((pat.gender ?? "") as any);
     setEditAddress(pat.address ?? "");
+    setEditEmail(pat.email ?? "");
     setEditOrtho(Boolean(patRaw.ortho_patient ?? false));
 
     // Load last visit
@@ -166,6 +168,7 @@ export default function Page() {
     const birth = editBirthDate.trim();
     const gender = editGender || null;
     const address = editAddress.trim();
+    const email = editEmail.trim();
 
     if (!first || !last) return setError("First and last name are required.");
 
@@ -179,6 +182,7 @@ export default function Page() {
         birth_date: birth || null,
         gender,
         address: address || null,
+        email: email || null,
         ortho_patient: editOrtho,
       })
       .eq("id", patient.id);
@@ -262,13 +266,17 @@ export default function Page() {
               </label>
             </div>
 
-            {/* Row 3: Phone 25%, Address 75% */}
+            {/* Row 3: Email 25%, Phone 25%, Address 50% */}
             <div className="grid-gap-4-cols-4">
+              <label className="field-label">
+                <span className="field-label-text">Email</span>
+                <input className="field-input-readonly" value={patient.email ?? ""} readOnly />
+              </label>
               <label className="field-label">
                 <span className="field-label-text">Phone number</span>
                 <input className="field-input-readonly" value={formatPhoneLocal(patient.phone ?? "")} readOnly />
               </label>
-              <label className="field-label col-span-3">
+              <label className="field-label col-span-2">
                 <span className="field-label-text">Address</span>
                 <input className="field-input-readonly" value={patient.address ?? ""} readOnly />
               </label>
@@ -344,8 +352,11 @@ export default function Page() {
             </div>
           </div>
 
-          {/* R3: Phone number full width */}
-          <Field label="Phone number" value={editPhone} onChange={(v) => setEditPhone(formatPhoneLocal(v))} placeholder="09XX XXX XXXX" />
+          {/* R3: Email + Phone */}
+          <div className="two-col-grid">
+            <Field label="Email" value={editEmail} onChange={setEditEmail} placeholder="email@example.com" />
+            <Field label="Phone number" value={editPhone} onChange={(v) => setEditPhone(formatPhoneLocal(v))} placeholder="09XX XXX XXXX" />
+          </div>
 
           {/* R4: Address full width */}
           <div className="field-label">

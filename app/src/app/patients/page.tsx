@@ -75,6 +75,7 @@ export default function PatientsPage() {
   const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState<"" | "male" | "female">("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [busy, setBusy] = useState(false);
@@ -298,6 +299,7 @@ export default function PatientsPage() {
       phone: formatPhoneLocal(phone) || null,
       birth_date: birthDate || null,
       address: safeText(address) || null,
+      email: safeText(email) || null,
       created_by: userId,
       first_seen_on: new Date().toISOString().slice(0, 10),
     });
@@ -314,6 +316,7 @@ export default function PatientsPage() {
     setLastName("");
     setGender("");
     setPhone("");
+    setEmail("");
     setAddress("");
     setBirthDate("");
     await loadPatients();
@@ -582,6 +585,17 @@ export default function PatientsPage() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input
+                    className="form-input"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                  />
+                </div>
+
+                <div className="form-group">
                   <label className="form-label">Phone</label>
                   <input
                     className="form-input"
@@ -591,11 +605,11 @@ export default function PatientsPage() {
                     inputMode="numeric"
                   />
                 </div>
+              </div>
 
-                <div className="form-group">
-                  <label className="form-label">Address</label>
-                  <input className="form-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Barangay / City" />
-                </div>
+              <div className="form-group">
+                <label className="form-label">Address</label>
+                <input className="form-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Barangay / City" />
               </div>
 
               {error ? <p className="form-error">{error}</p> : null}

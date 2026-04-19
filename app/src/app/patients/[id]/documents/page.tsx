@@ -228,7 +228,6 @@ export default function DocumentsPage() {
           phone: patient.phone || null,
           email: patient.email || null,
           address: patient.address || null,
-          occupation: patient.occupation || null,
           notes: patient.notes || null,
           medHistory: medRes.data?.[0] ?? null,
           chartEntries: (chartRes.data ?? []) as any[],

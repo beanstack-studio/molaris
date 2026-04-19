@@ -20,12 +20,13 @@ export default function LoginPage() {
   useEffect(() => {
     const cached = localStorage.getItem("clinic-logo-url");
     if (cached) setLogoSrc(cached);
-    supabase.from("clinic_profile").select("logo_url, clinic_name").limit(1).then(({ data }) => {
-      if (data?.[0]) {
-        if (data[0].logo_url) setLogoSrc(data[0].logo_url);
-        if (data[0].clinic_name) setClinicName(data[0].clinic_name);
-      }
-    });
+    fetch("/api/clinic-info")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.logo_url) setLogoSrc(data.logo_url);
+        if (data.clinic_name) setClinicName(data.clinic_name);
+      })
+      .catch(() => {});
   }, []);
 
   async function onSubmit(e: React.FormEvent) {

@@ -1,4 +1,4 @@
-import { buildDocHeaderHTML, buildPatientRowHTML, buildSignatureHTML, buildPageCSS, DOC_ACCENT } from "./documentUtils";
+import { buildDocHeaderHTML, buildPatientRowHTML, buildSignatureHTML, buildPageCSS, buildMolarisFooterHTML, DOC_ACCENT } from "./documentUtils";
 
 export interface ReferralData {
   patientName: string;
@@ -82,6 +82,7 @@ export function generateReferralHTML(data: ReferralData): string {
   <div style="margin-top:20px;">
     ${buildSignatureHTML(dentistName, clinicMeta.licenseNo, clinicMeta.ptrNo)}
   </div>
+  ${buildMolarisFooterHTML()}
 </div>
 </body>
 </html>`;

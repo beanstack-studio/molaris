@@ -1,4 +1,4 @@
-import { buildDocHeaderHTML, buildPatientRowHTML, buildSignatureHTML, buildPageCSS, DOC_ACCENT } from "./documentUtils";
+import { buildDocHeaderHTML, buildPatientRowHTML, buildSignatureHTML, buildPageCSS, buildMolarisFooterHTML, DOC_ACCENT } from "./documentUtils";
 
 export interface PrescriptionData {
   patientName: string;
@@ -82,6 +82,7 @@ export function generatePrescriptionHTML(data: PrescriptionData): string {
       <div>Date: ${formattedDate}</div>
     </div>
   </div>
+  ${buildMolarisFooterHTML()}
 </div>
 </body>
 </html>`;
