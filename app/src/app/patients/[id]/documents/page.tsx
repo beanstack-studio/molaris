@@ -98,6 +98,7 @@ export default function DocumentsPage() {
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
+  const [deleteDocType, setDeleteDocType] = useState<string>("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const dentistNameById = useMemo(() => {
@@ -473,9 +474,10 @@ export default function DocumentsPage() {
     setBusy(true);
 
     try {
-      await deleteDocument(deleteDocId);
+      await deleteDocument(deleteDocId, deleteDocType);
       setShowDeleteModal(false);
       setDeleteDocId(null);
+      setDeleteDocType("");
       setDeleteConfirmation("");
       await loadData();
     } catch (error) {
@@ -541,9 +543,9 @@ export default function DocumentsPage() {
                     <td className="data-table-cell">{getDocTypeLabel(d.doc_type)}</td>
                     <td className="data-table-cell">{d.doc_no || (d as any).doc_number || "—"}</td>
                     <td className="data-table-cell-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="table-btn-group">
                         <button className="data-table-btn" onClick={() => handleOpenDocument(d)} disabled={busy}>Open</button>
-                        <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setDeleteConfirmation(""); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
+                        <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setDeleteDocType(d.doc_type || ""); setDeleteConfirmation(""); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -556,21 +558,21 @@ export default function DocumentsPage() {
           </div>
 
           {/* Mobile cards */}
-          <div className="mt-3 grid gap-2 md:hidden">
+          <div className="mobile-doc-list">
             {displayedDocuments.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-sm">No documents yet.</div>
+              <div className="hint-text text-center py-8">No documents yet.</div>
             ) : (
               displayedDocuments.map((d) => (
-                <div key={d.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                  <div className="flex items-start justify-between gap-2">
+                <div key={d.id} className="mobile-doc-card">
+                  <div className="mobile-doc-card-inner">
                     <div>
-                      <div className="font-semibold text-slate-800 text-sm">{getDocTypeLabel(d.doc_type)}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{formatDateStandard(d.created_at?.split("T")[0] || "")}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{d.doc_no || (d as any).doc_number || "—"}</div>
+                      <div className="mobile-doc-card-title">{getDocTypeLabel(d.doc_type)}</div>
+                      <div className="mobile-doc-card-subtitle">{formatDateStandard(d.created_at?.split("T")[0] || "")}</div>
+                      <div className="mobile-doc-card-meta">{d.doc_no || (d as any).doc_number || "—"}</div>
                     </div>
-                    <div className="flex gap-1.5 flex-shrink-0">
+                    <div className="mobile-doc-card-actions">
                       <button className="data-table-btn" onClick={() => handleOpenDocument(d)} disabled={busy}>Open</button>
-                      <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setDeleteConfirmation(""); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
+                      <button className="data-table-btn data-table-btn-danger" onClick={() => { setDeleteDocId(d.id); setDeleteDocType(d.doc_type || ""); setDeleteConfirmation(""); setShowDeleteModal(true); }} disabled={busy}>Delete</button>
                     </div>
                   </div>
                 </div>
@@ -614,7 +616,7 @@ export default function DocumentsPage() {
           {selectedDocType && selectedDocType !== DOC_TYPES.PATIENT_RECORD && (
             <>
               <div className="section-columns">
-                <div className="w-1/2">
+                <div className="section-col-half">
                   <DatePickerField
                     label="Visit date"
                     value={docVisitDate}
@@ -625,7 +627,7 @@ export default function DocumentsPage() {
                   />
                 </div>
 
-                <div className="grid-gap-1 w-1/2">
+                <div className="grid-gap-1 section-col-half">
                   <label className="text-field-label">Dentist</label>
                   <select
                     className="input-full"
@@ -648,85 +650,57 @@ export default function DocumentsPage() {
               {selectedDocType === DOC_TYPES.PRESCRIPTION && (
                 <>
                   {/* Medications List */}
-                  <div className="space-y-2">
+                  <div className="spacing-vertical-sm">
                     <div className="text-field-label">Medications ({rxMedications.length})</div>
-                    {rxMedications.map((med, index) => (
+                    {rxMedications.map((med) => (
                       <div key={med.id} className="form-section">
-                        {/* Row 1: Medication Name (75%) | Dosage (12.5%) | Duration (12.5%) - Grid with equal distribution */}
-                        <div className="grid grid-cols-[3fr_1fr_1fr] gap-2 overflow-hidden">
-                          <div className="grid gap-1 min-w-0 overflow-hidden">
+                        <div className="med-form-grid">
+                          <div className="med-form-field">
                             <label className="field-sublabel">Medication name</label>
                             <input
                               type="text"
-                              className="input-standard min-w-0 w-full"
+                              className="input-standard"
                               value={med.medication}
-                              onChange={(e) => {
-                                const updated = rxMedications.map(m =>
-                                  m.id === med.id ? { ...m, medication: e.target.value } : m
-                                );
-                                setRxMedications(updated);
-                              }}
+                              onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, medication: e.target.value } : m))}
                               placeholder="Medication name"
                             />
                           </div>
-
-                          <div className="grid gap-1 min-w-0 overflow-hidden">
+                          <div className="med-form-field">
                             <label className="field-sublabel">Dosage</label>
                             <input
                               type="text"
-                              className="input-standard min-w-0 w-full"
+                              className="input-standard"
                               value={med.dosage}
-                              onChange={(e) => {
-                                const updated = rxMedications.map(m =>
-                                  m.id === med.id ? { ...m, dosage: e.target.value } : m
-                                );
-                                setRxMedications(updated);
-                              }}
+                              onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, dosage: e.target.value } : m))}
                               placeholder="500mg"
                             />
                           </div>
-
-                          <div className="grid gap-1 min-w-0 overflow-hidden">
+                          <div className="med-form-field">
                             <label className="field-sublabel">Duration</label>
                             <input
                               type="text"
-                              className="input-standard min-w-0 w-full"
+                              className="input-standard"
                               value={med.duration}
-                              onChange={(e) => {
-                                const updated = rxMedications.map(m =>
-                                  m.id === med.id ? { ...m, duration: e.target.value } : m
-                                );
-                                setRxMedications(updated);
-                              }}
+                              onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, duration: e.target.value } : m))}
                               placeholder="7 days"
                             />
                           </div>
                         </div>
-
-                        {/* Row 2: Instructions Input + Delete Button */}
-                        <div className="flex gap-2 items-end">
-                          <div className="flex-1 grid gap-1 min-w-0">
+                        <div className="med-form-row-actions">
+                          <div className="med-form-instructions">
                             <label className="field-sublabel">Instructions</label>
                             <input
                               type="text"
                               className="input-standard"
                               value={med.instructions || ""}
-                              onChange={(e) => {
-                                const updated = rxMedications.map(m =>
-                                  m.id === med.id ? { ...m, instructions: e.target.value } : m
-                                );
-                                setRxMedications(updated);
-                              }}
+                              onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, instructions: e.target.value } : m))}
                               placeholder="e.g., Take with food, Before sleep"
                             />
                           </div>
-
                           <button
                             type="button"
-                            className="item-delete-btn h-10 flex-shrink-0"
-                            onClick={() => {
-                              setRxMedications(rxMedications.filter(m => m.id !== med.id));
-                            }}
+                            className="item-delete-btn"
+                            onClick={() => setRxMedications(rxMedications.filter(m => m.id !== med.id))}
                             title="Remove medication"
                           >
                             Delete
@@ -758,7 +732,7 @@ export default function DocumentsPage() {
                   <div className="grid-gap-1">
                     <label className="text-field-label">Patient Instructions</label>
                     <textarea
-                      className="textarea-input min-h-[60px]"
+                      className="textarea-input textarea-sm"
                       value={rxRemarks}
                       onChange={(e) => setRxRemarks(e.target.value)}
                       placeholder="Optional notes or warnings"
@@ -781,7 +755,7 @@ export default function DocumentsPage() {
                         />
                       );
                     })()}
-                    <div className="text-xs-medium-slate-500 mt-1">
+                    <div className="hint-text-below">
                       If provided, an appointment will be automatically created
                     </div>
                   </div>
@@ -865,7 +839,7 @@ export default function DocumentsPage() {
                   <div className="grid-gap-1">
                     <label className="text-field-label">Remarks</label>
                     <textarea
-                      className="textarea-input min-h-[60px]"
+                      className="textarea-input textarea-sm"
                       value={cerRemarks}
                       onChange={(e) => setCerRemarks(e.target.value)}
                       placeholder="Optional remarks"
@@ -878,7 +852,7 @@ export default function DocumentsPage() {
               {selectedDocType === DOC_TYPES.REFERRAL_LETTER && (
                 <>
                   <div className="section-columns">
-                    <div className="grid-gap-1 w-1/2">
+                    <div className="grid-gap-1 section-col-half">
                       <label className="text-field-label">Clinic/Specialist</label>
                       <input
                         type="text"
@@ -889,7 +863,7 @@ export default function DocumentsPage() {
                       />
                     </div>
 
-                    <div className="grid-gap-1 w-1/2">
+                    <div className="grid-gap-1 section-col-half">
                       <label className="text-field-label">Doctor/Specialist</label>
                       <input
                         type="text"
@@ -904,7 +878,7 @@ export default function DocumentsPage() {
                   <div className="grid-gap-1">
                     <label className="text-field-label">Reason for referral</label>
                     <textarea
-                      className="textarea-input min-h-[80px]"
+                      className="textarea-input textarea-md"
                       value={refReason}
                       onChange={(e) => setRefReason(e.target.value)}
                       placeholder="Clinical reason for referral"
@@ -914,7 +888,7 @@ export default function DocumentsPage() {
                   <div className="grid-gap-1">
                     <label className="text-field-label">Remarks</label>
                     <textarea
-                      className="textarea-input min-h-[60px]"
+                      className="textarea-input textarea-sm"
                       value={refRemarks}
                       onChange={(e) => setRefRemarks(e.target.value)}
                       placeholder="Optional additional notes"
@@ -928,7 +902,7 @@ export default function DocumentsPage() {
           {/* Patient Record — section checkboxes */}
           {selectedDocType === DOC_TYPES.PATIENT_RECORD && (
             <div className="section-check-container">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Sections to include</p>
+              <p className="section-check-label">Sections to include</p>
 
               {/* Patient Info */}
               <label className="section-check-row">
@@ -946,12 +920,7 @@ export default function DocumentsPage() {
               <div className="section-check-group">
                 <div
                   className="section-check-group-header"
-                  onClick={() => {
-                    const allChecked = patRecInclToothChart || patRecInclChartFindings;
-                    setPatRecInclToothChart(!allChecked);
-                    setPatRecInclChartFindings(!allChecked);
-                    if (allChecked) setPatRecChartExpanded(false);
-                  }}
+                  onClick={() => setPatRecChartExpanded(v => !v)}
                 >
                   <input
                     type="checkbox"
@@ -966,13 +935,7 @@ export default function DocumentsPage() {
                   />
                   <span className="section-check-group-label">
                     Dental Chart
-                    <button
-                      type="button"
-                      className="section-check-expand-arrow"
-                      onClick={e => { e.stopPropagation(); setPatRecChartExpanded(v => !v); }}
-                    >
-                      {patRecChartExpanded ? "▲" : "▼"}
-                    </button>
+                    <span className="section-check-expand-arrow">{patRecChartExpanded ? "▲" : "▼"}</span>
                   </span>
                 </div>
                 {patRecChartExpanded && (
@@ -993,12 +956,7 @@ export default function DocumentsPage() {
               <div className="section-check-group">
                 <div
                   className="section-check-group-header"
-                  onClick={() => {
-                    const newVal = !patRecInclTreatments;
-                    setPatRecInclTreatments(newVal);
-                    if (newVal) setPatRecSelectedVisits(new Set(patRecVisitDates));
-                    else { setPatRecSelectedVisits(new Set()); setPatRecTreatExpanded(false); }
-                  }}
+                  onClick={() => { if (patRecInclTreatments && patRecVisitDates.length > 0) setPatRecTreatExpanded(v => !v); }}
                 >
                   <input
                     type="checkbox"
@@ -1014,16 +972,10 @@ export default function DocumentsPage() {
                   <span className="section-check-group-label">
                     Treatment History
                     {patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length && (
-                      <span className="text-xs text-violet-600">({patRecSelectedVisits.size}/{patRecVisitDates.length} visits)</span>
+                      <span className="section-check-visit-count">({patRecSelectedVisits.size}/{patRecVisitDates.length} visits)</span>
                     )}
                     {patRecInclTreatments && patRecVisitDates.length > 0 && (
-                      <button
-                        type="button"
-                        className="section-check-expand-arrow"
-                        onClick={e => { e.stopPropagation(); setPatRecTreatExpanded(v => !v); }}
-                      >
-                        {patRecTreatExpanded ? "▲" : "▼"}
-                      </button>
+                      <span className="section-check-expand-arrow">{patRecTreatExpanded ? "▲" : "▼"}</span>
                     )}
                   </span>
                 </div>
@@ -1082,6 +1034,7 @@ export default function DocumentsPage() {
         onClose={() => {
           setShowDeleteModal(false);
           setDeleteDocId(null);
+          setDeleteDocType("");
           setDeleteConfirmation("");
         }}
       >

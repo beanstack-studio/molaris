@@ -306,14 +306,18 @@ export async function getPatientDocuments(patientId: string) {
 /**
  * Delete a document (soft or hard; currently hard delete)
  */
-export async function deleteDocument(documentId: string) {
-  try {
-    const { error } = await supabase.from("documents").delete().eq("id", documentId);
+export async function deleteDocument(documentId: string, docType?: string) {
+  let table = "documents";
+  if (docType === DOC_TYPES.INVOICE) table = "invoices";
+  else if (docType === DOC_TYPES.PAYMENT_RECEIPT) table = "receipts";
 
-    if (error) throw error;
-  } catch (error) {
-    throw error;
-  }
+  const { error, count } = await supabase
+    .from(table)
+    .delete({ count: "exact" })
+    .eq("id", documentId);
+
+  if (error) throw error;
+  if ((count ?? 0) === 0) throw new Error("Document not found or already deleted.");
 }
 
 /**

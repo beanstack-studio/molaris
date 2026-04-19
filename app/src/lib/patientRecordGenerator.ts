@@ -83,11 +83,13 @@ function toothShort(statusMap: Record<number, string>, codeMap: Record<number, s
 function cell(statusMap: Record<number, string>, codeMap: Record<number, string>, n: number, sm = false) {
   const bg = toothBg(statusMap, codeMap, n);
   const lbl = toothShort(statusMap, codeMap, n);
-  const sz = sm ? "17px" : "22px";
-  return `<td style="padding:1px 2px;border:none;">
-    <div style="width:${sz};height:${sz};background:${bg};border:1px solid #d1d5db;border-radius:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto;" title="${n}${lbl ? ": " + lbl : ""}">
-      <div style="font-size:${sm ? "6" : "7"}px;font-weight:bold;color:#1e3a5f;line-height:1;">${n}</div>
-      ${lbl ? `<div style="font-size:5px;color:#555;line-height:1;">${lbl}</div>` : ""}
+  const sz = sm ? "26px" : "36px";
+  const fsNum = sm ? "7" : "9";
+  const fsLbl = sm ? "6" : "7";
+  return `<td style="padding:2px;border:none;">
+    <div style="width:${sz};height:${sz};background:${bg};border:1px solid #d1d5db;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto;" title="${n}${lbl ? ": " + lbl : ""}">
+      <div style="font-size:${fsNum}px;font-weight:bold;color:#1e3a5f;line-height:1;">${n}</div>
+      ${lbl ? `<div style="font-size:${fsLbl}px;color:#555;line-height:1;">${lbl}</div>` : ""}
     </div>
   </td>`;
 }
@@ -110,16 +112,18 @@ function buildDentitionChartHTML(
   const plr = [85,84,83,82,81];
   const pll = [71,72,73,74,75];
 
-  const mid = `<td style="width:4px;background:${DOC_ACCENT};"></td>`;
-  const sp3 = `<td style="width:3px;"></td>`;
+  // totalCols = 3 spacers + 5 primary + 1 mid + 5 primary + 3 spacers = 17
+  // (permanent row: 8 + 1 mid + 8 = 17 also)
+  const totalCols = 17;
 
-  const subLabel = (text: string, colSpan: number) =>
-    `<tr><td colspan="${colSpan}" style="text-align:center;font-size:8px;color:#888;padding:2px 0;">${text}</td></tr>`;
+  const mid = `<td style="width:6px;background:${DOC_ACCENT};"></td>`;
+  const sp3 = `<td></td>`;  // spacer cells — takes remaining space in fixed layout
 
-  const sectionLabel = (text: string, colSpan: number) =>
-    `<tr><td colspan="${colSpan}" style="text-align:center;font-size:10px;font-weight:bold;color:${DOC_ACCENT};padding:4px 0 2px;">${text}</td></tr>`;
+  const subLabel = (text: string) =>
+    `<tr><td colspan="${totalCols}" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td></tr>`;
 
-  const totalCols = 22; // approximate column count
+  const sectionLabel = (text: string) =>
+    `<tr><td colspan="${totalCols}" style="text-align:center;font-size:12px;font-weight:bold;color:${DOC_ACCENT};padding:5px 0 3px;">${text}</td></tr>`;
 
   const legend = [
     ["#fde68a","Decayed/Caries"],["#bfdbfe","Filled"],["#fca5a5","Extracted/Missing"],
@@ -130,10 +134,10 @@ function buildDentitionChartHTML(
     </span>`
   ).join("");
 
-  return `<div style="overflow-x:auto;margin-bottom:4px;">
-  <table style="border-collapse:collapse;margin:4px auto;">
-    ${sectionLabel("UPPER DENTITION", totalCols)}
-    ${subLabel("Primary", totalCols)}
+  return `<div style="margin-bottom:4px;">
+  <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
+    ${sectionLabel("UPPER DENTITION")}
+    ${subLabel("Primary")}
     <tr>
       ${sp3}${sp3}${sp3}
       ${pur.map(n => cell(sm, cm, n, true)).join("")}
@@ -141,19 +145,19 @@ function buildDentitionChartHTML(
       ${pul.map(n => cell(sm, cm, n, true)).join("")}
       ${sp3}${sp3}${sp3}
     </tr>
-    ${subLabel("Permanent", totalCols)}
+    ${subLabel("Permanent")}
     <tr>
       ${ur.map(n => cell(sm, cm, n)).join("")}
       ${mid}
       ${ul.map(n => cell(sm, cm, n)).join("")}
     </tr>
-    <tr><td colspan="${totalCols}" style="height:5px;background:white;border-top:1px dashed #e5e7eb;border-bottom:1px dashed #e5e7eb;"></td></tr>
+    <tr><td colspan="${totalCols}" style="height:6px;background:white;border-top:1px dashed #e5e7eb;border-bottom:1px dashed #e5e7eb;"></td></tr>
     <tr>
       ${lr.map(n => cell(sm, cm, n)).join("")}
       ${mid}
       ${ll.map(n => cell(sm, cm, n)).join("")}
     </tr>
-    ${subLabel("Permanent", totalCols)}
+    ${subLabel("Permanent")}
     <tr>
       ${sp3}${sp3}${sp3}
       ${plr.map(n => cell(sm, cm, n, true)).join("")}
@@ -161,8 +165,8 @@ function buildDentitionChartHTML(
       ${pll.map(n => cell(sm, cm, n, true)).join("")}
       ${sp3}${sp3}${sp3}
     </tr>
-    ${subLabel("Primary", totalCols)}
-    ${sectionLabel("LOWER DENTITION", totalCols)}
+    ${subLabel("Primary")}
+    ${sectionLabel("LOWER DENTITION")}
   </table>
 </div>
 <div style="margin-bottom:10px;line-height:2;">${legend}</div>`;
@@ -225,23 +229,22 @@ ${notes ? `<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14p
           .map(([k]) => k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()))
       : [];
 
+    const CELL = `padding:6px 9px;border-right:1px solid #ddd;`;
+    const CELL_LAST = `padding:6px 9px;`;
+    const LABEL = `font-size:9px;font-weight:bold;color:${DOC_ACCENT};`;
+    const VALUE = `font-size:11px;margin-top:2px;`;
+
     medHistHTML = `
 <div class="section-title">MEDICAL HISTORY</div>
-<table style="${TBL}border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
-  <colgroup>
-    <col style="width:16%"><col style="width:34%">
-    <col style="width:16%"><col style="width:34%">
-  </colgroup>
-  <tbody>
-    <tr>
-      <th style="${TH}">Allergies</th><td style="${TD}">${medHistory.allergies || "None reported"}</td>
-      <th style="${TH}">Blood Pressure</th><td style="${TD}">${medHistory.blood_pressure || "—"}</td>
-    </tr>
-    ${medHistory.medications ? `<tr><th style="${TH}">Medications</th><td style="${TD}" colspan="3">${medHistory.medications}</td></tr>` : ""}
-    ${conditions.length > 0 ? `<tr><th style="${TH}">Conditions</th><td style="${TD}" colspan="3">${conditions.join(", ")}</td></tr>` : ""}
-    ${medHistory.notes ? `<tr><th style="${TH}">Med. Notes</th><td style="${TD}" colspan="3">${medHistory.notes}</td></tr>` : ""}
-  </tbody>
-</table>`;
+<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;">
+    <div style="${CELL}"><div style="${LABEL}">Allergies</div><div style="${VALUE}">${medHistory.allergies || "None reported"}</div></div>
+    <div style="${CELL_LAST}"><div style="${LABEL}">Blood Pressure</div><div style="${VALUE}">${medHistory.blood_pressure || "—"}</div></div>
+  </div>
+  ${medHistory.medications ? `<div style="border-top:1px solid #ddd;${CELL}"><div style="${LABEL}">Medications</div><div style="${VALUE}">${medHistory.medications}</div></div>` : ""}
+  ${conditions.length > 0 ? `<div style="border-top:1px solid #ddd;${CELL}"><div style="${LABEL}">Conditions</div><div style="${VALUE}">${conditions.join(", ")}</div></div>` : ""}
+  ${medHistory.notes ? `<div style="border-top:1px solid #ddd;${CELL}"><div style="${LABEL}">Notes</div><div style="${VALUE}">${medHistory.notes}</div></div>` : ""}
+</div>`;
   }
 
   // ── Tooth Chart (FDI grid) ───────────────────────────────────────────────
