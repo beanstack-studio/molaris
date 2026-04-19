@@ -132,16 +132,25 @@ function buildDentitionChartHTML(
   const plr = [85,84,83,82,81];
   const pll = [71,72,73,74,75];
 
-  // 16 cols (8 per side, no mid column — vertical line is an absolute-positioned div overlay)
-  const sp3 = `<td></td>`;
+  // 17 cols: 8 + 1 mid (9px blue) + 8 — mid is ALWAYS present so separator never breaks
+  const mid = `<td style="width:9px;padding:0;background:#b8cce8;"></td>`;
+  const sp3 = `<td style="padding:0;"></td>`;
 
-  // Full-width centered label row — white badge sits ON TOP of the vertical line
+  // Label rows: mid cell stays blue; a centered badge overflows it visually
   const subLabel = (text: string) =>
-    `<tr><td colspan="16" style="text-align:center;padding:3px 0;position:relative;z-index:2;">
-      <span style="display:inline-block;background:white;padding:1px 10px;border-radius:2px;font-size:9px;color:#555;font-style:italic;">${text}</span>
-    </td></tr>`;
+    `<tr>
+      <td colspan="8" style="padding:5px 0;"></td>
+      <td style="width:9px;padding:0;background:#b8cce8;position:relative;overflow:visible;">
+        <span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+          white-space:nowrap;background:white;border:1px solid #ddd;border-radius:3px;
+          padding:2px 10px;font-size:9px;color:#555;font-style:italic;display:inline-block;">
+          ${text}
+        </span>
+      </td>
+      <td colspan="8" style="padding:5px 0;"></td>
+    </tr>`;
 
-  // Section labels are divs OUTSIDE the table
+  // Section labels outside the table
   const secDiv = (text: string) =>
     `<div style="text-align:center;font-size:9px;font-weight:bold;color:${DOC_ACCENT};letter-spacing:0.06em;text-transform:uppercase;padding:4px 0 2px;">${text}</div>`;
 
@@ -156,39 +165,44 @@ function buildDentitionChartHTML(
 
   return `<div style="margin-bottom:4px;">
   ${secDiv("UPPER DENTITION")}
-  <div style="position:relative;">
-    <div style="position:absolute;top:0;bottom:0;left:50%;width:9px;background:#b8cce8;transform:translateX(-50%);z-index:1;pointer-events:none;border-radius:1px;"></div>
-    <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
-      ${subLabel("Primary")}
-      <tr>
-        ${sp3}${sp3}${sp3}
-        ${pur.map(n => cell(sm, cm, n)).join("")}
-        ${pul.map(n => cell(sm, cm, n)).join("")}
-        ${sp3}${sp3}${sp3}
-      </tr>
-      ${subLabel("Permanent")}
-      <tr>
-        ${ur.map(n => cell(sm, cm, n)).join("")}
-        ${ul.map(n => cell(sm, cm, n)).join("")}
-      </tr>
-      <tr><td colspan="16" style="height:9px;padding:0;background:#b8cce8;border:none;"></td></tr>
-      <tr>
-        ${lr.map(n => cell(sm, cm, n)).join("")}
-        ${ll.map(n => cell(sm, cm, n)).join("")}
-      </tr>
-      ${subLabel("Permanent")}
-      <tr>
-        ${sp3}${sp3}${sp3}
-        ${plr.map(n => cell(sm, cm, n)).join("")}
-        ${pll.map(n => cell(sm, cm, n)).join("")}
-        ${sp3}${sp3}${sp3}
-      </tr>
-      ${subLabel("Primary")}
-    </table>
-  </div>
+  <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
+    ${subLabel("Primary")}
+    <tr>
+      ${sp3}${sp3}${sp3}
+      ${pur.map(n => cell(sm, cm, n)).join("")}
+      ${mid}
+      ${pul.map(n => cell(sm, cm, n)).join("")}
+      ${sp3}${sp3}${sp3}
+    </tr>
+    ${subLabel("Permanent")}
+    <tr>
+      ${ur.map(n => cell(sm, cm, n)).join("")}
+      ${mid}
+      ${ul.map(n => cell(sm, cm, n)).join("")}
+    </tr>
+    <tr>
+      <td colspan="8" style="height:9px;padding:0;background:#b8cce8;border:none;"></td>
+      <td style="width:9px;height:9px;padding:0;background:#b8cce8;"></td>
+      <td colspan="8" style="height:9px;padding:0;background:#b8cce8;border:none;"></td>
+    </tr>
+    <tr>
+      ${lr.map(n => cell(sm, cm, n)).join("")}
+      ${mid}
+      ${ll.map(n => cell(sm, cm, n)).join("")}
+    </tr>
+    ${subLabel("Permanent")}
+    <tr>
+      ${sp3}${sp3}${sp3}
+      ${plr.map(n => cell(sm, cm, n)).join("")}
+      ${mid}
+      ${pll.map(n => cell(sm, cm, n)).join("")}
+      ${sp3}${sp3}${sp3}
+    </tr>
+    ${subLabel("Primary")}
+  </table>
   ${secDiv("LOWER DENTITION")}
 </div>
-<div style="margin-bottom:10px;line-height:2;">${legend}</div>`;
+<div style="text-align:center;margin-bottom:10px;line-height:2;">${legend}</div>`;
 }
 
 // Use shared table styles from documentUtils
@@ -361,6 +375,7 @@ ${visitBlocks}`;
 
     const caseCard = (inclOrthoCaseCard && orthoCase) ? `
 <div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
+  ${orthoCase.provider_name ? `<div style="padding:7px 9px;background:#f0f4fa;border-bottom:2px solid ${DOC_ACCENT};display:flex;align-items:center;gap:8px;"><span style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};text-transform:uppercase;letter-spacing:0.04em;">Orthodontist:</span><span style="font-size:13px;font-weight:bold;color:#1e3a5f;">${orthoCase.provider_name}</span></div>` : ""}
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;">
     <div style="padding:6px 9px;border-right:1px solid #ddd;">
       <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Status</div>
@@ -379,7 +394,6 @@ ${visitBlocks}`;
       <div style="font-size:11px;margin-top:2px;">${orthoCase.end_date ? formatDateStandard(orthoCase.end_date.split("T")[0]) : "—"}</div>
     </div>
   </div>
-  ${orthoCase.provider_name ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Provider</div><div style="font-size:11px;margin-top:2px;">${orthoCase.provider_name}</div></div>` : ""}
   ${inclList.length > 0 ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Inclusions</div><div style="font-size:11px;margin-top:2px;">${inclList.join(" · ")}</div></div>` : ""}
   ${orthoCase.notes ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Notes</div><div style="font-size:11px;margin-top:2px;white-space:pre-wrap;">${orthoCase.notes}</div></div>` : ""}
 </div>` : "";

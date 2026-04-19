@@ -78,7 +78,7 @@ export function buildSignatureHTML(
 
 // ─── Molaris footer ────────────────────────────────────────────────────────
 export function buildMolarisFooterHTML(generatedAt?: string): string {
-  return `<div style="margin-top:24px;padding-top:8px;border-top:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center;">
+  return `<div style="margin-top:24px;padding-top:8px;border-top:3px solid ${DOC_ACCENT};display:flex;justify-content:space-between;align-items:center;">
   <span style="font-size:8px;color:#bbb;">Powered by <strong>MOLARIS</strong> · BeanStack Studio</span>
   ${generatedAt ? `<span style="font-size:8px;color:#bbb;">Generated ${generatedAt}</span>` : ""}
 </div>`;
@@ -94,9 +94,9 @@ export const DOC_TABLE_WRAP = `border:1px solid #ddd;border-radius:3px;overflow:
 
 // ─── Base page CSS ─────────────────────────────────────────────────────────
 export function buildPageCSS(): string {
-  return `* { margin:0; padding:0; box-sizing:border-box; }
+  return `* { margin:0; padding:0; box-sizing:border-box; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
 body { font-family: Arial, sans-serif; color:#333; background:#f5f5f5; }
-.page { width:8.5in; min-height:11in; background:white; margin:20px auto; padding:0.65in 0.8in; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+.page { width:8.5in; min-height:11in; background:white; margin:20px auto; padding:0.65in 0.8in; box-shadow:0 2px 8px rgba(0,0,0,0.1); border-top:3px solid ${DOC_ACCENT}; border-bottom:3px solid ${DOC_ACCENT}; }
 .section-title { font-size:10px; font-weight:bold; color:${DOC_ACCENT}; margin-top:14px; margin-bottom:5px; letter-spacing:0.04em; text-transform:uppercase; }
 .section-body { font-size:11px; line-height:1.7; white-space:pre-wrap; word-wrap:break-word; padding:7px 9px; background:#fafafa; border:1px solid #eee; border-radius:3px; margin-bottom:4px; }
 .divider { border:none; border-top:1px solid #e0e0e0; margin:14px 0; }
