@@ -101,19 +101,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
           </div>
-          {!loading && patientId && (
-            <a
-              href={`/patients/${patientId}/print`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="cancel-btn flex items-center gap-1.5 text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" />
-              </svg>
-              Print
-            </a>
-          )}
         </div>
 
         <PatientTabs activeTab={activeTab} />

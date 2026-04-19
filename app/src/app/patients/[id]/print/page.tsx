@@ -50,31 +50,44 @@ export default function PatientPrintPage() {
   const [treatments, setTreatments] = useState<TreatmentRow[]>([]);
   const [clinic, setClinic] = useState<ClinicInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [printedAt] = useState(() => new Date().toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }));
 
   useEffect(() => {
     if (!patientId) return;
     async function load() {
-      // Must await session first — new tab may not have auth restored yet
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = `/login?redirect=/patients/${patientId}/print`;
-        return;
+      try {
+        // Force session restore — new tab may not have auth initialized yet
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          // Try once more after a short delay (handles race condition on tab open)
+          await new Promise((r) => setTimeout(r, 800));
+          const { data: { session: session2 } } = await supabase.auth.getSession();
+          if (!session2) {
+            setLoadError("Not authenticated. Please log in and try again.");
+            setLoading(false);
+            return;
+          }
+        }
+
+        const [patRes, medRes, txRes, clinicRes] = await Promise.all([
+          supabase.from("patients").select("*").eq("id", patientId).single(),
+          supabase.from("patient_medical_histories").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }).limit(1),
+          supabase.from("treatments").select("treatment_date, procedure, tooth_number, dentist_name, visit_concern, notes")
+            .eq("patient_id", patientId).order("treatment_date", { ascending: false }).limit(50),
+          supabase.from("clinic_profile").select("clinic_name, address, phone").limit(1),
+        ]);
+
+        if (patRes.error) { setLoadError(`Patient not found: ${patRes.error.message}`); setLoading(false); return; }
+        if (patRes.data) setPatient(patRes.data as PatientInfo);
+        if (medRes.data?.length) setMedHist(medRes.data[0] as MedHist);
+        setTreatments((txRes.data ?? []) as TreatmentRow[]);
+        if (clinicRes.data?.[0]) setClinic(clinicRes.data[0] as ClinicInfo);
+        setLoading(false);
+      } catch (err: any) {
+        setLoadError(`Unexpected error: ${err?.message ?? "unknown"}`);
+        setLoading(false);
       }
-
-      const [patRes, medRes, txRes, clinicRes] = await Promise.all([
-        supabase.from("patients").select("*").eq("id", patientId).single(),
-        supabase.from("patient_medical_histories").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }).limit(1),
-        supabase.from("treatments").select("treatment_date, procedure, tooth_number, dentist_name, visit_concern, notes")
-          .eq("patient_id", patientId).order("treatment_date", { ascending: false }).limit(50),
-        supabase.from("clinic_profile").select("clinic_name, address, phone").limit(1),
-      ]);
-
-      if (patRes.data) setPatient(patRes.data as PatientInfo);
-      if (medRes.data?.length) setMedHist(medRes.data[0] as MedHist);
-      setTreatments((txRes.data ?? []) as TreatmentRow[]);
-      if (clinicRes.data?.[0]) setClinic(clinicRes.data[0] as ClinicInfo);
-      setLoading(false);
     }
     load();
   }, [patientId]);
@@ -87,8 +100,21 @@ export default function PatientPrintPage() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[9999] bg-white flex items-center justify-center text-slate-400 text-sm">
-        Preparing document…
+      <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center gap-3">
+        <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+        <p className="text-slate-400 text-sm">Preparing document…</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center gap-4 p-6">
+        <p className="text-red-600 text-sm text-center max-w-sm">{loadError}</p>
+        <div className="flex gap-2">
+          <button onClick={() => window.location.reload()} className="bg-slate-800 text-white text-sm px-4 py-2 rounded-lg">Retry</button>
+          <button onClick={() => window.close()} className="bg-white border border-slate-200 text-slate-600 text-sm px-4 py-2 rounded-lg">Close</button>
+        </div>
       </div>
     );
   }

@@ -62,7 +62,7 @@ export default function LoginPage() {
             <div className="h-16 w-16 rounded-2xl bg-violet-100 flex items-center justify-center text-3xl shadow mb-3">🦷</div>
           )}
           <h1 className="text-xl font-bold text-slate-800">{clinicName}</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Clinic management portal</p>
+          <p className="text-xs text-slate-400 mt-0.5">Clinic Portal</p>
         </div>
 
         {/* ── Forgot password view ── */}
