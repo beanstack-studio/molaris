@@ -82,7 +82,7 @@ export function generateReferralHTML(data: ReferralData): string {
   <div style="margin-top:20px;">
     ${buildSignatureHTML(dentistName, clinicMeta.licenseNo, clinicMeta.ptrNo)}
   </div>
-  ${buildMolarisFooterHTML()}
+  ${buildMolarisFooterHTML(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}
 </div>
 </body>
 </html>`;

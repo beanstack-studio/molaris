@@ -1543,29 +1543,36 @@ tr.data-table-row-compact-odd:hover {
 /* ========================================
    MEDICATION FORM LAYOUT
    ======================================== */
-.med-form-grid {
+.med-form-row {
   display: grid;
+  grid-template-columns: 3fr 90px 90px 2fr auto;
   gap: 0.5rem;
-  grid-template-columns: 3fr 1fr 1fr;
+  align-items: end;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  padding: 0.75rem;
 }
 
-@media (max-width: 480px) {
-  .med-form-grid {
-    grid-template-columns: 1fr;
+/* tablet: name+instructions full-width, dosage+duration share a line */
+@media (max-width: 768px) {
+  .med-form-row {
+    grid-template-columns: 1fr 1fr;
   }
+  .med-field-name        { grid-column: 1 / -1; }
+  .med-field-instructions { grid-column: 1 / -1; }
+  .med-field-action      { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 }
 
 .med-form-field {
   @apply grid gap-1 min-w-0 overflow-hidden;
 }
 
-.med-form-row-actions {
-  @apply flex gap-2 items-end;
-}
-
-.med-form-instructions {
-  @apply flex-1 grid gap-1 min-w-0;
-}
+.med-field-name        { @apply grid gap-1 min-w-0 overflow-hidden; }
+.med-field-dosage      { @apply grid gap-1 min-w-0 overflow-hidden; }
+.med-field-duration    { @apply grid gap-1 min-w-0 overflow-hidden; }
+.med-field-instructions { @apply grid gap-1 min-w-0 overflow-hidden; }
+.med-field-action      { @apply grid gap-1; }
 
 /* ========================================
    TEXTAREA SIZE VARIANTS

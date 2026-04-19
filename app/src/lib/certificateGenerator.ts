@@ -88,16 +88,10 @@ export function generateCertificateHTML(data: CertificateData): string {
   ${remarks ? `<div class="section-title">Remarks</div><div class="section-body">${remarks}</div>` : ""}
 
   <hr class="divider" style="margin-top:30px;">
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:20px;">
+  <div style="margin-top:20px;">
     ${buildSignatureHTML(dentistName, clinicMeta.licenseNo, clinicMeta.ptrNo)}
-    <div>
-      <div style="height:50px;border-bottom:1px solid #333;width:180px;"></div>
-      <div style="font-size:11px;font-weight:bold;color:${DOC_ACCENT};margin-top:5px;">Parent / Guardian</div>
-      <div style="font-size:9px;color:#666;margin-top:2px;">(if patient is a minor)</div>
-    </div>
   </div>
-  <div style="text-align:right;font-size:10px;color:#666;margin-top:12px;">Date: ${formattedDate}</div>
-  ${buildMolarisFooterHTML()}
+  ${buildMolarisFooterHTML(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}
 </div>
 </body>
 </html>`;

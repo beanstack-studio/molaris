@@ -64,11 +64,9 @@ export function generatePrescriptionHTML(data: PrescriptionData): string {
 
   ${buildPatientRowHTML(patientName, patientAge, patientGender, patientAddress)}
 
-  <div style="font-size:9px;color:#666;margin-bottom:10px;">Date: ${formattedDate}</div>
-
   <hr class="divider">
 
-  <div style="font-size:28px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:8px;font-style:italic;">℞</div>
+  <div style="font-size:44px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:8px;font-style:italic;line-height:1;">℞</div>
   ${medsHtml}
 
   ${remarks ? `
@@ -78,11 +76,9 @@ export function generatePrescriptionHTML(data: PrescriptionData): string {
   <hr class="divider" style="margin-top:30px;">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:20px;">
     ${buildSignatureHTML(dentistName, clinicMeta.licenseNo, clinicMeta.ptrNo)}
-    <div style="text-align:right;font-size:10px;color:#666;">
-      <div>Date: ${formattedDate}</div>
-    </div>
+    <div style="text-align:right;font-size:10px;color:#666;">${formattedDate}</div>
   </div>
-  ${buildMolarisFooterHTML()}
+  ${buildMolarisFooterHTML(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}
 </div>
 </body>
 </html>`;

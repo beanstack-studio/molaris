@@ -77,10 +77,10 @@ export function buildSignatureHTML(
 }
 
 // ─── Molaris footer ────────────────────────────────────────────────────────
-export function buildMolarisFooterHTML(): string {
+export function buildMolarisFooterHTML(generatedAt?: string): string {
   return `<div style="margin-top:24px;padding-top:8px;border-top:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center;">
   <span style="font-size:8px;color:#bbb;">Powered by <strong>MOLARIS</strong> · BeanStack Studio</span>
-  <span style="font-size:8px;color:#bbb;">Confidential — for clinical use only</span>
+  ${generatedAt ? `<span style="font-size:8px;color:#bbb;">Generated ${generatedAt}</span>` : ""}
 </div>`;
 }
 

@@ -638,50 +638,49 @@ export default function DocumentsPage() {
                   <div className="spacing-vertical-sm">
                     <div className="text-field-label">Medications ({rxMedications.length})</div>
                     {rxMedications.map((med) => (
-                      <div key={med.id} className="form-section">
-                        <div className="med-form-grid">
-                          <div className="med-form-field">
-                            <label className="field-sublabel">Medication name</label>
-                            <input
-                              type="text"
-                              className="input-standard"
-                              value={med.medication}
-                              onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, medication: e.target.value } : m))}
-                              placeholder="Medication name"
-                            />
-                          </div>
-                          <div className="med-form-field">
-                            <label className="field-sublabel">Dosage</label>
-                            <input
-                              type="text"
-                              className="input-standard"
-                              value={med.dosage}
-                              onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, dosage: e.target.value } : m))}
-                              placeholder="500mg"
-                            />
-                          </div>
-                          <div className="med-form-field">
-                            <label className="field-sublabel">Duration</label>
-                            <input
-                              type="text"
-                              className="input-standard"
-                              value={med.duration}
-                              onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, duration: e.target.value } : m))}
-                              placeholder="7 days"
-                            />
-                          </div>
+                      <div key={med.id} className="med-form-row">
+                        <div className="med-field-name">
+                          <label className="field-sublabel">Medication name</label>
+                          <input
+                            type="text"
+                            className="input-standard"
+                            value={med.medication}
+                            onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, medication: e.target.value } : m))}
+                            placeholder="Medication name"
+                          />
                         </div>
-                        <div className="med-form-row-actions">
-                          <div className="med-form-instructions">
-                            <label className="field-sublabel">Instructions</label>
-                            <input
-                              type="text"
-                              className="input-standard"
-                              value={med.instructions || ""}
-                              onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, instructions: e.target.value } : m))}
-                              placeholder="e.g., Take with food, Before sleep"
-                            />
-                          </div>
+                        <div className="med-field-dosage">
+                          <label className="field-sublabel">Dosage</label>
+                          <input
+                            type="text"
+                            className="input-standard"
+                            value={med.dosage}
+                            onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, dosage: e.target.value } : m))}
+                            placeholder="500mg"
+                          />
+                        </div>
+                        <div className="med-field-duration">
+                          <label className="field-sublabel">Duration</label>
+                          <input
+                            type="text"
+                            className="input-standard"
+                            value={med.duration}
+                            onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, duration: e.target.value } : m))}
+                            placeholder="7 days"
+                          />
+                        </div>
+                        <div className="med-field-instructions">
+                          <label className="field-sublabel">Instructions</label>
+                          <input
+                            type="text"
+                            className="input-standard"
+                            value={med.instructions || ""}
+                            onChange={(e) => setRxMedications(rxMedications.map(m => m.id === med.id ? { ...m, instructions: e.target.value } : m))}
+                            placeholder="e.g., Take with food, Before sleep"
+                          />
+                        </div>
+                        <div className="med-field-action">
+                          <label className="field-sublabel">&nbsp;</label>
                           <button
                             type="button"
                             className="item-delete-btn"

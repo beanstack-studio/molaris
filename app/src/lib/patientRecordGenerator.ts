@@ -116,7 +116,7 @@ function buildDentitionChartHTML(
   // (permanent row: 8 + 1 mid + 8 = 17 also)
   const totalCols = 17;
 
-  const mid = `<td style="width:4px;border-left:1px solid ${DOC_ACCENT};border-right:1px solid ${DOC_ACCENT};background:#e8f0fb;"></td>`;
+  const mid = `<td style="width:2px;padding:0;border-left:1px solid #b8cce8;background:transparent;"></td>`;
   const sp3 = `<td></td>`;  // spacer cells — takes remaining space in fixed layout
 
   const subLabel = (text: string) =>
@@ -151,7 +151,7 @@ function buildDentitionChartHTML(
       ${mid}
       ${ul.map(n => cell(sm, cm, n)).join("")}
     </tr>
-    <tr><td colspan="${totalCols}" style="height:6px;background:white;border-top:1px dashed #e5e7eb;border-bottom:1px dashed #e5e7eb;"></td></tr>
+    <tr><td colspan="${totalCols}" style="height:0;padding:0;border-top:1px solid #b8cce8;"></td></tr>
     <tr>
       ${lr.map(n => cell(sm, cm, n)).join("")}
       ${mid}
@@ -196,9 +196,7 @@ export function generatePatientRecordHTML(
   const selVisits     = sections.selectedVisitDates ?? null;
 
   const genderLabel = gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : "—";
-  const birthLabel  = birthDate
-    ? `${formatDateStandard(birthDate.split("T")[0])}${age != null ? ` (${age} yrs)` : ""}`
-    : "—";
+  const birthLabel  = birthDate ? formatDateStandard(birthDate.split("T")[0]) : "—";
 
   // ── Patient Information — matches dental certificate style ───────────────
   const patientInfoHTML = !inclInfo ? "" : `
@@ -265,7 +263,8 @@ ${notes ? `<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14p
 
     chartFindingsHTML = `
 <div class="section-title">CHART FINDINGS</div>
-<table style="${TBL}border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
+<div style="border:1px solid #ddd;border-radius:3px;overflow:hidden;margin-bottom:14px;">
+<table style="${TBL}">
   <colgroup>
     <col style="width:18%"><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:43%">
   </colgroup>
@@ -277,7 +276,8 @@ ${notes ? `<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14p
     <th style="${TH}">Detail</th>
   </tr></thead>
   <tbody>${rows}</tbody>
-</table>`;
+</table>
+</div>`;
   }
 
   // ── Treatment History ────────────────────────────────────────────────────
@@ -338,9 +338,12 @@ ${chartFindingsHTML}`;
     ? `<div style="font-size:9px;color:#888;margin-top:2px;">Generated ${generatedAt}</div>`
     : "";
 
+  const generatedAtLabel = generatedAt
+    ? `Generated ${generatedAt}`
+    : `Generated ${new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}`;
   const footer = `<div style="margin-top:24px;padding-top:8px;border-top:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center;">
   <span style="font-size:8px;color:#bbb;">Powered by <strong>MOLARIS</strong> · BeanStack Studio</span>
-  <span style="font-size:8px;color:#bbb;">Confidential — for clinical use only</span>
+  <span style="font-size:8px;color:#bbb;">${generatedAtLabel}</span>
 </div>`;
 
   return `<!DOCTYPE html>
