@@ -11,7 +11,6 @@ import {
   formatDateStandard,
   renderTemplate,
   splitFullName,
-  formatMoney,
 } from "@/lib/helpers";
 import {
   DOC_TYPES,
@@ -87,15 +86,12 @@ export default function DocumentsPage() {
   const [patRecInclMed, setPatRecInclMed]         = useState(true);
   const [patRecInclToothChart, setPatRecInclToothChart] = useState(true);
   const [patRecInclChartFindings, setPatRecInclChartFindings] = useState(true);
-  const [patRecInclTreatments, setPatRecInclTreatments] = useState(true);
-  const [patRecInclOrtho, setPatRecInclOrtho]               = useState(true);
+  const [patRecInclTreatments, setPatRecInclTreatments]       = useState(true);
+  const [patRecInclOrtho, setPatRecInclOrtho]                 = useState(true);
   const [patRecInclOrthoCaseOverview, setPatRecInclOrthoCaseOverview] = useState(true);
-  const [patRecInclOrthoVisits, setPatRecInclOrthoVisits]   = useState(true);
-  const [patRecOrthoExpanded, setPatRecOrthoExpanded]       = useState(false);
-  const [patRecVisitDates, setPatRecVisitDates]   = useState<string[]>([]);
-  const [patRecSelectedVisits, setPatRecSelectedVisits] = useState<Set<string>>(new Set());
-  const [patRecChartExpanded, setPatRecChartExpanded]     = useState(false);
-  const [patRecTreatExpanded, setPatRecTreatExpanded]     = useState(false);
+  const [patRecInclOrthoVisits, setPatRecInclOrthoVisits]     = useState(true);
+  const [patRecOrthoExpanded, setPatRecOrthoExpanded]         = useState(false);
+  const [patRecChartExpanded, setPatRecChartExpanded]         = useState(false);
 
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -176,20 +172,6 @@ export default function DocumentsPage() {
     loadData();
   }, [loadData]);
 
-  // Load visit dates when Patient Record type is selected
-  useEffect(() => {
-    if (selectedDocType !== DOC_TYPES.PATIENT_RECORD) return;
-    supabase
-      .from("treatments")
-      .select("treatment_date")
-      .eq("patient_id", id)
-      .order("treatment_date", { ascending: false })
-      .then(({ data }) => {
-        const dates = [...new Set((data ?? []).map((t: any) => t.treatment_date as string))];
-        setPatRecVisitDates(dates);
-        setPatRecSelectedVisits(new Set(dates)); // default: all selected
-      });
-  }, [selectedDocType, id]);
 
   /**
    * Generate document with type-first UX
@@ -280,9 +262,7 @@ export default function DocumentsPage() {
           orthoTreatments: patRecInclOrtho,
           orthoSubCaseOverview: patRecInclOrthoCaseOverview,
           orthoSubVisits: patRecInclOrthoVisits,
-          selectedVisitDates: patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length
-            ? [...patRecSelectedVisits]
-            : null,
+          selectedVisitDates: null,
         };
 
         renderedHtml = generatePatientRecordHTML({
@@ -457,10 +437,7 @@ export default function DocumentsPage() {
     setPatRecInclOrthoCaseOverview(true);
     setPatRecInclOrthoVisits(true);
     setPatRecOrthoExpanded(false);
-    setPatRecVisitDates([]);
-    setPatRecSelectedVisits(new Set());
     setPatRecChartExpanded(false);
-    setPatRecTreatExpanded(false);
     setError(null);
   }
 
@@ -979,53 +956,11 @@ export default function DocumentsPage() {
                 )}
               </div>
 
-              {/* Treatment History — collapsible */}
-              <div className="section-check-group">
-                <div
-                  className="section-check-group-header"
-                  onClick={() => { if (patRecInclTreatments && patRecVisitDates.length > 0) setPatRecTreatExpanded(v => !v); }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={patRecInclTreatments}
-                    onChange={e => {
-                      setPatRecInclTreatments(e.target.checked);
-                      if (e.target.checked) setPatRecSelectedVisits(new Set(patRecVisitDates));
-                      else { setPatRecSelectedVisits(new Set()); setPatRecTreatExpanded(false); }
-                    }}
-                    className="accent-violet-600"
-                    onClick={e => e.stopPropagation()}
-                  />
-                  <span className="section-check-group-label">
-                    Treatment History
-                    {patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length && (
-                      <span className="section-check-visit-count">({patRecSelectedVisits.size}/{patRecVisitDates.length} visits)</span>
-                    )}
-                    {patRecInclTreatments && patRecVisitDates.length > 0 && (
-                      <span className="section-check-expand-arrow">{patRecTreatExpanded ? "▲" : "▼"}</span>
-                    )}
-                  </span>
-                </div>
-                {patRecInclTreatments && patRecTreatExpanded && patRecVisitDates.length > 0 && (
-                  <div className="section-check-sub-area-scroll">
-                    {patRecVisitDates.map(d => (
-                      <label key={d} className="section-check-sub-row">
-                        <input
-                          type="checkbox"
-                          checked={patRecSelectedVisits.has(d)}
-                          onChange={e => {
-                            const s = new Set(patRecSelectedVisits);
-                            e.target.checked ? s.add(d) : s.delete(d);
-                            setPatRecSelectedVisits(s);
-                          }}
-                          className="accent-violet-600"
-                        />
-                        {formatDateStandard(d)}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Treatment History */}
+              <label className="section-check-row">
+                <input type="checkbox" checked={patRecInclTreatments} onChange={e => setPatRecInclTreatments(e.target.checked)} className="accent-violet-600" />
+                Treatment History
+              </label>
 
               {/* Ortho Treatments & Visits — collapsible */}
               <div className="section-check-group">

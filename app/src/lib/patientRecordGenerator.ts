@@ -347,7 +347,7 @@ ${visitBlocks}`;
 
   // ── Ortho Treatments & Visits ────────────────────────────────────────────
   let orthoHTML = "";
-  if (inclOrtho && (orthoCase || orthoEntries.length > 0)) {
+  if (inclOrtho) {
     const caseCard = (inclOrthoCaseCard && orthoCase) ? `
 <div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;">
@@ -389,9 +389,13 @@ ${visitBlocks}`;
 </table>
 </div>` : "";
 
+    const noData = !orthoCase && orthoEntries.length === 0
+      ? `<div style="font-size:11px;color:#888;font-style:italic;padding:7px 9px;border:1px solid #eee;border-radius:3px;margin-bottom:14px;">No orthodontic records on file.</div>`
+      : "";
+
     orthoHTML = `
 <div class="section-title">ORTHODONTIC TREATMENTS &amp; VISITS</div>
-${caseCard}
+${noData}${caseCard}
 ${entriesTable}`;
   }
 
