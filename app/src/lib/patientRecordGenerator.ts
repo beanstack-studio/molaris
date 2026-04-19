@@ -142,7 +142,7 @@ function buildDentitionChartHTML(
       <td colspan="8" style="padding:5px 0;"></td>
       <td style="width:9px;padding:0;background:#b8cce8;position:relative;overflow:visible;">
         <span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-          white-space:nowrap;background:white;border:1px solid #ddd;border-radius:3px;
+          white-space:nowrap;background:white;
           padding:2px 10px;font-size:9px;color:#555;font-style:italic;display:inline-block;">
           ${text}
         </span>
@@ -375,7 +375,7 @@ ${visitBlocks}`;
 
     const caseCard = (inclOrthoCaseCard && orthoCase) ? `
 <div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
-  ${orthoCase.provider_name ? `<div style="padding:7px 9px;background:#f0f4fa;border-bottom:2px solid ${DOC_ACCENT};display:flex;align-items:center;gap:8px;"><span style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};text-transform:uppercase;letter-spacing:0.04em;">Orthodontist:</span><span style="font-size:13px;font-weight:bold;color:#1e3a5f;">${orthoCase.provider_name}</span></div>` : ""}
+  <div style="padding:7px 9px;background:#f0f4fa;border-bottom:2px solid ${DOC_ACCENT};display:flex;align-items:center;gap:8px;"><span style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};text-transform:uppercase;letter-spacing:0.04em;">Orthodontist:</span><span style="font-size:13px;font-weight:bold;color:#1e3a5f;">${orthoCase.provider_name || "—"}</span></div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;">
     <div style="padding:6px 9px;border-right:1px solid #ddd;">
       <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Status</div>
