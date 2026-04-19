@@ -1,17 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
-  const router = useRouter();
-
-  // null = show emoji. Populated from localStorage cache (set by TopNav after login).
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
-  const [clinicName, setClinicName] = useState("Matira Dental Studio");
-
-  // Sign-in
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -22,24 +14,6 @@ export default function LoginPage() {
   const [showForgot, setShowForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
-
-  useEffect(() => {
-    // Show cached logo immediately (set by TopNav after a successful login)
-    const cached = localStorage.getItem("clinic-logo-url");
-    if (cached) setLogoSrc(cached);
-
-    // Also try fetching from Supabase (works if clinic_profile allows anon read)
-    supabase
-      .from("clinic_profile")
-      .select("logo_url, clinic_name")
-      .limit(1)
-      .then(({ data }) => {
-        if (data?.[0]) {
-          if (data[0].logo_url) setLogoSrc(data[0].logo_url);
-          if (data[0].clinic_name) setClinicName(data[0].clinic_name);
-        }
-      });
-  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,19 +41,18 @@ export default function LoginPage() {
     <main className="page-bg min-h-screen flex items-center justify-center p-6">
       <div className="card w-full max-w-md">
 
-        {/* Logo + clinic name */}
-        <div className="flex flex-col items-center mb-6">
-          {logoSrc ? (
-            <img src={logoSrc} alt="Clinic logo" className="h-16 w-16 rounded-2xl object-contain shadow mb-3" />
-          ) : (
-            <div className="h-16 w-16 rounded-2xl bg-violet-100 flex items-center justify-center text-3xl shadow mb-3">🦷</div>
-          )}
-          <h1 className="text-xl font-bold text-slate-800">{clinicName}</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Clinic management portal</p>
+        {/* Molaris wordmark */}
+        <div className="flex flex-col items-center mb-7">
+          <div className="mb-3">
+            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="52" height="52" rx="14" fill="#2563eb" />
+              <path d="M13 34C13 34 14 20 19 18C22 17 24 21 26 21C28 21 30 17 33 18C38 20 39 34 39 34" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              <path d="M19 18C19 18 20 26 23 28C24.5 29 27.5 29 29 28C32 26 33 18 33 18" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6"/>
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">Molaris</h1>
+          <p className="text-xs text-slate-400 mt-1">Clinic management portal</p>
         </div>
-
-        {/* Divider */}
-        <div className="border-t border-slate-100 -mx-6 mb-6" />
 
         {/* ── Forgot password view ── */}
         {showForgot ? (
@@ -182,12 +155,8 @@ export default function LoginPage() {
             </button>
           </form>
         )}
-        {/* Molaris branding footer */}
+        {/* Footer */}
         <div className="border-t border-slate-100 -mx-6 mt-6 pt-4 px-6 flex flex-col items-center gap-0.5">
-          <p className="text-[11px] text-slate-400">
-            Powered by{" "}
-            <span className="font-semibold text-slate-500 tracking-wide">MOLARIS</span>
-          </p>
           <p className="text-[10px] text-slate-300">by BeanStack Studio</p>
         </div>
       </div>

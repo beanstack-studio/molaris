@@ -57,13 +57,13 @@ export default function PatientPrintPage() {
     async function load() {
       const [patRes, medRes, txRes, clinicRes] = await Promise.all([
         supabase.from("patients").select("*").eq("id", patientId).single(),
-        supabase.from("patient_medical_history").select("*").eq("patient_id", patientId).maybeSingle(),
+        supabase.from("patient_medical_histories").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }).limit(1),
         supabase.from("treatments").select("treatment_date, procedure, tooth_number, dentist_name, visit_concern, notes")
           .eq("patient_id", patientId).order("treatment_date", { ascending: false }).limit(50),
         supabase.from("clinic_profile").select("clinic_name, address, phone").limit(1).single(),
       ]);
       if (patRes.data) setPatient(patRes.data as PatientInfo);
-      if (medRes.data) setMedHist(medRes.data as MedHist);
+      if (medRes.data?.length) setMedHist(medRes.data[0] as MedHist);
       setTreatments((txRes.data ?? []) as TreatmentRow[]);
       if (clinicRes.data) setClinic(clinicRes.data as ClinicInfo);
       setLoading(false);
@@ -79,7 +79,7 @@ export default function PatientPrintPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-slate-500 text-sm">
+      <div className="fixed inset-0 z-[9999] bg-white flex items-center justify-center text-slate-400 text-sm">
         Preparing document…
       </div>
     );
