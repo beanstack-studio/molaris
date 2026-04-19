@@ -88,7 +88,10 @@ export default function DocumentsPage() {
   const [patRecInclToothChart, setPatRecInclToothChart] = useState(true);
   const [patRecInclChartFindings, setPatRecInclChartFindings] = useState(true);
   const [patRecInclTreatments, setPatRecInclTreatments] = useState(true);
-  const [patRecInclOrtho, setPatRecInclOrtho]           = useState(true);
+  const [patRecInclOrtho, setPatRecInclOrtho]               = useState(true);
+  const [patRecInclOrthoCaseOverview, setPatRecInclOrthoCaseOverview] = useState(true);
+  const [patRecInclOrthoVisits, setPatRecInclOrthoVisits]   = useState(true);
+  const [patRecOrthoExpanded, setPatRecOrthoExpanded]       = useState(false);
   const [patRecVisitDates, setPatRecVisitDates]   = useState<string[]>([]);
   const [patRecSelectedVisits, setPatRecSelectedVisits] = useState<Set<string>>(new Set());
   const [patRecChartExpanded, setPatRecChartExpanded]     = useState(false);
@@ -249,15 +252,14 @@ export default function DocumentsPage() {
         let orthoCase: any = null;
         let orthoEntries: any[] = [];
         if (patRecInclOrtho) {
-          const { data: ocData } = await supabase
+          const { data: ocRows } = await supabase
             .from("ortho_cases")
             .select("id, status, start_date, phase, provider_name, notes")
             .eq("patient_id", id)
             .order("created_at", { ascending: false })
-            .limit(1)
-            .single();
-          if (ocData) {
-            const { id: caseId, ...caseFields } = ocData as any;
+            .limit(1);
+          if (ocRows?.length) {
+            const { id: caseId, ...caseFields } = ocRows[0] as any;
             orthoCase = caseFields;
             const { data: oeData } = await supabase
               .from("ortho_entries")
@@ -276,6 +278,8 @@ export default function DocumentsPage() {
           chartFindings: patRecInclChartFindings,
           treatments: patRecInclTreatments,
           orthoTreatments: patRecInclOrtho,
+          orthoSubCaseOverview: patRecInclOrthoCaseOverview,
+          orthoSubVisits: patRecInclOrthoVisits,
           selectedVisitDates: patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length
             ? [...patRecSelectedVisits]
             : null,
@@ -450,6 +454,9 @@ export default function DocumentsPage() {
     setPatRecInclChartFindings(true);
     setPatRecInclTreatments(true);
     setPatRecInclOrtho(true);
+    setPatRecInclOrthoCaseOverview(true);
+    setPatRecInclOrthoVisits(true);
+    setPatRecOrthoExpanded(false);
     setPatRecVisitDates([]);
     setPatRecSelectedVisits(new Set());
     setPatRecChartExpanded(false);
@@ -1020,11 +1027,40 @@ export default function DocumentsPage() {
                 )}
               </div>
 
-              {/* Ortho Treatments & Visits */}
-              <label className="section-check-row">
-                <input type="checkbox" checked={patRecInclOrtho} onChange={e => setPatRecInclOrtho(e.target.checked)} className="accent-violet-600" />
-                Ortho Treatments &amp; Visits
-              </label>
+              {/* Ortho Treatments & Visits — collapsible */}
+              <div className="section-check-group">
+                <div
+                  className="section-check-group-header"
+                  onClick={() => { if (patRecInclOrtho) setPatRecOrthoExpanded(v => !v); }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={patRecInclOrtho}
+                    onChange={e => {
+                      setPatRecInclOrtho(e.target.checked);
+                      if (!e.target.checked) setPatRecOrthoExpanded(false);
+                    }}
+                    className="accent-violet-600"
+                    onClick={e => e.stopPropagation()}
+                  />
+                  <span className="section-check-group-label">
+                    Ortho Treatments &amp; Visits
+                    <span className="section-check-expand-arrow">{patRecOrthoExpanded ? "▲" : "▼"}</span>
+                  </span>
+                </div>
+                {patRecInclOrtho && patRecOrthoExpanded && (
+                  <div className="section-check-sub-area">
+                    <label className="section-check-sub-row">
+                      <input type="checkbox" checked={patRecInclOrthoCaseOverview} onChange={e => setPatRecInclOrthoCaseOverview(e.target.checked)} className="accent-violet-600" />
+                      Case Overview
+                    </label>
+                    <label className="section-check-sub-row">
+                      <input type="checkbox" checked={patRecInclOrthoVisits} onChange={e => setPatRecInclOrthoVisits(e.target.checked)} className="accent-violet-600" />
+                      Visit History
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

@@ -29,11 +29,12 @@ export async function generateSOADocument(
   patientName: string,
   docNo: string,
 ): Promise<string> {
-  const [clinicProfile, patientResult, invoicesResult, paymentsResult] = await Promise.all([
+  const [clinicProfile, patientResult, invoicesResult, paymentsResult, receiptsResult] = await Promise.all([
     fetchClinicProfile(),
     supabase.from("patients").select("birth_date, gender, address").eq("id", patientId).single(),
     supabase.from("invoices").select("id, invoice_number, invoice_date, total, notes").eq("patient_id", patientId).order("invoice_date", { ascending: true }),
     supabase.from("payments").select("id, amount, payment_date, invoice_id, details").eq("patient_id", patientId).order("payment_date", { ascending: true }),
+    supabase.from("receipts").select("payment_id, receipt_number").eq("patient_id", patientId),
   ]);
 
   // Patient metadata for header row
@@ -55,10 +56,15 @@ export async function generateSOADocument(
 
   const invoices = (invoicesResult.data ?? []) as any[];
   const payments = (paymentsResult.data ?? []) as any[];
+  const receipts = (receiptsResult.data ?? []) as any[];
 
   // Build invoice number lookup for payment descriptions
   const invNoMap: Record<string, string> = {};
   for (const inv of invoices) invNoMap[inv.id] = inv.invoice_number;
+
+  // Build payment → receipt number lookup
+  const pmtReceiptMap: Record<string, string> = {};
+  for (const r of receipts) if (r.payment_id) pmtReceiptMap[r.payment_id] = r.receipt_number;
 
   type LedgerEntry = { date: string; ref: string; description: string; charges: number; payments: number };
   const ledger: LedgerEntry[] = [];
@@ -76,12 +82,12 @@ export async function generateSOADocument(
   for (const pmt of payments) {
     const details = pmt.details || {};
     const mode = details.payment_mode_name || "Payment";
-    const refNum = details.reference_number ? ` (${details.reference_number})` : "";
     const invRef = pmt.invoice_id && invNoMap[pmt.invoice_id] ? ` for ${invNoMap[pmt.invoice_id]}` : "";
+    const receiptNo = pmtReceiptMap[pmt.id] || "—";
     ledger.push({
       date: pmt.payment_date || "",
-      ref: "PMT",
-      description: `${mode}${refNum}${invRef}`,
+      ref: receiptNo,
+      description: `${mode}${invRef}`,
       charges: 0,
       payments: pmt.amount || 0,
     });
@@ -97,7 +103,7 @@ export async function generateSOADocument(
     const balColor = runningBalance > 0 ? "#b45309" : "#15803d";
     return `<tr>
       <td style="${DOC_TD}">${formatDateDoc(e.date)}</td>
-      <td style="${DOC_TD}">${e.ref}</td>
+      <td style="${DOC_TD}white-space:nowrap;">${e.ref}</td>
       <td style="${DOC_TD}">${e.description}</td>
       <td style="${DOC_TD}text-align:right;">${isCharge ? formatMoney(e.charges) : "—"}</td>
       <td style="${DOC_TD}text-align:right;">${!isCharge ? formatMoney(e.payments) : "—"}</td>
@@ -132,7 +138,7 @@ export async function generateSOADocument(
   <div style="${DOC_TABLE_WRAP}">
   <table style="${DOC_TBL}">
     <colgroup>
-      <col style="width:18%"><col style="width:10%"><col style="width:30%"><col style="width:14%"><col style="width:14%"><col style="width:14%">
+      <col style="width:16%"><col style="width:14%"><col style="width:22%"><col style="width:16%"><col style="width:16%"><col style="width:16%">
     </colgroup>
     <thead><tr>
       <th style="${DOC_TH}">Date</th>

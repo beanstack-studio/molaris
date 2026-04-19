@@ -94,7 +94,7 @@ export async function generateInvoiceDocument(
 <div class="page">
   ${buildDocHeaderHTML(clinicProfile, invoiceNumber)}
 
-  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:14px;letter-spacing:0.04em;">INVOICE</div>
+  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};text-decoration:underline;margin-bottom:14px;letter-spacing:0.04em;">INVOICE</div>
 
   ${buildPatientRowHTML(patientName, patientAge, patientGender, patientAddress)}
 
@@ -216,7 +216,7 @@ export async function generatePaymentReceiptDocument(
 <div class="page">
   ${buildDocHeaderHTML(clinicProfile, receiptNumber)}
 
-  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:14px;letter-spacing:0.04em;">PAYMENT RECEIPT</div>
+  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};text-decoration:underline;margin-bottom:14px;letter-spacing:0.04em;">PAYMENT RECEIPT</div>
 
   ${buildPatientRowHTML(patientName, patientAge, patientGender, patientAddress)}
 
@@ -278,7 +278,7 @@ export async function generateInvoicePreviewHTML(): Promise<string> {
 <body>
 <div class="page">
   ${buildDocHeaderHTML(clinicProfile, "INV26-0001")}
-  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:14px;letter-spacing:0.04em;">INVOICE</div>
+  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};text-decoration:underline;margin-bottom:14px;letter-spacing:0.04em;">INVOICE</div>
   ${buildPatientRowHTML("Sample Patient", 32, "Female", "Sample Address, Kalibo, Aklan")}
   <div style="font-size:9px;color:#666;margin-bottom:10px;">Invoice Date: April 11, 2026</div>
   <div style="${DOC_TABLE_WRAP}">
@@ -340,7 +340,7 @@ export async function generateReceiptPreviewHTML(): Promise<string> {
 <body>
 <div class="page">
   ${buildDocHeaderHTML(clinicProfile, "OR26-0001")}
-  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:14px;letter-spacing:0.04em;">PAYMENT RECEIPT</div>
+  <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};text-decoration:underline;margin-bottom:14px;letter-spacing:0.04em;">PAYMENT RECEIPT</div>
   ${buildPatientRowHTML("Sample Patient", 32, "Female", "Sample Address, Kalibo, Aklan")}
   <div class="detail-grid">
     <div class="detail-box"><div class="detail-label">Receipt No.</div><div class="detail-value"><strong>OR26-0001</strong></div></div>

@@ -8,6 +8,8 @@ export interface PatientRecordSections {
   chartFindings?: boolean;
   treatments?: boolean;
   orthoTreatments?: boolean;
+  orthoSubCaseOverview?: boolean;
+  orthoSubVisits?: boolean;
   selectedVisitDates?: string[] | null; // null = all
 }
 
@@ -127,23 +129,14 @@ function buildDentitionChartHTML(
   const plr = [85,84,83,82,81];
   const pll = [71,72,73,74,75];
 
-  // totalCols = 3 spacers + 5 primary + 1 mid + 5 primary + 3 spacers = 17
-  // (permanent row: 8 + 1 mid + 8 = 17 also)
-  const totalCols = 17;
-
-  // Vertical midline — 3px, present in EVERY table row to keep the line unbroken
-  const mid = `<td style="width:3px;padding:0;background:#b8cce8;"></td>`;
+  // 16 cols (8 per side, no mid column — vertical line is an absolute-positioned div overlay)
   const sp3 = `<td></td>`;
 
-  // 3-cell structure: keeps mid in label rows so vertical line is never broken
+  // Full-width centered label row (no mid cell needed — vertical line is overlay)
   const subLabel = (text: string) =>
-    `<tr>
-      <td colspan="8" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td>
-      ${mid}
-      <td colspan="8" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td>
-    </tr>`;
+    `<tr><td colspan="16" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td></tr>`;
 
-  // Section labels are divs OUTSIDE the table — they never break the vertical line
+  // Section labels are divs OUTSIDE the table
   const secDiv = (text: string) =>
     `<div style="text-align:center;font-size:9px;font-weight:bold;color:${DOC_ACCENT};letter-spacing:0.06em;text-transform:uppercase;padding:4px 0 2px;">${text}</div>`;
 
@@ -158,41 +151,36 @@ function buildDentitionChartHTML(
 
   return `<div style="margin-bottom:4px;">
   ${secDiv("UPPER DENTITION")}
-  <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
-    ${subLabel("Primary")}
-    <tr>
-      ${sp3}${sp3}${sp3}
-      ${pur.map(n => cell(sm, cm, n, true)).join("")}
-      ${mid}
-      ${pul.map(n => cell(sm, cm, n, true)).join("")}
-      ${sp3}${sp3}${sp3}
-    </tr>
-    ${subLabel("Permanent")}
-    <tr>
-      ${ur.map(n => cell(sm, cm, n)).join("")}
-      ${mid}
-      ${ul.map(n => cell(sm, cm, n)).join("")}
-    </tr>
-    <tr>
-      <td colspan="8" style="height:3px;padding:0;background:#b8cce8;border:none;"></td>
-      <td style="width:3px;height:3px;padding:0;background:#b8cce8;"></td>
-      <td colspan="8" style="height:3px;padding:0;background:#b8cce8;border:none;"></td>
-    </tr>
-    <tr>
-      ${lr.map(n => cell(sm, cm, n)).join("")}
-      ${mid}
-      ${ll.map(n => cell(sm, cm, n)).join("")}
-    </tr>
-    ${subLabel("Permanent")}
-    <tr>
-      ${sp3}${sp3}${sp3}
-      ${plr.map(n => cell(sm, cm, n, true)).join("")}
-      ${mid}
-      ${pll.map(n => cell(sm, cm, n, true)).join("")}
-      ${sp3}${sp3}${sp3}
-    </tr>
-    ${subLabel("Primary")}
-  </table>
+  <div style="position:relative;">
+    <div style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:#b8cce8;transform:translateX(-50%);z-index:1;pointer-events:none;"></div>
+    <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
+      ${subLabel("Primary")}
+      <tr>
+        ${sp3}${sp3}${sp3}
+        ${pur.map(n => cell(sm, cm, n, true)).join("")}
+        ${pul.map(n => cell(sm, cm, n, true)).join("")}
+        ${sp3}${sp3}${sp3}
+      </tr>
+      ${subLabel("Permanent")}
+      <tr>
+        ${ur.map(n => cell(sm, cm, n)).join("")}
+        ${ul.map(n => cell(sm, cm, n)).join("")}
+      </tr>
+      <tr><td colspan="16" style="height:3px;padding:0;background:#b8cce8;border:none;"></td></tr>
+      <tr>
+        ${lr.map(n => cell(sm, cm, n)).join("")}
+        ${ll.map(n => cell(sm, cm, n)).join("")}
+      </tr>
+      ${subLabel("Permanent")}
+      <tr>
+        ${sp3}${sp3}${sp3}
+        ${plr.map(n => cell(sm, cm, n, true)).join("")}
+        ${pll.map(n => cell(sm, cm, n, true)).join("")}
+        ${sp3}${sp3}${sp3}
+      </tr>
+      ${subLabel("Primary")}
+    </table>
+  </div>
   ${secDiv("LOWER DENTITION")}
 </div>
 <div style="margin-bottom:10px;line-height:2;">${legend}</div>`;
@@ -219,9 +207,11 @@ export function generatePatientRecordHTML(
   const inclMed       = sections.medicalHistory    !== false;
   const inclToothChart= sections.toothChart        !== false;
   const inclChartFind = sections.chartFindings     !== false;
-  const inclTreat     = sections.treatments        !== false;
-  const inclOrtho     = sections.orthoTreatments   !== false;
-  const selVisits     = sections.selectedVisitDates ?? null;
+  const inclTreat          = sections.treatments          !== false;
+  const inclOrtho          = sections.orthoTreatments     !== false;
+  const inclOrthoCaseCard  = sections.orthoSubCaseOverview !== false;
+  const inclOrthoVisits    = sections.orthoSubVisits       !== false;
+  const selVisits          = sections.selectedVisitDates   ?? null;
 
   const genderLabel = gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : "—";
   const birthLabel  = birthDate ? formatDateStandard(birthDate.split("T")[0]) : "—";
@@ -358,7 +348,7 @@ ${visitBlocks}`;
   // ── Ortho Treatments & Visits ────────────────────────────────────────────
   let orthoHTML = "";
   if (inclOrtho && (orthoCase || orthoEntries.length > 0)) {
-    const caseCard = orthoCase ? `
+    const caseCard = (inclOrthoCaseCard && orthoCase) ? `
 <div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;">
     <div style="padding:6px 9px;border-right:1px solid #ddd;">
@@ -384,7 +374,7 @@ ${visitBlocks}`;
       <td style="${TDG}font-style:italic;">${e.note || "—"}</td>
     </tr>`).join("");
 
-    const entriesTable = orthoEntries.length > 0 ? `
+    const entriesTable = (inclOrthoVisits && orthoEntries.length > 0) ? `
 <div style="${DOC_TABLE_WRAP}">
 <table style="${TBL}">
   <colgroup>
