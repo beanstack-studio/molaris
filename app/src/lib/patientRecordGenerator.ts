@@ -1,4 +1,4 @@
-import { buildDocHeaderHTML, buildPatientRowHTML, buildPageCSS, DOC_ACCENT } from "./documentUtils";
+import { buildDocHeaderHTML, buildPatientRowHTML, buildPageCSS, buildMolarisFooterHTML, DOC_ACCENT, DOC_TBL, DOC_TH, DOC_TD, DOC_TDG, DOC_TABLE_WRAP } from "./documentUtils";
 import { formatDateStandard } from "./helpers";
 
 export interface PatientRecordSections {
@@ -7,6 +7,7 @@ export interface PatientRecordSections {
   toothChart?: boolean;
   chartFindings?: boolean;
   treatments?: boolean;
+  orthoTreatments?: boolean;
   selectedVisitDates?: string[] | null; // null = all
 }
 
@@ -47,6 +48,18 @@ export interface PatientRecordData {
     dentist_name?: string | null;
     visit_concern?: string | null;
     notes?: string | null;
+  }>;
+  orthoCase?: {
+    status: string;
+    start_date: string | null;
+    phase: string | null;
+    provider_name: string | null;
+    notes: string | null;
+  } | null;
+  orthoEntries?: Array<{
+    entry_date: string;
+    concern_type: string | null;
+    note: string | null;
   }>;
   docNo: string;
   generatedAt?: string;
@@ -118,14 +131,21 @@ function buildDentitionChartHTML(
   // (permanent row: 8 + 1 mid + 8 = 17 also)
   const totalCols = 17;
 
-  const mid = `<td style="width:1.5px;padding:0;background:#b8cce8;"></td>`;
-  const sp3 = `<td></td>`;  // spacer cells — takes remaining space in fixed layout
+  // Vertical midline — 3px, present in EVERY table row to keep the line unbroken
+  const mid = `<td style="width:3px;padding:0;background:#b8cce8;"></td>`;
+  const sp3 = `<td></td>`;
 
+  // 3-cell structure: keeps mid in label rows so vertical line is never broken
   const subLabel = (text: string) =>
-    `<tr><td colspan="${totalCols}" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td></tr>`;
+    `<tr>
+      <td colspan="8" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td>
+      ${mid}
+      <td colspan="8" style="text-align:center;font-size:9px;color:#888;padding:3px 0;">${text}</td>
+    </tr>`;
 
-  const sectionLabel = (text: string) =>
-    `<tr><td colspan="${totalCols}" style="text-align:center;font-size:9px;font-weight:bold;color:${DOC_ACCENT};letter-spacing:0.06em;text-transform:uppercase;padding:4px 0 2px;">${text}</td></tr>`;
+  // Section labels are divs OUTSIDE the table — they never break the vertical line
+  const secDiv = (text: string) =>
+    `<div style="text-align:center;font-size:9px;font-weight:bold;color:${DOC_ACCENT};letter-spacing:0.06em;text-transform:uppercase;padding:4px 0 2px;">${text}</div>`;
 
   const legend = [
     ["#fca5a5","Caries"],["#86efac","Filled"],["#e2e8f0","Missing"],["#fed7aa","Extracted"],
@@ -137,8 +157,8 @@ function buildDentitionChartHTML(
   ).join("");
 
   return `<div style="margin-bottom:4px;">
+  ${secDiv("UPPER DENTITION")}
   <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
-    ${sectionLabel("UPPER DENTITION")}
     ${subLabel("Primary")}
     <tr>
       ${sp3}${sp3}${sp3}
@@ -153,7 +173,11 @@ function buildDentitionChartHTML(
       ${mid}
       ${ul.map(n => cell(sm, cm, n)).join("")}
     </tr>
-    <tr><td colspan="${totalCols}" style="height:6px;padding:0;background:#b8cce8;border:none;"></td></tr>
+    <tr>
+      <td colspan="8" style="height:3px;padding:0;background:#b8cce8;border:none;"></td>
+      <td style="width:3px;height:3px;padding:0;background:#b8cce8;"></td>
+      <td colspan="8" style="height:3px;padding:0;background:#b8cce8;border:none;"></td>
+    </tr>
     <tr>
       ${lr.map(n => cell(sm, cm, n)).join("")}
       ${mid}
@@ -168,17 +192,17 @@ function buildDentitionChartHTML(
       ${sp3}${sp3}${sp3}
     </tr>
     ${subLabel("Primary")}
-    ${sectionLabel("LOWER DENTITION")}
   </table>
+  ${secDiv("LOWER DENTITION")}
 </div>
 <div style="margin-bottom:10px;line-height:2;">${legend}</div>`;
 }
 
-// ── Shared table styles ────────────────────────────────────────────────────
-const TBL = `width:100%;border-collapse:collapse;font-size:11px;`;
-const TH  = `padding:5px 8px;font-size:9px;font-weight:bold;color:${DOC_ACCENT};background:#f0f4fa;text-align:left;border-bottom:2px solid ${DOC_ACCENT};white-space:nowrap;`;
-const TD  = `padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top;`;
-const TDG = `padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top;color:#666;`;
+// Use shared table styles from documentUtils
+const TBL = DOC_TBL;
+const TH  = DOC_TH;
+const TD  = DOC_TD;
+const TDG = DOC_TDG;
 
 export function generatePatientRecordHTML(
   data: PatientRecordData,
@@ -187,14 +211,16 @@ export function generatePatientRecordHTML(
   const {
     patientName, birthDate, age, gender, phone, email, address, notes,
     medHistory, chartEntries = [], toothStatuses = [], treatments = [],
+    orthoCase, orthoEntries = [],
     docNo, generatedAt, clinicMeta = {},
   } = data;
 
-  const inclInfo      = sections.info          !== false;
-  const inclMed       = sections.medicalHistory !== false;
-  const inclToothChart= sections.toothChart     !== false;
-  const inclChartFind = sections.chartFindings  !== false;
-  const inclTreat     = sections.treatments     !== false;
+  const inclInfo      = sections.info              !== false;
+  const inclMed       = sections.medicalHistory    !== false;
+  const inclToothChart= sections.toothChart        !== false;
+  const inclChartFind = sections.chartFindings     !== false;
+  const inclTreat     = sections.treatments        !== false;
+  const inclOrtho     = sections.orthoTreatments   !== false;
   const selVisits     = sections.selectedVisitDates ?? null;
 
   const genderLabel = gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : "—";
@@ -329,21 +355,63 @@ ${notes ? `<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14p
 ${visitBlocks}`;
   }
 
+  // ── Ortho Treatments & Visits ────────────────────────────────────────────
+  let orthoHTML = "";
+  if (inclOrtho && (orthoCase || orthoEntries.length > 0)) {
+    const caseCard = orthoCase ? `
+<div style="border:1px solid #ddd;border-radius:3px;margin-bottom:14px;">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;">
+    <div style="padding:6px 9px;border-right:1px solid #ddd;">
+      <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Status</div>
+      <div style="font-size:11px;margin-top:2px;">${orthoCase.status || "—"}</div>
+    </div>
+    <div style="padding:6px 9px;border-right:1px solid #ddd;">
+      <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Start Date</div>
+      <div style="font-size:11px;margin-top:2px;">${orthoCase.start_date ? formatDateStandard(orthoCase.start_date.split("T")[0]) : "—"}</div>
+    </div>
+    <div style="padding:6px 9px;">
+      <div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Phase</div>
+      <div style="font-size:11px;margin-top:2px;">${orthoCase.phase || "—"}</div>
+    </div>
+  </div>
+  ${orthoCase.provider_name ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Provider</div><div style="font-size:11px;margin-top:2px;">${orthoCase.provider_name}</div></div>` : ""}
+  ${orthoCase.notes ? `<div style="border-top:1px solid #ddd;padding:6px 9px;"><div style="font-size:9px;font-weight:bold;color:${DOC_ACCENT};">Notes</div><div style="font-size:11px;margin-top:2px;">${orthoCase.notes}</div></div>` : ""}
+</div>` : "";
+
+    const entryRows = orthoEntries.map(e => `<tr>
+      <td style="${TD}">${formatDateStandard(e.entry_date.split("T")[0])}</td>
+      <td style="${TD}">${e.concern_type || "—"}</td>
+      <td style="${TDG}font-style:italic;">${e.note || "—"}</td>
+    </tr>`).join("");
+
+    const entriesTable = orthoEntries.length > 0 ? `
+<div style="${DOC_TABLE_WRAP}">
+<table style="${TBL}">
+  <colgroup>
+    <col style="width:22%"><col style="width:25%"><col style="width:53%">
+  </colgroup>
+  <thead><tr>
+    <th style="${TH}">Date</th>
+    <th style="${TH}">Type</th>
+    <th style="${TH}">Note</th>
+  </tr></thead>
+  <tbody>${entryRows}</tbody>
+</table>
+</div>` : "";
+
+    orthoHTML = `
+<div class="section-title">ORTHODONTIC TREATMENTS &amp; VISITS</div>
+${caseCard}
+${entriesTable}`;
+  }
+
   const hasChart = inclToothChart || inclChartFind;
   const chartWrap = !hasChart ? "" : `
 <div class="section-title">DENTAL CHART</div>
 ${toothChartHTML}
 ${chartFindingsHTML}`;
 
-  const printedLabel = "";
-
-  const generatedAtLabel = generatedAt
-    ? `Generated ${generatedAt}`
-    : `Generated ${new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}`;
-  const footer = `<div style="margin-top:24px;padding-top:8px;border-top:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center;">
-  <span style="font-size:8px;color:#bbb;">Powered by <strong>MOLARIS</strong> · BeanStack Studio</span>
-  <span style="font-size:8px;color:#bbb;">${generatedAtLabel}</span>
-</div>`;
+  const generatedAtStr = generatedAt || new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" });
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -361,7 +429,8 @@ ${chartFindingsHTML}`;
   ${medHistHTML}
   ${chartWrap}
   ${treatmentsHTML}
-  ${footer}
+  ${orthoHTML}
+  ${buildMolarisFooterHTML(generatedAtStr)}
 </div>
 </body>
 </html>`;

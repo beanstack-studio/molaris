@@ -30,6 +30,7 @@ import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 import { generateCertificateHTML } from "@/lib/certificateGenerator";
 import { generateReferralHTML } from "@/lib/referralGenerator";
 import { generatePatientRecordHTML, type PatientRecordSections } from "@/lib/patientRecordGenerator";
+import { generateSOADocument } from "@/lib/soaGenerator";
 import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { openDocumentViewer } from "@/components/DocumentViewer";
 import { PageLoader } from "@/components/Spinner";
@@ -87,6 +88,7 @@ export default function DocumentsPage() {
   const [patRecInclToothChart, setPatRecInclToothChart] = useState(true);
   const [patRecInclChartFindings, setPatRecInclChartFindings] = useState(true);
   const [patRecInclTreatments, setPatRecInclTreatments] = useState(true);
+  const [patRecInclOrtho, setPatRecInclOrtho]           = useState(true);
   const [patRecVisitDates, setPatRecVisitDates]   = useState<string[]>([]);
   const [patRecSelectedVisits, setPatRecSelectedVisits] = useState<Set<string>>(new Set());
   const [patRecChartExpanded, setPatRecChartExpanded]     = useState(false);
@@ -194,7 +196,7 @@ export default function DocumentsPage() {
     setError(null);
 
     if (!selectedDocType) return setError("Select a document type.");
-    if (!docDentistId && selectedDocType !== DOC_TYPES.PATIENT_RECORD) return setError("Select a dentist.");
+    if (!docDentistId && selectedDocType !== DOC_TYPES.PATIENT_RECORD && selectedDocType !== DOC_TYPES.ACCOUNT_STATEMENT) return setError("Select a dentist.");
 
     setBusy(true);
 
@@ -243,6 +245,29 @@ export default function DocumentsPage() {
           if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) patAge--;
         }
 
+        // Ortho data (sequential: entries require case id)
+        let orthoCase: any = null;
+        let orthoEntries: any[] = [];
+        if (patRecInclOrtho) {
+          const { data: ocData } = await supabase
+            .from("ortho_cases")
+            .select("id, status, start_date, phase, provider_name, notes")
+            .eq("patient_id", id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+          if (ocData) {
+            const { id: caseId, ...caseFields } = ocData as any;
+            orthoCase = caseFields;
+            const { data: oeData } = await supabase
+              .from("ortho_entries")
+              .select("entry_date, concern_type, note")
+              .eq("ortho_case_id", caseId)
+              .order("entry_date", { ascending: false });
+            orthoEntries = (oeData ?? []) as any[];
+          }
+        }
+
         const docNo = await getNextDocNo(DOC_TYPES.PATIENT_RECORD);
         const patRecSections: PatientRecordSections = {
           info: patRecInclInfo,
@@ -250,6 +275,7 @@ export default function DocumentsPage() {
           toothChart: patRecInclToothChart,
           chartFindings: patRecInclChartFindings,
           treatments: patRecInclTreatments,
+          orthoTreatments: patRecInclOrtho,
           selectedVisitDates: patRecInclTreatments && patRecSelectedVisits.size < patRecVisitDates.length
             ? [...patRecSelectedVisits]
             : null,
@@ -268,6 +294,8 @@ export default function DocumentsPage() {
           chartEntries: (chartRes.data ?? []) as any[],
           toothStatuses: (statusRes.data ?? []) as any[],
           treatments: (txRes.data ?? []) as any[],
+          orthoCase,
+          orthoEntries,
           docNo,
           generatedAt: new Date().toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }),
           clinicMeta,
@@ -282,6 +310,28 @@ export default function DocumentsPage() {
           doc_no: docNo,
           payload: { rendered_html: renderedHtml, clinic_meta: clinicMeta, generated_at: new Date().toISOString() },
           clinic_meta: clinicMeta,
+          issued_by: userEmail,
+        });
+
+        setBusy(false);
+        setShowGenerateModal(false);
+        resetGenerateForm();
+        await loadData();
+        return;
+      }
+
+      // ── Statement of Account: fetch all billing data and generate HTML ──
+      if (selectedDocType === DOC_TYPES.ACCOUNT_STATEMENT) {
+        const docNo = await getNextDocNo(DOC_TYPES.ACCOUNT_STATEMENT);
+        const soaHtml = await generateSOADocument(id, patient.full_name || "Unknown Patient", docNo);
+
+        await supabase.from("documents").insert({
+          patient_id: id,
+          patient_name: patient.full_name || null,
+          doc_type: DOC_TYPES.ACCOUNT_STATEMENT,
+          doc_code: "SOA",
+          doc_no: docNo,
+          payload: { rendered_html: soaHtml, generated_at: new Date().toISOString() },
           issued_by: userEmail,
         });
 
@@ -399,6 +449,7 @@ export default function DocumentsPage() {
     setPatRecInclToothChart(true);
     setPatRecInclChartFindings(true);
     setPatRecInclTreatments(true);
+    setPatRecInclOrtho(true);
     setPatRecVisitDates([]);
     setPatRecSelectedVisits(new Set());
     setPatRecChartExpanded(false);
@@ -597,8 +648,13 @@ export default function DocumentsPage() {
             </select>
           </div>
 
+          {/* SOA description */}
+          {selectedDocType === DOC_TYPES.ACCOUNT_STATEMENT && (
+            <div className="hint-text">Generates a complete statement of account including all invoices and payments for this patient.</div>
+          )}
+
           {/* STEP 2: Common fields (visible when type is selected) */}
-          {selectedDocType && selectedDocType !== DOC_TYPES.PATIENT_RECORD && (
+          {selectedDocType && selectedDocType !== DOC_TYPES.PATIENT_RECORD && selectedDocType !== DOC_TYPES.ACCOUNT_STATEMENT && (
             <>
               <div className="section-columns">
                 <div className="section-col-half">
@@ -963,6 +1019,12 @@ export default function DocumentsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Ortho Treatments & Visits */}
+              <label className="section-check-row">
+                <input type="checkbox" checked={patRecInclOrtho} onChange={e => setPatRecInclOrtho(e.target.checked)} className="accent-violet-600" />
+                Ortho Treatments &amp; Visits
+              </label>
             </div>
           )}
 
@@ -981,7 +1043,7 @@ export default function DocumentsPage() {
               </button>
               <button
                 className="save-btn"
-                disabled={busy || !selectedDocType || (!docDentistId && selectedDocType !== DOC_TYPES.PATIENT_RECORD)}
+                disabled={busy || !selectedDocType || (!docDentistId && selectedDocType !== DOC_TYPES.PATIENT_RECORD && selectedDocType !== DOC_TYPES.ACCOUNT_STATEMENT)}
                 onClick={generateDocument}
               >
                 {busy ? "Generating…" : "Generate"}

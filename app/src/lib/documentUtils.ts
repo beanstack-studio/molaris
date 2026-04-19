@@ -84,6 +84,14 @@ export function buildMolarisFooterHTML(generatedAt?: string): string {
 </div>`;
 }
 
+// ─── Shared document table styles ──────────────────────────────────────────
+// Use these in ALL document generators for visual consistency
+export const DOC_TBL  = `width:100%;border-collapse:collapse;font-size:11px;`;
+export const DOC_TH   = `padding:5px 8px;font-size:9px;font-weight:bold;color:${DOC_ACCENT};background:#f0f4fa;text-align:left;border-bottom:2px solid ${DOC_ACCENT};white-space:nowrap;`;
+export const DOC_TD   = `padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top;`;
+export const DOC_TDG  = `padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top;color:#666;`;
+export const DOC_TABLE_WRAP = `border:1px solid #ddd;border-radius:3px;overflow:hidden;margin-bottom:14px;`;
+
 // ─── Base page CSS ─────────────────────────────────────────────────────────
 export function buildPageCSS(): string {
   return `* { margin:0; padding:0; box-sizing:border-box; }

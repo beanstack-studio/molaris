@@ -5,7 +5,7 @@
 
 import { supabase } from "./supabaseClient";
 import { formatMoney } from "./helpers";
-import { buildDocHeaderHTML, buildPatientRowHTML, buildPageCSS, DOC_ACCENT } from "./documentUtils";
+import { buildDocHeaderHTML, buildPatientRowHTML, buildPageCSS, buildMolarisFooterHTML, DOC_ACCENT, DOC_TH, DOC_TD, DOC_TABLE_WRAP } from "./documentUtils";
 
 function formatDateDocument(isoDate: string): string {
   if (!isoDate) return "—";
@@ -88,16 +88,7 @@ export async function generateInvoiceDocument(
 <head>
   <meta charset="UTF-8">
   <title>Invoice ${invoiceNumber}</title>
-  <style>
-    ${buildPageCSS()}
-    table { width:100%; border-collapse:collapse; margin:12px 0; font-size:10px; }
-    th { background:#f3f4f6; border:1px solid #d1d5db; padding:7px 9px; text-align:left; font-weight:bold; color:${DOC_ACCENT}; font-size:10px; }
-    td { border:1px solid #d1d5db; padding:6px 9px; font-size:10px; }
-    tr:nth-child(even) td { background:#f9fafb; }
-    .tr { text-align:right; }
-    .tc { text-align:center; }
-    .total-row td { font-weight:bold; background:#e8edf7 !important; color:${DOC_ACCENT}; }
-  </style>
+  <style>${buildPageCSS()}</style>
 </head>
 <body>
 <div class="page">
@@ -109,33 +100,36 @@ export async function generateInvoiceDocument(
 
   <div style="font-size:9px;color:#666;margin-bottom:10px;">Invoice Date: ${invoiceDate}</div>
 
-  <table>
+  <div style="${DOC_TABLE_WRAP}">
+  <table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <colgroup>
+      <col style="width:50%"><col style="width:10%"><col style="width:20%"><col style="width:20%">
+    </colgroup>
     <thead>
       <tr>
-        <th>Description</th>
-        <th class="tc">Qty</th>
-        <th class="tr">Unit Price</th>
-        <th class="tr">Amount</th>
+        <th style="${DOC_TH}">Description</th>
+        <th style="${DOC_TH}text-align:center;">Qty</th>
+        <th style="${DOC_TH}text-align:right;">Unit Price</th>
+        <th style="${DOC_TH}text-align:right;">Amount</th>
       </tr>
     </thead>
     <tbody>
       ${itemsList.map((item) => `
       <tr>
-        <td>${item.service_name || "—"}</td>
-        <td class="tc">${item.qty || 1}</td>
-        <td class="tr">${formatMoney(item.unit_price || 0)}</td>
-        <td class="tr">${formatMoney(item.line_total || 0)}</td>
+        <td style="${DOC_TD}">${item.service_name || "—"}</td>
+        <td style="${DOC_TD}text-align:center;">${item.qty || 1}</td>
+        <td style="${DOC_TD}text-align:right;">${formatMoney(item.unit_price || 0)}</td>
+        <td style="${DOC_TD}text-align:right;">${formatMoney(item.line_total || 0)}</td>
       </tr>`).join("")}
-      <tr class="total-row">
-        <td colspan="3">Total Amount</td>
-        <td class="tr">${formatMoney(invoiceData.total || 0)}</td>
+      <tr>
+        <td colspan="3" style="${DOC_TD}font-weight:bold;background:#e8edf7;color:${DOC_ACCENT};">Total Amount</td>
+        <td style="${DOC_TD}text-align:right;font-weight:bold;background:#e8edf7;color:${DOC_ACCENT};">${formatMoney(invoiceData.total || 0)}</td>
       </tr>
     </tbody>
   </table>
-
-  <div style="text-align:center;font-size:9px;color:#888;border-top:1px solid #e0e0e0;padding-top:12px;margin-top:20px;">
-    Thank you for your trust in our services. &nbsp;|&nbsp; This is a computer-generated document. Please retain for your records.
   </div>
+
+  ${buildMolarisFooterHTML(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}
 </div>
 </body>
 </html>`;
@@ -252,9 +246,7 @@ export async function generatePaymentReceiptDocument(
     <div><span class="verified-badge">✓ VERIFIED</span></div>
   </div>
 
-  <div style="text-align:center;font-size:9px;color:#888;border-top:1px solid #e0e0e0;padding-top:12px;margin-top:20px;">
-    Generated: ${new Date().toLocaleString("en-PH")} &nbsp;|&nbsp; Please keep this receipt for your records.
-  </div>
+  ${buildMolarisFooterHTML(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}
 </div>
 </body>
 </html>`;
@@ -281,16 +273,7 @@ export async function generateInvoicePreviewHTML(): Promise<string> {
 <head>
   <meta charset="UTF-8">
   <title>Invoice Preview</title>
-  <style>
-    ${buildPageCSS()}
-    table { width:100%; border-collapse:collapse; margin:12px 0; font-size:10px; }
-    th { background:#f3f4f6; border:1px solid #d1d5db; padding:7px 9px; text-align:left; font-weight:bold; color:${DOC_ACCENT}; }
-    td { border:1px solid #d1d5db; padding:6px 9px; }
-    tr:nth-child(even) td { background:#f9fafb; }
-    .tr { text-align:right; }
-    .tc { text-align:center; }
-    .total-row td { font-weight:bold; background:#e8edf7 !important; color:${DOC_ACCENT}; }
-  </style>
+  <style>${buildPageCSS()}</style>
 </head>
 <body>
 <div class="page">
@@ -298,18 +281,34 @@ export async function generateInvoicePreviewHTML(): Promise<string> {
   <div style="text-align:center;font-size:22px;font-weight:bold;color:${DOC_ACCENT};margin-bottom:14px;letter-spacing:0.04em;">INVOICE</div>
   ${buildPatientRowHTML("Sample Patient", 32, "Female", "Sample Address, Kalibo, Aklan")}
   <div style="font-size:9px;color:#666;margin-bottom:10px;">Invoice Date: April 11, 2026</div>
-  <table>
+  <div style="${DOC_TABLE_WRAP}">
+  <table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <colgroup>
+      <col style="width:50%"><col style="width:10%"><col style="width:20%"><col style="width:20%">
+    </colgroup>
     <thead>
-      <tr><th>Description</th><th class="tc">Qty</th><th class="tr">Unit Price</th><th class="tr">Amount</th></tr>
+      <tr>
+        <th style="${DOC_TH}">Description</th>
+        <th style="${DOC_TH}text-align:center;">Qty</th>
+        <th style="${DOC_TH}text-align:right;">Unit Price</th>
+        <th style="${DOC_TH}text-align:right;">Amount</th>
+      </tr>
     </thead>
     <tbody>
-      ${sampleItems.map((i) => `<tr><td>${i.service_name}</td><td class="tc">${i.qty}</td><td class="tr">${formatMoney(i.unit_price)}</td><td class="tr">${formatMoney(i.line_total)}</td></tr>`).join("")}
-      <tr class="total-row"><td colspan="3">Total Amount</td><td class="tr">${formatMoney(total)}</td></tr>
+      ${sampleItems.map((i) => `<tr>
+        <td style="${DOC_TD}">${i.service_name}</td>
+        <td style="${DOC_TD}text-align:center;">${i.qty}</td>
+        <td style="${DOC_TD}text-align:right;">${formatMoney(i.unit_price)}</td>
+        <td style="${DOC_TD}text-align:right;">${formatMoney(i.line_total)}</td>
+      </tr>`).join("")}
+      <tr>
+        <td colspan="3" style="${DOC_TD}font-weight:bold;background:#e8edf7;color:${DOC_ACCENT};">Total Amount</td>
+        <td style="${DOC_TD}text-align:right;font-weight:bold;background:#e8edf7;color:${DOC_ACCENT};">${formatMoney(total)}</td>
+      </tr>
     </tbody>
   </table>
-  <div style="text-align:center;font-size:9px;color:#888;border-top:1px solid #e0e0e0;padding-top:12px;margin-top:20px;">
-    Thank you for your trust in our services. &nbsp;|&nbsp; This is a computer-generated document. Please retain for your records.
   </div>
+  ${buildMolarisFooterHTML(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}
 </div>
 </body>
 </html>`;
@@ -354,9 +353,7 @@ export async function generateReceiptPreviewHTML(): Promise<string> {
     <div class="amount-value">${formatMoney(5000)}</div>
     <div><span class="verified-badge">✓ VERIFIED</span></div>
   </div>
-  <div style="text-align:center;font-size:9px;color:#888;border-top:1px solid #e0e0e0;padding-top:12px;margin-top:20px;">
-    Please keep this receipt for your records.
-  </div>
+  ${buildMolarisFooterHTML(new Date().toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" }))}
 </div>
 </body>
 </html>`;

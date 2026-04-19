@@ -346,6 +346,7 @@ export function getGenerableDocTypes(): DocType[] {
     DOC_TYPES.PRESCRIPTION,
     DOC_TYPES.DENTAL_CERTIFICATE,
     DOC_TYPES.REFERRAL_LETTER,
+    DOC_TYPES.ACCOUNT_STATEMENT,
   ];
 }
 
