@@ -98,46 +98,64 @@ export default function DashboardPage() {
     const monthEnd    = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
     const upcomingEnd = new Date(now.getTime() + 30 * 86_400_000).toISOString().split("T")[0];
 
-    // Phase 1a: stat cards (invoices + payments totals + new patients)
-    Promise.all([
-      supabase.from("invoices").select("id, total").gte("invoice_date", monthStart).lte("invoice_date", monthEnd).is("deleted_at", null),
-      supabase.from("payments").select("id, amount").gte("payment_date", monthStart).lte("payment_date", monthEnd).is("voided_at", null),
-      supabase.from("patients").select("id", { count: "exact" }).limit(1).gte("created_at", monthStart + "T00:00:00"),
-    ]).then(([inv, pay, pts]) => {
-      const invoiced   = (inv.data ?? []).reduce((s, r) => s + (r.total ?? 0), 0);
-      const collected  = (pay.data ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
-      setMonthStats({ invoiced, collected, patientsSeen: 0, newPatients: pts.count ?? 0 });
-    }).catch(() => {
-      setMonthStats({ invoiced: 0, collected: 0, patientsSeen: 0, newPatients: 0 });
-    }).finally(() => setStatsLoading(false));
+    // Phase 1a: stat cards
+    (async () => {
+      try {
+        const [inv, pay, pts] = await Promise.all([
+          supabase.from("invoices").select("id, total").gte("invoice_date", monthStart).lte("invoice_date", monthEnd).is("deleted_at", null),
+          supabase.from("payments").select("id, amount").gte("payment_date", monthStart).lte("payment_date", monthEnd).is("voided_at", null),
+          supabase.from("patients").select("id", { count: "exact" }).limit(1).gte("created_at", monthStart + "T00:00:00"),
+        ]);
+        const invoiced  = (inv.data ?? []).reduce((s, r) => s + (r.total ?? 0), 0);
+        const collected = (pay.data ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+        setMonthStats({ invoiced, collected, patientsSeen: 0, newPatients: pts.count ?? 0 });
+      } catch {
+        setMonthStats({ invoiced: 0, collected: 0, patientsSeen: 0, newPatients: 0 });
+      } finally {
+        setStatsLoading(false);
+      }
+    })();
 
-    // Phase 1b: upcoming appointments (independent — renders as soon as ready)
-    supabase.from("appointments")
-      .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name, nickname, color)")
-      .gte("appointment_date", today).lte("appointment_date", upcomingEnd)
-      .is("deleted_at", null).neq("status", "cancelled")
-      .order("appointment_date", { ascending: true }).order("appointment_time", { ascending: true })
-      .limit(10)
-      .then(({ data }) => setUpcoming((data as unknown as UpcomingAppt[]) ?? []))
-      .catch(() => setUpcoming([]))
-      .finally(() => setUpcomingLoading(false));
+    // Phase 1b: upcoming appointments (independent)
+    (async () => {
+      try {
+        const { data } = await supabase.from("appointments")
+          .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name, nickname, color)")
+          .gte("appointment_date", today).lte("appointment_date", upcomingEnd)
+          .is("deleted_at", null).neq("status", "cancelled")
+          .order("appointment_date", { ascending: true }).order("appointment_time", { ascending: true })
+          .limit(10);
+        setUpcoming((data as unknown as UpcomingAppt[]) ?? []);
+      } catch {
+        setUpcoming([]);
+      } finally {
+        setUpcomingLoading(false);
+      }
+    })();
 
     // Phase 2: charts + transactions + patientsSeen (heavier, silent background)
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split("T")[0];
-    Promise.all([
-      supabase.from("invoices").select("invoice_date, total").gte("invoice_date", sixMonthsAgo).lte("invoice_date", monthEnd).is("deleted_at", null),
-      supabase.from("payments").select("payment_date, amount").gte("payment_date", sixMonthsAgo).lte("payment_date", monthEnd).is("voided_at", null),
-      supabase.from("treatments").select("procedure, dentist_name").gte("treatment_date", monthStart).lte("treatment_date", today),
-      supabase.from("invoices").select("id, invoice_date, invoice_number, total, status, patient_id, patients(full_name)").is("deleted_at", null).order("invoice_date", { ascending: false }).limit(10),
-      supabase.from("treatments").select("patient_id").gte("treatment_date", monthStart).lte("treatment_date", today),
-    ]).then(([chartInv, chartPay, treats, txs, patientsSeen]) => {
-      setChartInvoices((chartInv.data ?? []) as { invoice_date: string; total: number }[]);
-      setChartPayments((chartPay.data ?? []) as { payment_date: string; amount: number }[]);
-      setMonthTreatments((treats.data ?? []) as { procedure: string | null; dentist_name: string | null }[]);
-      setTransactions((txs.data as unknown as Transaction[]) ?? []);
-      const seen = new Set((patientsSeen.data ?? []).map((a: any) => a.patient_id).filter(Boolean)).size;
-      setMonthStats(prev => prev ? { ...prev, patientsSeen: seen } : null);
-    }).catch(() => {}).finally(() => setChartsLoading(false));
+    (async () => {
+      try {
+        const [chartInv, chartPay, treats, txs, patientsSeen] = await Promise.all([
+          supabase.from("invoices").select("invoice_date, total").gte("invoice_date", sixMonthsAgo).lte("invoice_date", monthEnd).is("deleted_at", null),
+          supabase.from("payments").select("payment_date, amount").gte("payment_date", sixMonthsAgo).lte("payment_date", monthEnd).is("voided_at", null),
+          supabase.from("treatments").select("procedure, dentist_name").gte("treatment_date", monthStart).lte("treatment_date", today),
+          supabase.from("invoices").select("id, invoice_date, invoice_number, total, status, patient_id, patients(full_name)").is("deleted_at", null).order("invoice_date", { ascending: false }).limit(10),
+          supabase.from("treatments").select("patient_id").gte("treatment_date", monthStart).lte("treatment_date", today),
+        ]);
+        setChartInvoices((chartInv.data ?? []) as { invoice_date: string; total: number }[]);
+        setChartPayments((chartPay.data ?? []) as { payment_date: string; amount: number }[]);
+        setMonthTreatments((treats.data ?? []) as { procedure: string | null; dentist_name: string | null }[]);
+        setTransactions((txs.data as unknown as Transaction[]) ?? []);
+        const seen = new Set((patientsSeen.data ?? []).map((a: any) => a.patient_id).filter(Boolean)).size;
+        setMonthStats(prev => prev ? { ...prev, patientsSeen: seen } : null);
+      } catch {
+        // charts failing silently is acceptable
+      } finally {
+        setChartsLoading(false);
+      }
+    })();
   }, []);
 
   /* ── Chart data ──────────────────────────────────────────── */
