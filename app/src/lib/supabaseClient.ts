@@ -15,12 +15,28 @@ const sessionStorageAdapter =
       }
     : undefined;
 
+// All REST API calls get a 15-second timeout so the UI never hangs indefinitely
+// if Supabase is slow or unreachable. Realtime WS connections are unaffected.
+const QUERY_TIMEOUT_MS = 15_000;
+function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  // Don't override an existing abort signal (e.g. internal Supabase signals)
+  if (init.signal) return fetch(input, init);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(timer)
+  );
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
     storage: sessionStorageAdapter,
+  },
+  global: {
+    fetch: fetchWithTimeout,
   },
   realtime: {
     params: {

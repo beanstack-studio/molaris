@@ -78,6 +78,7 @@ export default function DashboardPage() {
 
   // Phase 1 state — renders immediately with placeholders, fills in fast
   const [statsLoading, setStatsLoading]     = useState(true);
+  const [statsError, setStatsError]         = useState(false);
   const [monthStats, setMonthStats]         = useState<MonthStats | null>(null);
   const [upcomingLoading, setUpcomingLoading] = useState(true);
   const [upcoming, setUpcoming]             = useState<UpcomingAppt[]>([]);
@@ -110,6 +111,7 @@ export default function DashboardPage() {
         const collected = (pay.data ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
         setMonthStats({ invoiced, collected, patientsSeen: 0, newPatients: pts.count ?? 0 });
       } catch {
+        setStatsError(true);
         setMonthStats({ invoiced: 0, collected: 0, patientsSeen: 0, newPatients: 0 });
       } finally {
         setStatsLoading(false);
@@ -164,6 +166,15 @@ export default function DashboardPage() {
   const pieData     = useMemo(() => buildPieData(monthTreatments, dentistFilter), [monthTreatments, dentistFilter]);
   const pieTotal    = useMemo(() => pieData.reduce((s, d) => s + d.value, 0), [pieData]);
 
+  function retryAll() {
+    setStatsError(false);
+    setStatsLoading(true);
+    setUpcomingLoading(true);
+    setChartsLoading(true);
+    // Re-trigger the effect by reloading the page — simplest reliable retry
+    window.location.reload();
+  }
+
   /* ── Render ─────────────────────────────────────────────── */
   return (
     <div className="page-bg">
@@ -171,6 +182,13 @@ export default function DashboardPage() {
         <div className="app-section-header">
           <div className="app-section-title">Dashboard</div>
         </div>
+
+        {statsError && (
+          <div className="error-banner flex items-center justify-between gap-3 mb-4">
+            <span>Could not connect to database. Check your Supabase project status.</span>
+            <button onClick={retryAll} className="cancel-btn h-8 px-3 text-xs">Retry</button>
+          </div>
+        )}
 
         <div className="flex flex-col gap-4">
 
