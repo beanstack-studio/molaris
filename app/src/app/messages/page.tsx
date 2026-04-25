@@ -123,8 +123,6 @@ export default function MessagesPage() {
       setShowInfo(true);
     }
   }, []);
-  const [syncing, setSyncing]             = useState(false);
-  const [syncResult, setSyncResult]       = useState<string | null>(null);
   const [search, setSearch]               = useState("");
 
   // Redirect to settings if Messenger is not connected
@@ -152,7 +150,6 @@ export default function MessagesPage() {
     }
   }, []);
 
-  // Alias used by Load Threads button and other explicit refreshes
   const loadThreads = useCallback(() => fetchThreads(false), [fetchThreads]);
 
   useEffect(() => { fetchThreads(false); }, [fetchThreads]);
@@ -174,45 +171,6 @@ export default function MessagesPage() {
     const poll = setInterval(silentRefresh, 30_000);
     return () => { sub.unsubscribe(); clearInterval(poll); };
   }, [fetchThreads]);
-
-  async function loadAllThreads() {
-    setSyncing(true);
-    setSyncResult("Connecting to Facebook…");
-    try {
-      const res = await fetch("/api/admin/load-threads-stream", { method: "POST" });
-      if (!res.ok) throw new Error("Failed to start stream");
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.error) { setSyncResult(`Error: ${data.error}`); return; }
-            if (data.total != null) {
-              setSyncResult(
-                data.done
-                  ? `Done — loaded ${data.upserted} threads`
-                  : `Loading threads… ${data.upserted} / ${data.total}`
-              );
-            }
-          } catch { /* ignore malformed line */ }
-        }
-      }
-    } catch (e: any) {
-      setSyncResult(`Error: ${e.message}`);
-    } finally {
-      setSyncing(false);
-    }
-  }
 
   function selectThread(id: string) {
     setSelectedId(id);
@@ -247,28 +205,8 @@ export default function MessagesPage() {
 
         {/* Header */}
         <div className="px-4 py-3 border-b border-slate-100/80 flex-shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <h1 className="card-title leading-tight">Messages</h1>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <button
-                onClick={loadAllThreads}
-                disabled={syncing}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors"
-                title="Load all threads from Facebook (streams in — no page refresh needed)"
-              >
-                <svg className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {syncing ? "Loading…" : "Load Threads"}
-              </button>
-            </div>
-          </div>
+          <h1 className="card-title leading-tight">Messages</h1>
           <p className="text-xs text-slate-400 mt-0.5">SMS &amp; Messenger inbox</p>
-          {syncResult && (
-            <p className={`text-xs mt-1.5 font-medium ${syncResult.startsWith("Error") ? "text-red-500" : "text-emerald-600"}`}>
-              {syncResult}
-            </p>
-          )}
           {/* Search */}
           <div className="relative mt-2">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
