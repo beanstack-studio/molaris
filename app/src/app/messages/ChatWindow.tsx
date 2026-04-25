@@ -310,8 +310,10 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack, onOpenIn
       setShowApptModal(false);
       onThreadUpdated();
       const recipientId = thread?.external_thread_id || linkedPatients[0]?.phone || "";
+      const patient = linkedPatients.find((p) => p.id === patientId);
+      const patientFirstName = patient?.first_name ?? patient?.full_name?.split(" ")[0] ?? null;
       try {
-        await sendAppointmentConfirmation(appt.id, threadId, date, time, thread?.channel as "sms" | "messenger", recipientId);
+        await sendAppointmentConfirmation(appt.id, threadId, date, time, thread?.channel as "sms" | "messenger", recipientId, patientFirstName);
       } catch {
         setError("Appointment created, but confirmation message failed to send.");
       }

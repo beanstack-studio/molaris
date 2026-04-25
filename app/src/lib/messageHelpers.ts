@@ -320,9 +320,11 @@ export async function sendAppointmentConfirmation(
   appointmentDate: string,
   appointmentTime: string,
   channel: 'sms' | 'messenger',
-  recipientIdentifier: string
+  recipientIdentifier: string,
+  patientName?: string | null
 ) {
-  const message = `Your appointment has been confirmed! 📅\nDate: ${appointmentDate}\nTime: ${appointmentTime}\n\nSee you soon!`;
+  const greeting = patientName ? `Hi ${patientName}! ` : "";
+  const message = `${greeting}Your appointment has been confirmed! 📅\nDate: ${appointmentDate}\nTime: ${appointmentTime}\n\nSee you soon!`;
 
   try {
     if (channel === 'sms') {
