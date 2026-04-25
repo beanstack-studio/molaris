@@ -150,12 +150,10 @@ export default function PatientsPage() {
     // Timer only covers Phase 1 (patients query); Phase 2 runs silently
     const timer = setTimeout(() => {
       if (!abort.signal.aborted) {
-        setLoading((prev) => {
-          if (prev) setError("Connection timed out. The server may be under load — please try again.");
-          return false;
-        });
+        setError("Connection timed out. The server may be slow to start — please try again.");
+        setLoading(false);
       }
-    }, 12000);
+    }, 30000);
     loadPatients().finally(() => clearTimeout(timer));
     return () => { abort.abort(); clearTimeout(timer); };
   }, []);

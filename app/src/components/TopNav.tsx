@@ -158,7 +158,7 @@ export default function TopNav({
 
   const navLinks = [
     { href: "/appointments", label: "Appointments", active: isAppointments },
-    ...(messengerConnected ? [{ href: "/messages", label: "Messages", active: isMessages }] : []),
+    { href: "/messages", label: "Messages", active: isMessages },
     { href: "/patients", label: "Patients", active: isPatients },
     { href: "/reports/payments", label: "Reports", active: isReports },
     { href: "/settings/clinic-profile", label: "Settings", active: isSettings },
