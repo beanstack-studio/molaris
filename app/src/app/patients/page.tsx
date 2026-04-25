@@ -183,10 +183,10 @@ export default function PatientsPage() {
     const abort = new AbortController();
     const timer = setTimeout(() => {
       if (!abort.signal.aborted) {
-        setError("Connection timed out — check your Supabase project is active");
+        setError("Connection timed out. The server may be under load — please try again.");
         setLoading(false);
       }
-    }, 25000);
+    }, 12000);
     loadPatients().finally(() => clearTimeout(timer));
     return () => { abort.abort(); clearTimeout(timer); };
   }, []);
@@ -357,6 +357,19 @@ export default function PatientsPage() {
               </select>
             </div>
           </div>
+
+          {/* Error banner with retry */}
+          {!loading && error && (
+            <div className="mx-1 mb-3 flex items-center justify-between gap-3 rounded-lg bg-red-50 border border-red-100 px-4 py-3">
+              <p className="text-sm text-red-700">{error}</p>
+              <button
+                className="flex-shrink-0 text-xs font-medium text-red-700 underline hover:no-underline"
+                onClick={() => { setError(null); loadPatients(); }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
 
           {/* TABLE (desktop) */}
           <div className="table-wrapper hidden md:block">
