@@ -32,7 +32,6 @@ function fmtDate(dateStr: string) {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 }
 
-
 function buildChartData(
   invoices: { invoice_date: string; total: number }[],
   payments: { payment_date: string; amount: number }[],
@@ -98,54 +97,52 @@ const TOOLTIP_STYLE = {
 
 /* ══════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
+  // Phase 1 — critical content (shown first)
   const [loading, setLoading]               = useState(true);
   const [loadingTooLong, setLoadingTooLong] = useState(false);
   const [error, setError]                   = useState<string | null>(null);
-  const [mounted, setMounted]               = useState(false); // for SSR-safe recharts
+  const [mounted, setMounted]               = useState(false);
 
-  const [monthStats, setMonthStats]     = useState<MonthStats>({ invoiced: 0, collected: 0, patientsSeen: 0, newPatients: 0 });
-  const [upcoming, setUpcoming]         = useState<UpcomingAppt[]>([]);
-  const [chartInvoices, setChartInvoices] = useState<{ invoice_date: string; total: number }[]>([]);
-  const [chartPayments, setChartPayments] = useState<{ payment_date: string; amount: number }[]>([]);
+  const [monthStats, setMonthStats]   = useState<MonthStats>({ invoiced: 0, collected: 0, patientsSeen: 0, newPatients: 0 });
+  const [upcoming, setUpcoming]       = useState<UpcomingAppt[]>([]);
+
+  // Phase 2 — charts/history (loaded in background after page is shown)
+  const [chartsLoading, setChartsLoading]   = useState(true);
+  const [chartInvoices, setChartInvoices]   = useState<{ invoice_date: string; total: number }[]>([]);
+  const [chartPayments, setChartPayments]   = useState<{ payment_date: string; amount: number }[]>([]);
   const [monthTreatments, setMonthTreatments] = useState<{ procedure: string | null; dentist_name: string | null }[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [dentistFilter, setDentistFilter] = useState("all");
+  const [transactions, setTransactions]     = useState<Transaction[]>([]);
+  const [dentistFilter, setDentistFilter]   = useState("all");
 
-  const router     = useRouter();
-  const now        = new Date();
+  const router = useRouter();
+  const now    = new Date();
 
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    const slowTimer = setTimeout(() => setLoadingTooLong(true), 10_000);
-    loadData().finally(() => clearTimeout(slowTimer));
+    const slowTimer = setTimeout(() => setLoadingTooLong(true), 8_000);
+    loadPhase1().then(() => {
+      clearTimeout(slowTimer);
+      loadPhase2(); // fire background fetch after phase 1 completes
+    }).catch(() => clearTimeout(slowTimer));
   }, []);
 
-  async function loadData() {
+  // Phase 1: auth + stat cards + upcoming appointments (4 fast queries)
+  async function loadPhase1() {
     setLoading(true);
     setError(null);
     setLoadingTooLong(false);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setError("No active session. Please log in."); return; }
+      if (!session) { setError("No active session. Please log in."); setLoading(false); return; }
 
-      const today        = now.toISOString().split("T")[0];
-      const monthStart   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-      const monthEnd     = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-      const upcomingEnd  = new Date(now.getTime() + 30 * 86_400_000).toISOString().split("T")[0];
-      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split("T")[0];
+      const today      = now.toISOString().split("T")[0];
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      const upcomingEnd = new Date(now.getTime() + 30 * 86_400_000).toISOString().split("T")[0];
 
-      const withTimeout = <T,>(p: Promise<T>, ms = 20_000): Promise<T> =>
-        Promise.race([p, new Promise<T>((_, rej) =>
-          setTimeout(() => rej(new Error("Database timeout — please retry")), ms)
-        )]);
-
-      const [
-        monthInvoicesRes, monthPaymentsRes, newPatientsRes, monthTreatmentsSeenRes,
-        upcomingRes, chartInvoicesRes, chartPaymentsRes, treatmentsRes, transactionsRes,
-      ] = await withTimeout(Promise.all([
-        // ── Stat card queries ────────────────────────────────
+      const [invoicesRes, paymentsRes, newPatientsRes, patientsTreatedRes, upcomingRes] = await Promise.all([
         supabase.from("invoices").select("id, total")
           .gte("invoice_date", monthStart).lte("invoice_date", monthEnd).is("deleted_at", null),
 
@@ -158,45 +155,20 @@ export default function DashboardPage() {
         supabase.from("treatments").select("patient_id")
           .gte("treatment_date", monthStart).lte("treatment_date", today),
 
-        // ── Upcoming appointments ────────────────────────────
         supabase.from("appointments")
           .select("id, appointment_date, appointment_time, status, patients(full_name), dentists(full_name, nickname, color)")
           .gte("appointment_date", today).lte("appointment_date", upcomingEnd)
           .is("deleted_at", null).neq("status", "cancelled")
           .order("appointment_date", { ascending: true }).order("appointment_time", { ascending: true })
           .limit(10),
+      ]);
 
-        // ── 6-month bar chart ────────────────────────────────
-        supabase.from("invoices").select("invoice_date, total")
-          .gte("invoice_date", sixMonthsAgo).lte("invoice_date", monthEnd).is("deleted_at", null),
+      const invoiced    = (invoicesRes.data ?? []).reduce((s, r) => s + (r.total ?? 0), 0);
+      const collected   = (paymentsRes.data ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+      const patientsSeen = new Set((patientsTreatedRes.data ?? []).map((a: any) => a.patient_id).filter(Boolean)).size;
 
-        supabase.from("payments").select("payment_date, amount")
-          .gte("payment_date", sixMonthsAgo).lte("payment_date", monthEnd).is("voided_at", null),
-
-        // ── Treatments pie ───────────────────────────────────
-        supabase.from("treatments").select("procedure, dentist_name")
-          .gte("treatment_date", monthStart).lte("treatment_date", today),
-
-        // ── Transaction history ──────────────────────────────
-        supabase.from("invoices")
-          .select("id, invoice_date, invoice_number, total, status, patient_id, patients(full_name)")
-          .is("deleted_at", null)
-          .order("invoice_date", { ascending: false })
-          .limit(10),
-      ]));
-
-      // Stat cards
-      const monthInvoiced  = (monthInvoicesRes.data ?? []).reduce((s, r) => s + (r.total  ?? 0), 0);
-      const monthCollected = (monthPaymentsRes.data  ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
-      const patientsSeen   = new Set((monthTreatmentsSeenRes.data ?? []).map((a: any) => a.patient_id).filter(Boolean)).size;
-
-      setMonthStats({ invoiced: monthInvoiced, collected: monthCollected, patientsSeen, newPatients: newPatientsRes.count ?? 0 });
+      setMonthStats({ invoiced, collected, patientsSeen, newPatients: newPatientsRes.count ?? 0 });
       setUpcoming((upcomingRes.data as unknown as UpcomingAppt[]) ?? []);
-      setChartInvoices((chartInvoicesRes.data ?? []) as { invoice_date: string; total: number }[]);
-      setChartPayments((chartPaymentsRes.data ?? []) as { payment_date: string; amount: number }[]);
-      setMonthTreatments((treatmentsRes.data ?? []) as { procedure: string | null; dentist_name: string | null }[]);
-      setTransactions((transactionsRes.data as unknown as Transaction[]) ?? []);
-
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -204,13 +176,57 @@ export default function DashboardPage() {
     }
   }
 
+  // Phase 2: charts + transactions (heavier, runs silently in background)
+  async function loadPhase2() {
+    setChartsLoading(true);
+    try {
+      const today        = now.toISOString().split("T")[0];
+      const monthStart   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      const monthEnd     = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split("T")[0];
+
+      const [chartInvRes, chartPayRes, treatmentsRes, transactionsRes] = await Promise.all([
+        supabase.from("invoices").select("invoice_date, total")
+          .gte("invoice_date", sixMonthsAgo).lte("invoice_date", monthEnd).is("deleted_at", null),
+
+        supabase.from("payments").select("payment_date, amount")
+          .gte("payment_date", sixMonthsAgo).lte("payment_date", monthEnd).is("voided_at", null),
+
+        supabase.from("treatments").select("procedure, dentist_name")
+          .gte("treatment_date", monthStart).lte("treatment_date", today),
+
+        supabase.from("invoices")
+          .select("id, invoice_date, invoice_number, total, status, patient_id, patients(full_name)")
+          .is("deleted_at", null)
+          .order("invoice_date", { ascending: false })
+          .limit(10),
+      ]);
+
+      setChartInvoices((chartInvRes.data ?? []) as { invoice_date: string; total: number }[]);
+      setChartPayments((chartPayRes.data ?? []) as { payment_date: string; amount: number }[]);
+      setMonthTreatments((treatmentsRes.data ?? []) as { procedure: string | null; dentist_name: string | null }[]);
+      setTransactions((transactionsRes.data as unknown as Transaction[]) ?? []);
+    } catch {
+      // charts failing silently is acceptable — main content is already shown
+    } finally {
+      setChartsLoading(false);
+    }
+  }
+
+  async function retry() {
+    const slowTimer = setTimeout(() => setLoadingTooLong(true), 8_000);
+    await loadPhase1().catch(() => {});
+    clearTimeout(slowTimer);
+    loadPhase2();
+  }
+
   /* ── Computed chart data ──────────────────────────────────── */
-  const chartData  = useMemo(() => buildChartData(chartInvoices, chartPayments, now), [chartInvoices, chartPayments]);
+  const chartData   = useMemo(() => buildChartData(chartInvoices, chartPayments, now), [chartInvoices, chartPayments]);
   const dentistList = useMemo(
     () => Array.from(new Set(monthTreatments.map(t => t.dentist_name).filter(Boolean))) as string[],
     [monthTreatments],
   );
-  const pieData = useMemo(() => buildPieData(monthTreatments, dentistFilter), [monthTreatments, dentistFilter]);
+  const pieData  = useMemo(() => buildPieData(monthTreatments, dentistFilter), [monthTreatments, dentistFilter]);
   const pieTotal = useMemo(() => pieData.reduce((s, d) => s + d.value, 0), [pieData]);
 
   /* ── Render ─────────────────────────────────────────────── */
@@ -224,7 +240,7 @@ export default function DashboardPage() {
         {error && (
           <div className="error-banner flex items-center justify-between gap-3">
             <span>{error}</span>
-            <button onClick={loadData} className="cancel-btn h-8 px-3 text-xs">Retry</button>
+            <button onClick={retry} className="cancel-btn h-8 px-3 text-xs">Retry</button>
           </div>
         )}
 
@@ -233,7 +249,7 @@ export default function DashboardPage() {
             {loadingTooLong && (
               <div className="flex flex-col items-center gap-2 mt-3">
                 <p className="text-sm text-slate-500">Taking longer than usual…</p>
-                <button onClick={loadData} className="cancel-btn h-8 px-3 text-xs">Retry</button>
+                <button onClick={retry} className="cancel-btn h-8 px-3 text-xs">Retry</button>
               </div>
             )}
           </PageLoader>
@@ -306,7 +322,11 @@ export default function DashboardPage() {
               {/* Bar chart — invoiced vs collected */}
               <div className="card">
                 <p className="dash-month-label mb-4">Invoiced vs Collected — Last 6 Months</p>
-                {mounted ? (
+                {chartsLoading ? (
+                  <div className="h-[220px] flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
+                  </div>
+                ) : mounted ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={chartData} margin={{ top: 0, right: 8, left: -16, bottom: 0 }} barCategoryGap="28%">
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -341,7 +361,11 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                {pieData.length === 0 ? (
+                {chartsLoading ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
+                  </div>
+                ) : pieData.length === 0 ? (
                   <p className="flex-1 flex items-center justify-center text-sm text-slate-400">No treatments recorded this month</p>
                 ) : (
                   <div className="flex items-center gap-4">
@@ -370,7 +394,11 @@ export default function DashboardPage() {
             {/* ── Row 3: Recent transactions ───────────────────── */}
             <div className="card">
               <p className="dash-month-label mb-3">Recent Transactions</p>
-              {transactions.length === 0 ? (
+              {chartsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-5 h-5 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
+                </div>
+              ) : transactions.length === 0 ? (
                 <p className="text-sm text-slate-400 text-center py-6">No transactions found</p>
               ) : (
                 <div className="overflow-x-auto -mx-5">
