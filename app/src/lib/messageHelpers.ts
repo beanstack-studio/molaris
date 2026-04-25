@@ -314,6 +314,17 @@ export async function sendThreadMessage(
 /**
  * Send appointment confirmation to patient via their preferred channel
  */
+function formatApptDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-PH", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+}
+
+function formatApptTime(timeStr: string): string {
+  const [h, m] = timeStr.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 export async function sendAppointmentConfirmation(
   appointmentId: string,
   threadId: string,
@@ -321,10 +332,20 @@ export async function sendAppointmentConfirmation(
   appointmentTime: string,
   channel: 'sms' | 'messenger',
   recipientIdentifier: string,
-  patientName?: string | null
+  patientName?: string | null,
+  dentistName?: string | null
 ) {
-  const greeting = patientName ? `Hi ${patientName}! ` : "";
-  const message = `${greeting}Your appointment has been confirmed! 📅\nDate: ${appointmentDate}\nTime: ${appointmentTime}\n\nSee you soon!`;
+  const lines = [
+    "Appointment confirmed! 🦷",
+    "",
+    patientName ? `Patient: ${patientName}` : null,
+    `Date: ${formatApptDate(appointmentDate)}`,
+    `Time: ${formatApptTime(appointmentTime)}`,
+    dentistName ? `Doctor: ${dentistName}` : null,
+    "",
+    "See you at Matira Dental Studio! 😊",
+  ].filter((l) => l !== null);
+  const message = lines.join("\n");
 
   try {
     if (channel === 'sms') {

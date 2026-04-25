@@ -8,7 +8,7 @@ import { EditModal } from "@/components/EditModal";
 
 interface AppointmentModalProps {
   patients: Patient[];
-  onConfirm: (date: string, time: string, patientId: string, dentistId?: string, concerns?: string) => void;
+  onConfirm: (date: string, time: string, patientId: string, dentistId?: string, concerns?: string, dentistName?: string) => void;
   onCancel: () => void;
   isSending: boolean;
 }
@@ -94,7 +94,9 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
     if (!patientId)        { setError("Please select a patient"); return; }
     if (!appointmentTime)  { setError("Please select a time"); return; }
     if (!dentistId)        { setError("Please select a dentist"); return; }
-    onConfirm(appointmentDate, appointmentTime, patientId, dentistId, concerns || undefined);
+    const dentist = dentists.find((d) => d.id === dentistId);
+    const dentistName = dentist ? dentistLabel(dentist) : undefined;
+    onConfirm(appointmentDate, appointmentTime, patientId, dentistId, concerns || undefined, dentistName);
   }
 
   return (

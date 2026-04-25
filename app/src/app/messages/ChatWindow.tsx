@@ -113,7 +113,6 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack, onOpenIn
   const messagesEndRef        = useRef<HTMLDivElement>(null);
   const messagesContainerRef  = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef   = useRef<number>(0);
-  const latestMessageAtRef    = useRef<string | null>(null);
   const fileInputRef          = useRef<HTMLInputElement>(null);
 
   const loadLinkedPatients = useCallback(async () => {
@@ -140,29 +139,23 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack, onOpenIn
     return () => { sub.unsubscribe(); };
   }, [threadId]);
 
-  useEffect(() => {
-    if (messages.length > 0) latestMessageAtRef.current = messages[messages.length - 1].created_at;
-  }, [messages]);
-
-  // 15-second polling fallback
+  // 10-second polling fallback — fetches latest messages and diffs by ID
+  // More reliable than gt(since) which depended on a ref that could be stale
   useEffect(() => {
     const poll = async () => {
       try {
-        const since = latestMessageAtRef.current;
-        let query = supabase.from("messages").select("*").eq("thread_id", threadId).order("created_at", { ascending: true }).limit(10);
-        if (since) query = (query as any).gt("created_at", since);
-        const { data } = await query;
-        if (!data || data.length === 0) return;
+        const latest = await getThreadMessagesPaginated(threadId, PAGE_SIZE);
+        if (!latest.length) return;
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
-          const newOnes = (data as Message[]).filter((m) => !existingIds.has(m.id));
-          if (newOnes.length === 0) return prev;
+          const newOnes = latest.filter((m) => !existingIds.has(m.id));
+          if (!newOnes.length) return prev;
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
           return [...prev, ...newOnes];
         });
       } catch { /* non-critical */ }
     };
-    const interval = setInterval(poll, 15000);
+    const interval = setInterval(poll, 10_000);
     return () => clearInterval(interval);
   }, [threadId]);
 
@@ -302,7 +295,7 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack, onOpenIn
     } finally { setUploadingFile(false); }
   }
 
-  async function handleConfirmAppt(date: string, time: string, patientId: string, dentistId?: string, concerns?: string) {
+  async function handleConfirmAppt(date: string, time: string, patientId: string, dentistId?: string, concerns?: string, dentistName?: string) {
     try {
       setSending(true);
       setError(null);
@@ -311,9 +304,9 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack, onOpenIn
       onThreadUpdated();
       const recipientId = thread?.external_thread_id || linkedPatients[0]?.phone || "";
       const patient = linkedPatients.find((p) => p.id === patientId);
-      const patientFirstName = patient?.first_name ?? patient?.full_name?.split(" ")[0] ?? null;
+      const patientFullName = patient?.full_name ?? [patient?.first_name, patient?.last_name].filter(Boolean).join(" ") ?? null;
       try {
-        await sendAppointmentConfirmation(appt.id, threadId, date, time, thread?.channel as "sms" | "messenger", recipientId, patientFirstName);
+        await sendAppointmentConfirmation(appt.id, threadId, date, time, thread?.channel as "sms" | "messenger", recipientId, patientFullName, dentistName ?? null);
       } catch {
         setError("Appointment created, but confirmation message failed to send.");
       }
