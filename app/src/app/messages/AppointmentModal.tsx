@@ -13,12 +13,6 @@ interface AppointmentModalProps {
   isSending: boolean;
 }
 
-const PH_HOLIDAYS_2026 = [
-  "2026-01-01", "2026-02-10", "2026-02-25", "2026-04-09", "2026-04-10",
-  "2026-04-14", "2026-06-12", "2026-08-21", "2026-11-01", "2026-11-30",
-  "2026-12-08", "2026-12-25", "2026-12-30",
-];
-
 const formatTime12Hr = (h: number) => {
   const period = h >= 12 ? "PM" : "AM";
   return `${h % 12 || 12}:00 ${period}`;
@@ -34,8 +28,25 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState<string | null>(null);
+  const [phHolidays, setPhHolidays]         = useState<string[]>([]);
 
   const MAX_PER_SLOT = 2;
+
+  // Fetch PH holidays dynamically
+  useEffect(() => {
+    const year = new Date().getFullYear();
+    const fetchHolidays = async (y: number) => {
+      try {
+        const res = await fetch(`/api/holidays?year=${y}`);
+        if (res.ok) {
+          const dates: string[] = await res.json();
+          setPhHolidays((prev) => [...new Set([...prev, ...dates])]);
+        }
+      } catch { /* fail open */ }
+    };
+    fetchHolidays(year);
+    if (new Date().getMonth() >= 9) fetchHolidays(year + 1);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -62,7 +73,7 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
 
   async function generateSlots(dateStr: string, forDentistId: string) {
     const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
-    const isHoliday = PH_HOLIDAYS_2026.includes(dateStr);
+    const isHoliday = phHolidays.includes(dateStr);
     const isToday   = dateStr === new Date().toISOString().split("T")[0];
     const now       = new Date();
     const endHour   = dayOfWeek === 0 || isHoliday ? 12 : 17;
