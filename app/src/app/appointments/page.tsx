@@ -16,28 +16,10 @@ interface AppointmentWithRelations extends Appointment {
   dentists?: DentistRow;
 }
 
-// PH holidays 2026
-const PH_HOLIDAYS_2026 = [
-  "2026-01-01", "2026-02-10", "2026-02-25", "2026-04-09", "2026-04-10",
-  "2026-04-14", "2026-06-12", "2026-08-21", "2026-11-01", "2026-11-30",
-  "2026-12-08", "2026-12-25", "2026-12-30",
-];
-
-const PH_HOLIDAY_NAMES: Record<string, string> = {
-  "2026-01-01": "New Year's Day",
-  "2026-02-10": "EDSA Revolution Day",
-  "2026-02-25": "EDSA Revolution Anniversary",
-  "2026-04-09": "Day of Valor",
-  "2026-04-10": "Good Friday",
-  "2026-04-14": "Araw ng Kagitingan",
-  "2026-06-12": "Independence Day",
-  "2026-08-21": "Ninoy Aquino Day",
-  "2026-11-01": "All Saints' Day",
-  "2026-11-30": "Bonifacio Day",
-  "2026-12-08": "Feast of the Immaculate Conception",
-  "2026-12-25": "Christmas Day",
-  "2026-12-30": "Rizal Day",
-};
+// PH holidays — fetched dynamically from /api/holidays, keyed by date
+// Populated on mount; empty until then (calendar shows correctly, closed days won't highlight until loaded)
+let cachedHolidayDates: string[] = [];
+let cachedHolidayNames: Record<string, string> = {};
 
 const formatTime12Hr = (time24: string): string => {
   const [hours, minutes] = time24.split(":").map(Number);
@@ -66,6 +48,8 @@ export default function AppointmentsPage() {
   const [filterDentistId, setFilterDentistId] = useState<string>("");
   const [calDentistBlockouts, setCalDentistBlockouts] = useState<{ start_date: string; end_date: string; reason: string | null }[]>([]);
   const [calDentistSchedule, setCalDentistSchedule] = useState<{ day_of_week: number; is_working: boolean }[]>([]);
+  const [phHolidays, setPhHolidays] = useState<string[]>([]);
+  const [phHolidayNames, setPhHolidayNames] = useState<Record<string, string>>({});
 
   // Read URL params on mount (e.g. from dashboard appointment links)
   useEffect(() => {
@@ -87,15 +71,33 @@ export default function AppointmentsPage() {
   }, [loading, targetDate]);
 
   useEffect(() => {
-    const timeout = new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timed out")), 30000)
-    );
-    Promise.race([
-      Promise.all([loadAppointments(), loadDentists(), loadPatients(), loadClinicHours()]),
-      timeout,
-    ])
-      .catch((e) => setError(e.message || "Failed to load data"))
+    // Phase 1: appointments + dentists (needed for display) — show page when these finish
+    Promise.all([loadAppointments(), loadDentists()])
+      .catch((e) => setError(e?.message || "Failed to load data"))
       .finally(() => setLoading(false));
+
+    // Background: patients (for modal), clinic hours, holidays — don't block the page
+    loadPatients();
+    loadClinicHours();
+
+    // Fetch PH holidays dynamically
+    const year = new Date().getFullYear();
+    const fetchHolidays = async (y: number) => {
+      try {
+        const res = await fetch(`/api/holidays?year=${y}`);
+        if (!res.ok) return;
+        const { dates, names }: { dates: string[]; names: Record<string, string> } = await res.json();
+        cachedHolidayDates = [...new Set([...cachedHolidayDates, ...dates])];
+        cachedHolidayNames = { ...cachedHolidayNames, ...names };
+        setPhHolidays([...cachedHolidayDates]);
+        setPhHolidayNames({ ...cachedHolidayNames });
+      } catch { /* fail open */ }
+    };
+    fetchHolidays(year);
+    if (new Date().getMonth() >= 9) fetchHolidays(year + 1);
+
+    // Run autoMarkMissed in background (fire and forget — doesn't block display)
+    autoMarkMissed();
   }, []);
 
   const loadClinicHours = async () => {
@@ -130,9 +132,6 @@ export default function AppointmentsPage() {
 
   const loadAppointments = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push("/login"); return; }
-      await autoMarkMissed();
       const { data, error: err } = await supabase
         .from("appointments")
         .select("*, patients(id, full_name, phone), dentists(id, full_name, nickname, color)")
@@ -426,8 +425,8 @@ export default function AppointmentsPage() {
                     <div key={date} id={`appt-date-${date}`}>
                       <div className="px-1 pb-2 flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">{formatDateHeading(date)}</span>
-                        {PH_HOLIDAYS_2026.includes(date) && (
-                          <span className="badge badge-warning">🇵🇭 {PH_HOLIDAY_NAMES[date]}</span>
+                        {phHolidays.includes(date) && (
+                          <span className="badge badge-warning">🇵🇭 {phHolidayNames[date]}</span>
                         )}
                       </div>
                       <AppointmentsTable rows={appointmentsByDate[date]} />
@@ -486,7 +485,7 @@ export default function AppointmentsPage() {
                     const dayAppointments = dateStr ? appointmentsByDate[dateStr] || [] : [];
                     const isToday = dateStr === new Date().toISOString().split("T")[0];
                     const isPast = !!(dateStr && new Date(dateStr) < new Date() && !isToday);
-                    const isHoliday = dateStr ? PH_HOLIDAYS_2026.includes(dateStr) : false;
+                    const isHoliday = dateStr ? phHolidays.includes(dateStr) : false;
                     const isDentistBlockout = dateStr && filterDentistId
                       ? calDentistBlockouts.some((b) => b.start_date <= dateStr && b.end_date >= dateStr)
                       : false;
@@ -591,8 +590,8 @@ export default function AppointmentsPage() {
                   <div className="mt-6">
                     <div className="px-1 pb-2 flex items-center gap-2">
                       <span className="text-sm font-semibold text-slate-700">{formatDateHeading(selectedDate)}</span>
-                      {PH_HOLIDAYS_2026.includes(selectedDate) && (
-                        <span className="badge badge-warning">🇵🇭 {PH_HOLIDAY_NAMES[selectedDate]}</span>
+                      {phHolidays.includes(selectedDate) && (
+                        <span className="badge badge-warning">🇵🇭 {phHolidayNames[selectedDate]}</span>
                       )}
                     </div>
                     {appointmentsByDate[selectedDate]?.length > 0 ? (

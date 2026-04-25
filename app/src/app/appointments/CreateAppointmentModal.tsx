@@ -49,7 +49,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
       try {
         const res = await fetch(`/api/holidays?year=${y}`);
         if (res.ok) {
-          const dates: string[] = await res.json();
+          const { dates }: { dates: string[]; names: Record<string, string> } = await res.json();
           setPhHolidays((prev) => [...new Set([...prev, ...dates])]);
         }
       } catch { /* fail open */ }
