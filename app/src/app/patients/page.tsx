@@ -81,97 +81,63 @@ export default function PatientsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadPatients() {
-    setLoading(true);
-    setError(null);
-
+  // Phase 2: load balance + last visit in background after list is shown
+  async function enrichPatients(basePatients: any[]) {
     try {
-      // Confirm session is valid before running queries
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-
-      // Load patients, treatments, invoices, and payments in parallel to reduce latency
-      const fetchPatients = async () => {
-        const allPatients: any[] = [];
-        const BATCH_SIZE = 1000;
-        let offset = 0;
-        let hasMore = true;
-        while (hasMore) {
-          const { data, error: patientsError } = await supabase
-            .from("patients")
-            .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
-            .order("created_at", { ascending: false })
-            .range(offset, offset + BATCH_SIZE - 1);
-          if (patientsError) throw patientsError;
-          if (!data || data.length === 0) {
-            hasMore = false;
-          } else {
-            allPatients.push(...data);
-            offset += data.length;
-            hasMore = data.length === 1000;
-          }
-        }
-        return allPatients;
-      };
-
-      const [
-        allPatients,
-        { data: allTreatments, error: treatmentsError },
-        { data: allInvoices, error: invoicesError },
-        { data: allPayments, error: paymentsError },
-      ] = await Promise.all([
-        fetchPatients(),
+      const [{ data: allTreatments }, { data: allInvoices }, { data: allPayments }] = await Promise.all([
         supabase.from("treatments").select("patient_id, treatment_date"),
         supabase.from("invoices").select("patient_id, total"),
         supabase.from("payments").select("patient_id, amount"),
       ]);
 
-      if (treatmentsError) throw treatmentsError;
-      if (invoicesError) throw invoicesError;
-      if (paymentsError) throw paymentsError;
-
-      // Build lookup maps
       const lastVisitMap: Record<string, string> = {};
       (allTreatments || []).forEach((t: any) => {
-        if (t.treatment_date) {
-          if (!lastVisitMap[t.patient_id] || t.treatment_date > lastVisitMap[t.patient_id]) {
-            lastVisitMap[t.patient_id] = t.treatment_date;
-          }
-        }
+        if (t.treatment_date && (!lastVisitMap[t.patient_id] || t.treatment_date > lastVisitMap[t.patient_id]))
+          lastVisitMap[t.patient_id] = t.treatment_date;
       });
+      const invoiceTotal: Record<string, number> = {};
+      (allInvoices || []).forEach((inv: any) => { invoiceTotal[inv.patient_id] = (invoiceTotal[inv.patient_id] ?? 0) + (inv.total || 0); });
+      const paymentTotal: Record<string, number> = {};
+      (allPayments || []).forEach((pay: any) => { paymentTotal[pay.patient_id] = (paymentTotal[pay.patient_id] ?? 0) + (pay.amount || 0); });
 
-      const invoicesByPatient: Record<string, number[]> = {};
-      (allInvoices || []).forEach((inv: any) => {
-        if (!invoicesByPatient[inv.patient_id]) {
-          invoicesByPatient[inv.patient_id] = [];
-        }
-        invoicesByPatient[inv.patient_id].push(inv.total || 0);
-      });
+      setPatients(basePatients.map((p: any): PatientRow => ({
+        ...p,
+        last_visit_date: lastVisitMap[p.id] ?? null,
+        balance: (invoiceTotal[p.id] ?? 0) - (paymentTotal[p.id] ?? 0),
+      })));
+    } catch { /* non-critical — list already shown without balance/last visit */ }
+  }
 
-      const paymentsByPatient: Record<string, number[]> = {};
-      (allPayments || []).forEach((pay: any) => {
-        if (!paymentsByPatient[pay.patient_id]) {
-          paymentsByPatient[pay.patient_id] = [];
-        }
-        paymentsByPatient[pay.patient_id].push(pay.amount || 0);
-      });
+  async function loadPatients() {
+    setLoading(true);
+    setError(null);
 
-      // Merge all data efficiently
-      const patientsWithData = (allPatients || []).map((patient: any) => {
-        const totalInvoiced = invoicesByPatient[patient.id]?.reduce((a, b) => a + b, 0) || 0;
-        const totalPaid = paymentsByPatient[patient.id]?.reduce((a, b) => a + b, 0) || 0;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push("/login"); return; }
 
-        return {
-          ...patient,
-          last_visit_date: lastVisitMap[patient.id] || null,
-          balance: totalInvoiced - totalPaid,
-        };
-      });
+      // Phase 1: patients only — show list fast
+      const allPatients: any[] = [];
+      const BATCH_SIZE = 1000;
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error: patientsError } = await supabase
+          .from("patients")
+          .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + BATCH_SIZE - 1);
+        if (patientsError) throw patientsError;
+        if (!data || data.length === 0) { hasMore = false; }
+        else { allPatients.push(...data); offset += data.length; hasMore = data.length === 1000; }
+      }
 
-      setPatients(patientsWithData as PatientRow[]);
+      // Show list immediately with null balance/last visit
+      setPatients(allPatients.map((p: any): PatientRow => ({ ...p, last_visit_date: null, balance: null })));
+      setLoading(false);
+
+      // Phase 2: enrich in background (no spinner, best-effort)
+      enrichPatients(allPatients);
     } catch (err: any) {
       setError(err.message || "Failed to load patients");
     } finally {
@@ -181,10 +147,13 @@ export default function PatientsPage() {
 
   useEffect(() => {
     const abort = new AbortController();
+    // Timer only covers Phase 1 (patients query); Phase 2 runs silently
     const timer = setTimeout(() => {
       if (!abort.signal.aborted) {
-        setError("Connection timed out. The server may be under load — please try again.");
-        setLoading(false);
+        setLoading((prev) => {
+          if (prev) setError("Connection timed out. The server may be under load — please try again.");
+          return false;
+        });
       }
     }, 12000);
     loadPatients().finally(() => clearTimeout(timer));
