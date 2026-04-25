@@ -27,10 +27,11 @@ interface AttachmentItem {
 interface Props {
   threadId: string;
   onBack: () => void;
+  refreshKey?: number;
 }
 
 /* ══════════════════════════════════════════════════════════ */
-export default function ThreadInfoPanel({ threadId, onBack }: Props) {
+export default function ThreadInfoPanel({ threadId, onBack, refreshKey }: Props) {
   const [thread, setThread]               = useState<ThreadInfo | null>(null);
   const [linkedPatients, setLinkedPatients] = useState<LinkedPatient[]>([]);
   const [photos, setPhotos]               = useState<AttachmentItem[]>([]);
@@ -44,7 +45,7 @@ export default function ThreadInfoPanel({ threadId, onBack }: Props) {
     setLoading(true);
     setPicError(false);
     loadData();
-  }, [threadId]);
+  }, [threadId, refreshKey]);
 
   async function loadData() {
     try {

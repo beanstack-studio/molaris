@@ -240,48 +240,59 @@ export default function PatientsPage() {
     setBusy(true);
     setError(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user?.id ?? null;
+    try {
+      // Force a session refresh so the token is always fresh before writing.
+      // This prevents RLS rejections in Safari where the token can expire silently.
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr || !sessionData.session) {
+        setError("Session expired — please sign out and sign back in.");
+        setBusy(false);
+        return;
+      }
+      const userId = sessionData.session.user.id;
 
-    const fn = safeText(firstName);
-    const ln = safeText(lastName);
-    const full = combineFullName(fn, ln);
+      const fn = safeText(firstName);
+      const ln = safeText(lastName);
+      const full = combineFullName(fn, ln);
 
-    if (fn.length < 1 || ln.length < 1) {
+      if (fn.length < 1 || ln.length < 1) {
+        setError("Please enter both First name and Last name.");
+        setBusy(false);
+        return;
+      }
+
+      const { error } = await supabase.from("patients").insert({
+        first_name: fn,
+        last_name: ln,
+        full_name: full,
+        gender: gender || null,
+        phone: formatPhoneLocal(phone) || null,
+        birth_date: birthDate || null,
+        address: safeText(address) || null,
+        email: safeText(email) || null,
+        created_by: userId,
+        first_seen_on: new Date().toISOString().slice(0, 10),
+      });
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      setShowAdd(false);
+      setFirstName("");
+      setLastName("");
+      setGender("");
+      setPhone("");
+      setEmail("");
+      setAddress("");
+      setBirthDate("");
+      await loadPatients();
+    } catch (err: any) {
+      setError(err?.message ?? "An unexpected error occurred. Please try again.");
+    } finally {
       setBusy(false);
-      setError("Please enter both First name and Last name.");
-      return;
     }
-
-    const { error } = await supabase.from("patients").insert({
-      first_name: fn,
-      last_name: ln,
-      full_name: full,
-      gender: gender || null,
-      phone: formatPhoneLocal(phone) || null,
-      birth_date: birthDate || null,
-      address: safeText(address) || null,
-      email: safeText(email) || null,
-      created_by: userId,
-      first_seen_on: new Date().toISOString().slice(0, 10),
-    });
-
-    setBusy(false);
-
-    if (error) {
-      setError(error.message);
-      return;
-    }
-
-    setShowAdd(false);
-    setFirstName("");
-    setLastName("");
-    setGender("");
-    setPhone("");
-    setEmail("");
-    setAddress("");
-    setBirthDate("");
-    await loadPatients();
   }
 
   return (

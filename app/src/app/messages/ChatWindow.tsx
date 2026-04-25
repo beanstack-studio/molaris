@@ -88,11 +88,12 @@ function AttachmentBubble({ att, isStaff, onImageClick }: { att: Attachment; isS
 interface ChatWindowProps {
   threadId: string;
   onThreadUpdated: () => void;
+  onPatientLinked?: () => void;
   onBack?: () => void;
   onOpenInfo?: () => void;
 }
 
-export default function ChatWindow({ threadId, onThreadUpdated, onBack, onOpenInfo }: ChatWindowProps) {
+export default function ChatWindow({ threadId, onThreadUpdated, onPatientLinked, onBack, onOpenInfo }: ChatWindowProps) {
   const [thread, setThread]                 = useState<(MessageThread & { patients: Patient }) | null>(null);
   const [messages, setMessages]             = useState<Message[]>([]);
   const [linkedPatients, setLinkedPatients] = useState<Patient[]>([]);
@@ -537,7 +538,7 @@ export default function ChatWindow({ threadId, onThreadUpdated, onBack, onOpenIn
         <AppointmentModal patients={linkedPatients} onConfirm={handleConfirmAppt} onCancel={() => setShowApptModal(false)} isSending={sending} />
       )}
       {showLinkModal && (
-        <LinkPatientModal threadId={threadId} externalUserName={thread.external_user_name} onLinked={() => { loadLinkedPatients(); onThreadUpdated(); }} onCancel={() => setShowLinkModal(false)} />
+        <LinkPatientModal threadId={threadId} externalUserName={thread.external_user_name} onLinked={() => { loadLinkedPatients(); onThreadUpdated(); onPatientLinked?.(); }} onCancel={() => setShowLinkModal(false)} />
       )}
     </div>
   );

@@ -126,6 +126,7 @@ export default function MessagesPage() {
   const [search, setSearch]               = useState("");
   const [syncing, setSyncing]             = useState(false);
   const [syncResult, setSyncResult]       = useState<string | null>(null);
+  const [infoRefreshKey, setInfoRefreshKey] = useState(0);
 
   async function handleSyncMessenger() {
     setSyncing(true);
@@ -355,6 +356,7 @@ export default function MessagesPage() {
           <ChatWindow
             threadId={selectedId}
             onThreadUpdated={loadThreads}
+            onPatientLinked={() => setInfoRefreshKey((k) => k + 1)}
             onBack={() => setMobileView("list")}
             onOpenInfo={() => {
               if (typeof window !== "undefined" && window.innerWidth >= 768) {
@@ -395,6 +397,7 @@ export default function MessagesPage() {
         ].join(" ")}>
           <ThreadInfoPanel
             threadId={selectedId}
+            refreshKey={infoRefreshKey}
             onBack={() => {
               setShowInfo(false);
               setMobileView("chat");
