@@ -150,6 +150,30 @@ export default function TopNav({
     };
   }, [router, pathname]);
 
+  // Inactivity auto-logout after 10 minutes
+  useEffect(() => {
+    if (pathname?.startsWith("/login")) return;
+    const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+    let timer: ReturnType<typeof setTimeout>;
+
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        await supabase.auth.signOut();
+        window.location.href = "/login";
+      }, TIMEOUT_MS);
+    };
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset(); // start the timer immediately
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [pathname]);
+
   const isPatients = pathname?.startsWith("/patients");
   const isReports = pathname?.startsWith("/reports");
   const isSettings = pathname?.startsWith("/settings");
