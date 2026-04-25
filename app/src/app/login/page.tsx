@@ -36,6 +36,8 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) { setError(error.message); return; }
+    // Mark this window/tab as authenticated — used by TopNav to block direct URL access
+    if (typeof window !== "undefined") window.name = "molaris_auth_active";
     window.location.href = "/dashboard";
   }
 

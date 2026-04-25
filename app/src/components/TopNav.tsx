@@ -83,6 +83,7 @@ export default function TopNav({
 
   async function signOut() {
     setBusy(true);
+    if (typeof window !== "undefined") window.name = "";
     try {
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Sign out timeout")), 2000)
@@ -118,12 +119,26 @@ export default function TopNav({
   useEffect(() => {
     let cancelled = false;
 
+    // Fast check: if this window was never explicitly authenticated (new window/tab
+    // typed directly), window.name won't be set — redirect to login immediately
+    // without waiting for a Supabase round-trip.
+    if (
+      typeof window !== "undefined" &&
+      window.name !== "molaris_auth_active" &&
+      !pathname?.startsWith("/login")
+    ) {
+      router.push("/login");
+      router.refresh();
+      return;
+    }
+
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (cancelled) return;
 
         if (error && isInvalidRefreshTokenError(error)) {
+          window.name = "";
           await supabase.auth.signOut();
           if (!pathname?.startsWith("/login")) {
             router.push("/login");
@@ -133,12 +148,14 @@ export default function TopNav({
         }
 
         if (!data.session && !pathname?.startsWith("/login")) {
+          window.name = "";
           router.push("/login");
           router.refresh();
         }
       } catch (e) {
         if (cancelled) return;
         if (!pathname?.startsWith("/login")) {
+          window.name = "";
           router.push("/login");
           router.refresh();
         }
@@ -159,6 +176,7 @@ export default function TopNav({
     const reset = () => {
       clearTimeout(timer);
       timer = setTimeout(async () => {
+        window.name = "";
         await supabase.auth.signOut();
         window.location.href = "/login";
       }, TIMEOUT_MS);
