@@ -163,6 +163,7 @@ export default function MessagesPage() {
   }, [threads, selectedId]);
 
   // Realtime: silent refresh when message_threads OR messages change
+  // Polling fallback (30s) covers cases where realtime drops (network issues, free-tier pauses)
   useEffect(() => {
     const silentRefresh = () => fetchThreads(true);
     const sub = supabase
@@ -170,7 +171,8 @@ export default function MessagesPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "message_threads" }, silentRefresh)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, silentRefresh)
       .subscribe();
-    return () => { sub.unsubscribe(); };
+    const poll = setInterval(silentRefresh, 30_000);
+    return () => { sub.unsubscribe(); clearInterval(poll); };
   }, [fetchThreads]);
 
   async function loadAllThreads() {

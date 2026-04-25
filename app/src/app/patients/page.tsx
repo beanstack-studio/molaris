@@ -93,49 +93,44 @@ export default function PatientsPage() {
         return;
       }
 
-      // Load all patients with pagination (Supabase caps at 1000 rows per request)
-      const allPatients: any[] = [];
-      const BATCH_SIZE = 1000;
-      let offset = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data, error: patientsError } = await supabase
-          .from("patients")
-          .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
-          .order("created_at", { ascending: false })
-          .range(offset, offset + BATCH_SIZE - 1);
-
-        if (patientsError) throw patientsError;
-
-        if (!data || data.length === 0) {
-          hasMore = false;
-        } else {
-          allPatients.push(...data);
-          offset += data.length;
-          hasMore = data.length === 1000; // stop when we get a partial page
+      // Load patients, treatments, invoices, and payments in parallel to reduce latency
+      const fetchPatients = async () => {
+        const allPatients: any[] = [];
+        const BATCH_SIZE = 1000;
+        let offset = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error: patientsError } = await supabase
+            .from("patients")
+            .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
+            .order("created_at", { ascending: false })
+            .range(offset, offset + BATCH_SIZE - 1);
+          if (patientsError) throw patientsError;
+          if (!data || data.length === 0) {
+            hasMore = false;
+          } else {
+            allPatients.push(...data);
+            offset += data.length;
+            hasMore = data.length === 1000;
+          }
         }
-      }
+        return allPatients;
+      };
 
-      // Load all treatments for last visit date lookup
-      const { data: allTreatments, error: treatmentsError } = await supabase
-        .from("treatments")
-        .select("patient_id, treatment_date");
+      const [
+        allPatients,
+        { data: allTreatments, error: treatmentsError },
+        { data: allInvoices, error: invoicesError },
+        { data: allPayments, error: paymentsError },
+      ] = await Promise.all([
+        fetchPatients(),
+        supabase.from("treatments").select("patient_id, treatment_date"),
+        supabase.from("invoices").select("patient_id, total"),
+        supabase.from("payments").select("patient_id, amount"),
+      ]);
 
       if (treatmentsError) throw treatmentsError;
-
-      // Load all invoices for balance calculation
-      const { data: allInvoices, error: invoicesError } = await supabase
-        .from("invoices")
-        .select("patient_id, total");
-
       if (invoicesError) throw invoicesError;
-
-      // Load all payments for balance calculation
-      const { data: allPayments, error: paymentsError } = await supabase
-        .from("payments")
-        .select("patient_id, amount");
-
       if (paymentsError) throw paymentsError;
 
       // Build lookup maps
@@ -191,7 +186,7 @@ export default function PatientsPage() {
         setError("Connection timed out — check your Supabase project is active");
         setLoading(false);
       }
-    }, 10000);
+    }, 25000);
     loadPatients().finally(() => clearTimeout(timer));
     return () => { abort.abort(); clearTimeout(timer); };
   }, []);

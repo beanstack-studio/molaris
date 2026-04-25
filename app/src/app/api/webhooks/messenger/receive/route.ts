@@ -39,10 +39,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    // Return 200 immediately; process async so Facebook doesn't retry
-    processEntries(body.entry).catch((err) =>
-      console.error("Messenger processing error:", err)
-    );
+    // Process synchronously — Vercel terminates functions after the response is sent,
+    // so fire-and-forget is unreliable. Facebook allows up to 20s before retrying.
+    await processEntries(body.entry);
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err) {
