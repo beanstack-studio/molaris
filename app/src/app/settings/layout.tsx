@@ -21,10 +21,11 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user ?? null;
       const r =
-        (data.user?.user_metadata?.role as string) ??
-        (data.user?.app_metadata?.role as string) ??
+        (user?.user_metadata?.role as string) ??
+        (user?.app_metadata?.role as string) ??
         "staff";
       setRole(r);
       setChecking(false);

@@ -175,9 +175,10 @@ export default function WebsiteControlsPage() {
     }
 
     // Load current user + GC connection
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
-      const uid = data.user.id;
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user ?? null;
+      if (!user) return;
+      const uid = user.id;
       setCurrentUserId(uid);
       supabase
         .from("google_calendar_connections")
@@ -203,12 +204,13 @@ export default function WebsiteControlsPage() {
     loadUsers();
 
     // Load current user info
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setCurrentEmail(data.user.email ?? "");
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user ?? null;
+      if (user) {
+        setCurrentEmail(user.email ?? "");
         setCurrentRole(
-          (data.user.user_metadata?.role as string) ??
-          (data.user.app_metadata?.role as string) ??
+          (user.user_metadata?.role as string) ??
+          (user.app_metadata?.role as string) ??
           "staff"
         );
       }
