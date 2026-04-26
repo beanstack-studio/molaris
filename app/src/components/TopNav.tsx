@@ -119,19 +119,10 @@ export default function TopNav({
   useEffect(() => {
     let cancelled = false;
 
-    // Fast check: if this window was never explicitly authenticated (new window/tab
-    // typed directly), window.name won't be set — redirect to login immediately
-    // without waiting for a Supabase round-trip.
-    if (
-      typeof window !== "undefined" &&
-      window.name !== "molaris_auth_active" &&
-      !pathname?.startsWith("/login")
-    ) {
-      router.push("/login");
-      router.refresh();
-      return;
-    }
-
+    // Auth gate: read session from localStorage (no network round-trip).
+    // window.name was previously used as a fast-path guard but Safari clears it
+    // after OAuth redirects and cross-origin navigations, causing false logouts.
+    // getSession() reads from localStorage and is safe in all browsers.
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();

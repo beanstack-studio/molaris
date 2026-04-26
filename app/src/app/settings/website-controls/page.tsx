@@ -218,6 +218,52 @@ export default function WebsiteControlsPage() {
       });
   }, [searchParams]);
 
+  // Shared helper: run both syncs and surface results in gcSyncMsg
+  const runGcSync = useCallback(async (userId: string, dentistId: string | null) => {
+    setGcSyncMsg("Syncing…");
+
+    // 1. Push all upcoming appointments → Google Calendar
+    let bulkMsg = "";
+    try {
+      const bulkRes = await fetch("/api/google-calendar/sync/bulk", { method: "POST" });
+      const bulkData = await bulkRes.json();
+      if (bulkData.error === "calendar_permission_denied" || bulkRes.status === 403) {
+        setGcSyncMsg("⚠️ Calendar access not granted. Reconnect and check 'View and edit events'.");
+        return;
+      }
+      if (typeof bulkData.synced === "number") {
+        bulkMsg = bulkData.synced > 0 ? `✓ Pushed ${bulkData.synced} appointment${bulkData.synced !== 1 ? "s" : ""} to Google Calendar.` : "";
+      }
+    } catch {
+      bulkMsg = "";
+    }
+
+    // 2. Import vacation/blockout events from Google Calendar (requires dentist linked)
+    if (!dentistId) {
+      setGcSyncMsg(bulkMsg || null);
+      return;
+    }
+
+    try {
+      const vacRes = await fetch("/api/google-calendar/vacation-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, dentist_id: dentistId }),
+      });
+      const vacData = await vacRes.json();
+      if (vacData.error === "calendar_permission_denied") {
+        setGcSyncMsg("⚠️ Calendar access not granted. Reconnect and check 'View and edit events'.");
+        return;
+      }
+      const vacMsg = typeof vacData.imported === "number" && vacData.imported > 0
+        ? `✓ Imported ${vacData.imported} vacation event${vacData.imported !== 1 ? "s" : ""} as blockout${vacData.imported !== 1 ? "s" : ""}.`
+        : "";
+      setGcSyncMsg([bulkMsg, vacMsg].filter(Boolean).join(" ") || null);
+    } catch {
+      setGcSyncMsg(bulkMsg || null);
+    }
+  }, []);
+
   // Auto-sync fires once when Google Calendar is first connected.
   // Waits for gcConnection + currentUserId to load before triggering.
   useEffect(() => {
@@ -226,34 +272,8 @@ export default function WebsiteControlsPage() {
     if (!currentUserId || gcLoading) return;
 
     setGcAutoSynced(true);
-
-    // 1. Push all existing upcoming appointments → Google Calendar
-    fetch("/api/google-calendar/sync/bulk", { method: "POST" }).catch(() => {});
-
-    // 2. Import vacation/blockout events from Google Calendar (only if dentist is linked)
-    const dentistId = gcConnection?.dentist_id;
-    if (dentistId) {
-      setGcSyncMsg("Importing your Google Calendar events…");
-      fetch("/api/google-calendar/vacation-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: currentUserId, dentist_id: dentistId }),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.error === "calendar_permission_denied") {
-            setGcSyncMsg("⚠️ Calendar access not granted. Reconnect and check the 'View and edit events' checkbox.");
-          } else if (typeof data.imported === "number") {
-            setGcSyncMsg(
-              data.imported > 0
-                ? `✓ Imported ${data.imported} vacation event${data.imported > 1 ? "s" : ""} as blockout${data.imported > 1 ? "s" : ""}.`
-                : null
-            );
-          }
-        })
-        .catch(() => {});
-    }
-  }, [gcAutoSynced, searchParams, currentUserId, gcLoading, gcConnection]);
+    runGcSync(currentUserId, gcConnection?.dentist_id ?? null);
+  }, [gcAutoSynced, searchParams, currentUserId, gcLoading, gcConnection, runGcSync]);
 
   useEffect(() => {
     loadUsers();
@@ -694,17 +714,34 @@ export default function WebsiteControlsPage() {
               </div>
             )}
 
-            {/* Sync status — shown after connecting */}
-            {gcSyncMsg && (
-              <div className={`pt-2 border-t border-slate-100 text-xs font-medium ${gcSyncMsg.startsWith("⚠️") ? "text-amber-600" : "text-emerald-600"}`}>
-                {gcSyncMsg}
-              </div>
-            )}
-            {!gcSyncMsg && (
-              <div className="pt-2 border-t border-slate-100 text-xs text-slate-400">
-                Appointments sync automatically. Google Calendar vacation events are checked hourly.
-              </div>
-            )}
+            {/* Sync status + manual re-sync */}
+            <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
+              {gcSyncMsg === "Syncing…" ? (
+                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <Spinner size="h-3.5 w-3.5" /> Syncing…
+                </div>
+              ) : gcSyncMsg ? (
+                <div className={`text-xs font-medium ${gcSyncMsg.startsWith("⚠️") ? "text-amber-600" : "text-emerald-600"}`}>
+                  {gcSyncMsg}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400">
+                  Appointments sync automatically. Google Calendar vacation events are checked hourly.
+                </div>
+              )}
+              {!gcConnection.dentist_id && (
+                <div className="text-xs text-amber-600">
+                  To import Google Calendar events as blockouts, select a dentist above.
+                </div>
+              )}
+              <button
+                className="text-xs text-violet-600 hover:text-violet-800 underline self-start disabled:opacity-40"
+                disabled={gcSyncMsg === "Syncing…"}
+                onClick={() => currentUserId && runGcSync(currentUserId, gcConnection.dentist_id)}
+              >
+                Re-sync now
+              </button>
+            </div>
 
             {/* Footer: reconnect / disconnect */}
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
