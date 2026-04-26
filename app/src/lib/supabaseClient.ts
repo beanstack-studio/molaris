@@ -3,18 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Use sessionStorage so sessions are scoped to the browser tab.
-// Closing the tab or browser clears the session — patients data is never
-// accessible to anyone who opens the URL in a fresh window.
-const sessionStorageAdapter =
-  typeof window !== "undefined"
-    ? {
-        getItem: (key: string) => window.sessionStorage.getItem(key),
-        setItem: (key: string, value: string) => window.sessionStorage.setItem(key, value),
-        removeItem: (key: string) => window.sessionStorage.removeItem(key),
-      }
-    : undefined;
-
 // All REST API data calls get a 30-second timeout so the UI never hangs indefinitely.
 // Uses Promise.race instead of AbortController — Safari has a known bug where
 // AbortController.abort() on a fetch does not reliably reject the Promise, causing
@@ -43,7 +31,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storage: sessionStorageAdapter,
+    // localStorage (default) persists across page refreshes and tabs — required for
+    // Safari, which aggressively clears sessionStorage between navigations and on
+    // refresh, causing pages to hang on spinners instead of redirecting to /login.
   },
   global: {
     fetch: fetchWithTimeout,

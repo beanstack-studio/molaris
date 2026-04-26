@@ -92,14 +92,19 @@ export default function ClinicProfileSettingsPage() {
               ]
         );
       } else {
-        const { data: newData, error: insertError } = await supabase
-          .from("clinic_profile")
-          .insert([{ clinic_name: "Matira Dental Studio", sunday_end_hour: 11 }])
-          .select();
-        if (insertError) { setError(`Failed to create profile: ${insertError.message}`); }
-        else if (newData && newData.length > 0) {
-          setProfile(newData[0]);
-          setFormData({ clinic_name: newData[0].clinic_name || "Matira Dental Studio", street_address: "", city: "", province: "", postal_code: "", sunday_end_hour: 11 });
+        // Use the server-side API route (service role) to create the initial row —
+        // the anon client is blocked by RLS when inserting into clinic_profile.
+        const initRes = await fetch("/api/settings/clinic-profile", { method: "POST" });
+        if (!initRes.ok) {
+          const initErr = await initRes.json().catch(() => ({}));
+          setError(`Failed to create profile: ${initErr.error ?? "Server error"}`);
+        } else {
+          // Re-fetch so we get all columns including the generated id
+          const { data: created } = await supabase.from("clinic_profile").select().limit(1);
+          if (created && created.length > 0) {
+            setProfile(created[0]);
+            setFormData({ clinic_name: created[0].clinic_name || "Matira Dental Studio", street_address: "", city: "", province: "", postal_code: "", sunday_end_hour: 11 });
+          }
         }
       }
     } catch (ex) { setError(`Error loading profile: ${String(ex)}`); }
@@ -160,7 +165,8 @@ export default function ClinicProfileSettingsPage() {
         const baseUrl = supabase.storage.from("clinic-assets").getPublicUrl(path).data.publicUrl;
         newLogoUrl = `${baseUrl}?v=${Date.now()}`;
       }
-      const { error } = await supabase.from("clinic_profile").update({
+      const { error } = await supabase.from("clinic_profile").upsert({
+        id: profile.id,
         ...formData,
         phones: modalPhones,
         contacts: modalContacts,
