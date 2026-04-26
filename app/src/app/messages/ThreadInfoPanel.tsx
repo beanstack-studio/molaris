@@ -162,8 +162,7 @@ export default function ThreadInfoPanel({ threadId, onBack, refreshKey }: Props)
                       <a
                         key={p.id}
                         href={`/patients/${p.id}/info`}
-                        className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-violet-50 hover:text-violet-700 transition-colors group"
-                        style={{ background: "var(--color-violet-50)" }}
+                        className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 bg-violet-50 hover:bg-violet-100 hover:text-violet-700 transition-colors group"
                       >
                         <span className="truncate">{p.full_name}</span>
                         <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-violet-400 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
