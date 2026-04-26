@@ -87,18 +87,9 @@ export default function WebsiteControlsPage() {
   const [gcSaving, setGcSaving] = useState(false);
   const [dentists, setDentists] = useState<{ id: string; full_name: string | null; nickname: string | null }[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
-  /* ── GC blockout import ── */
-  type GcEvent = { id: string; title: string; start_date: string; end_date: string; is_all_day: boolean };
-  const [showGcImport, setShowGcImport] = useState(false);
-  const [gcImportEvents, setGcImportEvents] = useState<GcEvent[]>([]);
-  const [gcImportLoading, setGcImportLoading] = useState(false);
-  const [gcImportSelected, setGcImportSelected] = useState<Set<string>>(new Set());
-  const [gcImportSaving, setGcImportSaving] = useState(false);
-  const [gcImportSuccess, setGcImportSuccess] = useState(false);
-  const [gcImportDentistId, setGcImportDentistId] = useState<string>("");
-  /* ── GC bulk sync ── */
-  const [gcBulkSyncing, setGcBulkSyncing] = useState(false);
-  const [gcBulkResult, setGcBulkResult] = useState<{ synced: number; total: number } | null>(null);
+  /* ── GC auto-sync (fires once on connection) ── */
+  const [gcAutoSynced, setGcAutoSynced] = useState(false);
+  const [gcSyncMsg, setGcSyncMsg] = useState<string | null>(null);
 
   /* ── SMS Messaging ── */
   const [smsProvider, setSmsProvider] = useState("");
@@ -227,6 +218,43 @@ export default function WebsiteControlsPage() {
       });
   }, [searchParams]);
 
+  // Auto-sync fires once when Google Calendar is first connected.
+  // Waits for gcConnection + currentUserId to load before triggering.
+  useEffect(() => {
+    if (gcAutoSynced) return;
+    if (searchParams.get("gc_connected") !== "1") return;
+    if (!currentUserId || gcLoading) return;
+
+    setGcAutoSynced(true);
+
+    // 1. Push all existing upcoming appointments → Google Calendar
+    fetch("/api/google-calendar/sync/bulk", { method: "POST" }).catch(() => {});
+
+    // 2. Import vacation/blockout events from Google Calendar (only if dentist is linked)
+    const dentistId = gcConnection?.dentist_id;
+    if (dentistId) {
+      setGcSyncMsg("Importing your Google Calendar events…");
+      fetch("/api/google-calendar/vacation-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: currentUserId, dentist_id: dentistId }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.error === "calendar_permission_denied") {
+            setGcSyncMsg("⚠️ Calendar access not granted. Reconnect and check the 'View and edit events' checkbox.");
+          } else if (typeof data.imported === "number") {
+            setGcSyncMsg(
+              data.imported > 0
+                ? `✓ Imported ${data.imported} vacation event${data.imported > 1 ? "s" : ""} as blockout${data.imported > 1 ? "s" : ""}.`
+                : null
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [gcAutoSynced, searchParams, currentUserId, gcLoading, gcConnection]);
+
   useEffect(() => {
     loadUsers();
 
@@ -319,53 +347,6 @@ export default function WebsiteControlsPage() {
     setGcSaving(false);
   }
 
-  async function openGcImport() {
-    setShowGcImport(true);
-    setGcImportLoading(true);
-    setGcImportSelected(new Set());
-    setGcImportSuccess(false);
-    setGcImportEvents([]);
-    setGcImportDentistId(gcConnection?.dentist_id ?? "");
-    const res = await fetch(`/api/google-calendar/vacations?user_id=${currentUserId}`);
-    if (res.ok) {
-      const { events = [] } = await res.json();
-      setGcImportEvents(events);
-    }
-    setGcImportLoading(false);
-  }
-
-  async function importBlockouts() {
-    const targetDentistId = gcImportDentistId || gcConnection?.dentist_id;
-    if (!targetDentistId || gcImportSelected.size === 0) return;
-    setGcImportSaving(true);
-    const toImport = gcImportEvents.filter((e) => gcImportSelected.has(e.id));
-    for (const ev of toImport) {
-      await supabase.from("dentist_blockouts").insert({
-        dentist_id: targetDentistId,
-        start_date: ev.start_date,
-        end_date: ev.end_date,
-        reason: ev.title,
-      });
-    }
-    setGcImportSaving(false);
-    setGcImportSuccess(true);
-    setGcImportSelected(new Set());
-  }
-
-  async function bulkSyncGoogleCalendar() {
-    setGcBulkSyncing(true);
-    setGcBulkResult(null);
-    try {
-      const res = await fetch("/api/google-calendar/sync/bulk", { method: "POST" });
-      if (res.ok) {
-        const { synced, total } = await res.json();
-        setGcBulkResult({ synced, total });
-      }
-    } catch {
-      // silent
-    }
-    setGcBulkSyncing(false);
-  }
 
   /* ── SMS config ── */
   async function saveSmsConfig() {
@@ -713,45 +694,17 @@ export default function WebsiteControlsPage() {
               </div>
             )}
 
-            {/* Bulk sync existing appointments */}
-            <div className="pt-2 border-t border-slate-100">
-              <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Sync existing appointments</div>
-              <p className="text-xs text-slate-500 mb-3">
-                Push all upcoming appointments that were created before Google Calendar was connected.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={bulkSyncGoogleCalendar}
-                  disabled={gcBulkSyncing}
-                  className="cancel-btn flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                  </svg>
-                  {gcBulkSyncing ? "Syncing…" : "Sync all appointments"}
-                </button>
-                {gcBulkResult && (
-                  <span className="text-xs text-emerald-600 font-medium">
-                    ✓ Synced {gcBulkResult.synced} of {gcBulkResult.total} appointments
-                  </span>
-                )}
+            {/* Sync status — shown after connecting */}
+            {gcSyncMsg && (
+              <div className={`pt-2 border-t border-slate-100 text-xs font-medium ${gcSyncMsg.startsWith("⚠️") ? "text-amber-600" : "text-emerald-600"}`}>
+                {gcSyncMsg}
               </div>
-            </div>
-
-            {/* Import blockouts from Google Calendar — always visible when connected */}
-            <div className="pt-2 border-t border-slate-100">
-              <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Import blockouts</div>
-              <p className="text-xs text-slate-500 mb-3">
-                Check your Google Calendar for vacations, trips, or days off and add them as
-                clinic blockout dates so no appointments are booked during those times.
-              </p>
-              <button onClick={openGcImport} className="cancel-btn flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
-                Import from Google Calendar
-              </button>
-            </div>
+            )}
+            {!gcSyncMsg && (
+              <div className="pt-2 border-t border-slate-100 text-xs text-slate-400">
+                Appointments sync automatically. Google Calendar vacation events are checked hourly.
+              </div>
+            )}
 
             {/* Footer: reconnect / disconnect */}
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
@@ -866,114 +819,6 @@ export default function WebsiteControlsPage() {
             >
               {smsSaving ? "Saving…" : "Save"}
             </button>
-          </div>
-        </div>
-      </EditModal>
-
-      {/* ── Google Calendar: Import blockouts modal ────────── */}
-      <EditModal
-        open={showGcImport}
-        title="Import blockouts from Google Calendar"
-        onClose={() => { setShowGcImport(false); setGcImportSuccess(false); }}
-        wide
-      >
-        <div className="flex flex-col gap-4">
-          {/* Dentist selector — required when no dentist is pre-linked to this GC connection */}
-          {!gcConnection?.dentist_id && !gcImportSuccess && (
-            <label className="field-label">
-              <span className="field-label-text">Apply blockout to <span className="text-red-400">*</span></span>
-              <select
-                className="field-input"
-                value={gcImportDentistId}
-                onChange={(e) => setGcImportDentistId(e.target.value)}
-              >
-                <option value="">— Select a dentist —</option>
-                {dentists.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.nickname?.trim() || d.full_name || d.id}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {gcImportSuccess ? (
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700 font-medium text-center">
-              ✓ Blockouts imported successfully! They will now appear in the Appointments calendar and prevent bookings during those dates.
-            </div>
-          ) : gcImportLoading ? (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <Spinner size="h-6 w-6" />
-              <p className="text-sm text-slate-500">Reading your Google Calendar…</p>
-            </div>
-          ) : gcImportEvents.length === 0 ? (
-            <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-500 text-center">
-              No upcoming vacation or time-off events found in your Google Calendar for the next 6 months.
-            </div>
-          ) : (
-            <>
-              <p className="text-xs text-slate-500">
-                Select which events to add as blockout dates. Only all-day events, multi-day events,
-                and events with keywords like "vacation", "flight", or "leave" are shown.
-              </p>
-              <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
-                {gcImportEvents.map((ev) => {
-                  const checked = gcImportSelected.has(ev.id);
-                  return (
-                    <label
-                      key={ev.id}
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                        checked ? "border-violet-300 bg-violet-50" : "border-slate-200 bg-white hover:bg-slate-50"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        className="mt-0.5 accent-violet-600 flex-shrink-0"
-                        onChange={() =>
-                          setGcImportSelected((prev) => {
-                            const s = new Set(prev);
-                            s.has(ev.id) ? s.delete(ev.id) : s.add(ev.id);
-                            return s;
-                          })
-                        }
-                      />
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-slate-800 truncate">{ev.title}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {ev.start_date === ev.end_date
-                            ? ev.start_date
-                            : `${ev.start_date} → ${ev.end_date}`}
-                          {ev.is_all_day && (
-                            <span className="ml-2 text-[10px] font-semibold uppercase text-slate-400 tracking-wide">All day</span>
-                          )}
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <button
-              className="cancel-btn"
-              onClick={() => { setShowGcImport(false); setGcImportSuccess(false); }}
-            >
-              {gcImportSuccess ? "Close" : "Cancel"}
-            </button>
-            {!gcImportSuccess && !gcImportLoading && gcImportEvents.length > 0 && (
-              <button
-                className="save-btn"
-                disabled={gcImportSelected.size === 0 || gcImportSaving || (!gcConnection?.dentist_id && !gcImportDentistId)}
-                onClick={importBlockouts}
-              >
-                {gcImportSaving
-                  ? "Importing…"
-                  : `Import ${gcImportSelected.size > 0 ? `${gcImportSelected.size} ` : ""}selected`}
-              </button>
-            )}
           </div>
         </div>
       </EditModal>
