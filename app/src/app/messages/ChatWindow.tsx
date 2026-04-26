@@ -311,8 +311,8 @@ export default function ChatWindow({ threadId, onThreadUpdated, onPatientLinked,
       } catch {
         setError("Appointment created, but confirmation message failed to send.");
       }
-    } catch {
-      setError("Failed to create appointment");
+    } catch (err: any) {
+      setError(`Failed to create appointment: ${err?.message ?? "Unknown error"}`);
     } finally { setSending(false); }
   }
 

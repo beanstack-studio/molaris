@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DentistRow, Patient, dentistLabel } from "@/lib/types";
+import { VISIT_REASONS, VisitReasonType } from "@/lib/visitReasonHelpers";
 import { DatePickerField } from "@/components/DatePickerField";
 import { EditModal } from "@/components/EditModal";
 
@@ -23,7 +24,7 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
   const [appointmentDate, setAppointmentDate] = useState(new Date().toISOString().split("T")[0]);
   const [appointmentTime, setAppointmentTime] = useState("");
   const [dentistId, setDentistId]           = useState("");
-  const [concerns, setConcerns]             = useState("");
+  const [concerns, setConcerns]             = useState<VisitReasonType | "">("");
   const [dentists, setDentists]             = useState<DentistRow[]>([]);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loading, setLoading]               = useState(true);
@@ -107,7 +108,7 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
     if (!dentistId)        { setError("Please select a dentist"); return; }
     const dentist = dentists.find((d) => d.id === dentistId);
     const dentistName = dentist ? dentistLabel(dentist) : undefined;
-    onConfirm(appointmentDate, appointmentTime, patientId, dentistId, concerns || undefined, dentistName);
+    onConfirm(appointmentDate, appointmentTime, patientId, dentistId, concerns as string || undefined, dentistName);
   }
 
   return (
@@ -172,16 +173,23 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
           <span className="text-xs text-slate-400">Mon–Sat: 8am–5pm · Sun/Holidays: 8am–12nn · Lunch closed 12–1pm</span>
         </label>
 
-        {/* Concerns */}
+        {/* Concern / reason */}
         <label className="grid gap-1 text-sm">
           <span className="text-slate-700">Concern / reason (optional)</span>
-          <textarea
+          <select
             value={concerns}
-            onChange={(e) => setConcerns(e.target.value)}
-            placeholder="e.g., Toothache, cleaning, checkup…"
-            className="input-standard resize-none"
-            rows={3}
-          />
+            onChange={(e) => setConcerns(e.target.value as VisitReasonType | "")}
+            className="input-standard"
+          >
+            <option value="">— Select reason —</option>
+            {VISIT_REASONS.map((group) => (
+              <optgroup key={group.group} label={group.group}>
+                {group.reasons.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         </label>
 
         {/* Footer */}
