@@ -95,6 +95,10 @@ export default function WebsiteControlsPage() {
   const [gcImportSelected, setGcImportSelected] = useState<Set<string>>(new Set());
   const [gcImportSaving, setGcImportSaving] = useState(false);
   const [gcImportSuccess, setGcImportSuccess] = useState(false);
+  const [gcImportDentistId, setGcImportDentistId] = useState<string>("");
+  /* ── GC bulk sync ── */
+  const [gcBulkSyncing, setGcBulkSyncing] = useState(false);
+  const [gcBulkResult, setGcBulkResult] = useState<{ synced: number; total: number } | null>(null);
 
   /* ── SMS Messaging ── */
   const [smsProvider, setSmsProvider] = useState("");
@@ -321,6 +325,7 @@ export default function WebsiteControlsPage() {
     setGcImportSelected(new Set());
     setGcImportSuccess(false);
     setGcImportEvents([]);
+    setGcImportDentistId(gcConnection?.dentist_id ?? "");
     const res = await fetch(`/api/google-calendar/vacations?user_id=${currentUserId}`);
     if (res.ok) {
       const { events = [] } = await res.json();
@@ -330,12 +335,13 @@ export default function WebsiteControlsPage() {
   }
 
   async function importBlockouts() {
-    if (!gcConnection?.dentist_id || gcImportSelected.size === 0) return;
+    const targetDentistId = gcImportDentistId || gcConnection?.dentist_id;
+    if (!targetDentistId || gcImportSelected.size === 0) return;
     setGcImportSaving(true);
     const toImport = gcImportEvents.filter((e) => gcImportSelected.has(e.id));
     for (const ev of toImport) {
       await supabase.from("dentist_blockouts").insert({
-        dentist_id: gcConnection.dentist_id,
+        dentist_id: targetDentistId,
         start_date: ev.start_date,
         end_date: ev.end_date,
         reason: ev.title,
@@ -344,6 +350,21 @@ export default function WebsiteControlsPage() {
     setGcImportSaving(false);
     setGcImportSuccess(true);
     setGcImportSelected(new Set());
+  }
+
+  async function bulkSyncGoogleCalendar() {
+    setGcBulkSyncing(true);
+    setGcBulkResult(null);
+    try {
+      const res = await fetch("/api/google-calendar/sync/bulk", { method: "POST" });
+      if (res.ok) {
+        const { synced, total } = await res.json();
+        setGcBulkResult({ synced, total });
+      }
+    } catch {
+      // silent
+    }
+    setGcBulkSyncing(false);
   }
 
   /* ── SMS config ── */
@@ -692,22 +713,45 @@ export default function WebsiteControlsPage() {
               </div>
             )}
 
-            {/* Import blockouts from Google Calendar */}
-            {gcConnection.dentist_id && (
-              <div className="pt-2 border-t border-slate-100">
-                <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Import blockouts</div>
-                <p className="text-xs text-slate-500 mb-3">
-                  Check your Google Calendar for vacations, flights, or days off and add them as
-                  clinic blockout dates so no appointments are booked during that time.
-                </p>
-                <button onClick={openGcImport} className="cancel-btn flex items-center gap-1.5">
+            {/* Bulk sync existing appointments */}
+            <div className="pt-2 border-t border-slate-100">
+              <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Sync existing appointments</div>
+              <p className="text-xs text-slate-500 mb-3">
+                Push all upcoming appointments that were created before Google Calendar was connected.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={bulkSyncGoogleCalendar}
+                  disabled={gcBulkSyncing}
+                  className="cancel-btn flex items-center gap-1.5 disabled:opacity-50"
+                >
                   <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
                   </svg>
-                  Import from Google Calendar
+                  {gcBulkSyncing ? "Syncing…" : "Sync all appointments"}
                 </button>
+                {gcBulkResult && (
+                  <span className="text-xs text-emerald-600 font-medium">
+                    ✓ Synced {gcBulkResult.synced} of {gcBulkResult.total} appointments
+                  </span>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Import blockouts from Google Calendar — always visible when connected */}
+            <div className="pt-2 border-t border-slate-100">
+              <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Import blockouts</div>
+              <p className="text-xs text-slate-500 mb-3">
+                Check your Google Calendar for vacations, trips, or days off and add them as
+                clinic blockout dates so no appointments are booked during those times.
+              </p>
+              <button onClick={openGcImport} className="cancel-btn flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                </svg>
+                Import from Google Calendar
+              </button>
+            </div>
 
             {/* Footer: reconnect / disconnect */}
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
@@ -834,6 +878,25 @@ export default function WebsiteControlsPage() {
         wide
       >
         <div className="flex flex-col gap-4">
+          {/* Dentist selector — required when no dentist is pre-linked to this GC connection */}
+          {!gcConnection?.dentist_id && !gcImportSuccess && (
+            <label className="field-label">
+              <span className="field-label-text">Apply blockout to <span className="text-red-400">*</span></span>
+              <select
+                className="field-input"
+                value={gcImportDentistId}
+                onChange={(e) => setGcImportDentistId(e.target.value)}
+              >
+                <option value="">— Select a dentist —</option>
+                {dentists.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.nickname?.trim() || d.full_name || d.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           {gcImportSuccess ? (
             <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700 font-medium text-center">
               ✓ Blockouts imported successfully! They will now appear in the Appointments calendar and prevent bookings during those dates.
@@ -903,7 +966,7 @@ export default function WebsiteControlsPage() {
             {!gcImportSuccess && !gcImportLoading && gcImportEvents.length > 0 && (
               <button
                 className="save-btn"
-                disabled={gcImportSelected.size === 0 || gcImportSaving}
+                disabled={gcImportSelected.size === 0 || gcImportSaving || (!gcConnection?.dentist_id && !gcImportDentistId)}
                 onClick={importBlockouts}
               >
                 {gcImportSaving
