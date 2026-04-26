@@ -87,6 +87,14 @@ export default function WebsiteControlsPage() {
   const [gcSaving, setGcSaving] = useState(false);
   const [dentists, setDentists] = useState<{ id: string; full_name: string | null; nickname: string | null }[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  /* ── GC blockout import ── */
+  type GcEvent = { id: string; title: string; start_date: string; end_date: string; is_all_day: boolean };
+  const [showGcImport, setShowGcImport] = useState(false);
+  const [gcImportEvents, setGcImportEvents] = useState<GcEvent[]>([]);
+  const [gcImportLoading, setGcImportLoading] = useState(false);
+  const [gcImportSelected, setGcImportSelected] = useState<Set<string>>(new Set());
+  const [gcImportSaving, setGcImportSaving] = useState(false);
+  const [gcImportSuccess, setGcImportSuccess] = useState(false);
 
   /* ── Users ── */
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -282,6 +290,37 @@ export default function WebsiteControlsPage() {
     setGcSaving(false);
   }
 
+  async function openGcImport() {
+    setShowGcImport(true);
+    setGcImportLoading(true);
+    setGcImportSelected(new Set());
+    setGcImportSuccess(false);
+    setGcImportEvents([]);
+    const res = await fetch(`/api/google-calendar/vacations?user_id=${currentUserId}`);
+    if (res.ok) {
+      const { events = [] } = await res.json();
+      setGcImportEvents(events);
+    }
+    setGcImportLoading(false);
+  }
+
+  async function importBlockouts() {
+    if (!gcConnection?.dentist_id || gcImportSelected.size === 0) return;
+    setGcImportSaving(true);
+    const toImport = gcImportEvents.filter((e) => gcImportSelected.has(e.id));
+    for (const ev of toImport) {
+      await supabase.from("dentist_blockouts").insert({
+        dentist_id: gcConnection.dentist_id,
+        start_date: ev.start_date,
+        end_date: ev.end_date,
+        reason: ev.title,
+      });
+    }
+    setGcImportSaving(false);
+    setGcImportSuccess(true);
+    setGcImportSelected(new Set());
+  }
+
   /* ── Change password ── */
   function openChangePw() {
     setCurrentPassword("");
@@ -426,7 +465,9 @@ export default function WebsiteControlsPage() {
           <div>
             <div className="card-title">Google Calendar Sync</div>
             <div className="text-xs text-slate-400 mt-0.5">
-              Connect your Google Calendar to automatically sync appointments you're assigned to
+              {currentRole === "dentist"
+                ? "Connect your personal Google Calendar to automatically sync your appointments"
+                : "Connect a Google Calendar to sync clinic appointments"}
             </div>
           </div>
         </div>
@@ -443,7 +484,7 @@ export default function WebsiteControlsPage() {
         )}
         {gcStatus === "error" && (
           <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            Something went wrong. Make sure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are configured.
+            Something went wrong. Make sure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set.
           </div>
         )}
 
@@ -453,6 +494,7 @@ export default function WebsiteControlsPage() {
           </div>
         ) : gcConnection ? (
           <div className="flex flex-col gap-4">
+
             {/* Connected account */}
             <div>
               <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Account</div>
@@ -472,57 +514,112 @@ export default function WebsiteControlsPage() {
               </div>
             </div>
 
-            {/* Sync settings */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-              {/* Dentist association */}
-              <div>
-                <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">My dentist record</div>
+            {/* ── Dentist role: must link their record; always sync own only ── */}
+            {currentRole === "dentist" ? (
+              <div className="pt-2 border-t border-slate-100">
+                <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">
+                  My dentist record <span className="text-red-400">*</span>
+                </div>
                 <select
                   className="input-standard text-sm"
                   value={gcConnection.dentist_id ?? ""}
                   disabled={gcSaving}
-                  onChange={(e) => saveGcSettings({ dentist_id: e.target.value || null })}
+                  onChange={(e) => {
+                    const dentist_id = e.target.value || null;
+                    saveGcSettings({ dentist_id, sync_own_only: true });
+                  }}
                 >
-                  <option value="">— Not linked —</option>
+                  <option value="">— Select your dentist record —</option>
                   {dentists.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.nickname?.trim() || d.full_name || d.id}
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-400 mt-1">
-                  Link to your dentist profile to enable appointment filtering.
-                </p>
+                {!gcConnection.dentist_id && (
+                  <p className="text-xs text-amber-600 mt-1 font-medium">
+                    Link your dentist record so your appointments sync correctly.
+                  </p>
+                )}
+                {gcConnection.dentist_id && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Only appointments assigned to you will sync to your calendar.
+                  </p>
+                )}
               </div>
 
-              {/* Sync own only toggle */}
-              <div>
-                <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">Sync filter</div>
-                <label className="flex items-start gap-2.5 cursor-pointer group">
-                  <div className="relative mt-0.5 flex-shrink-0">
+            ) : (
+              /* ── Admin / staff: choose all appointments OR filter by specific dentist ── */
+              <div className="pt-2 border-t border-slate-100 flex flex-col gap-3">
+                <div className="text-xs text-slate-400 uppercase font-semibold">Sync filter</div>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
                     <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={gcConnection.sync_own_only}
-                      disabled={gcSaving || !gcConnection.dentist_id}
-                      onChange={(e) => saveGcSettings({ sync_own_only: e.target.checked })}
+                      type="radio"
+                      name="gc-sync-filter"
+                      checked={!gcConnection.sync_own_only}
+                      disabled={gcSaving}
+                      onChange={() => saveGcSettings({ sync_own_only: false, dentist_id: null })}
+                      className="accent-violet-600"
                     />
-                    <div className="w-9 h-5 rounded-full border-2 border-slate-200 bg-slate-100 peer-checked:bg-violet-500 peer-checked:border-violet-500 transition-colors peer-disabled:opacity-40" />
-                    <div className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-slate-700">Only my appointments</div>
-                    <div className="text-xs text-slate-400">
-                      {gcConnection.dentist_id
-                        ? "Only appointments assigned to me will sync."
-                        : "Link a dentist record above to enable this."}
+                    <div>
+                      <div className="text-sm font-medium text-slate-700">All appointments</div>
+                      <div className="text-xs text-slate-400">Every appointment syncs to this calendar</div>
                     </div>
+                  </label>
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gc-sync-filter"
+                      checked={gcConnection.sync_own_only}
+                      disabled={gcSaving}
+                      onChange={() => saveGcSettings({ sync_own_only: true })}
+                      className="accent-violet-600"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-slate-700">Only a specific dentist</div>
+                      <div className="text-xs text-slate-400">Only appointments assigned to a chosen dentist sync</div>
+                    </div>
+                  </label>
+                </div>
+                {gcConnection.sync_own_only && (
+                  <div className="pl-6">
+                    <select
+                      className="input-standard text-sm"
+                      value={gcConnection.dentist_id ?? ""}
+                      disabled={gcSaving}
+                      onChange={(e) => saveGcSettings({ dentist_id: e.target.value || null })}
+                    >
+                      <option value="">— Select a dentist —</option>
+                      {dentists.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.nickname?.trim() || d.full_name || d.id}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </label>
+                )}
               </div>
-            </div>
+            )}
 
-            {/* Reconnect / disconnect */}
+            {/* ── Import blockouts from Google Calendar ── */}
+            {gcConnection.dentist_id && (
+              <div className="pt-2 border-t border-slate-100">
+                <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Import blockouts</div>
+                <p className="text-xs text-slate-500 mb-3">
+                  Check your Google Calendar for vacations, flights, or days off and add them as
+                  clinic blockout dates so no appointments are booked during that time.
+                </p>
+                <button onClick={openGcImport} className="cancel-btn flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                  </svg>
+                  Import from Google Calendar
+                </button>
+              </div>
+            )}
+
+            {/* Footer: reconnect / disconnect */}
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
               {currentUserId && (
                 <a href={`/api/auth/google/connect?uid=${currentUserId}`} className="text-xs text-slate-400 hover:text-slate-600 underline">
@@ -537,6 +634,7 @@ export default function WebsiteControlsPage() {
                 {gcDisconnecting ? "Disconnecting…" : "Disconnect"}
               </button>
             </div>
+
           </div>
         ) : (
           <div>
@@ -562,6 +660,95 @@ export default function WebsiteControlsPage() {
           </div>
         )}
       </div>
+
+      {/* ── Google Calendar: Import blockouts modal ────────── */}
+      <EditModal
+        open={showGcImport}
+        title="Import blockouts from Google Calendar"
+        onClose={() => { setShowGcImport(false); setGcImportSuccess(false); }}
+        wide
+      >
+        <div className="flex flex-col gap-4">
+          {gcImportSuccess ? (
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700 font-medium text-center">
+              ✓ Blockouts imported successfully! They will now appear in the Appointments calendar and prevent bookings during those dates.
+            </div>
+          ) : gcImportLoading ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Spinner size="h-6 w-6" />
+              <p className="text-sm text-slate-500">Reading your Google Calendar…</p>
+            </div>
+          ) : gcImportEvents.length === 0 ? (
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-500 text-center">
+              No upcoming vacation or time-off events found in your Google Calendar for the next 6 months.
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500">
+                Select which events to add as blockout dates. Only all-day events, multi-day events,
+                and events with keywords like "vacation", "flight", or "leave" are shown.
+              </p>
+              <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+                {gcImportEvents.map((ev) => {
+                  const checked = gcImportSelected.has(ev.id);
+                  return (
+                    <label
+                      key={ev.id}
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                        checked ? "border-violet-300 bg-violet-50" : "border-slate-200 bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        className="mt-0.5 accent-violet-600 flex-shrink-0"
+                        onChange={() =>
+                          setGcImportSelected((prev) => {
+                            const s = new Set(prev);
+                            s.has(ev.id) ? s.delete(ev.id) : s.add(ev.id);
+                            return s;
+                          })
+                        }
+                      />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-slate-800 truncate">{ev.title}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {ev.start_date === ev.end_date
+                            ? ev.start_date
+                            : `${ev.start_date} → ${ev.end_date}`}
+                          {ev.is_all_day && (
+                            <span className="ml-2 text-[10px] font-semibold uppercase text-slate-400 tracking-wide">All day</span>
+                          )}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              className="cancel-btn"
+              onClick={() => { setShowGcImport(false); setGcImportSuccess(false); }}
+            >
+              {gcImportSuccess ? "Close" : "Cancel"}
+            </button>
+            {!gcImportSuccess && !gcImportLoading && gcImportEvents.length > 0 && (
+              <button
+                className="save-btn"
+                disabled={gcImportSelected.size === 0 || gcImportSaving}
+                onClick={importBlockouts}
+              >
+                {gcImportSaving
+                  ? "Importing…"
+                  : `Import ${gcImportSelected.size > 0 ? `${gcImportSelected.size} ` : ""}selected`}
+              </button>
+            )}
+          </div>
+        </div>
+      </EditModal>
 
       {/* ── My Account ───────────────────────────────────────── */}
       <div className="card">

@@ -30,7 +30,23 @@ export async function GET(req: NextRequest) {
 
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey) {
-    console.warn("[holidays] GOOGLE_CALENDAR_API_KEY not set — returning empty holiday list");
+    // Fallback: fetch from date.nager.at (public, no key required)
+    try {
+      const nagerRes = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/PH`, {
+        next: { revalidate: 86400 },
+      });
+      if (nagerRes.ok) {
+        const items: { date: string; localName: string; name: string }[] = await nagerRes.json();
+        const payload: HolidayPayload = { dates: [], names: {} };
+        for (const item of items) {
+          payload.dates.push(item.date);
+          payload.names[item.date] = item.localName || item.name;
+        }
+        cache[year] = payload;
+        return NextResponse.json(payload);
+      }
+    } catch { /* fall through to empty */ }
+    console.warn("[holidays] GOOGLE_CALENDAR_API_KEY not set and nager.at fallback failed");
     return NextResponse.json({ dates: [], names: {} });
   }
 

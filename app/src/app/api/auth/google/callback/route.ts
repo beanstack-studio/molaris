@@ -77,19 +77,40 @@ export async function GET(request: NextRequest) {
 
     // ── Step 3: Upsert into google_calendar_connections ──────────────────
     const supabaseAdmin = getAdminClient();
+
+    // Determine role so we can set a smart default for sync_own_only on first connect
+    let autoSyncOwnOnly = false;
+    try {
+      const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(uid);
+      const role =
+        (authUser?.user_metadata?.role as string) ??
+        (authUser?.app_metadata?.role as string) ??
+        "staff";
+      autoSyncOwnOnly = role === "dentist";
+    } catch { /* non-fatal */ }
+
+    // Only apply default on first connect; preserve existing preference on reconnect
+    const { data: existing } = await supabaseAdmin
+      .from("google_calendar_connections")
+      .select("sync_own_only")
+      .eq("user_id", uid)
+      .maybeSingle();
+
+    const upsertPayload: Record<string, unknown> = {
+      user_id: uid,
+      google_email: googleEmail,
+      access_token,
+      refresh_token,
+      token_expiry: tokenExpiry,
+      updated_at: new Date().toISOString(),
+    };
+    if (!existing) {
+      upsertPayload.sync_own_only = autoSyncOwnOnly;
+    }
+
     const { error: dbError } = await supabaseAdmin
       .from("google_calendar_connections")
-      .upsert(
-        {
-          user_id: uid,
-          google_email: googleEmail,
-          access_token,
-          refresh_token,
-          token_expiry: tokenExpiry,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
+      .upsert(upsertPayload, { onConflict: "user_id" });
 
     if (dbError) {
       console.error("[google/callback] DB upsert error:", JSON.stringify(dbError));
