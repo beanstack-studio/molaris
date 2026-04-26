@@ -8,11 +8,6 @@ import { EditModal } from "@/components/EditModal";
 import type { Patient, DentistRow, Appointment } from "@/lib/types";
 import { dentistLabel } from "@/lib/types";
 
-const PH_HOLIDAYS_2026 = [
-  "2026-01-01", "2026-02-10", "2026-02-25", "2026-04-09", "2026-04-10",
-  "2026-04-14", "2026-06-12", "2026-08-21", "2026-11-01", "2026-11-30",
-  "2026-12-08", "2026-12-25", "2026-12-30",
-];
 
 const formatTime12Hr = (time24: string): string => {
   const [hours, minutes] = time24.split(":").map(Number);
@@ -33,9 +28,10 @@ interface Props {
   dentists: DentistRow[];
   patients: Patient[];
   sundayEndHour: number;
+  holidayOverrides?: Set<string>;
 }
 
-export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists, patients, sundayEndHour }: Props) {
+export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists, patients, sundayEndHour, holidayOverrides }: Props) {
   const [editFormData, setEditFormData] = useState({
     patientId: "",
     appointmentDate: "",
@@ -52,6 +48,23 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
   const dateRef = useRef<HTMLInputElement | null>(null);
   const [dentistSchedule, setDentistSchedule] = useState<{ day_of_week: number; start_time: string; end_time: string; is_working: boolean }[]>([]);
   const [dentistBlockouts, setDentistBlockouts] = useState<{ start_date: string; end_date: string; reason: string | null }[]>([]);
+  const [phHolidays, setPhHolidays] = useState<string[]>([]);
+
+  // Fetch PH holidays dynamically
+  useEffect(() => {
+    const year = new Date().getFullYear();
+    const fetchHolidays = async (y: number) => {
+      try {
+        const res = await fetch(`/api/holidays?year=${y}`);
+        if (res.ok) {
+          const { dates }: { dates: string[] } = await res.json();
+          setPhHolidays((prev) => [...new Set([...prev, ...dates])]);
+        }
+      } catch { /* fail open */ }
+    };
+    fetchHolidays(year);
+    if (new Date().getMonth() >= 9) fetchHolidays(year + 1);
+  }, []);
 
   async function loadDentistSchedule(dentistId: string) {
     if (!dentistId) { setDentistSchedule([]); setDentistBlockouts([]); return; }
@@ -158,7 +171,7 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
 
   function getValidHours(dateStr: string) {
     const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
-    const isHoliday = PH_HOLIDAYS_2026.includes(dateStr);
+    const isHoliday = phHolidays.includes(dateStr) && !(holidayOverrides?.has(dateStr));
     if (isBlockedOut(dateStr)) return [];
     const daySched = dentistSchedule.find((s) => s.day_of_week === dayOfWeek);
     if (daySched) {

@@ -50,6 +50,8 @@ export default function AppointmentsPage() {
   const [calDentistSchedule, setCalDentistSchedule] = useState<{ day_of_week: number; is_working: boolean }[]>([]);
   const [phHolidays, setPhHolidays] = useState<string[]>([]);
   const [phHolidayNames, setPhHolidayNames] = useState<Record<string, string>>({});
+  const [holidayOverrides, setHolidayOverrides] = useState<Set<string>>(new Set());
+  const [togglingOverride, setTogglingOverride] = useState(false);
 
   // Read URL params on mount (e.g. from dashboard appointment links)
   useEffect(() => {
@@ -95,6 +97,11 @@ export default function AppointmentsPage() {
     };
     fetchHolidays(year);
     if (new Date().getMonth() >= 9) fetchHolidays(year + 1);
+
+    // Load holiday overrides (dates clinic has marked as open despite being holidays)
+    supabase.from("holiday_overrides").select("date").then(({ data }) => {
+      if (data) setHolidayOverrides(new Set(data.map((r: any) => r.date)));
+    });
 
     // Run autoMarkMissed in background (fire and forget — doesn't block display)
     autoMarkMissed();
@@ -167,6 +174,20 @@ export default function AppointmentsPage() {
     ]);
     setCalDentistSchedule(schedRes.data ?? []);
     setCalDentistBlockouts(blockRes.data ?? []);
+  };
+
+  const toggleHolidayOverride = async (dateStr: string) => {
+    setTogglingOverride(true);
+    try {
+      if (holidayOverrides.has(dateStr)) {
+        await supabase.from("holiday_overrides").delete().eq("date", dateStr);
+        setHolidayOverrides((prev) => { const s = new Set(prev); s.delete(dateStr); return s; });
+      } else {
+        await supabase.from("holiday_overrides").insert({ date: dateStr });
+        setHolidayOverrides((prev) => new Set([...prev, dateStr]));
+      }
+    } catch { /* non-critical */ }
+    finally { setTogglingOverride(false); }
   };
 
   const loadPatients = async () => {
@@ -423,10 +444,26 @@ export default function AppointmentsPage() {
                 ) : (
                   datesList.map((date) => (
                     <div key={date} id={`appt-date-${date}`}>
-                      <div className="px-1 pb-2 flex items-center gap-2">
+                      <div className="px-1 pb-2 flex flex-wrap items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">{formatDateHeading(date)}</span>
-                        {phHolidays.includes(date) && (
+                        {phHolidays.includes(date) && !holidayOverrides.has(date) && (
                           <span className="badge badge-warning">🇵🇭 {phHolidayNames[date]}</span>
+                        )}
+                        {phHolidays.includes(date) && holidayOverrides.has(date) && (
+                          <span className="badge badge-success">🇵🇭 Working Holiday — {phHolidayNames[date]}</span>
+                        )}
+                        {phHolidays.includes(date) && (
+                          <button
+                            onClick={() => toggleHolidayOverride(date)}
+                            disabled={togglingOverride}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                              holidayOverrides.has(date)
+                                ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            }`}
+                          >
+                            {holidayOverrides.has(date) ? "Mark as Closed" : "Mark as Open"}
+                          </button>
                         )}
                       </div>
                       <AppointmentsTable rows={appointmentsByDate[date]} />
@@ -485,7 +522,9 @@ export default function AppointmentsPage() {
                     const dayAppointments = dateStr ? appointmentsByDate[dateStr] || [] : [];
                     const isToday = dateStr === new Date().toISOString().split("T")[0];
                     const isPast = !!(dateStr && new Date(dateStr) < new Date() && !isToday);
-                    const isHoliday = dateStr ? phHolidays.includes(dateStr) : false;
+                    const isPhHoliday = dateStr ? phHolidays.includes(dateStr) : false;
+                    const isOverridden = dateStr ? holidayOverrides.has(dateStr) : false;
+                    const isHoliday = isPhHoliday && !isOverridden;
                     const isDentistBlockout = dateStr && filterDentistId
                       ? calDentistBlockouts.some((b) => b.start_date <= dateStr && b.end_date >= dateStr)
                       : false;
@@ -529,8 +568,8 @@ export default function AppointmentsPage() {
                             : "text-slate-400"
                         }`}>
                           <span>{isCurrentMonth ? dayNum : ""}</span>
-                          {isHoliday && (
-                            <svg className="w-4 h-4" viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">
+                          {isPhHoliday && !isOverridden && (
+                            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">
                               <circle cx="300" cy="300" r="60" fill="#FCD116" />
                               <g fill="#FCD116">
                                 <polygon points="300,140 320,220 280,220" />
@@ -542,6 +581,9 @@ export default function AppointmentsPage() {
                               <rect x="0" y="300" width="900" height="300" fill="#CE1126" />
                               <polygon points="0,0 450,300 0,600" fill="#FFFFFF" />
                             </svg>
+                          )}
+                          {isPhHoliday && isOverridden && (
+                            <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-1 rounded leading-tight">WH</span>
                           )}
                         </div>
 
@@ -588,10 +630,26 @@ export default function AppointmentsPage() {
                 {/* Selected date details */}
                 {selectedDate && (
                   <div className="mt-6">
-                    <div className="px-1 pb-2 flex items-center gap-2">
+                    <div className="px-1 pb-2 flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-slate-700">{formatDateHeading(selectedDate)}</span>
-                      {phHolidays.includes(selectedDate) && (
+                      {phHolidays.includes(selectedDate) && !holidayOverrides.has(selectedDate) && (
                         <span className="badge badge-warning">🇵🇭 {phHolidayNames[selectedDate]}</span>
+                      )}
+                      {phHolidays.includes(selectedDate) && holidayOverrides.has(selectedDate) && (
+                        <span className="badge badge-success">🇵🇭 Working Holiday — {phHolidayNames[selectedDate]}</span>
+                      )}
+                      {phHolidays.includes(selectedDate) && (
+                        <button
+                          onClick={() => toggleHolidayOverride(selectedDate)}
+                          disabled={togglingOverride}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                            holidayOverrides.has(selectedDate)
+                              ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                          }`}
+                        >
+                          {holidayOverrides.has(selectedDate) ? "Mark as Closed" : "Mark as Open"}
+                        </button>
                       )}
                     </div>
                     {appointmentsByDate[selectedDate]?.length > 0 ? (
@@ -616,6 +674,7 @@ export default function AppointmentsPage() {
         patients={patients}
         selectedDate={selectedDate}
         sundayEndHour={sundayEndHour}
+        holidayOverrides={holidayOverrides}
       />
 
       <EditAppointmentModal
@@ -625,6 +684,7 @@ export default function AppointmentsPage() {
         dentists={dentists}
         patients={patients}
         sundayEndHour={sundayEndHour}
+        holidayOverrides={holidayOverrides}
       />
 
       <ContactPatientModal

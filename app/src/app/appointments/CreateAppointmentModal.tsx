@@ -23,9 +23,10 @@ interface Props {
   patients: Patient[];
   selectedDate: string | null;
   sundayEndHour: number;
+  holidayOverrides?: Set<string>;
 }
 
-export function CreateAppointmentModal({ open, onClose, onCreated, dentists, patients, selectedDate, sundayEndHour }: Props) {
+export function CreateAppointmentModal({ open, onClose, onCreated, dentists, patients, selectedDate, sundayEndHour, holidayOverrides }: Props) {
   const [formData, setFormData] = useState({
     patientId: "",
     appointmentDate: new Date().toISOString().split("T")[0],
@@ -124,7 +125,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
 
   function getValidHours(dateStr: string) {
     const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
-    const isHoliday = phHolidays.includes(dateStr);
+    const isHoliday = phHolidays.includes(dateStr) && !(holidayOverrides?.has(dateStr));
     if (isBlockedOut(dateStr)) return [];
     const daySched = dentistSchedule.find((s) => s.day_of_week === dayOfWeek);
     if (daySched) {
