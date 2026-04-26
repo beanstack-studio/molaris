@@ -886,6 +886,11 @@ tr.data-table-row-compact-odd:hover {
   box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
 }
 
+.modal-panel-lg {
+  @apply w-full max-w-lg rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+}
+
 /* Themed modal header — full accent color, white text */
 .modal-header {
   @apply px-6 py-4;

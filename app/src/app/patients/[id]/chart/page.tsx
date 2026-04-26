@@ -394,10 +394,7 @@ export default function ChartPage() {
           className="modal-container"
           onClick={(e) => { if (e.target === e.currentTarget) { setSelectedTooth(null); } }}
         >
-          <div
-            className="w-full max-w-lg rounded-2xl bg-white overflow-hidden"
-            style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}
-          >
+          <div className="modal-panel-lg">
             <div className="modal-header flex items-center justify-between pr-4">
               <div className="modal-title">Tooth #{selectedTooth}</div>
               <button
@@ -499,7 +496,7 @@ export default function ChartPage() {
 
       {editingEntry ? (
         <div className="modal-container" onDoubleClick={() => setEditingEntry(null)}>
-          <div className="w-full max-w-md rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0" style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}>
+          <div className="modal-panel">
             <div className="modal-header flex items-center justify-between pr-4">
               <div className="modal-title">Edit Entry — Tooth #{editingEntry.tooth_number}</div>
               <button type="button" onClick={() => { setEditingEntry(null); setError(null); setDeleteConfirmation(""); }} className="text-white/70 hover:text-white text-xl leading-none">✕</button>

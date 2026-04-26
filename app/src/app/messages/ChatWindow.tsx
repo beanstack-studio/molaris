@@ -496,8 +496,7 @@ export default function ChatWindow({ threadId, onThreadUpdated, onPatientLinked,
             disabled={sending || uploadingFile}
             id="message-reply"
             name="message-reply"
-            className="flex-1 resize-none rounded-xl px-4 py-2.5 text-sm text-slate-700 transition field-textarea"
-            style={{ maxHeight: "6rem", overflowY: "auto", minHeight: "unset" }}
+            className="flex-1 resize-none rounded-xl px-4 py-2.5 text-sm text-slate-700 transition field-textarea max-h-24 overflow-y-auto min-h-0"
             onInput={(e) => {
               const el = e.currentTarget;
               el.style.height = "auto";

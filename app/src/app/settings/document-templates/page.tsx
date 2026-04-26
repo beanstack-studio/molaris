@@ -121,7 +121,7 @@ export default function DocumentTemplatesSettingsPage() {
         </div>
 
         {/* Preview area */}
-        <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50" style={{ height: "700px" }}>
+        <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 h-[700px]">
           {loading ? (
             <div className="flex items-center justify-center h-full text-sm text-slate-500">
               Generating preview…

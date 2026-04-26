@@ -254,7 +254,7 @@ export default function DashboardPage() {
                       })}
                     </div>
                     {/* Desktop: table */}
-                    <div className="hidden sm:block overflow-x-auto -mx-5">
+                    <div className="hidden sm:block overflow-x-auto">
                       <table className="data-table-compact w-full">
                         <thead className="data-table-head sticky top-0 z-10">
                           <tr>
@@ -409,7 +409,7 @@ export default function DashboardPage() {
                   ))}
                 </div>
                 {/* Desktop: table */}
-                <div className="hidden sm:block overflow-x-auto -mx-5">
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="data-table-compact w-full">
                     <thead className="data-table-head">
                       <tr>

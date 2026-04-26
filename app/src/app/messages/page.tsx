@@ -212,7 +212,7 @@ export default function MessagesPage() {
       });
 
   return (
-    <div className="flex overflow-hidden" style={{ height: "calc(100dvh - 3.5rem)" }}>
+    <div className="flex overflow-hidden h-[calc(100dvh-3.5rem)]">
 
       {/* ── Thread list ──────────────────────────────────────────── */}
       <aside className={[

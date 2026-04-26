@@ -518,7 +518,7 @@ export default function PatientsPage() {
       {/* Add Patient Modal */}
       {showAdd ? (
         <div className="modal-container p-4" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)} onDoubleClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
-          <div className="w-full max-w-lg rounded-2xl bg-white overflow-hidden" style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}>
+          <div className="modal-panel-lg">
             <div className="modal-header">
               <h2 className="modal-title">Add patient</h2>
             </div>
