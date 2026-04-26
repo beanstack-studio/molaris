@@ -30,6 +30,7 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState<string | null>(null);
   const [phHolidays, setPhHolidays]         = useState<string[]>([]);
+  const [isOrthoPatient, setIsOrthoPatient] = useState(false);
 
   const MAX_PER_SLOT = 2;
 
@@ -66,6 +67,21 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
       }
     })();
   }, []);
+
+  // Check ortho status whenever patient changes
+  useEffect(() => {
+    if (!patientId) { setIsOrthoPatient(false); return; }
+    supabase.from("ortho_cases").select("id").eq("patient_id", patientId).limit(1).then(({ data }) => {
+      setIsOrthoPatient((data?.length ?? 0) > 0);
+      // Reset concern if it was an ortho-only reason and patient isn't ortho
+      setConcerns((prev) => {
+        if (!prev) return prev;
+        const group = VISIT_REASONS.find(g => g.group === "Ortho");
+        const isOrthoOnly = (group?.reasons ?? []).some(r => r.value === prev && r.value !== "ortho_consultation");
+        return isOrthoOnly && (data?.length ?? 0) === 0 ? "" : prev;
+      });
+    });
+  }, [patientId]);
 
   // Regenerate slots whenever date OR dentist changes
   useEffect(() => {
@@ -182,14 +198,25 @@ export default function AppointmentModal({ patients, onConfirm, onCancel, isSend
             className="input-standard"
           >
             <option value="">— Select reason —</option>
-            {VISIT_REASONS.map((group) => (
-              <optgroup key={group.group} label={group.group}>
-                {group.reasons.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </optgroup>
-            ))}
+            {VISIT_REASONS.map((group) => {
+              const reasons = isOrthoPatient
+                ? group.reasons
+                : group.group === "Ortho"
+                  ? group.reasons.filter((r) => r.value === "ortho_consultation")
+                  : group.reasons;
+              if (reasons.length === 0) return null;
+              return (
+                <optgroup key={group.group} label={group.group}>
+                  {reasons.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
+          {!isOrthoPatient && (
+            <span className="text-xs text-slate-400">Ortho reasons are only available for patients with an ortho case.</span>
+          )}
         </label>
 
         {/* Footer */}
