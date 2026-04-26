@@ -11,14 +11,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // All other routes require a Supabase session cookie.
-  // Since we use sessionStorage (not cookies), the session lives client-side.
-  // We can't verify it server-side — rely on client-side guards in TopNav.
-  // However, we redirect bare "/" to "/login" immediately server-side for speed.
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
+  // Auth is enforced client-side (localStorage session, no cookies).
+  // The root "/" renders a public landing page that self-redirects to /dashboard
+  // if the user is already logged in. No server-side redirect needed.
   return NextResponse.next();
 }
 
