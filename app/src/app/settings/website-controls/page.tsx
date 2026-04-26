@@ -96,6 +96,15 @@ export default function WebsiteControlsPage() {
   const [gcImportSaving, setGcImportSaving] = useState(false);
   const [gcImportSuccess, setGcImportSuccess] = useState(false);
 
+  /* ── SMS Messaging ── */
+  const [smsProvider, setSmsProvider] = useState("");
+  const [smsApiKey, setSmsApiKey] = useState("");
+  const [smsSenderName, setSmsSenderName] = useState("");
+  const [smsSaving, setSmsSaving] = useState(false);
+  const [smsSaved, setSmsSaved] = useState(false);
+  const [smsProfileId, setSmsProfileId] = useState("");
+  const [showSmsConfig, setShowSmsConfig] = useState(false);
+
   /* ── Users ── */
   const [users, setUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -198,6 +207,20 @@ export default function WebsiteControlsPage() {
       .eq("is_active", true)
       .order("full_name")
       .then(({ data }) => setDentists(data ?? []));
+
+    // Load SMS config from clinic_profile
+    supabase
+      .from("clinic_profile")
+      .select("id, sms_provider, sms_api_key, sms_sender_name")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setSmsProfileId(data.id ?? "");
+          setSmsProvider(data.sms_provider ?? "");
+          setSmsApiKey(data.sms_api_key ?? "");
+          setSmsSenderName(data.sms_sender_name ?? "");
+        }
+      });
   }, [searchParams]);
 
   useEffect(() => {
@@ -323,6 +346,20 @@ export default function WebsiteControlsPage() {
     setGcImportSelected(new Set());
   }
 
+  /* ── SMS config ── */
+  async function saveSmsConfig() {
+    if (!smsProfileId) return;
+    setSmsSaving(true);
+    await supabase
+      .from("clinic_profile")
+      .update({ sms_provider: smsProvider, sms_api_key: smsApiKey, sms_sender_name: smsSenderName })
+      .eq("id", smsProfileId);
+    setSmsSaving(false);
+    setSmsSaved(true);
+    setShowSmsConfig(false);
+    setTimeout(() => setSmsSaved(false), 4000);
+  }
+
   /* ── Change password ── */
   function openChangePw() {
     setCurrentPassword("");
@@ -373,43 +410,51 @@ export default function WebsiteControlsPage() {
         <ThemePicker />
       </div>
 
-      {/* ── Messaging Integrations — responsive 2-col grid ──── */}
+      {/* ── Integrations: FB + SMS (2-col) ─────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* Facebook Messenger */}
-        <div className="card">
-          <div className="card-header mb-4">
+        {/* ── Facebook Messenger ── */}
+        <div className="card flex flex-col gap-4">
+          {/* Brand header */}
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#0084FF] flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
+              </svg>
+            </div>
             <div>
               <div className="card-title">Facebook Messenger</div>
-              <div className="text-xs text-slate-400 mt-0.5">Connect your clinic's Facebook Page to receive and reply to patient messages</div>
+              <div className="text-xs text-slate-400 mt-0.5">Connect your Facebook Page to receive and reply to patient messages</div>
             </div>
           </div>
 
+          {/* Status alerts */}
           {fbStatus === "connected" && (
-            <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
               ✓ Facebook Page connected successfully!
             </div>
           )}
           {fbStatus === "access_denied" && (
-            <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
               Authorization cancelled. Click Connect to try again.
             </div>
           )}
           {fbStatus === "error" && (
-            <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
               Something went wrong. Make sure your Facebook App is set up correctly and try again.
             </div>
           )}
 
-          <div className="flex flex-col gap-4">
+          {/* Content */}
+          <div className="flex-1 flex flex-col justify-between gap-3">
             {fbLoading ? (
               <div className="flex items-center gap-2 text-sm text-slate-500"><Spinner size="h-4 w-4" /> Checking connection…</div>
             ) : fbPage?.page_name ? (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
                 <div>
-                  <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Page</div>
+                  <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Connected Page</div>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">f</div>
+                    <div className="w-9 h-9 rounded-full bg-[#0084FF] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">f</div>
                     <div>
                       <div className="text-sm font-semibold text-slate-800">{fbPage.page_name}</div>
                       <div className="text-xs text-emerald-600 font-medium">● Connected</div>
@@ -421,49 +466,91 @@ export default function WebsiteControlsPage() {
                 </a>
               </div>
             ) : (
-              <div>
-                <div className="text-sm text-slate-500 mb-3">No Messenger page connected yet.</div>
-                <a href="/api/auth/facebook/connect" className="save-btn inline-flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
-                  </svg>
-                  Connect Messenger
-                </a>
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-slate-500">No Messenger page connected yet.</p>
+                <div>
+                  <a href="/api/auth/facebook/connect" className="save-btn inline-flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
+                    </svg>
+                    Connect Messenger
+                  </a>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* SMS — placeholder, not yet integrated */}
-        <div className="card">
-          <div className="card-header mb-4">
+        {/* ── SMS Messaging ── */}
+        <div className="card flex flex-col gap-4">
+          {/* Brand header */}
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              </svg>
+            </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="card-title">SMS Messaging</div>
-                <span className="badge badge-warning">Coming soon</span>
-              </div>
+              <div className="card-title">SMS Messaging</div>
               <div className="text-xs text-slate-400 mt-0.5">Send appointment reminders and updates directly via SMS</div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <div>
-              <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Provider</div>
-              <div className="text-sm text-slate-400 italic">Not configured</div>
+          {/* Status alerts */}
+          {smsSaved && (
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
+              ✓ SMS configuration saved!
             </div>
-            <div>
-              <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Sender ID / Number</div>
-              <div className="text-sm text-slate-400 italic">—</div>
-            </div>
-            <p className="text-xs text-slate-400">SMS integration will be available in a future update. Messenger is fully supported now.</p>
+          )}
+
+          {/* Content */}
+          <div className="flex-1 flex flex-col justify-between gap-3">
+            {smsProvider ? (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Provider</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-semibold text-slate-800">
+                      {smsProvider === "semaphore" ? "Semaphore" : smsProvider === "twilio" ? "Twilio" : smsProvider}
+                    </div>
+                    <div className="text-xs text-emerald-600 font-medium">● Configured</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Sender Name / Number</div>
+                  <div className="text-sm text-slate-700">{smsSenderName || "—"}</div>
+                </div>
+                <button className="text-xs text-slate-400 hover:text-slate-600 underline self-start" onClick={() => setShowSmsConfig(true)}>
+                  Edit configuration
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-slate-500">No SMS provider configured yet.</p>
+                <div>
+                  <button className="save-btn" onClick={() => setShowSmsConfig(true)}>
+                    Configure SMS
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
       </div>
 
-      {/* ── Google Calendar ──────────────────────────────────── */}
-      <div className="card">
-        <div className="card-header mb-4">
+      {/* ── Google Calendar Sync (full width) ───────────────────── */}
+      <div className="card flex flex-col gap-4">
+        {/* Brand header */}
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">
+            <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+          </div>
           <div>
             <div className="card-title">Google Calendar Sync</div>
             <div className="text-xs text-slate-400 mt-0.5">
@@ -474,22 +561,24 @@ export default function WebsiteControlsPage() {
           </div>
         </div>
 
+        {/* Status alerts */}
         {gcStatus === "connected" && (
-          <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
             ✓ Google Calendar connected successfully!
           </div>
         )}
         {gcStatus === "access_denied" && (
-          <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
             Authorization cancelled. Click Connect to try again.
           </div>
         )}
         {gcStatus === "error" && (
-          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            Something went wrong. Make sure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set.
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            Something went wrong. Make sure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set in environment variables.
           </div>
         )}
 
+        {/* Content */}
         {gcLoading ? (
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <Spinner size="h-4 w-4" /> Checking connection…
@@ -499,7 +588,7 @@ export default function WebsiteControlsPage() {
 
             {/* Connected account */}
             <div>
-              <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Account</div>
+              <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Connected Account</div>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">
                   <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
@@ -516,7 +605,7 @@ export default function WebsiteControlsPage() {
               </div>
             </div>
 
-            {/* ── Dentist role: must link their record; always sync own only ── */}
+            {/* Dentist role: must link their record; always sync own only */}
             {currentRole === "dentist" ? (
               <div className="pt-2 border-t border-slate-100">
                 <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">
@@ -549,9 +638,8 @@ export default function WebsiteControlsPage() {
                   </p>
                 )}
               </div>
-
             ) : (
-              /* ── Admin / staff: choose all appointments OR filter by specific dentist ── */
+              /* Admin / staff: choose all appointments OR filter by specific dentist */
               <div className="pt-2 border-t border-slate-100 flex flex-col gap-3">
                 <div className="text-xs text-slate-400 uppercase font-semibold">Sync filter</div>
                 <div className="flex flex-col gap-2">
@@ -604,7 +692,7 @@ export default function WebsiteControlsPage() {
               </div>
             )}
 
-            {/* ── Import blockouts from Google Calendar ── */}
+            {/* Import blockouts from Google Calendar */}
             {gcConnection.dentist_id && (
               <div className="pt-2 border-t border-slate-100">
                 <div className="text-xs text-slate-400 uppercase font-semibold mb-2">Import blockouts</div>
@@ -639,21 +727,28 @@ export default function WebsiteControlsPage() {
 
           </div>
         ) : (
-          <div>
-            <div className="text-sm text-slate-500 mb-3">No Google Calendar connected yet.</div>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-slate-500">No Google Calendar connected yet.</p>
             {currentUserId ? (
-              <a
-                href={`/api/auth/google/connect?uid=${currentUserId}`}
-                className="save-btn inline-flex items-center justify-center gap-2"
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                Connect Google Calendar
-              </a>
+              <div className="flex flex-col gap-2">
+                <div>
+                  <a
+                    href={`/api/auth/google/connect?uid=${currentUserId}`}
+                    className="save-btn inline-flex items-center justify-center gap-2"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Connect Google Calendar
+                  </a>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Google may show an &ldquo;unverified app&rdquo; warning. Click <strong>Advanced</strong> → <strong>Go to matiradentalstudio.xyz</strong> to continue.
+                </p>
+              </div>
             ) : (
               <div className="flex items-center gap-2 text-sm text-slate-400">
                 <Spinner size="h-4 w-4" /> Loading…
@@ -662,6 +757,74 @@ export default function WebsiteControlsPage() {
           </div>
         )}
       </div>
+
+      {/* ── SMS Config Modal ─────────────────────────────────── */}
+      <EditModal
+        open={showSmsConfig}
+        title="Configure SMS Messaging"
+        onClose={() => setShowSmsConfig(false)}
+      >
+        <div className="grid gap-4">
+          <label className="field-label">
+            <span className="field-label-text">Provider</span>
+            <select
+              className="field-input"
+              value={smsProvider}
+              onChange={(e) => setSmsProvider(e.target.value)}
+            >
+              <option value="">— Select a provider —</option>
+              <option value="semaphore">Semaphore (Philippines)</option>
+              <option value="twilio">Twilio</option>
+            </select>
+          </label>
+          {smsProvider && (
+            <>
+              <label className="field-label">
+                <span className="field-label-text">
+                  {smsProvider === "semaphore" ? "API Key" : "Auth Token"}
+                </span>
+                <input
+                  className="field-input"
+                  type="password"
+                  value={smsApiKey}
+                  onChange={(e) => setSmsApiKey(e.target.value)}
+                  placeholder={smsProvider === "semaphore" ? "Your Semaphore API key" : "Your Twilio Auth Token"}
+                  autoComplete="off"
+                />
+                {smsProvider === "twilio" && (
+                  <span className="text-xs text-slate-400 mt-1">Format: {"accountSID:authToken"} (e.g. ACxxx:yyy)</span>
+                )}
+              </label>
+              <label className="field-label">
+                <span className="field-label-text">
+                  {smsProvider === "semaphore" ? "Sender Name (max 11 chars)" : "Phone Number"}
+                </span>
+                <input
+                  className="field-input"
+                  type="text"
+                  value={smsSenderName}
+                  onChange={(e) => setSmsSenderName(e.target.value)}
+                  placeholder={smsProvider === "semaphore" ? "e.g. MatiraDental" : "e.g. +63XXXXXXXXXX"}
+                  maxLength={smsProvider === "semaphore" ? 11 : undefined}
+                />
+              </label>
+            </>
+          )}
+          <p className="text-xs text-slate-400">
+            Your API key is stored securely in your clinic database and never shared.
+          </p>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <button className="cancel-btn" onClick={() => setShowSmsConfig(false)}>Cancel</button>
+            <button
+              className="save-btn"
+              disabled={smsSaving || !smsProvider || !smsApiKey || !smsSenderName}
+              onClick={saveSmsConfig}
+            >
+              {smsSaving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      </EditModal>
 
       {/* ── Google Calendar: Import blockouts modal ────────── */}
       <EditModal
