@@ -73,6 +73,21 @@ export default function WebsiteControlsPage() {
   const [fbLoading, setFbLoading] = useState(true);
   const [fbStatus, setFbStatus] = useState<"connected" | "error" | "access_denied" | "no_pages" | null>(null);
 
+  /* ── Google Calendar ── */
+  type GcConnection = {
+    id: string;
+    google_email: string;
+    sync_own_only: boolean;
+    dentist_id: string | null;
+  };
+  const [gcConnection, setGcConnection] = useState<GcConnection | null>(null);
+  const [gcLoading, setGcLoading] = useState(true);
+  const [gcStatus, setGcStatus] = useState<"connected" | "error" | "access_denied" | null>(null);
+  const [gcDisconnecting, setGcDisconnecting] = useState(false);
+  const [gcSaving, setGcSaving] = useState(false);
+  const [dentists, setDentists] = useState<{ id: string; full_name: string | null; nickname: string | null }[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+
   /* ── Users ── */
   const [users, setUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -115,7 +130,7 @@ export default function WebsiteControlsPage() {
     setUsersLoading(false);
   }, []);
 
-  // Load FB connection status on mount
+  // Load FB + GC connection status on mount
   useEffect(() => {
     supabase
       .from("facebook_pages")
@@ -141,6 +156,39 @@ export default function WebsiteControlsPage() {
         console.error("FB db error detail — code:", dbCode, "message:", dbMsg);
       }
     }
+
+    // Handle redirect back from Google OAuth
+    const gcConnected = searchParams.get("gc_connected");
+    const gcError = searchParams.get("gc_error");
+    if (gcConnected === "1") {
+      setGcStatus("connected");
+    } else if (gcError) {
+      setGcStatus(gcError === "access_denied" ? "access_denied" : "error");
+    }
+
+    // Load current user + GC connection
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      const uid = data.user.id;
+      setCurrentUserId(uid);
+      supabase
+        .from("google_calendar_connections")
+        .select("id, google_email, sync_own_only, dentist_id")
+        .eq("user_id", uid)
+        .maybeSingle()
+        .then(({ data: gc }) => {
+          setGcConnection(gc ?? null);
+          setGcLoading(false);
+        });
+    });
+
+    // Load dentists for the dentist-association picker
+    supabase
+      .from("dentists")
+      .select("id, full_name, nickname")
+      .eq("is_active", true)
+      .order("full_name")
+      .then(({ data }) => setDentists(data ?? []));
   }, [searchParams]);
 
   useEffect(() => {
@@ -205,6 +253,33 @@ export default function WebsiteControlsPage() {
     setBusy(false);
     if (!res.ok) { setError(json.error); return; }
     loadUsers();
+  }
+
+  /* ── Google Calendar helpers ── */
+  async function disconnectGoogleCalendar() {
+    if (!currentUserId) return;
+    if (!confirm("Disconnect Google Calendar? Future appointments will no longer sync.")) return;
+    setGcDisconnecting(true);
+    await fetch("/api/auth/google/disconnect", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: currentUserId }),
+    });
+    setGcConnection(null);
+    setGcStatus(null);
+    setGcDisconnecting(false);
+  }
+
+  async function saveGcSettings(updates: { sync_own_only?: boolean; dentist_id?: string | null }) {
+    if (!currentUserId) return;
+    setGcSaving(true);
+    await fetch("/api/auth/google/disconnect", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: currentUserId, ...updates }),
+    });
+    setGcConnection((prev) => prev ? { ...prev, ...updates } : prev);
+    setGcSaving(false);
   }
 
   /* ── Change password ── */
@@ -343,6 +418,149 @@ export default function WebsiteControlsPage() {
           </div>
         </div>
 
+      </div>
+
+      {/* ── Google Calendar ──────────────────────────────────── */}
+      <div className="card">
+        <div className="card-header mb-4">
+          <div>
+            <div className="card-title">Google Calendar Sync</div>
+            <div className="text-xs text-slate-400 mt-0.5">
+              Connect your Google Calendar to automatically sync appointments you're assigned to
+            </div>
+          </div>
+        </div>
+
+        {gcStatus === "connected" && (
+          <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium">
+            ✓ Google Calendar connected successfully!
+          </div>
+        )}
+        {gcStatus === "access_denied" && (
+          <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+            Authorization cancelled. Click Connect to try again.
+          </div>
+        )}
+        {gcStatus === "error" && (
+          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            Something went wrong. Make sure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are configured.
+          </div>
+        )}
+
+        {gcLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Spinner size="h-4 w-4" /> Checking connection…
+          </div>
+        ) : gcConnection ? (
+          <div className="flex flex-col gap-4">
+            {/* Connected account */}
+            <div>
+              <div className="text-xs text-slate-400 uppercase font-semibold mb-1">Connected Account</div>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-800">{gcConnection.google_email}</div>
+                  <div className="text-xs text-emerald-600 font-medium">● Connected</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sync settings */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              {/* Dentist association */}
+              <div>
+                <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">My dentist record</div>
+                <select
+                  className="input-standard text-sm"
+                  value={gcConnection.dentist_id ?? ""}
+                  disabled={gcSaving}
+                  onChange={(e) => saveGcSettings({ dentist_id: e.target.value || null })}
+                >
+                  <option value="">— Not linked —</option>
+                  {dentists.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.nickname?.trim() || d.full_name || d.id}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Link to your dentist profile to enable appointment filtering.
+                </p>
+              </div>
+
+              {/* Sync own only toggle */}
+              <div>
+                <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">Sync filter</div>
+                <label className="flex items-start gap-2.5 cursor-pointer group">
+                  <div className="relative mt-0.5 flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={gcConnection.sync_own_only}
+                      disabled={gcSaving || !gcConnection.dentist_id}
+                      onChange={(e) => saveGcSettings({ sync_own_only: e.target.checked })}
+                    />
+                    <div className="w-9 h-5 rounded-full border-2 border-slate-200 bg-slate-100 peer-checked:bg-violet-500 peer-checked:border-violet-500 transition-colors peer-disabled:opacity-40" />
+                    <div className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-slate-700">Only my appointments</div>
+                    <div className="text-xs text-slate-400">
+                      {gcConnection.dentist_id
+                        ? "Only appointments assigned to me will sync."
+                        : "Link a dentist record above to enable this."}
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Reconnect / disconnect */}
+            <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
+              {currentUserId && (
+                <a href={`/api/auth/google/connect?uid=${currentUserId}`} className="text-xs text-slate-400 hover:text-slate-600 underline">
+                  Reconnect / switch account
+                </a>
+              )}
+              <button
+                className="text-xs text-red-500 hover:text-red-700 underline disabled:opacity-50"
+                disabled={gcDisconnecting}
+                onClick={disconnectGoogleCalendar}
+              >
+                {gcDisconnecting ? "Disconnecting…" : "Disconnect"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="text-sm text-slate-500 mb-3">No Google Calendar connected yet.</div>
+            {currentUserId ? (
+              <a
+                href={`/api/auth/google/connect?uid=${currentUserId}`}
+                className="save-btn inline-flex items-center justify-center gap-2"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Connect Google Calendar
+              </a>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <Spinner size="h-4 w-4" /> Loading…
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── My Account ───────────────────────────────────────── */}

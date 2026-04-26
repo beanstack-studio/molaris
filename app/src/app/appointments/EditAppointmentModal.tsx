@@ -137,6 +137,12 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
         })
         .eq("id", appointment.id);
       if (err) throw err;
+      // Fire-and-forget Google Calendar sync
+      fetch("/api/google-calendar/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appointment.id, action: "upsert" }),
+      }).catch(() => {});
       onUpdated();
       onClose();
     } catch (err) {
@@ -157,6 +163,12 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", appointment.id);
       if (err) throw err;
+      // Fire-and-forget Google Calendar sync (delete event)
+      fetch("/api/google-calendar/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointment_id: appointment.id, action: "delete" }),
+      }).catch(() => {});
       onUpdated();
       onClose();
     } catch (err) {

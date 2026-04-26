@@ -101,7 +101,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
       return;
     }
     try {
-      const { error: err } = await supabase.from("appointments").insert({
+      const { data: inserted, error: err } = await supabase.from("appointments").insert({
         patient_id: formData.patientId,
         appointment_date: formData.appointmentDate,
         appointment_time: formData.appointmentTime,
@@ -109,8 +109,16 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
         concern_type: formData.concernType || null,
         status: "confirmed",
         notes: "Created manually",
-      });
+      }).select("id").single();
       if (err) throw err;
+      // Fire-and-forget Google Calendar sync
+      if (inserted?.id) {
+        fetch("/api/google-calendar/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: inserted.id, action: "upsert" }),
+        }).catch(() => {});
+      }
       onCreated();
       onClose();
     } catch (err) {
