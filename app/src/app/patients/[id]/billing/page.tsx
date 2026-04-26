@@ -27,6 +27,7 @@ import { AddPaymentModal } from "./AddPaymentModal";
 import { VerifyPaymentModal } from "./VerifyPaymentModal";
 import { VoidPaymentModal } from "./VoidPaymentModal";
 import { ViewInvoiceModal } from "./ViewInvoiceModal";
+import { PaymentReminderModal } from "./PaymentReminderModal";
 import { PageLoader, Spinner } from "@/components/Spinner";
 
 
@@ -51,6 +52,7 @@ export default function BillingPage() {
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<PaymentMode | null>(null);
 
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
+  const [showPaymentReminder, setShowPaymentReminder] = useState(false);
   const [invoiceDate, setInvoiceDate] = useState(() => todayLocalISO());
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
 
@@ -864,6 +866,17 @@ export default function BillingPage() {
             <div className="card">
               <div className="card-header">
                 <div className="card-title">Billing Overview</div>
+                {billingOverview.balance > 0 && (
+                  <button
+                    className="cancel-btn flex items-center gap-1.5"
+                    onClick={() => setShowPaymentReminder(true)}
+                  >
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
+                    </svg>
+                    Send Reminder
+                  </button>
+                )}
               </div>
 
                 <div className="mt-3 grid gap-4 sm:grid-cols-3">
@@ -1292,6 +1305,13 @@ export default function BillingPage() {
           payments={payments}
           onClose={() => setViewingInvoice(null)}
         />
+
+      <PaymentReminderModal
+        open={showPaymentReminder}
+        patient={patient}
+        balance={billingOverview.balance}
+        onClose={() => setShowPaymentReminder(false)}
+      />
     </>
   );
 }
