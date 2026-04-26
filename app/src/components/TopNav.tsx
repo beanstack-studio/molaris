@@ -98,16 +98,22 @@ export default function TopNav({
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (pathname?.startsWith("/login")) return;
-      if (!session) {
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          // ignore
+      // Only redirect on explicit sign-out or confirmed token expiry.
+      // INITIAL_SESSION can fire with session=null before the auto-refresh
+      // completes (common in Safari with expired tokens), which would sign the
+      // user out even though a refresh was about to succeed.
+      if (event === "SIGNED_OUT" || event === "TOKEN_EXPIRED") {
+        if (!session) {
+          try {
+            await supabase.auth.signOut();
+          } catch {
+            // ignore
+          }
+          router.push("/login");
+          router.refresh();
         }
-        router.push("/login");
-        router.refresh();
       }
     });
 
