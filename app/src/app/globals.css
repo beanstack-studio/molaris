@@ -713,7 +713,7 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .field-input-readonly {
-  @apply rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-slate-500;
+  @apply w-full rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-slate-500 text-sm;
   box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.10);
 }
 

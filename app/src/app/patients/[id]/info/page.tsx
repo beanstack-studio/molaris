@@ -18,6 +18,7 @@ import {
   calcAge,
   formatPhoneLocal,
 } from "@/lib/helpers";
+import { getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 
 function Field({
   label,
@@ -69,6 +70,11 @@ export default function Page() {
   const [lastVisitDate, setLastVisitDate] = useState<string>("");
   const [lastVisitDentist, setLastVisitDentist] = useState<string>("");
   const [lastVisitConcern, setLastVisitConcern] = useState<string>("");
+
+  // Next appointment
+  const [nextApptDate, setNextApptDate] = useState<string>("");
+  const [nextApptDentist, setNextApptDentist] = useState<string>("");
+  const [nextApptConcern, setNextApptConcern] = useState<string>("");
 
   // Info edit
   const [editOpen, setEditOpen] = useState(false);
@@ -149,6 +155,31 @@ export default function Page() {
       setLastVisitDate("");
       setLastVisitDentist("");
       setLastVisitConcern("");
+    }
+
+    // Load next upcoming appointment
+    const today = new Date().toISOString().split("T")[0];
+    const appt = await supabase
+      .from("appointments")
+      .select("appointment_date, concern_type, dentists(full_name, nickname)")
+      .eq("patient_id", id)
+      .gte("appointment_date", today)
+      .not("status", "in", '("cancelled","completed")')
+      .is("deleted_at", null)
+      .order("appointment_date", { ascending: true })
+      .order("appointment_time", { ascending: true })
+      .limit(1);
+
+    if (!appt.error && appt.data?.length) {
+      const a = appt.data[0] as any;
+      setNextApptDate(a.appointment_date ?? "");
+      const dentist = a.dentists;
+      setNextApptDentist(dentist?.nickname?.trim() || dentist?.full_name || "");
+      setNextApptConcern(a.concern_type ? getVisitReasonLabel(a.concern_type) : "");
+    } else {
+      setNextApptDate("");
+      setNextApptDentist("");
+      setNextApptConcern("");
     }
 
     setLoading(false);
@@ -284,24 +315,50 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Last Visit Box */}
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">Last visit</div>
+        {/* Last Visit + Next Appointment — side by side */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Last visit</div>
+            </div>
+            <div className="grid-gap-4-cols-3">
+              <label className="field-label">
+                <span className="field-label-text">Date</span>
+                <input className="field-input-readonly" value={lastVisitDate ? formatDateStandard(lastVisitDate) : ""} readOnly />
+              </label>
+              <label className="field-label">
+                <span className="field-label-text">Dentist</span>
+                <input className="field-input-readonly" value={lastVisitDentist || ""} readOnly />
+              </label>
+              <label className="field-label">
+                <span className="field-label-text">Concern</span>
+                <input className="field-input-readonly" value={lastVisitConcern || ""} readOnly />
+              </label>
+            </div>
           </div>
-          <div className="grid-gap-4-cols-3">
-            <label className="field-label">
-              <span className="field-label-text">Date</span>
-              <input className="field-input-readonly" value={lastVisitDate ? formatDateStandard(lastVisitDate) : ""} readOnly />
-            </label>
-            <label className="field-label">
-              <span className="field-label-text">Dentist</span>
-              <input className="field-input-readonly" value={lastVisitDentist || ""} readOnly />
-            </label>
-            <label className="field-label">
-              <span className="field-label-text">Concern</span>
-              <input className="field-input-readonly" value={lastVisitConcern || ""} readOnly />
-            </label>
+
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Next appointment</div>
+            </div>
+            {nextApptDate ? (
+              <div className="grid-gap-4-cols-3">
+                <label className="field-label">
+                  <span className="field-label-text">Date</span>
+                  <input className="field-input-readonly" value={formatDateStandard(nextApptDate)} readOnly />
+                </label>
+                <label className="field-label">
+                  <span className="field-label-text">Dentist</span>
+                  <input className="field-input-readonly" value={nextApptDentist} readOnly />
+                </label>
+                <label className="field-label">
+                  <span className="field-label-text">Concern</span>
+                  <input className="field-input-readonly" value={nextApptConcern} readOnly />
+                </label>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 italic">No upcoming appointments</p>
+            )}
           </div>
         </div>
       

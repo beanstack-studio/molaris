@@ -97,7 +97,7 @@ export default function DashboardPage() {
     const today       = now.toISOString().split("T")[0];
     const monthStart  = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
     const monthEnd    = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-    const upcomingEnd = new Date(now.getTime() + 30 * 86_400_000).toISOString().split("T")[0];
+    const upcomingEnd = new Date(now.getTime() + 60 * 86_400_000).toISOString().split("T")[0];
 
     // Phase 1a: stat cards
     (async () => {
@@ -220,45 +220,78 @@ export default function DashboardPage() {
                     <Spin />
                   </div>
                 ) : upcoming.length === 0 ? (
-                  <p className="flex-1 flex items-center justify-center text-sm text-slate-400">No upcoming appointments in the next 30 days</p>
+                  <p className="flex-1 flex items-center justify-center text-sm text-slate-400">No upcoming appointments in the next 60 days</p>
                 ) : (
-                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto -mx-5">
-                    <table className="data-table-compact w-full">
-                      <thead className="data-table-head sticky top-0 z-10">
-                        <tr>
-                          <th className="data-table-head-cell whitespace-nowrap">Date</th>
-                          <th className="data-table-head-cell whitespace-nowrap">Time</th>
-                          <th className="data-table-head-cell">Patient</th>
-                          <th className="data-table-head-cell">Dentist</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {upcoming.map((apt, i) => {
-                          const dentistHex = apt.dentists?.color || "#6366f1";
-                          return (
-                            <tr
-                              key={apt.id}
-                              className={`${i % 2 === 0 ? "data-table-row data-table-row-even" : "data-table-row data-table-row-odd"} cursor-pointer`}
-                              onClick={() => router.push(`/appointments?date=${apt.appointment_date}&view=list`)}
-                            >
-                              <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmtApptDate(apt.appointment_date)}</td>
-                              <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmt12Hr(apt.appointment_time)}</td>
-                              <td className="data-table-cell-compact text-xs font-medium">{apt.patients?.full_name ?? "—"}</td>
-                              <td className="data-table-cell-compact">
-                                {apt.dentists?.full_name ? (
-                                  <span
-                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                                    style={{ backgroundColor: dentistHex + "22", color: dentistHex }}
-                                  >
-                                    {apt.dentists.nickname?.trim() || apt.dentists.full_name}
-                                  </span>
-                                ) : <span className="text-xs text-slate-400">—</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    {/* Mobile: card list */}
+                    <div className="sm:hidden space-y-2">
+                      {upcoming.map((apt) => {
+                        const dentistHex = apt.dentists?.color || "#6366f1";
+                        return (
+                          <button
+                            key={apt.id}
+                            className="w-full text-left rounded-xl border border-slate-100 bg-white/80 px-3 py-2.5 shadow-sm active:bg-slate-50 transition-colors"
+                            onClick={() => router.push(`/appointments?date=${apt.appointment_date}&view=list`)}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-slate-700 truncate">{apt.patients?.full_name ?? "—"}</span>
+                              {apt.dentists?.full_name && (
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0"
+                                  style={{ backgroundColor: dentistHex + "22", color: dentistHex }}
+                                >
+                                  {apt.dentists.nickname?.trim() || apt.dentists.full_name}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[11px] text-slate-400">{fmtApptDate(apt.appointment_date)}</span>
+                              <span className="text-[11px] text-slate-300">·</span>
+                              <span className="text-[11px] text-slate-400">{fmt12Hr(apt.appointment_time)}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* Desktop: table */}
+                    <div className="hidden sm:block overflow-x-auto -mx-5">
+                      <table className="data-table-compact w-full">
+                        <thead className="data-table-head sticky top-0 z-10">
+                          <tr>
+                            <th className="data-table-head-cell whitespace-nowrap">Date</th>
+                            <th className="data-table-head-cell whitespace-nowrap">Time</th>
+                            <th className="data-table-head-cell">Patient</th>
+                            <th className="data-table-head-cell">Dentist</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {upcoming.map((apt, i) => {
+                            const dentistHex = apt.dentists?.color || "#6366f1";
+                            return (
+                              <tr
+                                key={apt.id}
+                                className={`${i % 2 === 0 ? "data-table-row data-table-row-even" : "data-table-row data-table-row-odd"} cursor-pointer`}
+                                onClick={() => router.push(`/appointments?date=${apt.appointment_date}&view=list`)}
+                              >
+                                <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmtApptDate(apt.appointment_date)}</td>
+                                <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmt12Hr(apt.appointment_time)}</td>
+                                <td className="data-table-cell-compact text-xs font-medium">{apt.patients?.full_name ?? "—"}</td>
+                                <td className="data-table-cell-compact">
+                                  {apt.dentists?.full_name ? (
+                                    <span
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                                      style={{ backgroundColor: dentistHex + "22", color: dentistHex }}
+                                    >
+                                      {apt.dentists.nickname?.trim() || apt.dentists.full_name}
+                                    </span>
+                                  ) : <span className="text-xs text-slate-400">—</span>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -352,38 +385,63 @@ export default function DashboardPage() {
             ) : transactions.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-6">No transactions found</p>
             ) : (
-              <div className="overflow-x-auto -mx-5">
-                <table className="data-table-compact w-full">
-                  <thead className="data-table-head">
-                    <tr>
-                      <th className="data-table-head-cell whitespace-nowrap">Date</th>
-                      <th className="data-table-head-cell">Patient</th>
-                      <th className="data-table-head-cell whitespace-nowrap">Invoice #</th>
-                      <th className="data-table-head-cell-right whitespace-nowrap">Amount</th>
-                      <th className="data-table-head-cell">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx, i) => (
-                      <tr
-                        key={tx.id}
-                        className={`${i % 2 === 0 ? "data-table-row data-table-row-even" : "data-table-row data-table-row-odd"} cursor-pointer`}
-                        onClick={() => router.push(`/patients/${tx.patient_id}/billing`)}
-                      >
-                        <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmtDate(tx.invoice_date)}</td>
-                        <td className="data-table-cell-compact text-xs font-medium">{tx.patients?.full_name ?? "—"}</td>
-                        <td className="data-table-cell-compact text-xs text-slate-500">{tx.invoice_number ?? "—"}</td>
-                        <td className="data-table-cell-compact-right text-xs font-semibold">{formatMoney(tx.total ?? 0)}</td>
-                        <td className="data-table-cell-compact">
-                          <span className={`badge ${tx.status === "paid" ? "badge-success" : tx.status === "partial" ? "badge-warning" : "badge-danger"}`}>
-                            {tx.status}
-                          </span>
-                        </td>
+              <>
+                {/* Mobile: card list */}
+                <div className="sm:hidden space-y-2">
+                  {transactions.map((tx) => (
+                    <button
+                      key={tx.id}
+                      className="w-full text-left rounded-xl border border-slate-100 bg-white/80 px-3 py-2.5 shadow-sm active:bg-slate-50 transition-colors"
+                      onClick={() => router.push(`/patients/${tx.patient_id}/billing`)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-slate-700 truncate">{tx.patients?.full_name ?? "—"}</span>
+                        <span className="text-xs font-bold text-slate-800 flex-shrink-0">{formatMoney(tx.total ?? 0)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-slate-400">{fmtDate(tx.invoice_date)}</span>
+                        {tx.invoice_number && <><span className="text-[11px] text-slate-300">·</span><span className="text-[11px] text-slate-400">{tx.invoice_number}</span></>}
+                        <span className={`ml-auto badge ${tx.status === "paid" ? "badge-success" : tx.status === "partial" ? "badge-warning" : "badge-danger"}`}>
+                          {tx.status}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {/* Desktop: table */}
+                <div className="hidden sm:block overflow-x-auto -mx-5">
+                  <table className="data-table-compact w-full">
+                    <thead className="data-table-head">
+                      <tr>
+                        <th className="data-table-head-cell whitespace-nowrap">Date</th>
+                        <th className="data-table-head-cell">Patient</th>
+                        <th className="data-table-head-cell whitespace-nowrap">Invoice #</th>
+                        <th className="data-table-head-cell-right whitespace-nowrap">Amount</th>
+                        <th className="data-table-head-cell">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {transactions.map((tx, i) => (
+                        <tr
+                          key={tx.id}
+                          className={`${i % 2 === 0 ? "data-table-row data-table-row-even" : "data-table-row data-table-row-odd"} cursor-pointer`}
+                          onClick={() => router.push(`/patients/${tx.patient_id}/billing`)}
+                        >
+                          <td className="data-table-cell-compact whitespace-nowrap text-xs">{fmtDate(tx.invoice_date)}</td>
+                          <td className="data-table-cell-compact text-xs font-medium">{tx.patients?.full_name ?? "—"}</td>
+                          <td className="data-table-cell-compact text-xs text-slate-500">{tx.invoice_number ?? "—"}</td>
+                          <td className="data-table-cell-compact-right text-xs font-semibold">{formatMoney(tx.total ?? 0)}</td>
+                          <td className="data-table-cell-compact">
+                            <span className={`badge ${tx.status === "paid" ? "badge-success" : tx.status === "partial" ? "badge-warning" : "badge-danger"}`}>
+                              {tx.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 
