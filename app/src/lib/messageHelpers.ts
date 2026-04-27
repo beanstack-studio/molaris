@@ -260,25 +260,23 @@ export async function sendSMS(phoneNumber: string, message: string) {
  * Requires FACEBOOK_ACCESS_TOKEN environment variable
  */
 export async function sendMessengerMessage(recipientId: string, message: string) {
-  try {
-    const response = await fetch('/api/webhooks/messenger/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipient_id: recipientId,
-        message,
-      }),
-    });
+  const response = await fetch('/api/webhooks/messenger/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      recipient_id: recipientId,
+      message,
+    }),
+  });
 
-    if (!response.ok) {
-      throw new Error(`Messenger send failed: ${response.statusText}`);
-    }
+  const body = await response.json().catch(() => ({}));
 
-    return await response.json();
-  } catch (error) {
-    console.error('Error sending Messenger message:', error);
-    throw error;
+  if (!response.ok) {
+    const reason = (body as any)?.error ?? `Messenger send failed (${response.status})`;
+    throw new Error(reason);
   }
+
+  return body;
 }
 
 /**

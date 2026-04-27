@@ -1,5 +1,13 @@
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
 
 /**
  * POST /api/webhooks/messenger/send
@@ -19,6 +27,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use admin client so RLS doesn't block the page token read
+    const supabase = getAdminClient();
+
     const { data: page } = await supabase
       .from("facebook_pages")
       .select("page_access_token")
@@ -37,7 +48,7 @@ export async function POST(request: NextRequest) {
     const fbMessage = attachment
       ? {
           attachment: {
-            type: attachment.type,           // "image" | "audio" | "video" | "file"
+            type: attachment.type,
             payload: { url: attachment.url, is_reusable: true },
           },
         }
@@ -53,17 +64,29 @@ export async function POST(request: NextRequest) {
       }),
     });
 
+    const graphBody = await graphRes.json().catch(() => ({}));
+
     if (!graphRes.ok) {
-      const errorText = await graphRes.text();
-      console.error("Facebook Graph API error:", graphRes.status, errorText);
-      return NextResponse.json(
-        { error: "Failed to send Messenger message", details: errorText },
-        { status: graphRes.status }
-      );
+      const fbError = (graphBody as any)?.error;
+      const detail  = fbError?.message ?? JSON.stringify(graphBody);
+      console.error("Facebook Graph API error:", graphRes.status, detail);
+
+      // Surface a human-readable reason
+      let reason = "Messenger send failed.";
+      if (fbError?.code === 10 || fbError?.code === 200) {
+        reason = "App permission denied — the Facebook App may not have 'pages_messaging' permission.";
+      } else if (fbError?.code === 100 && String(fbError?.error_subcode) === "2018109") {
+        reason = "This user hasn't messaged the page yet, or the 24-hour messaging window has closed.";
+      } else if (fbError?.code === 190) {
+        reason = "Page access token is expired. Reconnect Facebook Messenger in Settings.";
+      } else if (detail) {
+        reason = detail;
+      }
+
+      return NextResponse.json({ error: reason }, { status: graphRes.status });
     }
 
-    const result = await graphRes.json();
-    return NextResponse.json({ success: true, messageId: result.message_id });
+    return NextResponse.json({ success: true, messageId: (graphBody as any).message_id });
   } catch (err) {
     console.error("Error sending Messenger message:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
