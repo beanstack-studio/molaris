@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const threadIds = links.map((l) => l.thread_id);
     const { data: threads, error: tErr } = await supabase
       .from("message_threads")
-      .select("id, external_thread_id, channel, external_user_name")
+      .select("id, external_thread_id, channel, external_user_name, last_message_at")
       .in("id", threadIds)
       .is("deleted_at", null);
 
@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
           external_thread_id: t.external_thread_id,
           channel: t.channel,
           external_user_name: t.external_user_name,
+          last_message_at: t.last_message_at ?? null,
         };
       })
       .filter((r) => r != null && r.external_thread_id);
