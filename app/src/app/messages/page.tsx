@@ -124,25 +124,7 @@ export default function MessagesPage() {
     }
   }, []);
   const [search, setSearch]               = useState("");
-  const [syncing, setSyncing]             = useState(false);
-  const [syncResult, setSyncResult]       = useState<string | null>(null);
   const [infoRefreshKey, setInfoRefreshKey] = useState(0);
-
-  async function handleSyncMessenger() {
-    setSyncing(true);
-    setSyncResult(null);
-    try {
-      const res = await fetch("/api/admin/sync-messenger", { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Sync failed");
-      setSyncResult(`Synced ${json.messages ?? 0} new message(s) across ${json.threads ?? 0} thread(s)`);
-      fetchThreads(true);
-    } catch (e) {
-      setSyncResult(e instanceof Error ? e.message : "Sync failed");
-    } finally {
-      setSyncing(false);
-    }
-  }
 
   // Redirect to settings if Messenger is not connected
   useEffect(() => {
@@ -198,6 +180,9 @@ export default function MessagesPage() {
     if (typeof window !== "undefined" && window.innerWidth < 1280) {
       setShowInfo(false);
     }
+    // Mark thread as read — optimistic local update + DB write
+    setThreads((prev) => prev.map((t) => t.id === id ? { ...t, unread_count: 0 } : t));
+    supabase.from("message_threads").update({ unread_count: 0 }).eq("id", id).then(() => {});
   }
 
   function getDisplayName(t: Thread) {
@@ -224,34 +209,10 @@ export default function MessagesPage() {
 
         {/* Header */}
         <div className="px-4 py-3 border-b border-slate-100/80 flex-shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h1 className="card-title leading-tight">Messages</h1>
-              <p className="text-xs text-slate-400 mt-0.5">SMS &amp; Messenger inbox</p>
-            </div>
-            <button
-              onClick={handleSyncMessenger}
-              disabled={syncing}
-              title="Sync missed Messenger messages"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-            >
-              {syncing ? (
-                <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              ) : (
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              )}
-              {syncing ? "Syncing…" : "Sync"}
-            </button>
+          <div className="mb-2">
+            <h1 className="card-title leading-tight">Messages</h1>
+            <p className="text-xs text-slate-400 mt-0.5">SMS &amp; Messenger inbox</p>
           </div>
-          {syncResult && (
-            <p className={`text-xs mt-1 ${syncResult.includes("failed") || syncResult.includes("error") ? "text-red-600" : "text-green-600"}`}>
-              {syncResult}
-            </p>
-          )}
           {/* Search */}
           <div className="relative mt-2">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">

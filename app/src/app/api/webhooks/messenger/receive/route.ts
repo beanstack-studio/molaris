@@ -94,7 +94,7 @@ async function handleIncomingMessage(
     // ── Find existing thread ─────────────────────────────────────────────
     const { data: existingThread } = await supabase
       .from("message_threads")
-      .select("id, patient_id, external_user_name, patients(id, full_name)")
+      .select("id, patient_id, external_user_name, unread_count, patients(id, full_name)")
       .eq("channel", "messenger")
       .eq("external_thread_id", senderId)
       .maybeSingle();
@@ -133,6 +133,7 @@ async function handleIncomingMessage(
           external_thread_id: senderId,
           external_user_name: senderName,
           metadata: profilePicUrl ? { profile_pic_url: profilePicUrl } : {},
+          unread_count: 1,
         })
         .select("id")
         .single();
@@ -164,10 +165,14 @@ async function handleIncomingMessage(
 
     if (msgErr) throw msgErr;
 
-    // ── Bump last_message_at ─────────────────────────────────────────────
+    // ── Bump last_message_at and unread_count ────────────────────────────
+    const currentUnread = (existingThread as any)?.unread_count ?? 0;
     await supabase
       .from("message_threads")
-      .update({ last_message_at: new Date().toISOString() })
+      .update({
+        last_message_at: new Date().toISOString(),
+        unread_count: currentUnread + 1,
+      })
       .eq("id", threadId);
   } catch (err) {
     console.error("Error storing message:", err);
