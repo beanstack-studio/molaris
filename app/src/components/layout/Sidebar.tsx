@@ -102,18 +102,12 @@ const settingsFlyoutSections = [
   {
     title: "Clinic",
     items: [
-      { label: "Clinic Profile",     href: "/settings/clinic-profile" },
-      { label: "Services",           href: "/settings/services" },
-      { label: "Payment Modes",      href: "/settings/payment-modes" },
-      { label: "Document Templates", href: "/settings/document-templates" },
-    ],
-  },
-  {
-    title: "Account",
-    items: [
-      { label: "Team Members",  href: "/settings/team" },
-      { label: "Calendar Sync", href: "/settings/calendar-sync" },
-      { label: "Appearance",    href: "/settings/appearance" },
+      { label: "Clinic Profile",  href: "/settings/clinic-profile" },
+      { label: "Services",        href: "/settings/services" },
+      { label: "Payment Modes",   href: "/settings/payment-modes" },
+      { label: "Documents",       href: "/settings/document-templates" },
+      { label: "Team",            href: "/settings/team" },
+      { label: "Account",         href: "/settings/account" },
     ],
   },
 ];

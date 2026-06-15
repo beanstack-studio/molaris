@@ -7,7 +7,7 @@ export default function SettingsIndexPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/settings/services");
+    router.replace("/settings/clinic-profile");
   }, [router]);
 
   return null;
