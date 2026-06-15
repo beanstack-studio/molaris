@@ -38,7 +38,7 @@ interface Availability {
 
 
 export default function ClinicProfileSettingsPage() {
-  const { clinicId, clinicName } = useClinic();
+  const { clinicId, clinicName, plan } = useClinic();
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -313,7 +313,18 @@ export default function ClinicProfileSettingsPage() {
                   <span className="text-2xl">🦷</span>
                 )}
               </div>
-              <div className="text-base font-semibold text-slate-900">{profile?.clinic_name || "—"}</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="text-base font-semibold text-slate-900">{profile?.clinic_name || clinicName || "—"}</div>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                    plan === "pro"
+                      ? "bg-amber-50 text-amber-700"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {plan === "pro" ? "Pro" : "Free"}
+                </span>
+              </div>
             </div>
 
             {/* Street Address | City | Province | Zip — single row, 40/20/20/20 */}

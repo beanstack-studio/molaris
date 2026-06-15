@@ -12,6 +12,8 @@ interface ClinicContextValue {
   isOwner: boolean
   isPro: boolean
   isLoading: boolean
+  userFullName: string | null
+  userEmail: string | null
 }
 
 const ClinicContext = createContext<ClinicContextValue | null>(null)
@@ -25,6 +27,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     isOwner: false,
     isPro: false,
     isLoading: true,
+    userFullName: null,
+    userEmail: null,
   })
 
   useEffect(() => {
@@ -34,7 +38,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('clinic_id, role')
+        .select('clinic_id, role, full_name, email')
         .eq('id', user.id)
         .single()
 
@@ -54,6 +58,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         isOwner: profile.role === 'owner',
         isPro: clinic?.plan !== 'free',
         isLoading: false,
+        userFullName: (profile as { full_name?: string | null }).full_name ?? null,
+        userEmail: (profile as { email?: string | null }).email ?? null,
       })
     }
     load()

@@ -1596,3 +1596,91 @@ tr.data-table-row-compact-odd:hover {
 .hint-text-below {
   @apply text-xs text-slate-400 mt-1;
 }
+
+/* ========================================
+   SIDEBAR (collapsible left nav)
+   ======================================== */
+
+.sidebar-wrapper {
+  @apply fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/80;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: width 200ms ease;
+}
+
+.sidebar-nav-item {
+  @apply flex items-center gap-3 rounded-xl text-sm font-medium transition-colors text-slate-600 hover:text-slate-800;
+  background: transparent;
+  padding: 0.6rem 0.75rem;
+}
+.sidebar-nav-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-nav-item-active {
+  color: white;
+  font-weight: 600;
+  background-color: var(--color-violet-600);
+}
+.sidebar-nav-item-active:hover {
+  background-color: var(--color-violet-700);
+}
+
+.sidebar-toggle-btn {
+  @apply flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 transition-colors;
+}
+.sidebar-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-user-avatar {
+  @apply flex items-center justify-center rounded-full text-white font-bold flex-shrink-0;
+  background-color: var(--color-violet-500);
+}
+
+.sidebar-section-label {
+  @apply text-xs font-semibold text-slate-400 uppercase tracking-wide;
+}
+
+/* Settings sub-sidebar */
+.settings-sub-item {
+  @apply flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 transition-colors border-l-2 border-transparent;
+}
+.settings-sub-item:hover {
+  @apply bg-slate-50 text-slate-800;
+}
+
+.settings-sub-item-active {
+  font-weight: 500;
+  border-left-color: var(--color-violet-500);
+  background-color: var(--color-violet-50);
+  color: var(--color-violet-700);
+}
+
+.settings-sub-section-label {
+  @apply text-xs font-semibold uppercase tracking-wide text-slate-400 px-3 mt-4 mb-1;
+}
+
+/* Bottom navigation (mobile only) */
+.bottom-nav-wrapper {
+  @apply fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 pt-2 pb-safe lg:hidden;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.bottom-nav-item {
+  @apply flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl text-xs font-medium text-slate-500 transition-colors;
+}
+
+.bottom-nav-item-active {
+  color: var(--color-violet-600);
+}
+
+/* Content offset for sidebar */
+.sidebar-content-offset {
+  @apply transition-all duration-200;
+}

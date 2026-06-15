@@ -78,11 +78,11 @@ export default function PatientTabs({ activeTab }: { activeTab: Tab }) {
   });
 
   if (!loaded) {
-    return <div className="tabs" />;
+    return null;
   }
 
   return (
-    <div className="tabs">
+    <>
       {visibleTabs.map((t) => {
         const active = activeTab === t;
         const href = `/patients/${id}/${t.toLowerCase()}`;
@@ -96,6 +96,6 @@ export default function PatientTabs({ activeTab }: { activeTab: Tab }) {
           </Link>
         );
       })}
-    </div>
+    </>
   );
 }

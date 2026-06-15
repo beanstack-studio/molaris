@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import PatientTabs from "@/components/PatientTabs";
 import { formatPatientName } from "@/lib/helpers";
@@ -11,7 +11,6 @@ import type { Tab } from "@/lib/types";
 export default function Layout({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const pathname = usePathname();
-  const router = useRouter();
   const patientId = params?.id as string;
   const { clinicId } = useClinic();
   const [patientName, setPatientName] = useState<string>("");
@@ -36,6 +35,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const activeTab = getActiveTab();
+
+  // Collapse main sidebar when on the Chart tab to give chart full horizontal space
+  useEffect(() => {
+    if (activeTab === "Chart") {
+      window.dispatchEvent(new CustomEvent("molaChartActive"));
+    } else {
+      window.dispatchEvent(new CustomEvent("molaChartInactive"));
+    }
+    return () => {
+      window.dispatchEvent(new CustomEvent("molaChartInactive"));
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     async function loadPatientName() {
@@ -88,25 +99,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const displayName = patientName || "Patient";
 
+  const ageGenderSuffix = [
+    patientAge !== null ? String(patientAge) : null,
+    patientGender ? patientGender.charAt(0).toUpperCase() : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="page-bg">
       <main className="app-section">
-        <div className="app-section-header">
-          <div>
-            <div className="flex-center-gap-3">
-              <div className="app-section-title">{displayName}</div>
-              {(patientAge !== null || patientGender) && (
-                <div className="text-muted">
-                  {patientAge !== null && `${patientAge}`}
-                  {patientAge !== null && patientGender && " "}
-                  {patientGender && patientGender.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Compact patient header — one line */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <h1 className="app-section-title leading-none">{displayName}</h1>
+          {ageGenderSuffix && (
+            <span className="text-muted text-sm leading-none">{ageGenderSuffix}</span>
+          )}
         </div>
 
-        <PatientTabs activeTab={activeTab} />
+        {/* Sticky scrollable tab bar */}
+        <div className="patient-tabs-sticky -mx-3 sm:-mx-4 px-3 sm:px-4">
+          <div className="tabs-scroll">
+            <PatientTabs activeTab={activeTab} />
+          </div>
+        </div>
 
         <div className="app-section-body">
           {children}

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import TopNavWrapper from "@/components/TopNavWrapper";
+import AppShell from "@/components/layout/AppShell";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { ThemeBackground } from "@/components/ThemeBackground";
-import { ClinicProvider } from "@/contexts/ClinicContext";  // ← ADD THIS LINE
+import { ClinicProvider } from "@/contexts/ClinicContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,10 +36,11 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeLoader />
         <ThemeBackground />
-        <ClinicProvider>       {/* ← ADD */}
-          <TopNavWrapper />
-          {children}
-        </ClinicProvider>      {/* ← ADD */}
+        <ClinicProvider>
+          <AppShell>
+            {children}
+          </AppShell>
+        </ClinicProvider>
       </body>
     </html>
   );
