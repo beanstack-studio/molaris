@@ -16,7 +16,8 @@ import type {
   OrthoEntryItem,
   OrthoCase,
 } from "@/lib/types";
-import { formatMoney, formatDateStandard, todayLocalISO, combineFullName, splitFullName } from "@/lib/helpers";
+import { formatMoney, formatDateStandard, todayLocalISO, splitFullName, formatPatientNameFormal } from "@/lib/helpers";
+import { useClinic } from "@/contexts/ClinicContext";
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
 import { generateReceipt, voidPayment } from "@/lib/receiptHelpers";
 import { getNextTransactionNumber, getNextInvoiceNumber } from "@/lib/numberGenerationHelpers";
@@ -40,6 +41,7 @@ function num(n: unknown) {
 export default function BillingPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
+  const { clinicId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -204,11 +206,12 @@ export default function BillingPage() {
   }, [invoices, invoiceTotalsById, payments, computeVisitTotalFromTreatments]);
 
   const loadData = useCallback(async () => {
+    if (!id || !clinicId) return;
     setLoading(true);
     setError(null);
 
     // Load patient info
-    const p = await supabase.from("patients").select("*").eq("id", id).single();
+    const p = await supabase.from("patients").select("*").eq("id", id).eq("clinic_id", clinicId).single();
     if (!p.error && p.data) {
       const patRaw = p.data;
       const fallback = splitFullName(patRaw.full_name ?? "");
@@ -219,8 +222,10 @@ export default function BillingPage() {
 
       setPatient({
         id: patRaw.id,
+        clinic_id: patRaw.clinic_id,
         full_name: patRaw.full_name,
         first_name: firstNameFinal,
+        middle_name: patRaw.middle_name ?? null,
         last_name: lastNameFinal,
         phone: patRaw.phone,
         birth_date: patRaw.birth_date,
@@ -229,12 +234,15 @@ export default function BillingPage() {
         email: patRaw.email,
         gender: patRaw.gender,
         notes: patRaw.notes,
+        created_at: patRaw.created_at,
+        updated_at: patRaw.updated_at,
       });
     }
 
     const inv = await supabase
       .from("invoices")
       .select("id, invoice_number, invoice_date, status, total, created_at")
+      .eq("clinic_id", clinicId)
       .eq("patient_id", id)
       .order("created_at", { ascending: false });
     
@@ -251,6 +259,7 @@ export default function BillingPage() {
         .from("payments")
         .select("id, invoice_id, patient_id, transaction_id, amount, payment_date, status, reference_number, details, voided_at, voided_by, created_at, invoices(invoice_number)")
         .in("invoice_id", invoiceIds)
+        .eq("clinic_id", clinicId)
         .order("created_at", { ascending: false });
       
 
@@ -260,7 +269,7 @@ export default function BillingPage() {
     setPayments(allPayments);
 
     setLoading(false);
-  }, [id]);
+  }, [id, clinicId]);
 
   useEffect(() => {
     loadData();
@@ -280,6 +289,7 @@ export default function BillingPage() {
       const { data: treatments, error: treatmentsError } = await supabase
         .from("treatments")
         .select("treatment_date")
+        .eq("clinic_id", clinicId)
         .eq("patient_id", id)
         .not("treatment_date", "is", null)
         .order("treatment_date", { ascending: false });
@@ -293,6 +303,7 @@ export default function BillingPage() {
         const { data: cases, error: casesError } = await supabase
           .from("ortho_cases")
           .select("*")
+          .eq("clinic_id", clinicId)
           .eq("patient_id", id);
 
 
@@ -323,6 +334,7 @@ export default function BillingPage() {
       const { data: invoices, error: invoiceError } = await supabase
         .from("invoices")
         .select("invoice_date")
+        .eq("clinic_id", clinicId)
         .eq("patient_id", id);
       
       let invoicedDates = new Set<string>();
@@ -346,6 +358,7 @@ export default function BillingPage() {
       const { data: prices, error: pricesError } = await supabase
         .from("service_prices")
         .select("*")
+        .eq("clinic_id", clinicId)
         .order("service_name", { ascending: true });
 
       if (!pricesError && prices) {
@@ -354,7 +367,7 @@ export default function BillingPage() {
     }
 
     loadVisitData();
-  }, [id]);
+  }, [id, clinicId]);
 
   // Load payment modes
   useEffect(() => {
@@ -384,14 +397,16 @@ export default function BillingPage() {
       // Check if this date has treatments
       const { data: treatments, error: treatmentsError } = await supabase
         .from("treatments")
-        .select("id, treatment_date, procedure, tooth_number, notes, dentist_id, dentist_name, service_price_id, created_at")
+        .select("id, clinic_id, treatment_date, procedure, tooth_number, notes, visit_concern, dentist_id, dentist_name, service_price_id, created_at")
         .eq("patient_id", id)
+        .eq("clinic_id", clinicId)
         .eq("treatment_date", selectedVisitDate)
         .order("created_at", { ascending: true });
 
       if (treatmentsError === null && treatments && treatments.length > 0) {
         const mapped = treatments.map((t: any) => ({
           id: t.id,
+          clinic_id: t.clinic_id,
           treatment_date: t.treatment_date,
           procedure: t.procedure,
           tooth_number: t.tooth_number,
@@ -410,10 +425,11 @@ export default function BillingPage() {
         return;
       }
 
-      // Check if this date has ortho entries
+      // Check if this date has ortho entries — same pattern as loadVisitData
       const { data: cases, error: casesError } = await supabase
         .from("ortho_cases")
         .select("*")
+        .eq("clinic_id", clinicId)
         .eq("patient_id", id);
 
       if (casesError === null && cases && cases.length > 0) {
@@ -479,12 +495,13 @@ export default function BillingPage() {
     setBusy(true);
 
     try {
-      const invoiceNumber = await getNextInvoiceNumber();
+      const invoiceNumber = await getNextInvoiceNumber(clinicId);
 
       // Create invoice with appropriate type
       const invoiceType = selectedVisitType === "ortho" ? "ortho" : "regular";
-      
+
       const ins = await supabase.from("invoices").insert({
+        clinic_id: clinicId,
         patient_id: id,
         invoice_number: invoiceNumber,
         invoice_date: invoiceDate,
@@ -624,12 +641,13 @@ export default function BillingPage() {
       // Update payment status to verified
       const { error } = await supabase
         .from("payments")
-        .update({ 
+        .update({
           status: "verified",
           verified_at: new Date().toISOString(),
           verified_by: (await supabase.auth.getSession()).data?.session?.user?.id || null,
         })
-        .eq("id", verifyingPaymentId);
+        .eq("id", verifyingPaymentId)
+        .eq("clinic_id", clinicId);
 
       if (error) throw error;
 
@@ -638,7 +656,7 @@ export default function BillingPage() {
       const userId = userSession.data?.session?.user?.id;
       if (userId) {
         try {
-          await generateReceipt(verifyingPaymentId, userId, userId);
+          await generateReceipt(verifyingPaymentId, userId, userId, clinicId);
         } catch (receiptError) {
           console.error("[verifyPayment] Warning: Receipt generation failed (non-fatal):", receiptError);
         }
@@ -692,7 +710,7 @@ export default function BillingPage() {
       if (!userId) throw new Error("User not authenticated");
 
       // For now, use current user as both staff and issuer
-      const receipt = await generateReceipt(paymentId, userId, userId);
+      const receipt = await generateReceipt(paymentId, userId, userId, clinicId);
 
       alert(`Receipt ${receipt[0].receipt_number} generated successfully!`);
       await loadData();
@@ -795,8 +813,9 @@ export default function BillingPage() {
         const invoicePaymentAmount = Math.min(balance, remainingAmount);
 
         if (invoicePaymentAmount > 0) {
-          const transactionId = await getNextTransactionNumber();
+          const transactionId = await getNextTransactionNumber(clinicId);
           paymentRecords.push({
+            clinic_id: clinicId,
             patient_id: id,
             invoice_id: invoiceId,
             transaction_id: transactionId,
@@ -827,7 +846,7 @@ export default function BillingPage() {
           if (Array.isArray(paymentData) && paymentData.length > 0) {
             for (const payment of paymentData) {
               try {
-                await generateReceipt(payment.id, userId, userId);
+                await generateReceipt(payment.id, userId, userId, clinicId);
               } catch (singleReceiptError) {
                 // Receipt generation failed silently
               }
@@ -985,7 +1004,7 @@ export default function BillingPage() {
                                   setBusy(true);
                                   const html = await generateInvoiceDocument(
                                     inv.id,
-                                    patient?.full_name || "Patient",
+                                    formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null),
                                     inv.invoice_number,
                                     formatDateStandard(inv.invoice_date),
                                   );
@@ -1048,7 +1067,7 @@ export default function BillingPage() {
                           <div><div className="text-slate-400">Balance</div><div className={`font-semibold ${balance > 0 ? "text-red-600" : "text-green-600"}`}>{formatMoney(Math.max(0, balance))}</div></div>
                         </div>
                         <div className="mt-2 flex justify-end">
-                          <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generateInvoiceDocument(inv.id, patient?.full_name || "Patient", inv.invoice_number, formatDateStandard(inv.invoice_date)); openDocumentViewer({ html, docType: "INVOICE", docNumber: inv.invoice_number }); } catch { alert("Failed to generate invoice document"); } finally { setBusy(false); } }}>Open</button>
+                          <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generateInvoiceDocument(inv.id, formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), inv.invoice_number, formatDateStandard(inv.invoice_date)); openDocumentViewer({ html, docType: "INVOICE", docNumber: inv.invoice_number }); } catch { alert("Failed to generate invoice document"); } finally { setBusy(false); } }}>Open</button>
                         </div>
                       </div>
                     );
@@ -1118,6 +1137,7 @@ export default function BillingPage() {
                                           .from("payments")
                                           .select("*")
                                           .eq("id", pay.id)
+                                          .eq("clinic_id", clinicId)
                                           .single();
                                         if (error) throw error;
                                         setVerifyingPaymentDetails(fullPayment);
@@ -1142,7 +1162,7 @@ export default function BillingPage() {
                                         setBusy(true);
                                         const html = await generatePaymentReceiptDocument(
                                           pay.id,
-                                          patient?.full_name || "Patient",
+                                          formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null),
                                           pay.transaction_id || "PMT00000",
                                         );
                                         openDocumentViewer({
@@ -1210,10 +1230,10 @@ export default function BillingPage() {
                         </div>
                         <div className="mt-2 flex justify-end gap-1.5">
                           {pay.status === 'pending' && !isVoided && (
-                            <button className="data-table-btn-warning" disabled={busy} onClick={async () => { try { const { data: fullPayment, error } = await supabase.from("payments").select("*").eq("id", pay.id).single(); if (error) throw error; setVerifyingPaymentDetails(fullPayment); setVerifyingPaymentId(pay.id); setVerificationConfirmation(""); } catch { setError("Failed to load payment details"); } }}>Verify</button>
+                            <button className="data-table-btn-warning" disabled={busy} onClick={async () => { try { const { data: fullPayment, error } = await supabase.from("payments").select("*").eq("id", pay.id).eq("clinic_id", clinicId).single(); if (error) throw error; setVerifyingPaymentDetails(fullPayment); setVerifyingPaymentId(pay.id); setVerificationConfirmation(""); } catch { setError("Failed to load payment details"); } }}>Verify</button>
                           )}
                           {pay.status === 'verified' && !isVoided && (
-                            <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generatePaymentReceiptDocument(pay.id, patient?.full_name || "Patient", pay.transaction_id || "PMT00000"); openDocumentViewer({ html, docType: "PAYMENT_RECEIPT", docNumber: pay.transaction_id || "PMT00000" }); } catch { alert("Failed to generate receipt"); } finally { setBusy(false); } }}>View</button>
+                            <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generatePaymentReceiptDocument(pay.id, formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), pay.transaction_id || "PMT00000"); openDocumentViewer({ html, docType: "PAYMENT_RECEIPT", docNumber: pay.transaction_id || "PMT00000" }); } catch { alert("Failed to generate receipt"); } finally { setBusy(false); } }}>View</button>
                           )}
                           {!isVoided && (
                             <button className="data-table-btn-danger" disabled={busy} onClick={() => setVoidingPaymentId(pay.id)}>Void</button>

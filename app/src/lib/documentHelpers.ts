@@ -76,9 +76,9 @@ function formatDocNo(code: string, year: number, number: number): string {
  * @param docType - The document type
  * @returns Fully formatted doc no
  */
-export async function getNextDocNo(docType: DocType): Promise<string> {
+export async function getNextDocNo(docType: DocType, clinicId: string): Promise<string> {
   try {
-    return await getNextDocNoFallback(docType);
+    return await getNextDocNoFallback(docType, clinicId);
   } catch (error) {
     // Last resort fallback - start at 1
     return formatDocNo(
@@ -93,15 +93,16 @@ export async function getNextDocNo(docType: DocType): Promise<string> {
  * Fallback: simple count-based doc number generation (less safe under concurrency)
  * Used if RPC function is unavailable. Counts from documents table.
  */
-async function getNextDocNoFallback(docType: DocType): Promise<string> {
+async function getNextDocNoFallback(docType: DocType, clinicId: string): Promise<string> {
   try {
     const year = new Date().getFullYear();
     const docCode = getDocCode(docType);
 
-    // Count documents from documents table
+    // Count documents from documents table for this clinic
     const { count, error } = await supabase
       .from("documents")
       .select("id", { count: "exact", head: true })
+      .eq("clinic_id", clinicId)
       .eq("doc_code", docCode)
       .gte("created_at", `${year}-01-01T00:00:00Z`)
       .lt("created_at", `${year + 1}-01-01T00:00:00Z`);
@@ -124,6 +125,7 @@ async function getNextDocNoFallback(docType: DocType): Promise<string> {
  * @returns Created document record
  */
 export interface CreateDocumentInput {
+  clinicId: string;
   patientId?: string;
   patientName?: string;
   docType: DocType;
@@ -146,7 +148,7 @@ export async function createDocument(input: CreateDocumentInput) {
     }
 
     // For other doc types (RX, CER, REF, SOA), save to documents table
-    const docNo = await getNextDocNo(input.docType);
+    const docNo = await getNextDocNo(input.docType, input.clinicId);
     const docCode = getDocCode(input.docType);
 
     let payload: any = { ...input.payload, doc_no: docNo, doc_code: docCode };
@@ -170,6 +172,7 @@ export async function createDocument(input: CreateDocumentInput) {
     }
 
     const documentRecord = {
+      clinic_id: input.clinicId,
       patient_id: input.patientId || null,
       patient_name: input.patientName || null,
       doc_type: input.docType,

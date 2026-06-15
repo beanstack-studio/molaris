@@ -3,6 +3,25 @@
 ========================= */
 import type { GenderDB } from "./types";
 
+export function formatPatientName(
+  first: string | null,
+  middle: string | null,
+  last: string | null
+): string {
+  return [first, middle, last].filter(Boolean).join(' ').trim() || '—'
+}
+
+export function formatPatientNameFormal(
+  first: string | null,
+  middle: string | null,
+  last: string | null
+): string {
+  const mi = middle?.trim() ? `${middle.trim()[0]}.` : ''
+  const full = [first?.trim(), mi].filter(Boolean).join(' ')
+  const parts = [last?.trim(), full].filter(Boolean)
+  return parts.join(', ') || '—'
+}
+
 export function splitFullName(full: string | null | undefined) {
   const s = (full ?? "").trim().replace(/\s+/g, " ");
   if (!s) return { first: "", last: "" };

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { formatPhoneLocal } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
+import { useClinic } from "@/contexts/ClinicContext";
 
 
 const PHONE_TYPES = ["Mobile", "Landline", "WhatsApp", "Viber"] as const;
@@ -37,6 +38,7 @@ interface Availability {
 
 
 export default function ClinicProfileSettingsPage() {
+  const { clinicId, clinicName } = useClinic();
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -70,7 +72,7 @@ export default function ClinicProfileSettingsPage() {
   async function loadProfile() {
     setLoading(true); setError(null);
     try {
-      const { data, error } = await supabase.from("clinic_profile").select("*").limit(1);
+      const { data, error } = await supabase.from("clinic_profile").select("*").eq("clinic_id", clinicId).limit(1);
       if (error) { setError(`Failed to load profile: ${error.message}`); setLoading(false); return; }
       if (data && data.length > 0) {
         const p = data[0];
@@ -100,10 +102,10 @@ export default function ClinicProfileSettingsPage() {
           setError(`Failed to create profile: ${initErr.error ?? "Server error"}`);
         } else {
           // Re-fetch so we get all columns including the generated id
-          const { data: created } = await supabase.from("clinic_profile").select().limit(1);
+          const { data: created } = await supabase.from("clinic_profile").select().eq("clinic_id", clinicId).limit(1);
           if (created && created.length > 0) {
             setProfile(created[0]);
-            setFormData({ clinic_name: created[0].clinic_name || "Matira Dental Studio", street_address: "", city: "", province: "", postal_code: "", sunday_end_hour: 11 });
+            setFormData({ clinic_name: created[0].clinic_name || clinicName, street_address: "", city: "", province: "", postal_code: "", sunday_end_hour: 11 });
           }
         }
       }
@@ -167,6 +169,7 @@ export default function ClinicProfileSettingsPage() {
       }
       const { error } = await supabase.from("clinic_profile").upsert({
         id: profile.id,
+        clinic_id: clinicId,
         ...formData,
         phones: modalPhones,
         contacts: modalContacts,

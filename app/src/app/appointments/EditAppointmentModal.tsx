@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType } from "@/lib/visitReasonHelpers";
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists, patients, sundayEndHour, holidayOverrides }: Props) {
+  const { clinicId } = useClinic();
   const [editFormData, setEditFormData] = useState({
     patientId: "",
     appointmentDate: "",
@@ -69,19 +71,20 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
   async function loadDentistSchedule(dentistId: string) {
     if (!dentistId) { setDentistSchedule([]); setDentistBlockouts([]); return; }
     const [sched, block] = await Promise.all([
-      supabase.from("dentist_schedules").select("day_of_week, start_time, end_time, is_working").eq("dentist_id", dentistId),
-      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId),
+      supabase.from("dentist_schedules").select("day_of_week, start_time, end_time, is_working").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
+      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
     ]);
     setDentistSchedule(sched.data ?? []);
     setDentistBlockouts(block.data ?? []);
   }
 
   async function checkOrthoStatus(patientId: string) {
-    if (!patientId) { setIsOrthoPatient(false); return; }
+    if (!patientId || !clinicId) { setIsOrthoPatient(false); return; }
     const { data } = await supabase
       .from("ortho_cases")
       .select("id")
       .eq("patient_id", patientId)
+      .eq("clinic_id", clinicId)
       .limit(1);
     setIsOrthoPatient((data?.length ?? 0) > 0);
   }
@@ -135,14 +138,9 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
           concern_type: editFormData.concernType || null,
           status: editFormData.status,
         })
-        .eq("id", appointment.id);
+        .eq("id", appointment.id)
+        .eq("clinic_id", clinicId);
       if (err) throw err;
-      // Fire-and-forget Google Calendar sync
-      fetch("/api/google-calendar/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appointment.id, action: "upsert" }),
-      }).catch(() => {});
       onUpdated();
       onClose();
     } catch (err) {
@@ -161,14 +159,9 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
       const { error: err } = await supabase
         .from("appointments")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", appointment.id);
+        .eq("id", appointment.id)
+        .eq("clinic_id", clinicId);
       if (err) throw err;
-      // Fire-and-forget Google Calendar sync (delete event)
-      fetch("/api/google-calendar/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appointment_id: appointment.id, action: "delete" }),
-      }).catch(() => {});
       onUpdated();
       onClose();
     } catch (err) {

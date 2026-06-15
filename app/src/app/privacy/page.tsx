@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Privacy Policy — Matira Dental Studio",
+  title: "Privacy Policy — Molaris",
 };
 
 export default function PrivacyPage() {
@@ -17,7 +17,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-base font-semibold text-slate-800 mb-2">1. Overview</h2>
             <p>
-              Matira Dental Studio (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;the clinic&rdquo;) operates this clinic management portal
+              Molaris (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;the platform&rdquo;) operates this clinic management portal
               at <strong>matiradentalstudio.xyz</strong> exclusively for authorized clinic staff. This policy describes
               how we collect, use, and protect information in connection with this portal.
             </p>
@@ -86,7 +86,7 @@ export default function PrivacyPage() {
               For questions about this privacy policy or how your data is handled, contact us at:
             </p>
             <p className="mt-1">
-              <strong>Matira Dental Studio</strong><br />
+              <strong>Molaris</strong><br />
               <a href="mailto:hello@beanstack.studio" className="text-blue-600 hover:underline">
                 hello@beanstack.studio
               </a>

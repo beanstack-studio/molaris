@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import { formatPhoneLocal, combineFullName } from "@/lib/helpers";
+import { useClinic } from "@/contexts/ClinicContext";
 import { Appointment, Patient, DentistRow, dentistLabel } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
-import { ContactPatientModal } from "./ContactPatientModal";
 import { PageLoader } from "@/components/Spinner";
 
 interface AppointmentWithRelations extends Appointment {
@@ -30,6 +30,7 @@ const formatTime12Hr = (time24: string): string => {
 
 export default function AppointmentsPage() {
   const router = useRouter();
+  const { clinicId } = useClinic();
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,6 @@ export default function AppointmentsPage() {
   const [targetDate, setTargetDate]     = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentWithRelations | null>(null);
-  const [contactingAppointment, setContactingAppointment] = useState<AppointmentWithRelations | null>(null);
   const [sundayEndHour, setSundayEndHour] = useState(11);
   const [filterDentistId, setFilterDentistId] = useState<string>("");
   const [calDentistBlockouts, setCalDentistBlockouts] = useState<{ start_date: string; end_date: string; reason: string | null }[]>([]);
@@ -99,7 +99,7 @@ export default function AppointmentsPage() {
     if (new Date().getMonth() >= 9) fetchHolidays(year + 1);
 
     // Load holiday overrides (dates clinic has marked as open despite being holidays)
-    supabase.from("holiday_overrides").select("date").then(({ data }) => {
+    supabase.from("holiday_overrides").select("date").eq("clinic_id", clinicId).then(({ data }) => {
       if (data) setHolidayOverrides(new Set(data.map((r: any) => r.date)));
     });
 
@@ -129,10 +129,11 @@ export default function AppointmentsPage() {
       const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
       await Promise.all([
         supabase.from("appointments").update({ status: "missed" })
-          .in("status", ["confirmed", "pending"]).is("deleted_at", null).lt("appointment_date", today),
+          .in("status", ["confirmed", "pending"]).is("deleted_at", null)
+          .eq("clinic_id", clinicId).lt("appointment_date", today),
         supabase.from("appointments").update({ status: "missed" })
           .in("status", ["confirmed", "pending"]).is("deleted_at", null)
-          .eq("appointment_date", today).lt("appointment_time", currentTime),
+          .eq("clinic_id", clinicId).eq("appointment_date", today).lt("appointment_time", currentTime),
       ]);
     } catch { /* non-critical */ }
   };
@@ -142,6 +143,7 @@ export default function AppointmentsPage() {
       const { data, error: err } = await supabase
         .from("appointments")
         .select("*, patients(id, full_name, phone), dentists(id, full_name, nickname, color)")
+        .eq("clinic_id", clinicId)
         .is("deleted_at", null)
         .order("appointment_date", { ascending: true })
         .order("appointment_time", { ascending: true });
@@ -157,6 +159,7 @@ export default function AppointmentsPage() {
       const { data, error: err } = await supabase
         .from("dentists")
         .select("id, full_name, nickname, color")
+        .eq("clinic_id", clinicId)
         .eq("is_active", true)
         .order("full_name");
       if (err) throw err;
@@ -169,8 +172,8 @@ export default function AppointmentsPage() {
   const loadDentistCalendarInfo = async (dentistId: string) => {
     if (!dentistId) { setCalDentistBlockouts([]); setCalDentistSchedule([]); return; }
     const [schedRes, blockRes] = await Promise.all([
-      supabase.from("dentist_schedules").select("day_of_week, is_working").eq("dentist_id", dentistId),
-      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId),
+      supabase.from("dentist_schedules").select("day_of_week, is_working").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
+      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
     ]);
     setCalDentistSchedule(schedRes.data ?? []);
     setCalDentistBlockouts(blockRes.data ?? []);
@@ -180,10 +183,10 @@ export default function AppointmentsPage() {
     setTogglingOverride(true);
     try {
       if (holidayOverrides.has(dateStr)) {
-        await supabase.from("holiday_overrides").delete().eq("date", dateStr);
+        await supabase.from("holiday_overrides").delete().eq("date", dateStr).eq("clinic_id", clinicId);
         setHolidayOverrides((prev) => { const s = new Set(prev); s.delete(dateStr); return s; });
       } else {
-        await supabase.from("holiday_overrides").insert({ date: dateStr });
+        await supabase.from("holiday_overrides").insert({ date: dateStr, clinic_id: clinicId });
         setHolidayOverrides((prev) => new Set([...prev, dateStr]));
       }
     } catch { /* non-critical */ }
@@ -200,6 +203,7 @@ export default function AppointmentsPage() {
         const { data, error: err } = await supabase
           .from("patients")
           .select("id, full_name, first_name, last_name")
+          .eq("clinic_id", clinicId)
           .range(offset, offset + pageSize - 1);
 
         if (err) throw err;
@@ -300,18 +304,9 @@ export default function AppointmentsPage() {
                   <span className={statusBadge(apt.status)}>{apt.status}</span>
                 </td>
                 <td className="data-table-cell">
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setContactingAppointment(apt)}
-                      className="data-table-btn text-blue-600 border-blue-200 hover:bg-blue-50 justify-center"
-                      title="Contact patient"
-                    >
-                      Contact
-                    </button>
-                    <button onClick={() => setEditingAppointment(apt)} className="data-table-btn justify-center">
-                      Edit
-                    </button>
-                  </div>
+                  <button onClick={() => setEditingAppointment(apt)} className="data-table-btn justify-center">
+                    Edit
+                  </button>
                 </td>
               </tr>
             ))}
@@ -347,7 +342,6 @@ export default function AppointmentsPage() {
               )}
             </div>
             <div className="mt-2 flex justify-end gap-1">
-              <button onClick={() => setContactingAppointment(apt)} className="data-table-btn text-blue-600 border-blue-200 hover:bg-blue-50">Contact</button>
               <button onClick={() => setEditingAppointment(apt)} className="data-table-btn">Edit</button>
             </div>
           </div>
@@ -687,12 +681,6 @@ export default function AppointmentsPage() {
         holidayOverrides={holidayOverrides}
       />
 
-      <ContactPatientModal
-        open={!!contactingAppointment}
-        patient={contactingAppointment?.patients ?? null}
-        appointment={contactingAppointment}
-        onClose={() => setContactingAppointment(null)}
-      />
     </main>
   );
 }

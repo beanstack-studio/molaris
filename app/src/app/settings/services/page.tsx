@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useClinic } from "@/contexts/ClinicContext";
 import { EditModal } from "@/components/EditModal";
 import { formatMoney } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
@@ -43,6 +44,7 @@ function formatPhpAmount(value: string | number): string {
 }
 
 export default function ServicesSettingsPage() {
+  const { clinicId } = useClinic();
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -79,6 +81,7 @@ export default function ServicesSettingsPage() {
       const r = await supabase
         .from("service_prices")
         .select("id, service_name, default_price, item_type, is_active, duration_minutes, category")
+        .eq("clinic_id", clinicId)
         .order("service_name", { ascending: true });
 
       setRows((r.data ?? []) as ServicePriceRow[]);
@@ -106,6 +109,7 @@ export default function ServicesSettingsPage() {
 
     setBusy(true);
     const { error } = await supabase.from("service_prices").insert({
+      clinic_id: clinicId,
       service_name: name.trim(),
       default_price: Number(price) || 0,
       item_type: itemType,
@@ -163,7 +167,7 @@ export default function ServicesSettingsPage() {
   async function toggleActive(id: string, current: boolean) {
     const next = !current;
     setBusy(true);
-    await supabase.from("service_prices").update({ is_active: next }).eq("id", id);
+    await supabase.from("service_prices").update({ is_active: next }).eq("id", id).eq("clinic_id", clinicId);
     setRows((p) => p.map((r) => (r.id === id ? { ...r, is_active: next } : r)));
     setBusy(false);
   }
@@ -181,7 +185,8 @@ export default function ServicesSettingsPage() {
         duration_minutes: editDuration ? Number(editDuration) : null,
         category: editCategory, // PART 1
       })
-      .eq("id", editRow.id);
+      .eq("id", editRow.id)
+      .eq("clinic_id", clinicId);
 
     if (error) {
       console.error("Save error:", error);
@@ -204,7 +209,8 @@ export default function ServicesSettingsPage() {
     const { error, data } = await supabase
       .from("service_prices")
       .delete()
-      .eq("id", editRow.id);
+      .eq("id", editRow.id)
+      .eq("clinic_id", clinicId);
     
     
     if (error) {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -11,7 +12,7 @@ import { Toggle } from "@/components/Toggle";
 
 import {
   splitFullName,
-  combineFullName,
+  formatPatientName,
   formatGenderLabel,
   normalizeGenderInput,
   formatDateStandard,
@@ -59,6 +60,7 @@ export default function Page() {
   const params = useParams();
   const router = useRouter();
   const id = (params?.id as string) || "";
+  const { clinicId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -79,6 +81,7 @@ export default function Page() {
   // Info edit
   const [editOpen, setEditOpen] = useState(false);
   const [editFirstName, setEditFirstName] = useState("");
+  const [editMiddleName, setEditMiddleName] = useState("");
   const [editLastName, setEditLastName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
@@ -92,10 +95,11 @@ export default function Page() {
   const birthDateRef = useRef<HTMLInputElement | null>(null);
 
   const loadPatient = useCallback(async () => {
+    if (!id || !clinicId) return;
     setLoading(true);
     setError(null);
 
-    const p = await supabase.from("patients").select("*").eq("id", id).single();
+    const p = await supabase.from("patients").select("*").eq("id", id).eq("clinic_id", clinicId).single();
 
     if (p.error) {
       setError(p.error.message);
@@ -109,13 +113,16 @@ export default function Page() {
     const dbLast = String(patRaw.last_name ?? "").trim();
     const firstNameFinal = dbFirst || fallback.first;
     const lastNameFinal = dbLast || fallback.last;
+    const middleNameFinal = String(patRaw.middle_name ?? "").trim() || null;
     const fullNameFinal =
-      combineFullName(firstNameFinal, lastNameFinal) || String(patRaw.full_name ?? "").trim();
+      formatPatientName(firstNameFinal, middleNameFinal, lastNameFinal) || String(patRaw.full_name ?? "").trim();
 
     const pat: Patient = {
       id: patRaw.id,
+      clinic_id: patRaw.clinic_id,
       full_name: fullNameFinal,
       first_name: firstNameFinal || null,
+      middle_name: middleNameFinal,
       last_name: lastNameFinal || null,
       phone: patRaw.phone ?? null,
       birth_date: patRaw.birth_date ?? null,
@@ -124,11 +131,14 @@ export default function Page() {
       email: patRaw.email ?? null,
       notes: patRaw.notes ?? null,
       gender: normalizeGenderInput(String(patRaw.gender ?? "")),
+      created_at: patRaw.created_at,
+      updated_at: patRaw.updated_at,
     };
 
     setPatient(pat);
 
     setEditFirstName(pat.first_name ?? "");
+    setEditMiddleName(middleNameFinal ?? "");
     setEditLastName(pat.last_name ?? "");
     setEditPhone(formatPhoneLocal(pat.phone ?? ""));
     setEditBirthDate(pat.birth_date ?? "");
@@ -142,6 +152,7 @@ export default function Page() {
       .from("treatments")
       .select("treatment_date, dentist_name, procedure, visit_concern")
       .eq("patient_id", id)
+      .eq("clinic_id", clinicId)
       .order("treatment_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(1);
@@ -163,6 +174,7 @@ export default function Page() {
       .from("appointments")
       .select("appointment_date, concern_type, dentists(full_name, nickname)")
       .eq("patient_id", id)
+      .eq("clinic_id", clinicId)
       .gte("appointment_date", today)
       .not("status", "in", '("cancelled","completed")')
       .is("deleted_at", null)
@@ -183,7 +195,7 @@ export default function Page() {
     }
 
     setLoading(false);
-  }, [id]);
+  }, [id, clinicId]);
 
   useEffect(() => {
     loadPatient();
@@ -208,6 +220,7 @@ export default function Page() {
       .from("patients")
       .update({
         first_name: first,
+        middle_name: editMiddleName.trim() || null,
         last_name: last,
         phone: phone || null,
         birth_date: birth || null,
@@ -254,7 +267,7 @@ export default function Page() {
     return <div className="min-h-screen p-6 text-red-600">Patient not found.</div>;
   }
 
-  const displayFullName = combineFullName(patient.first_name, patient.last_name) || patient.full_name || "";
+  const displayFullName = formatPatientName(patient.first_name, patient.middle_name, patient.last_name) || patient.full_name || "";
 
   return (
     <>
@@ -269,8 +282,8 @@ export default function Page() {
             </button>
           </div>
           <div className="spacing-vertical-lg">
-            {/* Row 1: Last name, First name - 50/50 */}
-            <div className="two-col-grid">
+            {/* Row 1: Last name, First name, Middle name */}
+            <div className="grid-gap-4-cols-3">
               <label className="field-label">
                 <span className="field-label-text">Last name</span>
                 <input className="field-input-readonly" value={patient.last_name ?? ""} readOnly />
@@ -278,6 +291,10 @@ export default function Page() {
               <label className="field-label">
                 <span className="field-label-text">First name</span>
                 <input className="field-input-readonly" value={patient.first_name ?? ""} readOnly />
+              </label>
+              <label className="field-label">
+                <span className="field-label-text">Middle name</span>
+                <input className="field-input-readonly" value={patient.middle_name ?? ""} readOnly />
               </label>
             </div>
 
@@ -366,10 +383,11 @@ export default function Page() {
       {/* Edit Modal */}
       <EditModal open={editOpen} title="Edit patient" onClose={() => setEditOpen(false)}>
         <div className="grid-gap-4">
-          {/* R1: Last name, First name */}
-          <div className="two-col-grid">
+          {/* R1: Last name, First name, Middle name */}
+          <div className="grid-gap-4-cols-3">
             <Field label="Last name" value={editLastName} onChange={setEditLastName} placeholder="Last name" />
             <Field label="First name" value={editFirstName} onChange={setEditFirstName} placeholder="First name" />
+            <Field label="Middle name" value={editMiddleName} onChange={setEditMiddleName} placeholder="Optional" />
           </div>
 
           {/* R2: Birth date, Gender */}

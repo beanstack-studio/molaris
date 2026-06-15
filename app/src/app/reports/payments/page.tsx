@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
 import { downloadCSV } from "@/lib/exportHelpers";
@@ -8,6 +9,7 @@ import { PageLoader, Spinner } from "@/components/Spinner";
 
 
 export default function PaymentReportsPage() {
+  const { clinicId } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [payments, setPayments] = useState<any[]>([]);
@@ -19,9 +21,10 @@ export default function PaymentReportsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [clinicId]);
 
   async function loadData() {
+    if (!clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -30,6 +33,7 @@ export default function PaymentReportsPage() {
       const { data: paymentsData, error: paymentsError } = await supabase
         .from("payments")
         .select("id, transaction_id, amount, payment_date, status, invoice_id, reference_number")
+        .eq("clinic_id", clinicId)
         .order("payment_date", { ascending: false })
         .limit(200);
 
@@ -39,6 +43,7 @@ export default function PaymentReportsPage() {
       const { data: invoicesData, error: invoicesError } = await supabase
         .from("invoices")
         .select("id, invoice_number, total, status, patient_id, created_at, invoice_date")
+        .eq("clinic_id", clinicId)
         .order("created_at", { ascending: false });
 
       if (invoicesError) throw invoicesError;
@@ -46,7 +51,8 @@ export default function PaymentReportsPage() {
       // Load all payments for balance calculation
       const { data: allPayments, error: allPaymentsError } = await supabase
         .from("payments")
-        .select("id, invoice_id, amount, voided_at, status");
+        .select("id, invoice_id, amount, voided_at, status")
+        .eq("clinic_id", clinicId);
 
       if (allPaymentsError) throw allPaymentsError;
 

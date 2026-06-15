@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { useClinic } from "@/contexts/ClinicContext";
 import PatientTabs from "@/components/PatientTabs";
 import { supabase } from "@/lib/supabaseClient";
 import type { Treatment, DentistRow, ServicePriceRow, Patient } from "@/lib/types";
@@ -14,6 +15,7 @@ import { PageLoader } from "@/components/Spinner";
 export default function TreatmentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
+  const { clinicId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,10 +53,11 @@ export default function TreatmentsPage() {
   }, [treatments, treatmentSort]);
 
   const loadData = useCallback(async () => {
+    if (!id || !clinicId) return;
     setLoading(true);
     setError(null);
 
-    const p = await supabase.from("patients").select("*").eq("id", id).single();
+    const p = await supabase.from("patients").select("*").eq("id", id).eq("clinic_id", clinicId).single();
     if (!p.error && p.data) {
       const patRaw = p.data as any;
       const fallback = splitFullName(patRaw.full_name ?? "");
@@ -62,8 +65,10 @@ export default function TreatmentsPage() {
       const dbLast = String(patRaw.last_name ?? "").trim();
       setPatient({
         id: patRaw.id,
+        clinic_id: patRaw.clinic_id,
         full_name: patRaw.full_name,
         first_name: dbFirst || fallback.first,
+        middle_name: patRaw.middle_name ?? null,
         last_name: dbLast || fallback.last,
         phone: patRaw.phone,
         birth_date: patRaw.birth_date,
@@ -72,12 +77,15 @@ export default function TreatmentsPage() {
         email: patRaw.email,
         gender: patRaw.gender,
         notes: patRaw.notes,
+        created_at: patRaw.created_at,
+        updated_at: patRaw.updated_at,
       });
     }
 
     const d = await supabase
       .from("dentists")
       .select("id, full_name")
+      .eq("clinic_id", clinicId)
       .order("sort_order", { ascending: true })
       .order("full_name", { ascending: true });
     setDentists(!d.error && d.data ? (d.data as DentistRow[]) : []);
@@ -85,6 +93,7 @@ export default function TreatmentsPage() {
     const sm = await supabase
       .from("service_prices")
       .select("id, service_name, default_price, item_type, sort_order, created_at, category")
+      .eq("clinic_id", clinicId)
       .eq("category", "general")
       .order("item_type", { ascending: true })
       .order("sort_order", { ascending: true })
@@ -93,13 +102,14 @@ export default function TreatmentsPage() {
 
     const t = await supabase
       .from("treatments")
-      .select("id, treatment_date, procedure, tooth_number, notes, visit_concern, dentist_id, dentist_name, service_price_id, created_at")
+      .select("id, treatment_date, procedure, tooth_number, notes, visit_concern, dentist_id, dentist_name, service_price_id, created_at, clinic_id")
       .eq("patient_id", id)
+      .eq("clinic_id", clinicId)
       .order("treatment_date", { ascending: false })
       .order("created_at", { ascending: false });
     setTreatments(!t.error && t.data ? (t.data as Treatment[]) : []);
 
-    const inv = await supabase.from("invoices").select("invoice_date").eq("patient_id", id);
+    const inv = await supabase.from("invoices").select("invoice_date").eq("patient_id", id).eq("clinic_id", clinicId);
     const invoicedDateSet = new Set<string>();
     if (!inv.error && inv.data) {
       inv.data.forEach((record: any) => {
@@ -112,6 +122,7 @@ export default function TreatmentsPage() {
       .from("appointments")
       .select("concerns")
       .eq("patient_id", id)
+      .eq("clinic_id", clinicId)
       .eq("status", "completed")
       .order("appointment_date", { ascending: false })
       .limit(1);
@@ -122,7 +133,7 @@ export default function TreatmentsPage() {
     }
 
     setLoading(false);
-  }, [id]);
+  }, [id, clinicId]);
 
   useEffect(() => {
     loadData();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -9,12 +9,22 @@ import { supabase } from "@/lib/supabaseClient";
 // If the user already has a session, silently redirect them to /dashboard.
 export default function HomePage() {
   const router = useRouter();
+  const [clinicName, setClinicName] = useState("Clinic Portal");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) router.replace("/dashboard");
     });
   }, [router]);
+
+  useEffect(() => {
+    fetch("/api/clinic-info")
+      .then((r) => r.json())
+      .then((d: { clinic_name: string | null; logo_url: string | null }) => {
+        if (d.clinic_name) setClinicName(d.clinic_name);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
@@ -23,8 +33,8 @@ export default function HomePage() {
       <header className="px-6 py-5 flex items-center justify-between max-w-4xl mx-auto w-full">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Matira Dental Studio" className="h-9 w-9 rounded-full object-cover" />
-          <span className="font-semibold text-slate-800 text-sm">Matira Dental Studio</span>
+          <img src="/logo.png" alt={clinicName} className="h-9 w-9 rounded-full object-cover" />
+          <span className="font-semibold text-slate-800 text-sm">{clinicName}</span>
         </div>
         <Link
           href="/login"
@@ -41,23 +51,22 @@ export default function HomePage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo.png"
-              alt="Matira Dental Studio"
+              alt={clinicName}
               className="h-20 w-20 rounded-2xl object-cover mx-auto shadow-md"
             />
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4 leading-tight">
-            Matira Dental Studio<br />Clinic Portal
+            {clinicName}<br />Clinic Portal
           </h1>
           <p className="text-slate-500 text-base sm:text-lg mb-8 leading-relaxed max-w-lg mx-auto">
-            A secure, private management portal for authorized Matira Dental Studio staff.
-            Manage appointments, patient records, billing, team messaging, and clinic integrations.
+            A secure, private management portal for authorized {clinicName} staff.
+            Manage appointments, patient records, and billing — all in one place.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 text-left">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10 text-left">
             {[
               { icon: "📅", label: "Appointments", desc: "Schedule and manage patient visits" },
               { icon: "🦷", label: "Patient Records", desc: "Charts, treatment history, and billing" },
-              { icon: "💬", label: "Messaging", desc: "Direct communication with patients via Messenger" },
             ].map(({ icon, label, desc }) => (
               <div key={label} className="bg-white rounded-2xl border border-slate-200 px-4 py-4">
                 <div className="text-2xl mb-2">{icon}</div>
@@ -82,7 +91,7 @@ export default function HomePage() {
       {/* Footer with Privacy Policy link — required by Google OAuth verification */}
       <footer className="px-6 py-5 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
         <div className="flex items-center justify-center gap-4 flex-wrap">
-          <span>© {new Date().getFullYear()} Matira Dental Studio</span>
+          <span>© {new Date().getFullYear()} {clinicName}</span>
           <Link href="/privacy" className="hover:text-slate-600 underline">
             Privacy Policy
           </Link>

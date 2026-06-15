@@ -10,5 +10,5 @@ export default function TopNavWrapper() {
     return null;
   }
   
-  return <TopNav title="Matira Dental Studio" />;
+  return <TopNav />;
 }

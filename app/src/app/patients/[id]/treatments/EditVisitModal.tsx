@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { EditModal } from "@/components/EditModal";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import type { DentistRow, ServicePriceRow, Treatment, DraftLine } from "@/lib/types";
 import { formatDateStandard } from "@/lib/helpers";
@@ -27,6 +28,7 @@ export function EditVisitModal({
   serviceMenu,
   visitTreatments,
 }: Props) {
+  const { clinicId } = useClinic();
   const [dentistId, setDentistId] = useState("");
   const [concern, setConcern] = useState("");
   const [treatmentNotes, setTreatmentNotes] = useState<Record<string, string>>({});
@@ -127,6 +129,7 @@ export function EditVisitModal({
       const newPayload = newTreatments
         .filter((nt) => treatmentServiceId[nt.id])
         .map((nt) => ({
+          clinic_id: clinicId,
           patient_id: patientId,
           treatment_date: date,
           tooth_number: treatmentTooth[nt.id]?.trim() ? Number(treatmentTooth[nt.id]) : null,

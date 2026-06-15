@@ -168,7 +168,8 @@ export async function batchVerifyPayments(
 export async function batchGenerateReceipts(
   paymentIds: string[],
   staffId: string,
-  userId: string
+  userId: string,
+  clinicId: string        // ← ADD THIS
 ): Promise<{ success: number; failed: number; receipts: string[]; errors: string[] }> {
   const errors: string[] = [];
   const receipts: string[] = [];
@@ -177,7 +178,7 @@ export async function batchGenerateReceipts(
 
   for (const paymentId of paymentIds) {
     try {
-      const receipt = await generateReceipt(paymentId, staffId, userId);
+      const receipt = await generateReceipt(paymentId, staffId, userId, clinicId);  // ← NOW WORKS
       receipts.push(receipt.id);
       successCount += 1;
     } catch (error) {

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import TopNavWrapper from "@/components/TopNavWrapper";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { ThemeBackground } from "@/components/ThemeBackground";
+import { ClinicProvider } from "@/contexts/ClinicContext";  // ← ADD THIS LINE
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,6 +19,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Molaris — Clinic Portal",
   description: "Clinic management portal by Molaris",
+  manifest: "/manifest.json",
+};
+
+export const viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({
@@ -30,8 +36,10 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeLoader />
         <ThemeBackground />
-        <TopNavWrapper />
-        {children}
+        <ClinicProvider>       {/* ← ADD */}
+          <TopNavWrapper />
+          {children}
+        </ClinicProvider>      {/* ← ADD */}
       </body>
     </html>
   );

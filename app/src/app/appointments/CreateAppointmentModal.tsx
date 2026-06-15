@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType } from "@/lib/visitReasonHelpers";
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function CreateAppointmentModal({ open, onClose, onCreated, dentists, patients, selectedDate, sundayEndHour, holidayOverrides }: Props) {
+  const { clinicId } = useClinic();
   const [formData, setFormData] = useState({
     patientId: "",
     appointmentDate: new Date().toISOString().split("T")[0],
@@ -78,19 +80,20 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
   async function loadDentistSchedule(dentistId: string) {
     if (!dentistId) { setDentistSchedule([]); setDentistBlockouts([]); return; }
     const [sched, block] = await Promise.all([
-      supabase.from("dentist_schedules").select("day_of_week, start_time, end_time, is_working").eq("dentist_id", dentistId),
-      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId),
+      supabase.from("dentist_schedules").select("day_of_week, start_time, end_time, is_working").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
+      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
     ]);
     setDentistSchedule(sched.data ?? []);
     setDentistBlockouts(block.data ?? []);
   }
 
   async function checkOrthoStatus(patientId: string) {
-    if (!patientId) { setIsOrthoPatient(false); return; }
+    if (!patientId || !clinicId) { setIsOrthoPatient(false); return; }
     const { data } = await supabase
       .from("ortho_cases")
       .select("id")
       .eq("patient_id", patientId)
+      .eq("clinic_id", clinicId)
       .limit(1);
     setIsOrthoPatient((data?.length ?? 0) > 0);
   }
@@ -102,6 +105,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
     }
     try {
       const { data: inserted, error: err } = await supabase.from("appointments").insert({
+        clinic_id: clinicId,
         patient_id: formData.patientId,
         appointment_date: formData.appointmentDate,
         appointment_time: formData.appointmentTime,
@@ -111,14 +115,6 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
         notes: "Created manually",
       }).select("id").single();
       if (err) throw err;
-      // Fire-and-forget Google Calendar sync
-      if (inserted?.id) {
-        fetch("/api/google-calendar/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ appointment_id: inserted.id, action: "upsert" }),
-        }).catch(() => {});
-      }
       onCreated();
       onClose();
     } catch (err) {

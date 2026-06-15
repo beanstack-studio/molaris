@@ -2,75 +2,62 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useClinic } from "@/contexts/ClinicContext";
 
 function isInvalidRefreshTokenError(err: unknown): boolean {
   if (!err) return false;
   const msg =
     typeof err === "string"
       ? err
-      : (err as any)?.message || (err as any)?.error_description || "";
+      : (err as { message?: string; error_description?: string })?.message ||
+        (err as { message?: string; error_description?: string })?.error_description ||
+        "";
   return String(msg).toLowerCase().includes("invalid refresh token");
 }
 
-export default function TopNav({
-  title = "Matira Dental Studio",
-}: {
-  title?: string;
-}) {
+export default function TopNav() {
   const router = useRouter();
   const pathname = usePathname();
+  const { clinicName } = useClinic();
+
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  // null = show emoji fallback. Populated from Supabase (and cached in localStorage).
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
-  const [clinicName, setClinicName] = useState(title);
-  const [messengerConnected, setMessengerConnected] = useState(false);
 
+  // Load logo from cache immediately, then refresh from Supabase
   useEffect(() => {
-    // Show cached logo immediately (no flash of emoji on repeat visits)
     const cached = localStorage.getItem("clinic-logo-url");
     if (cached) setLogoSrc(cached);
 
-    // Fetch latest from Supabase and update cache
     supabase
       .from("clinic_profile")
-      .select("logo_url, clinic_name")
+      .select("logo_url")
       .limit(1)
       .then(({ data }) => {
-        if (data && data.length > 0) {
-          if (data[0].logo_url) {
-            setLogoSrc(data[0].logo_url);
-            localStorage.setItem("clinic-logo-url", data[0].logo_url);
-          }
-          if (data[0].clinic_name) setClinicName(data[0].clinic_name);
+        const url = data?.[0]?.logo_url;
+        if (url) {
+          setLogoSrc(url);
+          localStorage.setItem("clinic-logo-url", url);
         }
       });
-
-    // Check if Messenger is connected
-    supabase
-      .from("facebook_pages")
-      .select("page_id")
-      .maybeSingle()
-      .then(({ data }) => setMessengerConnected(!!data));
   }, []);
 
-  // Listen for clinic profile saves — more reliable than realtime subscriptions
+  // Sync logo when clinic profile is saved elsewhere in the app
   useEffect(() => {
     function handleProfileUpdate(e: Event) {
-      const { logoUrl: newLogo, clinicName: newName } = (e as CustomEvent).detail ?? {};
-      if (newLogo) {
-        setLogoSrc(newLogo);
-        localStorage.setItem("clinic-logo-url", newLogo);
+      const { logoUrl } = (e as CustomEvent<{ logoUrl?: string; clinicName?: string }>).detail ?? {};
+      if (logoUrl) {
+        setLogoSrc(logoUrl);
+        localStorage.setItem("clinic-logo-url", logoUrl);
       }
-      if (newName) setClinicName(newName);
     }
     window.addEventListener("clinicProfileUpdated", handleProfileUpdate);
     return () => window.removeEventListener("clinicProfileUpdated", handleProfileUpdate);
   }, []);
 
-  // Keep browser favicon in sync — updates whenever logoSrc changes
+  // Keep browser favicon in sync with clinic logo
   useEffect(() => {
     if (!logoSrc) return;
     document.querySelectorAll("link[data-app-favicon]").forEach((el) => el.remove());
@@ -85,55 +72,38 @@ export default function TopNav({
     setBusy(true);
     if (typeof window !== "undefined") window.name = "";
     try {
-      const timeoutPromise = new Promise((_, reject) =>
+      const timeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Sign out timeout")), 2000)
       );
-      await Promise.race([supabase.auth.signOut(), timeoutPromise]);
+      await Promise.race([supabase.auth.signOut(), timeout]);
     } catch (err) {
       console.error("Sign out error (continuing anyway):", err);
     }
     window.location.href = "/login";
   }
 
+  // Redirect on auth state change (sign-out / token expiry)
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (pathname?.startsWith("/login")) return;
-      // Only redirect on explicit sign-out or confirmed token expiry.
-      // INITIAL_SESSION can fire with session=null before the auto-refresh
-      // completes (common in Safari with expired tokens), which would sign the
-      // user out even though a refresh was about to succeed.
-      if (event === "SIGNED_OUT" || event === "TOKEN_EXPIRED") {
+      if (event === "SIGNED_OUT" || (event as string) === "TOKEN_EXPIRED") {
         if (!session) {
-          try {
-            await supabase.auth.signOut();
-          } catch {
-            // ignore
-          }
+          try { await supabase.auth.signOut(); } catch { /* ignore */ }
           router.push("/login");
           router.refresh();
         }
       }
     });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [router, pathname]);
 
+  // Auth gate on every navigation
   useEffect(() => {
     let cancelled = false;
-
-    // Auth gate: read session from localStorage (no network round-trip).
-    // window.name was previously used as a fast-path guard but Safari clears it
-    // after OAuth redirects and cross-origin navigations, causing false logouts.
-    // getSession() reads from localStorage and is safe in all browsers.
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (cancelled) return;
-
         if (error && isInvalidRefreshTokenError(error)) {
           window.name = "";
           await supabase.auth.signOut();
@@ -143,13 +113,12 @@ export default function TopNav({
           }
           return;
         }
-
         if (!data.session && !pathname?.startsWith("/login")) {
           window.name = "";
           router.push("/login");
           router.refresh();
         }
-      } catch (e) {
+      } catch {
         if (cancelled) return;
         if (!pathname?.startsWith("/login")) {
           window.name = "";
@@ -158,16 +127,13 @@ export default function TopNav({
         }
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [router, pathname]);
 
   // Inactivity auto-logout after 10 minutes
   useEffect(() => {
     if (pathname?.startsWith("/login")) return;
-    const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+    const TIMEOUT_MS = 10 * 60 * 1000;
     let timer: ReturnType<typeof setTimeout>;
 
     const reset = () => {
@@ -181,7 +147,7 @@ export default function TopNav({
 
     const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
     events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
-    reset(); // start the timer immediately
+    reset();
 
     return () => {
       clearTimeout(timer);
@@ -189,15 +155,13 @@ export default function TopNav({
     };
   }, [pathname]);
 
+  const isAppointments = pathname?.startsWith("/appointments");
   const isPatients = pathname?.startsWith("/patients");
   const isReports = pathname?.startsWith("/reports");
   const isSettings = pathname?.startsWith("/settings");
-  const isAppointments = pathname?.startsWith("/appointments");
-  const isMessages = pathname?.startsWith("/messages");
 
   const navLinks = [
     { href: "/appointments", label: "Appointments", active: isAppointments },
-    { href: "/messages", label: "Messages", active: isMessages },
     { href: "/patients", label: "Patients", active: isPatients },
     { href: "/reports/payments", label: "Reports", active: isReports },
     { href: "/settings/clinic-profile", label: "Settings", active: isSettings },
@@ -207,7 +171,7 @@ export default function TopNav({
     <div className="topnav-wrapper">
       <div className="topnav-container">
         <div className="topnav-inner">
-          {/* Logo/Home */}
+          {/* Logo / clinic name */}
           <Link href="/dashboard" className="topnav-logo" onClick={() => setMenuOpen(false)}>
             {logoSrc ? (
               <img src={logoSrc} alt="Clinic logo" className="h-8 w-8 rounded-lg object-contain" />
@@ -220,16 +184,25 @@ export default function TopNav({
           {/* Desktop navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((l) => (
-              <Link key={l.href} href={l.href} className={`topnav-link ${l.active ? "topnav-link-active" : "topnav-link-inactive"}`}>
+              <Link
+                key={l.href}
+                href={l.href}
+                className={`topnav-link ${l.active ? "topnav-link-active" : "topnav-link-inactive"}`}
+              >
                 {l.label}
               </Link>
             ))}
-            <button type="button" className="topnav-button-signout" onClick={signOut} disabled={busy}>
+            <button
+              type="button"
+              className="topnav-button-signout"
+              onClick={signOut}
+              disabled={busy}
+            >
               {busy ? "..." : "Sign out"}
             </button>
           </div>
 
-          {/* Mobile hamburger button */}
+          {/* Mobile hamburger */}
           <button
             type="button"
             className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
@@ -248,7 +221,7 @@ export default function TopNav({
           </button>
         </div>
 
-        {/* Mobile dropdown menu */}
+        {/* Mobile dropdown */}
         {menuOpen && (
           <div className="md:hidden border-t border-slate-100 pt-2 pb-3 flex flex-col gap-1">
             {navLinks.map((l) => (
@@ -256,7 +229,9 @@ export default function TopNav({
                 key={l.href}
                 href={l.href}
                 onClick={() => setMenuOpen(false)}
-                className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${l.active ? "bg-violet-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+                className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  l.active ? "bg-violet-600 text-white" : "text-slate-600 hover:bg-slate-50"
+                }`}
               >
                 {l.label}
               </Link>

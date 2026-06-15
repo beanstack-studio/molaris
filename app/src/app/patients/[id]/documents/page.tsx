@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "next/navigation";
+import { useClinic } from "@/contexts/ClinicContext";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { supabase } from "@/lib/supabaseClient";
@@ -11,6 +12,8 @@ import {
   formatDateStandard,
   renderTemplate,
   splitFullName,
+  formatPatientName,
+  formatPatientNameFormal,
 } from "@/lib/helpers";
 import {
   DOC_TYPES,
@@ -38,6 +41,7 @@ import { PageLoader } from "@/components/Spinner";
 export default function DocumentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
+  const { clinicId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -124,11 +128,12 @@ export default function DocumentsPage() {
   }, [documents, docSort]);
 
   const loadData = useCallback(async () => {
+    if (!id || !clinicId) return;
     setLoading(true);
     setError(null);
 
     // Load patient info
-    const p = await supabase.from("patients").select("*").eq("id", id).single();
+    const p = await supabase.from("patients").select("*").eq("id", id).eq("clinic_id", clinicId).single();
     if (!p.error && p.data) {
       const patRaw = p.data as any;
       const fallback = splitFullName(patRaw.full_name ?? "");
@@ -139,8 +144,10 @@ export default function DocumentsPage() {
 
       setPatient({
         id: patRaw.id,
+        clinic_id: patRaw.clinic_id,
         full_name: patRaw.full_name,
         first_name: firstNameFinal,
+        middle_name: patRaw.middle_name ?? null,
         last_name: lastNameFinal,
         phone: patRaw.phone,
         birth_date: patRaw.birth_date,
@@ -149,6 +156,8 @@ export default function DocumentsPage() {
         email: patRaw.email,
         gender: patRaw.gender,
         notes: patRaw.notes,
+        created_at: patRaw.created_at,
+        updated_at: patRaw.updated_at,
       });
     }
 
@@ -160,13 +169,14 @@ export default function DocumentsPage() {
     const d = await supabase
       .from("dentists")
       .select("id, full_name")
+      .eq("clinic_id", clinicId)
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
       .order("full_name", { ascending: true });
     setDentists(!d.error && d.data ? (d.data as DentistRow[]) : []);
 
     setLoading(false);
-  }, [id]);
+  }, [id, clinicId]);
 
   useEffect(() => {
     loadData();
@@ -217,6 +227,7 @@ export default function DocumentsPage() {
             .from("treatments")
             .select("treatment_date, procedure, tooth_number, dentist_name, visit_concern, notes")
             .eq("patient_id", id)
+            .eq("clinic_id", clinicId)
             .order("treatment_date", { ascending: false })
             .limit(200),
         ]);
@@ -238,6 +249,7 @@ export default function DocumentsPage() {
             .from("ortho_cases")
             .select("*")
             .eq("patient_id", id)
+            .eq("clinic_id", clinicId)
             .order("created_at", { ascending: false })
             .limit(1);
           if (ocRows?.length) {
@@ -261,7 +273,7 @@ export default function DocumentsPage() {
           }
         }
 
-        const docNo = await getNextDocNo(DOC_TYPES.PATIENT_RECORD);
+        const docNo = await getNextDocNo(DOC_TYPES.PATIENT_RECORD, clinicId);
         const patRecSections: PatientRecordSections = {
           info: patRecInclInfo,
           medicalHistory: patRecInclMed,
@@ -275,7 +287,7 @@ export default function DocumentsPage() {
         };
 
         renderedHtml = generatePatientRecordHTML({
-          patientName: patient.full_name || "Unknown Patient",
+          patientName: formatPatientNameFormal(patient.first_name, patient.middle_name, patient.last_name),
           birthDate: patient.birth_date || null,
           age: patAge,
           gender: patient.gender || null,
@@ -296,8 +308,9 @@ export default function DocumentsPage() {
 
         // Insert directly so we can use the same docNo that was embedded in the HTML
         await supabase.from("documents").insert({
+          clinic_id: clinicId,
           patient_id: id,
-          patient_name: patient.full_name || null,
+          patient_name: formatPatientName(patient.first_name, patient.middle_name, patient.last_name),
           doc_type: DOC_TYPES.PATIENT_RECORD,
           doc_code: "REC",
           doc_no: docNo,
@@ -315,12 +328,13 @@ export default function DocumentsPage() {
 
       // ── Statement of Account: fetch all billing data and generate HTML ──
       if (selectedDocType === DOC_TYPES.ACCOUNT_STATEMENT) {
-        const docNo = await getNextDocNo(DOC_TYPES.ACCOUNT_STATEMENT);
-        const soaHtml = await generateSOADocument(id, patient.full_name || "Unknown Patient", docNo);
+        const docNo = await getNextDocNo(DOC_TYPES.ACCOUNT_STATEMENT, clinicId);
+        const soaHtml = await generateSOADocument(id, formatPatientNameFormal(patient.first_name, patient.middle_name, patient.last_name), docNo);
 
         await supabase.from("documents").insert({
+          clinic_id: clinicId,
           patient_id: id,
-          patient_name: patient.full_name || null,
+          patient_name: formatPatientName(patient.first_name, patient.middle_name, patient.last_name),
           doc_type: DOC_TYPES.ACCOUNT_STATEMENT,
           doc_code: "SOA",
           doc_no: docNo,
@@ -352,7 +366,7 @@ export default function DocumentsPage() {
       if (selectedDocType === DOC_TYPES.PRESCRIPTION) {
         const cleanMedications = rxMedications.map(({ id, ...med }) => med);
         renderedHtml = generatePrescriptionHTML({
-          patientName: patient.full_name || "Unknown Patient",
+          patientName: formatPatientNameFormal(patient.first_name, patient.middle_name, patient.last_name),
           patientAge: calcAge(),
           patientAddress: patient.address || "",
           patientGender: patient.gender || "",
@@ -404,8 +418,9 @@ export default function DocumentsPage() {
 
       // Create document (saves to documents table with auto-generated doc_no)
       await createDocument({
+        clinicId,
         patientId: id,
-        patientName: patient?.full_name,
+        patientName: formatPatientName(patient.first_name, patient.middle_name, patient.last_name),
         docType: selectedDocType,
         payload,
         dentistName: dentistNameById[docDentistId],
@@ -455,9 +470,9 @@ export default function DocumentsPage() {
       setBusy(true);
       let html = "";
       if (d.doc_type === DOC_TYPES.INVOICE) {
-        html = await generateInvoiceDocument(d.id, patient?.full_name || "Patient", d.doc_no || "—", formatDateStandard(d.created_at?.split("T")[0] || ""));
+        html = await generateInvoiceDocument(d.id, formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), d.doc_no || "—", formatDateStandard(d.created_at?.split("T")[0] || ""));
       } else if (d.doc_type === DOC_TYPES.PAYMENT_RECEIPT) {
-        html = await generatePaymentReceiptDocument((d as any).payload?.payment_id || d.id, patient?.full_name || "Patient", d.doc_no || "—");
+        html = await generatePaymentReceiptDocument((d as any).payload?.payment_id || d.id, formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), d.doc_no || "—");
       } else if (d.doc_type === DOC_TYPES.DENTAL_CERTIFICATE) {
         let age: number | undefined;
         if (patient?.birth_date) {
@@ -466,7 +481,7 @@ export default function DocumentsPage() {
           age = today.getFullYear() - dob.getFullYear();
           if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
         }
-        html = generateCertificateHTML({ patientName: patient?.full_name || "Unknown Patient", patientAge: age, patientAddress: patient?.address || "", patientGender: patient?.gender || "", visitDate: d.payload?.visit_date || "", dentistName: d.payload?.dentist_name || "Dentist", purpose: (d.payload?.fields as any)?.purpose || "", findings: (d.payload?.fields as any)?.findings || [], treatmentDone: (d.payload?.fields as any)?.treatment_done || [], remarks: (d.payload?.fields as any)?.remarks || "", docNo: d.doc_no || "—", clinicMeta: d.payload?.clinic_meta || {} });
+        html = generateCertificateHTML({ patientName: formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), patientAge: age, patientAddress: patient?.address || "", patientGender: patient?.gender || "", visitDate: d.payload?.visit_date || "", dentistName: d.payload?.dentist_name || "Dentist", purpose: (d.payload?.fields as any)?.purpose || "", findings: (d.payload?.fields as any)?.findings || [], treatmentDone: (d.payload?.fields as any)?.treatment_done || [], remarks: (d.payload?.fields as any)?.remarks || "", docNo: d.doc_no || "—", clinicMeta: d.payload?.clinic_meta || {} });
       } else if (d.doc_type === DOC_TYPES.REFERRAL_LETTER) {
         let age: number | undefined;
         if (patient?.birth_date) {
@@ -475,7 +490,7 @@ export default function DocumentsPage() {
           age = today.getFullYear() - dob.getFullYear();
           if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
         }
-        html = generateReferralHTML({ patientName: patient?.full_name || "Unknown Patient", patientAge: age, patientAddress: patient?.address || "", patientGender: patient?.gender || "", visitDate: d.payload?.visit_date || "", dentistName: d.payload?.dentist_name || "Dentist", reason: (d.payload?.fields as any)?.reason || "", clinic: (d.payload?.fields as any)?.clinic || "", doctor: (d.payload?.fields as any)?.doctor || "", remarks: (d.payload?.fields as any)?.remarks || "", docNo: d.doc_no || "—", clinicMeta: d.payload?.clinic_meta || {} });
+        html = generateReferralHTML({ patientName: formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), patientAge: age, patientAddress: patient?.address || "", patientGender: patient?.gender || "", visitDate: d.payload?.visit_date || "", dentistName: d.payload?.dentist_name || "Dentist", reason: (d.payload?.fields as any)?.reason || "", clinic: (d.payload?.fields as any)?.clinic || "", doctor: (d.payload?.fields as any)?.doctor || "", remarks: (d.payload?.fields as any)?.remarks || "", docNo: d.doc_no || "—", clinicMeta: d.payload?.clinic_meta || {} });
       } else {
         html = d.payload?.rendered_html || (d as any).payload?.renderedHtml || "";
       }

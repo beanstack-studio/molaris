@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -19,6 +20,7 @@ function num(n: unknown) {
 export default function OrthoPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
+  const { clinicId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -77,7 +79,7 @@ export default function OrthoPage() {
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
   const loadData = useCallback(async () => {
-    if (!id) return;
+    if (!id || !clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -86,6 +88,7 @@ export default function OrthoPage() {
       .from("ortho_cases")
       .select("*")
       .eq("patient_id", id)
+      .eq("clinic_id", clinicId)
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -102,6 +105,7 @@ export default function OrthoPage() {
     const dentistsRes = await supabase
       .from("dentists")
       .select("id, full_name")
+      .eq("clinic_id", clinicId)
       .order("full_name", { ascending: true });
 
     if (!dentistsRes.error && dentistsRes.data) {
@@ -112,6 +116,7 @@ export default function OrthoPage() {
     const servicesRes = await supabase
       .from("service_prices")
       .select("*")
+      .eq("clinic_id", clinicId)
       .eq("category", "ortho")
       .eq("is_active", true)
       .order("service_name", { ascending: true });
@@ -153,6 +158,7 @@ export default function OrthoPage() {
       .from("appointments")
       .select("*")
       .eq("patient_id", id)
+      .eq("clinic_id", clinicId)
       .gte("appointment_date", new Date().toISOString().split("T")[0])
       .order("appointment_date", { ascending: true })
       .order("appointment_time", { ascending: true })
@@ -169,6 +175,7 @@ export default function OrthoPage() {
       .from("invoices")
       .select("id, invoice_number, invoice_date, status, total, created_at")
       .eq("patient_id", id)
+      .eq("clinic_id", clinicId)
       .eq("invoice_type", "ortho")
       .order("created_at", { ascending: false });
 
@@ -182,6 +189,7 @@ export default function OrthoPage() {
           .from("payments")
           .select("id, invoice_id, amount, payment_date, status, voided_at, created_at")
           .in("invoice_id", orthoInvoiceIds)
+          .eq("clinic_id", clinicId)
           .order("created_at", { ascending: false });
 
         if (!orthoPayRes.error && orthoPayRes.data) {
@@ -194,7 +202,7 @@ export default function OrthoPage() {
     }
 
     setLoading(false);
-  }, [id]);
+  }, [id, clinicId]);
 
   const loadEntries = useCallback(async () => {
     if (!orthoCase) return;
@@ -282,6 +290,7 @@ export default function OrthoPage() {
     setError(null);
 
     const data: Partial<OrthoCase> = {
+      clinic_id: clinicId,
       patient_id: id,
       status: editStatus,
       start_date: editStartDate || null,

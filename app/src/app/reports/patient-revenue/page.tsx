@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
 import { downloadCSV } from "@/lib/exportHelpers";
@@ -17,22 +18,24 @@ interface PatientRow {
 }
 
 export default function PatientRevenueReportPage() {
+  const { clinicId } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<PatientRow[]>([]);
   const [summary, setSummary] = useState({ invoiced: 0, paid: 0, outstanding: 0 });
   const [sort, setSort] = useState<"paid" | "invoiced" | "outstanding" | "name">("paid");
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [clinicId]);
 
   async function loadData() {
+    if (!clinicId) return;
     setLoading(true);
     setError(null);
     try {
       const [{ data: invoices }, { data: payments }, { data: patients }] = await Promise.all([
-        supabase.from("invoices").select("id, patient_id, total, invoice_date"),
-        supabase.from("payments").select("invoice_id, amount, voided_at"),
-        supabase.from("patients").select("id, full_name"),
+        supabase.from("invoices").select("id, patient_id, total, invoice_date").eq("clinic_id", clinicId),
+        supabase.from("payments").select("invoice_id, amount, voided_at").eq("clinic_id", clinicId),
+        supabase.from("patients").select("id, full_name").eq("clinic_id", clinicId),
       ]);
 
       const patientMap: Record<string, string> = {};

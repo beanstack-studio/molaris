@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatMoney } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
@@ -21,14 +22,16 @@ interface MonthRevenue {
 }
 
 export default function ClinicPerformanceReportPage() {
+  const { clinicId } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthRevenue[]>([]);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [clinicId]);
 
   async function loadData() {
+    if (!clinicId) return;
     setLoading(true);
     setError(null);
     try {
@@ -46,15 +49,17 @@ export default function ClinicPerformanceReportPage() {
         { count: appointmentsThisMonth },
         { count: activePatients },
       ] = await Promise.all([
-        supabase.from("patients").select("id", { count: "exact", head: true }),
-        supabase.from("payments").select("amount, payment_date, voided_at"),
-        supabase.from("invoices").select("total"),
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId),
+        supabase.from("payments").select("amount, payment_date, voided_at").eq("clinic_id", clinicId),
+        supabase.from("invoices").select("total").eq("clinic_id", clinicId),
         supabase.from("appointments")
           .select("id", { count: "exact", head: true })
+          .eq("clinic_id", clinicId)
           .gte("appointment_date", thisMonthStart)
           .is("deleted_at", null),
         supabase.from("patients")
           .select("id", { count: "exact", head: true })
+          .eq("clinic_id", clinicId)
           .gte("created_at", `${thisY - 1}-01-01`),
       ]);
 

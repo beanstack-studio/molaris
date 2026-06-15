@@ -3,11 +3,46 @@
 ========================= */
 export type GenderDB = "male" | "female" | null;
 
+export type Clinic = {
+  id: string;
+  name: string;
+  slug: string;
+  plan: 'free' | 'pro';
+  owner_id: string;
+  created_at: string;
+};
+
+export type ClinicProfile = {
+  id: string;
+  clinic_id: string;
+  clinic_name: string | null;
+  street_address: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  logo_url: string | null;
+  phones: Array<{ type: string; number: string }> | null;
+  contacts: Array<{ type: string; value: string }> | null;
+  clinic_hours: Array<{ id: string; day: string; open_hour: number; close_hour: number }> | null;
+  updated_at: string;
+};
+
+export type UserProfile = {
+  id: string;        // = auth.uid
+  clinic_id: string;
+  role: 'owner' | 'staff';
+  full_name: string | null;
+  email: string | null;
+  created_at: string;
+};
+
 export type Patient = {
   id: string;
-  full_name: string; // kept for compatibility + documents
+  clinic_id: string;          // ← ADD
   first_name: string | null;
+  middle_name: string | null; // ← ADD
   last_name: string | null;
+  full_name: string | null;
   phone: string | null;
   birth_date: string | null;
   address: string | null;
@@ -15,10 +50,13 @@ export type Patient = {
   email: string | null;
   gender: GenderDB;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type MedHist = {
   id: string;
+  clinic_id: string;
   allergies: string | null;
   medications: string | null;
   blood_pressure: string | null;
@@ -35,6 +73,7 @@ export function dentistLabel(d: Pick<DentistRow, "full_name" | "nickname">) {
 
 export type ChartEntry = {
   id: string;
+  clinic_id: string;
   tooth_number: number;
   surfaces: string | null;
   finding_code: string;
@@ -44,6 +83,7 @@ export type ChartEntry = {
 };
 
 export type ToothStatusRow = {
+  clinic_id: string;
   tooth_number: number;
   status: string;
   note: string | null;
@@ -52,6 +92,7 @@ export type ToothStatusRow = {
 
 export type Treatment = {
   id: string;
+  clinic_id: string;
   treatment_date: string;
   procedure: string;
   tooth_number: number | null;
@@ -65,6 +106,7 @@ export type Treatment = {
 
 export type ServicePriceRow = {
   id: string;
+  clinic_id: string;
   service_name: string;
   default_price: number;
   price?: number; // For backward compatibility if alias works
@@ -78,6 +120,7 @@ export type ServicePriceRow = {
 
 export type InvoiceRow = {
   id: string;
+  clinic_id: string;
   invoice_date: string;
   invoice_number?: string | null;
   status: string | null;
@@ -93,6 +136,7 @@ export type Invoice = InvoiceRow;
 
 export type InvoiceItemRow = {
   id: string;
+  clinic_id: string;
   invoice_id: string;
   service_name: string;
   description?: string | null;
@@ -112,6 +156,7 @@ export type InvoiceItemRow = {
  */
 export type PaymentMode = {
   id: string;
+  clinic_id: string;
   code: string;
   name: string;
   requires_proof: boolean;
@@ -130,6 +175,7 @@ export type PaymentMode = {
  */
 export type PaymentRow = {
   id: string;
+  clinic_id: string;
   invoice_id: string;
   payment_date: string;
   amount: number;
@@ -144,6 +190,7 @@ export type PaymentRow = {
  */
 export type PaymentRowExtended = {
   id: string;
+  clinic_id: string;
   invoice_id: string;
   patient_id: string;
   transaction_id: string | null;
@@ -169,6 +216,7 @@ export type PaymentRowExtended = {
  */
 export type StaffRow = {
   id: string;
+  clinic_id: string;
   full_name: string;
   role: string;
   is_active: boolean;
@@ -183,6 +231,7 @@ export type StaffRow = {
  */
 export type ReceiptRow = {
   id: string;
+  clinic_id: string;
   receipt_number: string;
   payment_id: string;
   invoice_id: string;
@@ -209,6 +258,7 @@ export type ReceiptRow = {
 
 export type Attachment = {
   id: string;
+  clinic_id: string;
   type: string;
   file_path: string;
   file_name: string | null;
@@ -220,6 +270,7 @@ export type Attachment = {
 
 export type DocTemplate = {
   id: string;
+  clinic_id: string;
   name: string;
   doc_type: string;
   content_html: string;
@@ -227,6 +278,7 @@ export type DocTemplate = {
 
 export type GeneratedDoc = {
   id: string;
+  clinic_id: string;
   doc_type: string;
   doc_number: string | null;
   payload: any;
@@ -235,6 +287,7 @@ export type GeneratedDoc = {
 
 export type Document = {
   id: string;
+  clinic_id: string;
   patient_id?: string;
   patient_name?: string;
   invoice_id?: string;
@@ -266,18 +319,18 @@ export const tabs = ["Info", "Medical", "Chart", "Treatments", "Attachments", "D
 export type Tab = (typeof tabs)[number];
 
 /* =========================
-   Appointments & Messaging
+   Appointments
 ========================= */
 
 export type Appointment = {
   id: string;
+  clinic_id: string; 
   patient_id: string;
   dentist_id: string | null;
   appointment_date: string;
   appointment_time: string;
   status: "pending" | "confirmed" | "completed" | "no_show" | "cancelled";
   notes: string | null;
-  message_thread_id: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -287,45 +340,13 @@ export type Appointment = {
   dentist?: DentistRow;
 };
 
-export type MessageThread = {
-  id: string;
-  patient_id: string | null; // NULL if not yet linked
-  channel: "sms" | "messenger" | "whatsapp" | "email";
-  external_thread_id: string | null;
-  external_user_name: string | null; // FB name, WhatsApp name, etc.
-  last_message_at: string | null;
-  unread_count: number;
-  subject: string | null;
-  metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  patient?: Patient;
-};
-
-export type Message = {
-  id: string;
-  thread_id: string;
-  sender_type: "patient" | "staff";
-  sender_id: string | null;
-  sender_name: string | null;
-  content: string;
-  message_type: "text" | "appointment_confirmed" | "query" | "system";
-  external_id: string | null;
-  metadata: Record<string, any>;
-  created_at: string;
-  deleted_at: string | null;
-};
-
-export type MessageWithThread = Message & {
-  thread?: MessageThread;
-};
 /* =========================
    Orthodontics (Ortho)
 ========================= */
 
 export type OrthoCase = {
   id: string;
+  clinic_id: string;
   patient_id: string;
   status: "active" | "on_hold" | "completed";
   start_date: string | null;
@@ -344,6 +365,7 @@ export type OrthoCase = {
 
 export type OrthoEntry = {
   id: string;
+  clinic_id: string;
   ortho_case_id: string;
   entry_date: string;
   concern_type: string | null;
@@ -355,6 +377,7 @@ export type OrthoEntry = {
 
 export type OrthoEntryItem = {
   id: string;
+  clinic_id: string;
   ortho_entry_id: string;
   service_id: string;
   is_charged: boolean;

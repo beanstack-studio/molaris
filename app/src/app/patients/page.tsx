@@ -4,15 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { calcAge, formatGenderShort, formatDateStandard, formatMoney, formatPhoneLocal } from "@/lib/helpers";
+import { calcAge, formatGenderShort, formatDateStandard, formatMoney, formatPhoneLocal, formatPatientName } from "@/lib/helpers";
 import type { GenderDB } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { DatePickerField } from "@/components/DatePickerField";
+import { useClinic } from "@/contexts/ClinicContext";
 
 type PatientRow = {
   id: string;
 
   first_name: string | null;
+  middle_name: string | null;
   last_name: string | null;
 
   full_name: string | null;
@@ -42,11 +44,7 @@ function safeText(s: any) {
   return String(s ?? "").trim();
 }
 
-function combineFullName(first: string, last: string) {
-  const f = safeText(first);
-  const l = safeText(last);
-  return [f, l].filter(Boolean).join(" ").trim();
-}
+
 
 function toDateKey(iso: string | null | undefined) {
   if (!iso) return "0000-00-00";
@@ -55,6 +53,7 @@ function toDateKey(iso: string | null | undefined) {
 
 export default function PatientsPage() {
   const router = useRouter();
+  const { clinicId } = useClinic();
 
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +77,7 @@ export default function PatientsPage() {
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [middleName, setMiddleName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,9 +85,9 @@ export default function PatientsPage() {
   async function enrichPatients(basePatients: any[]) {
     try {
       const [{ data: allTreatments }, { data: allInvoices }, { data: allPayments }] = await Promise.all([
-        supabase.from("treatments").select("patient_id, treatment_date"),
-        supabase.from("invoices").select("patient_id, total"),
-        supabase.from("payments").select("patient_id, amount"),
+        supabase.from("treatments").select("patient_id, treatment_date").eq("clinic_id", clinicId),
+        supabase.from("invoices").select("patient_id, total").eq("clinic_id", clinicId),
+        supabase.from("payments").select("patient_id, amount").eq("clinic_id", clinicId),
       ]);
 
       const lastVisitMap: Record<string, string> = {};
@@ -124,7 +124,8 @@ export default function PatientsPage() {
       while (hasMore) {
         const { data, error: patientsError } = await supabase
           .from("patients")
-          .select("id, first_name, last_name, full_name, phone, birth_date, gender, created_at")
+          .select("id, first_name, middle_name, last_name, full_name, phone, birth_date, gender, created_at")
+          .eq("clinic_id", clinicId)
           .order("created_at", { ascending: false })
           .range(offset, offset + BATCH_SIZE - 1);
         if (patientsError) throw patientsError;
@@ -252,8 +253,9 @@ export default function PatientsPage() {
       const userId = sessionData.session.user.id;
 
       const fn = safeText(firstName);
+      const mn = safeText(middleName);
       const ln = safeText(lastName);
-      const full = combineFullName(fn, ln);
+      const full = formatPatientName(fn, mn || null, ln);
 
       if (fn.length < 1 || ln.length < 1) {
         setError("Please enter both First name and Last name.");
@@ -262,7 +264,9 @@ export default function PatientsPage() {
       }
 
       const { error } = await supabase.from("patients").insert({
+        clinic_id: clinicId,
         first_name: fn,
+        middle_name: mn || null,
         last_name: ln,
         full_name: full,
         gender: gender || null,
@@ -281,6 +285,7 @@ export default function PatientsPage() {
 
       setShowAdd(false);
       setFirstName("");
+      setMiddleName("");
       setLastName("");
       setGender("");
       setPhone("");
@@ -420,7 +425,7 @@ export default function PatientsPage() {
               className={`card-shell card-interactive ${index % 2 === 0 ? "card-even" : "card-odd"}`}
             >
               <div className="card-title">
-                {p.last_name ? `${p.last_name}, ${p.first_name ?? ""}` : p.full_name ?? "—"}
+                {formatPatientName(p.first_name, p.middle_name, p.last_name)}
               </div>
 
               <div className="card-meta">
@@ -539,6 +544,11 @@ export default function PatientsPage() {
                   <label className="form-label">First name</label>
                   <input className="form-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Juan" />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Middle name <span className="text-xs text-slate-400">(optional)</span></label>
+                <input className="form-input" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Santos" />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">

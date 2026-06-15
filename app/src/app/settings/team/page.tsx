@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
@@ -61,6 +62,7 @@ function LoadingBlock() {
 }
 
 export default function TeamSettingsPage() {
+  const { clinicId } = useClinic();
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +102,7 @@ export default function TeamSettingsPage() {
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
+    if (!clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -107,6 +110,7 @@ export default function TeamSettingsPage() {
       const dentistRes = await supabase
         .from("dentists")
         .select("*")
+        .eq("clinic_id", clinicId)
         .order("full_name", { ascending: true });
 
       if (dentistRes.error) throw dentistRes.error;
@@ -128,6 +132,7 @@ export default function TeamSettingsPage() {
         const staffRes = await supabase
           .from("staff")
           .select("*")
+          .eq("clinic_id", clinicId)
           .order("full_name", { ascending: true });
 
         if (!staffRes.error) {
@@ -149,7 +154,7 @@ export default function TeamSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [clinicId]);
 
   useEffect(() => {
     loadData();
@@ -174,6 +179,7 @@ export default function TeamSettingsPage() {
       }
 
       const { error } = await supabase.from("dentists").insert({
+        clinic_id: clinicId,
         full_name: dentistName.trim(),
         nickname: dentistNickname.trim() || null,
         date_of_birth: dentistDob || null,
@@ -310,6 +316,7 @@ export default function TeamSettingsPage() {
       if (!userId) throw new Error("User not authenticated");
 
       const { error } = await supabase.from("staff").insert({
+        clinic_id: clinicId,
         full_name: staffName.trim(),
         role: staffRole.trim(),
         date_of_birth: staffDob || null,

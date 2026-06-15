@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import PatientTabs from "@/components/PatientTabs";
 import type { Patient, MedHist } from "@/lib/types";
 import { combineFullName } from "@/lib/helpers";
+import { useClinic } from "@/contexts/ClinicContext";
 import { PageLoader } from "@/components/Spinner";
 
 
@@ -14,6 +15,7 @@ export default function Page() {
   const params = useParams();
   const router = useRouter();
   const id = (params?.id as string) || "";
+  const { clinicId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -31,10 +33,11 @@ export default function Page() {
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
   const loadData = useCallback(async () => {
+    if (!id || !clinicId) return;
     setLoading(true);
     setError(null);
 
-    const p = await supabase.from("patients").select("*").eq("id", id).single();
+    const p = await supabase.from("patients").select("*").eq("id", id).eq("clinic_id", clinicId).single();
     if (p.error) {
       setError(p.error.message);
       setLoading(false);
@@ -57,7 +60,7 @@ export default function Page() {
     }
 
     setLoading(false);
-  }, [id]);
+  }, [id, clinicId]);
 
   useEffect(() => {
     loadData();

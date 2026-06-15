@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
 import { downloadCSV } from "@/lib/exportHelpers";
@@ -22,21 +23,23 @@ interface MonthStat {
 }
 
 export default function AppointmentsReportPage() {
+  const { clinicId } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState({ total: 0, confirmed: 0, cancelled: 0, pending: 0 });
   const [byDentist, setByDentist] = useState<DentistStat[]>([]);
   const [byMonth, setByMonth] = useState<MonthStat[]>([]);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [clinicId]);
 
   async function loadData() {
+    if (!clinicId) return;
     setLoading(true);
     setError(null);
     try {
       const [{ data: appts }, { data: dentists }] = await Promise.all([
-        supabase.from("appointments").select("id, dentist_id, appointment_date, status").is("deleted_at", null),
-        supabase.from("dentists").select("id, full_name, nickname"),
+        supabase.from("appointments").select("id, dentist_id, appointment_date, status").eq("clinic_id", clinicId).is("deleted_at", null),
+        supabase.from("dentists").select("id, full_name, nickname").eq("clinic_id", clinicId),
       ]);
 
       const dentistMap: Record<string, string> = {};

@@ -1,6 +1,7 @@
 import { supabase } from "./supabaseClient";
 import { getNextReceiptNumber } from "./numberGenerationHelpers";
 
+
 /**
  * Generate a receipt for a verified payment
  * Creates an immutable snapshot of payment data
@@ -14,7 +15,8 @@ import { getNextReceiptNumber } from "./numberGenerationHelpers";
 export async function generateReceipt(
   paymentId: string,
   staffId: string,
-  currentUserId: string
+  currentUserId: string,
+  clinicId: string
 ) {
   try {
     // Fetch payment
@@ -45,7 +47,7 @@ export async function generateReceipt(
       : `${patientData?.first_name || ""} ${patientData?.last_name || ""}`.trim();
 
     // Generate sequential receipt number (PMT26-0001, PMT26-0002, etc.)
-    const receiptNumber = await getNextReceiptNumber();
+    const receiptNumber = await getNextReceiptNumber(clinicId);
 
     // Create immutable snapshot of payment data
     // Extract payment mode from details JSONB (not from foreign key)
@@ -64,6 +66,7 @@ export async function generateReceipt(
     const { data, error } = await supabase
       .from("receipts")
       .insert({
+        clinic_id: clinicId,
         receipt_number: receiptNumber,
         payment_id: paymentId,
         invoice_id: payment.invoice_id,

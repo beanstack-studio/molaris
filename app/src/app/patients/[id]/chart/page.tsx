@@ -7,12 +7,14 @@ import PatientTabs from "@/components/PatientTabs";
 import { supabase } from "@/lib/supabaseClient";
 import type { ChartEntry, ToothStatusRow, Patient } from "@/lib/types";
 import { formatDateStandard, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
+import { useClinic } from "@/contexts/ClinicContext";
 import { PageLoader } from "@/components/Spinner";
 
 
 export default function ChartPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
+  const { clinicId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -34,11 +36,12 @@ export default function ChartPage() {
   const [sortKey, setSortKey] = useState("date_desc");
 
   const loadData = useCallback(async () => {
+    if (!id || !clinicId) return;
     setLoading(true);
     setError(null);
 
     // Load patient info
-    const p = await supabase.from("patients").select("*").eq("id", id).single();
+    const p = await supabase.from("patients").select("*").eq("id", id).eq("clinic_id", clinicId).single();
     if (!p.error && p.data) {
       const patRaw = p.data as any;
       const fallback = splitFullName(patRaw.full_name ?? "");
@@ -49,8 +52,10 @@ export default function ChartPage() {
 
       setPatient({
         id: patRaw.id,
+        clinic_id: patRaw.clinic_id,
         full_name: patRaw.full_name,
         first_name: firstNameFinal,
+        middle_name: patRaw.middle_name ?? null,
         last_name: lastNameFinal,
         phone: patRaw.phone,
         birth_date: patRaw.birth_date,
@@ -59,6 +64,8 @@ export default function ChartPage() {
         email: patRaw.email,
         gender: patRaw.gender,
         notes: patRaw.notes,
+        created_at: patRaw.created_at,
+        updated_at: patRaw.updated_at,
       });
     }
 
@@ -95,7 +102,7 @@ export default function ChartPage() {
     }
 
     setLoading(false);
-  }, [id]);
+  }, [id, clinicId]);
 
   useEffect(() => {
     loadData();

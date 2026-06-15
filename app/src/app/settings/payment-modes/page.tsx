@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { PaymentMode } from "@/lib/types";
+import { useClinic } from "@/contexts/ClinicContext";
 import { PageLoader, Spinner } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
 const TogglePill = Toggle;
 
 export default function PaymentModesSettingsPage() {
+  const { clinicId } = useClinic();
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -26,6 +28,7 @@ export default function PaymentModesSettingsPage() {
     const { data, error } = await supabase
       .from("payment_modes")
       .select("*")
+      .eq("clinic_id", clinicId)
       .order("sort_order", { ascending: true });
 
     setLoading(false);
@@ -50,6 +53,7 @@ export default function PaymentModesSettingsPage() {
         .from("payment_modes")
         .update({ is_active: newValue })
         .eq("id", id)
+        .eq("clinic_id", clinicId)
         .select();
 
       if (error) {
@@ -95,7 +99,8 @@ export default function PaymentModesSettingsPage() {
         requires_received_by: editData.requires_received_by,
         auto_verifies: editData.auto_verifies,
       })
-      .eq("id", editingId);
+      .eq("id", editingId)
+      .eq("clinic_id", clinicId);
 
     setBusy(false);
     if (error) {

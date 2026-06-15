@@ -32,7 +32,7 @@ export async function POST() {
 
     const { data, error } = await supabaseAdmin
       .from("clinic_profile")
-      .insert({ clinic_name: "Matira Dental Studio", sunday_end_hour: 11 })
+      .insert({ clinic_name: "", sunday_end_hour: 11 })
       .select()
       .single();
 

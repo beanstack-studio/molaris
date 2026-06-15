@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import PatientTabs from "@/components/PatientTabs";
-import { combineFullName } from "@/lib/helpers";
+import { formatPatientName } from "@/lib/helpers";
+import { useClinic } from "@/contexts/ClinicContext";
 import type { Tab } from "@/lib/types";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -12,6 +13,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const patientId = params?.id as string;
+  const { clinicId } = useClinic();
   const [patientName, setPatientName] = useState<string>("");
   const [patientAge, setPatientAge] = useState<number | null>(null);
   const [patientGender, setPatientGender] = useState<string>("");
@@ -37,18 +39,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function loadPatientName() {
-      if (!patientId) return;
+      if (!patientId || !clinicId) return;
 
       setLoading(true);
       const { data, error } = await supabase
         .from("patients")
         .select("*")
         .eq("id", patientId)
+        .eq("clinic_id", clinicId)
         .single();
 
       if (data) {
         const name =
-          combineFullName(data.first_name, data.last_name) ||
+          formatPatientName(data.first_name, data.middle_name, data.last_name) ||
           data.full_name ||
           "";
         setPatientName(name);
@@ -81,7 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
 
     loadPatientName();
-  }, [patientId]);
+  }, [patientId, clinicId]);
 
   const displayName = patientName || "Patient";
 

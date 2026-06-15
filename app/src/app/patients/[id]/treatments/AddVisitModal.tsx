@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import type { DentistRow, ServicePriceRow, DraftLine } from "@/lib/types";
 import { dentistLabel } from "@/lib/types";
@@ -33,6 +34,7 @@ const formatTime12Hr = (t: string) => {
 };
 
 export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, serviceMenu, defaultConcern }: Props) {
+  const { clinicId } = useClinic();
   const [visitDate, setVisitDate] = useState(() => todayLocalISO());
   const [visitDentistId, setVisitDentistId] = useState("");
   const [visitConcern, setVisitConcern] = useState("");
@@ -58,11 +60,12 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
   }, [open, defaultConcern]);
 
   async function loadConfirmedAppts() {
-    if (!patientId) return;
+    if (!patientId || !clinicId) return;
     const { data } = await supabase
       .from("appointments")
       .select("id, appointment_date, appointment_time, dentist_id, concern_type, dentists(full_name)")
       .eq("patient_id", patientId)
+      .eq("clinic_id", clinicId)
       .in("status", ["confirmed", "pending"])
       .is("deleted_at", null)
       .order("appointment_date", { ascending: false })
@@ -112,6 +115,7 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
     setBusy(true);
     const dentistName = dentists.find((d) => d.id === visitDentistId)?.full_name || "";
     const payload = draftLines.map((ln) => ({
+      clinic_id: clinicId,
       patient_id: patientId,
       treatment_date: visitDate,
       procedure: ln.procedure,
