@@ -9,35 +9,24 @@ import type { GenderDB } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { DatePickerField } from "@/components/DatePickerField";
 import { useClinic } from "@/contexts/ClinicContext";
-import { TableOptions, useTableColumns, type ColumnDef } from "@/components/shared/TableOptions";
+import { TableOptions, useTableColumns, type ColumnConfig } from "@/components/shared/TableOptions";
+import { useColumnResize } from "@/hooks/useColumnResize";
 
 type PatientRow = {
   id: string;
-
   first_name: string | null;
   middle_name: string | null;
   last_name: string | null;
-
   full_name: string | null;
-
   phone: string | null;
   birth_date: string | null;
   gender: GenderDB;
   created_at: string;
-
   last_visit_date: string | null; // YYYY-MM-DD
-  balance: number | null; // computed
+  balance: number | null;         // computed
 };
 
-type PatientSort =
-  | "LASTNAME_ASC"
-  | "LASTNAME_DESC"
-  | "BALANCE_ASC"
-  | "BALANCE_DESC"
-  | "LASTVISIT_ASC"
-  | "LASTVISIT_DESC";
-
-const PATIENT_COLUMNS: ColumnDef[] = [
+const PATIENT_COLUMNS: ColumnConfig[] = [
   { key: "last_name",    label: "Last name",    required: true },
   { key: "first_name",   label: "First name",   required: true },
   { key: "middle_name",  label: "Middle name" },
@@ -48,6 +37,47 @@ const PATIENT_COLUMNS: ColumnDef[] = [
   { key: "balance",      label: "Balance" },
 ];
 
+const PATIENT_SORTS = [
+  { key: "last_name",       label: "Last name" },
+  { key: "first_name",      label: "First name" },
+  { key: "last_visit_date", label: "Last visit" },
+  { key: "balance",         label: "Balance" },
+];
+
+const PATIENT_FILTERS = [
+  {
+    key: "balance",
+    label: "Balance",
+    options: [
+      { label: "All", value: "" },
+      { label: "Has balance", value: "has_balance" },
+      { label: "No balance", value: "no_balance" },
+      { label: "Over ₱1,000", value: "over_1000" },
+      { label: "Over ₱5,000", value: "over_5000" },
+    ],
+  },
+  {
+    key: "ortho",
+    label: "Ortho",
+    options: [
+      { label: "All", value: "" },
+      { label: "Active case", value: "active" },
+      { label: "No case", value: "none" },
+    ],
+  },
+  {
+    key: "last_visit",
+    label: "Last Visit",
+    options: [
+      { label: "All", value: "" },
+      { label: "Last 30 days", value: "30d" },
+      { label: "Last 6 months", value: "6m" },
+      { label: "Last 12 months", value: "12m" },
+      { label: "Never visited", value: "never" },
+    ],
+  },
+];
+
 function onlyDigits(s: string) {
   return (s || "").replace(/\D/g, "");
 }
@@ -56,28 +86,34 @@ function safeText(s: unknown) {
   return String(s ?? "").trim();
 }
 
-
-
 function toDateKey(iso: string | null | undefined) {
   if (!iso) return "0000-00-00";
   return iso;
 }
 
+function daysBetween(isoDate: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(isoDate + "T00:00:00");
+  return Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export default function PatientsPage() {
   const router = useRouter();
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
 
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [patientSort, setPatientSort] = useState<PatientSort>("LASTNAME_ASC");
-  const [showOptions, setShowOptions] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "last_name", direction: "asc" });
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [orthoPatientIds, setOrthoPatientIds] = useState<Set<string>>(new Set());
   const { visibleColumns, onVisibilityChange, isVisible } = useTableColumns("patients", PATIENT_COLUMNS);
+  const { getWidth, startResize } = useColumnResize("patients");
 
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
 
-  // Scroll to top when page changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
@@ -95,8 +131,7 @@ export default function PatientsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Phase 2: load balance + last visit in background after list is shown
-  async function enrichPatients(basePatients: any[]) {
+  async function enrichPatients(basePatients: PatientRow[]) {
     try {
       const [{ data: allTreatments }, { data: allInvoices }, { data: allPayments }] = await Promise.all([
         supabase.from("treatments").select("patient_id, treatment_date").eq("clinic_id", clinicId),
@@ -105,21 +140,45 @@ export default function PatientsPage() {
       ]);
 
       const lastVisitMap: Record<string, string> = {};
-      (allTreatments || []).forEach((t: any) => {
-        if (t.treatment_date && (!lastVisitMap[t.patient_id] || t.treatment_date > lastVisitMap[t.patient_id]))
-          lastVisitMap[t.patient_id] = t.treatment_date;
+      (allTreatments || []).forEach((t) => {
+        const row = t as { patient_id: string; treatment_date: string };
+        if (row.treatment_date && (!lastVisitMap[row.patient_id] || row.treatment_date > lastVisitMap[row.patient_id]))
+          lastVisitMap[row.patient_id] = row.treatment_date;
       });
       const invoiceTotal: Record<string, number> = {};
-      (allInvoices || []).forEach((inv: any) => { invoiceTotal[inv.patient_id] = (invoiceTotal[inv.patient_id] ?? 0) + (inv.total || 0); });
+      (allInvoices || []).forEach((inv) => {
+        const row = inv as { patient_id: string; total: number };
+        invoiceTotal[row.patient_id] = (invoiceTotal[row.patient_id] ?? 0) + (row.total || 0);
+      });
       const paymentTotal: Record<string, number> = {};
-      (allPayments || []).forEach((pay: any) => { paymentTotal[pay.patient_id] = (paymentTotal[pay.patient_id] ?? 0) + (pay.amount || 0); });
+      (allPayments || []).forEach((pay) => {
+        const row = pay as { patient_id: string; amount: number };
+        paymentTotal[row.patient_id] = (paymentTotal[row.patient_id] ?? 0) + (row.amount || 0);
+      });
 
-      setPatients(basePatients.map((p: any): PatientRow => ({
+      setPatients(basePatients.map((p): PatientRow => ({
         ...p,
         last_visit_date: lastVisitMap[p.id] ?? null,
         balance: (invoiceTotal[p.id] ?? 0) - (paymentTotal[p.id] ?? 0),
       })));
-    } catch { /* non-critical — list already shown without balance/last visit */ }
+    } catch {
+      // non-critical — list already shown without balance/last visit
+    }
+  }
+
+  async function loadOrthoPatientIds() {
+    try {
+      const { data } = await supabase
+        .from("ortho_cases")
+        .select("patient_id")
+        .eq("clinic_id", clinicId)
+        .eq("status", "active");
+      if (data) {
+        setOrthoPatientIds(new Set((data as { patient_id: string }[]).map((r) => r.patient_id)));
+      }
+    } catch {
+      // non-critical
+    }
   }
 
   async function loadPatients() {
@@ -130,8 +189,7 @@ export default function PatientsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login"); return; }
 
-      // Phase 1: patients only — show list fast
-      const allPatients: any[] = [];
+      const allPatients: PatientRow[] = [];
       const BATCH_SIZE = 1000;
       let offset = 0;
       let hasMore = true;
@@ -144,25 +202,30 @@ export default function PatientsPage() {
           .range(offset, offset + BATCH_SIZE - 1);
         if (patientsError) throw patientsError;
         if (!data || data.length === 0) { hasMore = false; }
-        else { allPatients.push(...data); offset += data.length; hasMore = data.length === 1000; }
+        else {
+          allPatients.push(...(data as PatientRow[]).map((p) => ({ ...p, last_visit_date: null, balance: null })));
+          offset += data.length;
+          hasMore = data.length === 1000;
+        }
       }
 
-      // Show list immediately with null balance/last visit
-      setPatients(allPatients.map((p: any): PatientRow => ({ ...p, last_visit_date: null, balance: null })));
+      setPatients(allPatients);
       setLoading(false);
 
-      // Phase 2: enrich in background (no spinner, best-effort)
+      // Background enrichment
       enrichPatients(allPatients);
-    } catch (err: any) {
-      setError(err.message || "Failed to load patients");
+      loadOrthoPatientIds();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load patients";
+      setError(msg);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
+    if (clinicLoading || !clinicId) return;
     const abort = new AbortController();
-    // Timer only covers Phase 1 (patients query); Phase 2 runs silently
     const timer = setTimeout(() => {
       if (!abort.signal.aborted) {
         setError("Connection timed out. The server may be slow to start — please try again.");
@@ -171,70 +234,75 @@ export default function PatientsPage() {
     }, 30000);
     loadPatients().finally(() => clearTimeout(timer));
     return () => { abort.abort(); clearTimeout(timer); };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicLoading, clinicId]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
 
-    const list = (() => {
+    let list = (() => {
       if (!s) return [...patients];
-
       const sDigits = onlyDigits(s);
-
       return patients.filter((p) => {
         const first = (p.first_name ?? "").toLowerCase();
         const last = (p.last_name ?? "").toLowerCase();
         const full = (p.full_name ?? "").toLowerCase();
-
         const ph = (p.phone ?? "").toLowerCase();
         const phDigits = onlyDigits(p.phone ?? "");
-
         const matchName = first.includes(s) || last.includes(s) || full.includes(s);
         const matchPhone = sDigits ? phDigits.includes(sDigits) : ph.includes(s);
-
         return matchName || matchPhone;
       });
     })();
 
+    // Apply filters
+    const balFilter = activeFilters["balance"] ?? "";
+    if (balFilter === "has_balance")  list = list.filter((p) => (p.balance ?? 0) > 0);
+    if (balFilter === "no_balance")   list = list.filter((p) => (p.balance ?? 0) <= 0);
+    if (balFilter === "over_1000")    list = list.filter((p) => (p.balance ?? 0) > 1000);
+    if (balFilter === "over_5000")    list = list.filter((p) => (p.balance ?? 0) > 5000);
+
+    const orthoFilter = activeFilters["ortho"] ?? "";
+    if (orthoFilter === "active") list = list.filter((p) => orthoPatientIds.has(p.id));
+    if (orthoFilter === "none")   list = list.filter((p) => !orthoPatientIds.has(p.id));
+
+    const lvFilter = activeFilters["last_visit"] ?? "";
+    if (lvFilter === "30d")    list = list.filter((p) => p.last_visit_date != null && daysBetween(p.last_visit_date) <= 30);
+    if (lvFilter === "6m")     list = list.filter((p) => p.last_visit_date != null && daysBetween(p.last_visit_date) <= 183);
+    if (lvFilter === "12m")    list = list.filter((p) => p.last_visit_date != null && daysBetween(p.last_visit_date) <= 366);
+    if (lvFilter === "never")  list = list.filter((p) => p.last_visit_date == null);
+
+    // Apply sort
+    const { key, direction } = sortConfig;
+    const dir = direction === "asc" ? 1 : -1;
     const cmpText = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base" });
 
     list.sort((a, b) => {
-      const aLast = (a.last_name ?? "").trim();
-      const bLast = (b.last_name ?? "").trim();
-      const aFirst = (a.first_name ?? "").trim();
-      const bFirst = (b.first_name ?? "").trim();
-
-      const aBal = Number(a.balance ?? 0);
-      const bBal = Number(b.balance ?? 0);
-
-      const aLV = toDateKey(a.last_visit_date);
-      const bLV = toDateKey(b.last_visit_date);
-
-      if (patientSort === "LASTNAME_ASC") {
-        return cmpText(aLast, bLast) || cmpText(aFirst, bFirst) || cmpText(a.id, b.id);
+      if (key === "last_name") {
+        const aVal = (a.last_name ?? "").trim();
+        const bVal = (b.last_name ?? "").trim();
+        return dir * cmpText(aVal, bVal) || cmpText((a.first_name ?? "").trim(), (b.first_name ?? "").trim());
       }
-
-      if (patientSort === "LASTNAME_DESC") {
-        return cmpText(bLast, aLast) || cmpText(bFirst, aFirst) || cmpText(a.id, b.id);
+      if (key === "first_name") {
+        const aVal = (a.first_name ?? "").trim();
+        const bVal = (b.first_name ?? "").trim();
+        return dir * cmpText(aVal, bVal) || cmpText((a.last_name ?? "").trim(), (b.last_name ?? "").trim());
       }
-
-      if (patientSort === "BALANCE_ASC") {
-        return aBal - bBal || cmpText(aLast, bLast) || cmpText(aFirst, bFirst);
+      if (key === "last_visit_date") {
+        const aVal = toDateKey(a.last_visit_date);
+        const bVal = toDateKey(b.last_visit_date);
+        return dir * cmpText(aVal, bVal);
       }
-
-      if (patientSort === "BALANCE_DESC") {
-        return bBal - aBal || cmpText(aLast, bLast) || cmpText(aFirst, bFirst);
+      if (key === "balance") {
+        const aVal = a.balance ?? 0;
+        const bVal = b.balance ?? 0;
+        return dir * (aVal - bVal);
       }
-
-      if (patientSort === "LASTVISIT_ASC") {
-        return cmpText(aLV, bLV) || cmpText(aLast, bLast) || cmpText(aFirst, bFirst);
-      }
-
-      return cmpText(bLV, aLV) || cmpText(aLast, bLast) || cmpText(aFirst, bFirst);
+      return 0;
     });
 
     return list;
-  }, [patients, q, patientSort]);
+  }, [patients, q, sortConfig, activeFilters, orthoPatientIds]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)), [filtered.length]);
 
@@ -244,7 +312,7 @@ export default function PatientsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [q, patientSort]);
+  }, [q, sortConfig, activeFilters]);
 
   const pageRows = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -256,8 +324,6 @@ export default function PatientsPage() {
     setError(null);
 
     try {
-      // Force a session refresh so the token is always fresh before writing.
-      // This prevents RLS rejections in Safari where the token can expire silently.
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
       if (sessionErr || !sessionData.session) {
         setError("Session expired — please sign out and sign back in.");
@@ -277,7 +343,7 @@ export default function PatientsPage() {
         return;
       }
 
-      const { error } = await supabase.from("patients").insert({
+      const { error: insertError } = await supabase.from("patients").insert({
         clinic_id: clinicId,
         first_name: fn,
         middle_name: mn || null,
@@ -292,8 +358,8 @@ export default function PatientsPage() {
         first_seen_on: new Date().toISOString().slice(0, 10),
       });
 
-      if (error) {
-        setError(error.message);
+      if (insertError) {
+        setError(insertError.message);
         return;
       }
 
@@ -307,30 +373,35 @@ export default function PatientsPage() {
       setAddress("");
       setBirthDate("");
       await loadPatients();
-    } catch (err: any) {
-      setError(err?.message ?? "An unexpected error occurred. Please try again.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
+      setError(msg);
     } finally {
       setBusy(false);
     }
   }
 
-  const SORTABLE_COLS: Record<string, { asc: PatientSort; desc: PatientSort }> = {
-    last_name:  { asc: "LASTNAME_ASC",  desc: "LASTNAME_DESC" },
-    balance:    { asc: "BALANCE_ASC",   desc: "BALANCE_DESC" },
-    last_visit: { asc: "LASTVISIT_ASC", desc: "LASTVISIT_DESC" },
+  // Column header sort indicator
+  const SORTABLE_COLS: Record<string, string> = {
+    last_name:  "last_name",
+    balance:    "balance",
+    last_visit: "last_visit_date",
   };
 
   function handleColSort(col: string) {
-    const entry = SORTABLE_COLS[col];
-    if (!entry) return;
-    setPatientSort(patientSort === entry.asc ? entry.desc : entry.asc);
+    const mappedKey = SORTABLE_COLS[col];
+    if (!mappedKey) return;
+    if (sortConfig.key === mappedKey) {
+      setSortConfig({ key: mappedKey, direction: sortConfig.direction === "asc" ? "desc" : "asc" });
+    } else {
+      setSortConfig({ key: mappedKey, direction: "asc" });
+    }
   }
 
   function getSortIcon(col: string): string {
-    const entry = SORTABLE_COLS[col];
-    if (!entry) return "";
-    if (patientSort === entry.asc)  return " ↑";
-    if (patientSort === entry.desc) return " ↓";
+    const mappedKey = SORTABLE_COLS[col];
+    if (!mappedKey) return "";
+    if (sortConfig.key === mappedKey) return sortConfig.direction === "asc" ? " ↑" : " ↓";
     return " ↕";
   }
 
@@ -380,117 +451,201 @@ export default function PatientsPage() {
       </div>
 
       <div className="card">
-          <div className="page-toolbar">
-            <input
-              className="form-input w-full sm:max-w-md"
-              placeholder="Search by name or phone"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+        <div className="page-toolbar">
+          <input
+            className="form-input w-full sm:max-w-md"
+            placeholder="Search by name or phone"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+
+          <div className="flex-center-gap-3">
+            <div className="text-muted">
+              {loading ? "Loading..." : `${filtered.length} of ${patients.length} patients`}
+            </div>
+
+            <TableOptions
+              tableName="patients"
+              columns={PATIENT_COLUMNS}
+              sorts={PATIENT_SORTS}
+              filters={PATIENT_FILTERS}
+              currentSort={sortConfig}
+              onSortChange={(key, direction) => setSortConfig({ key, direction })}
+              currentFilters={activeFilters}
+              onFilterChange={(key, value) => setActiveFilters((prev) => ({ ...prev, [key]: value }))}
+              data={patients}
+              onDownloadCSV={exportPatientsCsv}
             />
-
-            <div className="flex-center-gap-3">
-              <div className="text-muted">
-                {loading ? "Loading..." : `${filtered.length} of ${patients.length} patients`}
-              </div>
-
-              <select
-                className="form-select-standard w-48"
-                value={patientSort}
-                onChange={(e) => setPatientSort(e.target.value as PatientSort)}
-              >
-                <option value="LASTNAME_ASC">Last name A–Z</option>
-                <option value="LASTNAME_DESC">Last name Z–A</option>
-                <option value="BALANCE_ASC">Balance low–high</option>
-                <option value="BALANCE_DESC">Balance high–low</option>
-                <option value="LASTVISIT_ASC">Last visit old–new</option>
-                <option value="LASTVISIT_DESC">Last visit new–old</option>
-              </select>
-              <button
-                type="button"
-                className="cancel-btn"
-                onClick={() => setShowOptions(true)}
-              >
-                Options
-              </button>
-            </div>
           </div>
+        </div>
 
-          {/* Error banner with retry */}
-          {!loading && error && (
-            <div className="mx-1 mb-3 flex items-center justify-between gap-3 rounded-lg bg-red-50 border border-red-100 px-4 py-3">
-              <p className="text-sm text-red-700">{error}</p>
-              <button
-                className="flex-shrink-0 text-xs font-medium text-red-700 underline hover:no-underline"
-                onClick={() => { setError(null); loadPatients(); }}
-              >
-                Retry
-              </button>
-            </div>
-          )}
+        {/* Error banner with retry */}
+        {!loading && error && (
+          <div className="mx-1 mb-3 flex items-center justify-between gap-3 rounded-lg bg-red-50 border border-red-100 px-4 py-3">
+            <p className="text-sm text-red-700">{error}</p>
+            <button
+              className="flex-shrink-0 text-xs font-medium text-red-700 underline hover:no-underline"
+              onClick={() => { setError(null); loadPatients(); }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
-          {/* TABLE (desktop) */}
-          <div className="table-wrapper hidden md:block">
-            <table className="data-table">
-              <thead className="data-table-head">
-                <tr>
-                  {isVisible("last_name")   && <th className="data-table-head-cell cursor-pointer select-none hover:bg-slate-100" onClick={() => handleColSort("last_name")}>Last name{getSortIcon("last_name")}</th>}
-                  {isVisible("first_name")  && <th className="data-table-head-cell">First name</th>}
-                  {isVisible("middle_name") && <th className="data-table-head-cell">Middle name</th>}
-                  {isVisible("age")         && <th className="data-table-head-cell">Age</th>}
-                  {isVisible("gender")     && <th className="data-table-head-cell">Gender</th>}
-                  {isVisible("phone")      && <th className="data-table-head-cell">Phone number</th>}
-                  {isVisible("last_visit") && <th className="data-table-head-cell cursor-pointer select-none hover:bg-slate-100" onClick={() => handleColSort("last_visit")}>Last visit{getSortIcon("last_visit")}</th>}
-                  {isVisible("balance")    && <th className="data-table-head-cell-right cursor-pointer select-none hover:bg-slate-100" onClick={() => handleColSort("balance")}>Balance{getSortIcon("balance")}</th>}
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={visibleColumns.length} className="py-12 text-center">
-                      <div className="flex justify-center">
-                        <Spinner />
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <>
-                    {pageRows.map((p, index) => (
-                      <tr
-                        key={p.id}
-                        className={`data-table-row cursor-pointer ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
-                        onClick={() => router.push(`/patients/${p.id}/info`)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            router.push(`/patients/${p.id}/info`);
-                          }
-                        }}
-                        tabIndex={0}
-                        role="link"
-                      >
-                        {isVisible("last_name")   && <td className="data-table-cell font-medium">{p.last_name ?? "-"}</td>}
-                        {isVisible("first_name")  && <td className="data-table-cell">{p.first_name ?? "-"}</td>}
-                        {isVisible("middle_name") && <td className="data-table-cell">{p.middle_name ?? "—"}</td>}
-                        {isVisible("age")         && <td className="data-table-cell">{calcAge(p.birth_date)}</td>}
-                        {isVisible("gender")     && <td className="data-table-cell">{formatGenderShort(p.gender)}</td>}
-                        {isVisible("phone")      && <td className="data-table-cell">{p.phone ? formatPhoneLocal(p.phone) : "-"}</td>}
-                        {isVisible("last_visit") && <td className="data-table-cell">{formatDateStandard(p.last_visit_date)}</td>}
-                        {isVisible("balance")    && <td className="data-table-cell-right num">{formatMoney(p.balance ?? 0)}</td>}
-                      </tr>
-                    ))}
-                    {filtered.length === 0 && (
-                      <tr>
-                        <td colSpan={visibleColumns.length} className="data-table-empty">
-                          No patients found.
-                        </td>
-                      </tr>
-                    )}
-                  </>
+        {/* TABLE (desktop) */}
+        <div className="table-wrapper hidden md:block">
+          <table className="data-table">
+            <thead className="data-table-head">
+              <tr>
+                {isVisible("last_name")   && (
+                  <th
+                    className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
+                    style={{ width: getWidth("last_name") }}
+                    onClick={() => handleColSort("last_name")}
+                  >
+                    Last name{getSortIcon("last_name")}
+                    <div
+                      onMouseDown={(e) => startResize("last_name", e)}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                    />
+                  </th>
                 )}
-              </tbody>
-            </table>
-          </div>
+                {isVisible("first_name")  && (
+                  <th
+                    className="data-table-head-cell relative"
+                    style={{ width: getWidth("first_name") }}
+                  >
+                    First name
+                    <div
+                      onMouseDown={(e) => startResize("first_name", e)}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                    />
+                  </th>
+                )}
+                {isVisible("middle_name") && (
+                  <th
+                    className="data-table-head-cell relative"
+                    style={{ width: getWidth("middle_name") }}
+                  >
+                    Middle name
+                    <div
+                      onMouseDown={(e) => startResize("middle_name", e)}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                    />
+                  </th>
+                )}
+                {isVisible("age")         && (
+                  <th
+                    className="data-table-head-cell relative"
+                    style={{ width: getWidth("age") }}
+                  >
+                    Age
+                    <div
+                      onMouseDown={(e) => startResize("age", e)}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                    />
+                  </th>
+                )}
+                {isVisible("gender")      && (
+                  <th
+                    className="data-table-head-cell relative"
+                    style={{ width: getWidth("gender") }}
+                  >
+                    Gender
+                    <div
+                      onMouseDown={(e) => startResize("gender", e)}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                    />
+                  </th>
+                )}
+                {isVisible("phone")       && (
+                  <th
+                    className="data-table-head-cell relative"
+                    style={{ width: getWidth("phone") }}
+                  >
+                    Phone number
+                    <div
+                      onMouseDown={(e) => startResize("phone", e)}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                    />
+                  </th>
+                )}
+                {isVisible("last_visit")  && (
+                  <th
+                    className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
+                    style={{ width: getWidth("last_visit") }}
+                    onClick={() => handleColSort("last_visit")}
+                  >
+                    Last visit{getSortIcon("last_visit")}
+                    <div
+                      onMouseDown={(e) => startResize("last_visit", e)}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                    />
+                  </th>
+                )}
+                {isVisible("balance")     && (
+                  <th
+                    className="data-table-head-cell-right relative cursor-pointer select-none hover:bg-slate-100"
+                    style={{ width: getWidth("balance") }}
+                    onClick={() => handleColSort("balance")}
+                  >
+                    Balance{getSortIcon("balance")}
+                    <div
+                      onMouseDown={(e) => startResize("balance", e)}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                    />
+                  </th>
+                )}
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={visibleColumns.length} className="py-12 text-center">
+                    <div className="flex justify-center">
+                      <Spinner />
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {pageRows.map((p, index) => (
+                    <tr
+                      key={p.id}
+                      className={`data-table-row cursor-pointer ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                      onClick={() => router.push(`/patients/${p.id}/info`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          router.push(`/patients/${p.id}/info`);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="link"
+                    >
+                      {isVisible("last_name")   && <td className="data-table-cell font-medium">{p.last_name ?? "-"}</td>}
+                      {isVisible("first_name")  && <td className="data-table-cell">{p.first_name ?? "-"}</td>}
+                      {isVisible("middle_name") && <td className="data-table-cell">{p.middle_name ?? "—"}</td>}
+                      {isVisible("age")         && <td className="data-table-cell">{calcAge(p.birth_date)}</td>}
+                      {isVisible("gender")      && <td className="data-table-cell">{formatGenderShort(p.gender)}</td>}
+                      {isVisible("phone")       && <td className="data-table-cell">{p.phone ? formatPhoneLocal(p.phone) : "-"}</td>}
+                      {isVisible("last_visit")  && <td className="data-table-cell">{formatDateStandard(p.last_visit_date)}</td>}
+                      {isVisible("balance")     && <td className="data-table-cell-right num">{formatMoney(p.balance ?? 0)}</td>}
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={visibleColumns.length} className="data-table-empty">
+                        No patients found.
+                      </td>
+                    </tr>
+                  )}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* CARDS (mobile) */}
         <div className="mt-4 grid gap-3 md:hidden">
@@ -544,7 +699,6 @@ export default function PatientsPage() {
             </div>
 
             <div className="flex items-center gap-1">
-              {/* Prev */}
               <button
                 className="btn btn-secondary"
                 disabled={page <= 1}
@@ -553,7 +707,6 @@ export default function PatientsPage() {
                 ‹
               </button>
 
-              {/* Page number buttons — windowed around current page */}
               {(() => {
                 const pages: (number | "…")[] = [];
                 const delta = 2;
@@ -583,7 +736,6 @@ export default function PatientsPage() {
                 );
               })()}
 
-              {/* Next */}
               <button
                 className="btn btn-secondary"
                 disabled={page >= totalPages}
@@ -702,15 +854,6 @@ export default function PatientsPage() {
           </div>
         </div>
       ) : null}
-
-      <TableOptions
-        open={showOptions}
-        onClose={() => setShowOptions(false)}
-        columns={PATIENT_COLUMNS}
-        visibleColumns={visibleColumns}
-        onVisibilityChange={onVisibilityChange}
-        onExportCsv={exportPatientsCsv}
-      />
     </main>
   );
 }

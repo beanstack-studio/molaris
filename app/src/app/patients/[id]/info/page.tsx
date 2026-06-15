@@ -60,7 +60,7 @@ export default function Page() {
   const params = useParams();
   const router = useRouter();
   const id = (params?.id as string) || "";
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -95,7 +95,7 @@ export default function Page() {
   const birthDateRef = useRef<HTMLInputElement | null>(null);
 
   const loadPatient = useCallback(async () => {
-    if (!id || !clinicId) return;
+    if (clinicLoading || !id || !clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -195,7 +195,7 @@ export default function Page() {
     }
 
     setLoading(false);
-  }, [id, clinicId]);
+  }, [clinicLoading, id, clinicId]);
 
   useEffect(() => {
     loadPatient();

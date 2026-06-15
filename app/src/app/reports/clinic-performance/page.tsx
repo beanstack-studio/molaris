@@ -22,13 +22,16 @@ interface MonthRevenue {
 }
 
 export default function ClinicPerformanceReportPage() {
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthRevenue[]>([]);
 
-  useEffect(() => { loadData(); }, [clinicId]);
+  useEffect(() => {
+    if (clinicLoading || !clinicId) return;
+    loadData();
+  }, [clinicLoading, clinicId]);
 
   async function loadData() {
     if (!clinicId) return;

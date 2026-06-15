@@ -1,25 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { PaymentMode } from "@/lib/types";
 import { useClinic } from "@/contexts/ClinicContext";
 import { PageLoader, Spinner } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
+import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
 const TogglePill = Toggle;
 
+const PM_COLUMNS: ColumnConfig[] = [
+  { key: "name",    label: "Name",        required: true },
+  { key: "proof",   label: "Proof" },
+  { key: "ref",     label: "Reference" },
+  { key: "staff",   label: "Staff" },
+  { key: "auto",    label: "Auto-Verify" },
+  { key: "active",  label: "Activate" },
+];
+
 export default function PaymentModesSettingsPage() {
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editData, setEditData] = useState<Partial<PaymentMode> | null>(null);
+  const [pmSortConfig, setPmSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "sort_order", direction: "asc" });
 
   useEffect(() => {
+    if (clinicLoading || !clinicId) return;
     loadPaymentModes();
-  }, []);
+  }, [clinicLoading, clinicId]);
 
   async function loadPaymentModes() {
     setLoading(true);
@@ -118,6 +130,18 @@ export default function PaymentModesSettingsPage() {
     setError(null);
   }
 
+  const sortedPaymentModes = useMemo(() => {
+    const list = [...paymentModes];
+    const { key, direction } = pmSortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      if (key === "name") return dir * (a.name ?? "").localeCompare(b.name ?? "");
+      if (key === "sort_order") return dir * ((a.sort_order ?? 0) - (b.sort_order ?? 0));
+      return 0;
+    });
+    return list;
+  }, [paymentModes, pmSortConfig]);
+
   if (loading) {
     return (
       <PageLoader text="Loading payment modes…" />
@@ -131,6 +155,18 @@ export default function PaymentModesSettingsPage() {
             <div className="card">
               <div className="card-header">
                 <div className="card-title">Payment Modes</div>
+                <TableOptions
+                  tableName="payment_modes"
+                  columns={PM_COLUMNS}
+                  sorts={[
+                    { key: "name",       label: "Name" },
+                    { key: "sort_order", label: "Sort order" },
+                  ]}
+                  currentSort={pmSortConfig}
+                  onSortChange={(k, d) => setPmSortConfig({ key: k, direction: d })}
+                  data={paymentModes}
+                  onDownloadCSV={() => {}}
+                />
               </div>
               <div className="table-wrapper">
                 <table className="data-table">
@@ -163,14 +199,14 @@ export default function PaymentModesSettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paymentModes.length === 0 ? (
+                  {sortedPaymentModes.length === 0 ? (
                     <tr className="data-table-row">
                       <td className="data-table-empty" colSpan={6}>
                         No payment modes configured.
                       </td>
                     </tr>
                   ) : (
-                    paymentModes.map((mode, i) => (
+                    sortedPaymentModes.map((mode, i) => (
                       <tr
                         key={mode.id}
                         className={`data-table-row ${editingId === mode.id ? "" : "cursor-pointer hover:bg-slate-50"} ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}

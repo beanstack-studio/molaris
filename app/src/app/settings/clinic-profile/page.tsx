@@ -38,7 +38,7 @@ interface Availability {
 
 
 export default function ClinicProfileSettingsPage() {
-  const { clinicId, clinicName, plan } = useClinic();
+  const { clinicId, clinicName, plan, isLoading: clinicLoading } = useClinic();
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -67,7 +67,10 @@ export default function ClinicProfileSettingsPage() {
   const [modalPhones, setModalPhones] = useState<PhoneEntry[]>([]);
   const [modalContacts, setModalContacts] = useState<ContactEntry[]>([]);
 
-  useEffect(() => { loadProfile(); }, []);
+  useEffect(() => {
+    if (clinicLoading || !clinicId) return;
+    loadProfile();
+  }, [clinicLoading, clinicId]);
 
   async function loadProfile() {
     setLoading(true); setError(null);

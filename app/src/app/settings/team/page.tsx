@@ -28,7 +28,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
@@ -36,6 +36,7 @@ import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Spinner } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
+import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
 
 const TogglePill = Toggle;
 
@@ -90,6 +91,22 @@ type InviteRow = {
   expires_at: string;
 };
 
+const DENTIST_TEAM_COLUMNS: ColumnConfig[] = [
+  { key: "full_name",    label: "Name",         required: true },
+  { key: "date_of_birth", label: "Date of Birth" },
+  { key: "prc_number",  label: "PRC Number" },
+  { key: "ptr_number",  label: "PTR Number" },
+  { key: "activate",    label: "Activate" },
+  { key: "schedule",    label: "Schedule" },
+];
+
+const STAFF_TEAM_COLUMNS: ColumnConfig[] = [
+  { key: "full_name",    label: "Name", required: true },
+  { key: "role",         label: "Role" },
+  { key: "date_of_birth", label: "Date of Birth" },
+  { key: "activate",    label: "Activate" },
+];
+
 function LoadingBlock() {
   return (
     <div className="flex items-center justify-center py-16">
@@ -99,13 +116,15 @@ function LoadingBlock() {
 }
 
 export default function TeamSettingsPage() {
-  const { clinicId, isOwner, isPro } = useClinic();
+  const { clinicId, isOwner, isPro, isLoading: clinicLoading } = useClinic();
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dentistSortConfig, setDentistSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "full_name", direction: "asc" });
+  const [staffSortConfig, setStaffSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "full_name", direction: "asc" });
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -146,7 +165,7 @@ export default function TeamSettingsPage() {
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
-    if (!clinicId) return;
+    if (clinicLoading || !clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -213,7 +232,7 @@ export default function TeamSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [clinicId]);
+  }, [clinicLoading, clinicId]);
 
   useEffect(() => {
     loadData();
@@ -570,6 +589,30 @@ export default function TeamSettingsPage() {
     setSchedBusy(false);
   }
 
+  const sortedDentists = useMemo(() => {
+    const list = [...dentists];
+    const { key, direction } = dentistSortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      if (key === "full_name") return dir * (a.full_name ?? "").localeCompare(b.full_name ?? "");
+      if (key === "role")      return dir * (a.full_name ?? "").localeCompare(b.full_name ?? "");
+      return 0;
+    });
+    return list;
+  }, [dentists, dentistSortConfig]);
+
+  const sortedStaff = useMemo(() => {
+    const list = [...staff];
+    const { key, direction } = staffSortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      if (key === "full_name") return dir * (a.full_name ?? "").localeCompare(b.full_name ?? "");
+      if (key === "role")      return dir * (a.role ?? "").localeCompare(b.role ?? "");
+      return 0;
+    });
+    return list;
+  }, [staff, staffSortConfig]);
+
   if (loading) return <LoadingBlock />;
 
   return (
@@ -579,6 +622,19 @@ export default function TeamSettingsPage() {
             <div className="card">
               <div className="card-header">
                 <h2 className="card-title">Dentists</h2>
+                <div className="flex items-center gap-2">
+                  <TableOptions
+                    tableName="dentists_team"
+                    columns={DENTIST_TEAM_COLUMNS}
+                    sorts={[
+                      { key: "full_name", label: "Name" },
+                      { key: "role",      label: "Role" },
+                    ]}
+                    currentSort={dentistSortConfig}
+                    onSortChange={(k, d) => setDentistSortConfig({ key: k, direction: d })}
+                    data={dentists}
+                    onDownloadCSV={() => {}}
+                  />
                 <button
                   className="save-btn"
                   onClick={() => {
@@ -595,6 +651,7 @@ export default function TeamSettingsPage() {
                 >
                   Add Dentist
                 </button>
+                </div>
               </div>
 
               <div className="table-wrapper">
@@ -618,14 +675,14 @@ export default function TeamSettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dentists.length === 0 ? (
+                  {sortedDentists.length === 0 ? (
                     <tr className="data-table-row">
                       <td colSpan={6} className="data-table-empty">
                         No dentists yet.
                       </td>
                     </tr>
                   ) : (
-                    dentists.map((d, index) => (
+                    sortedDentists.map((d, index) => (
                       <tr
                         key={d.id}
                         className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
@@ -701,6 +758,18 @@ export default function TeamSettingsPage() {
               <div className="card-header">
                 <h2 className="card-title">Staff Members</h2>
                 <div className="flex items-center gap-2">
+                  <TableOptions
+                    tableName="staff_team"
+                    columns={STAFF_TEAM_COLUMNS}
+                    sorts={[
+                      { key: "full_name", label: "Name" },
+                      { key: "role",      label: "Role" },
+                    ]}
+                    currentSort={staffSortConfig}
+                    onSortChange={(k, d) => setStaffSortConfig({ key: k, direction: d })}
+                    data={staff}
+                    onDownloadCSV={() => {}}
+                  />
                   {isOwner && (
                     isPro ? (
                       <button
@@ -758,14 +827,14 @@ export default function TeamSettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {staff.length === 0 ? (
+                  {sortedStaff.length === 0 ? (
                     <tr className="data-table-row">
                       <td colSpan={4} className="data-table-empty">
                         No staff members yet.
                       </td>
                     </tr>
                   ) : (
-                    staff.map((s, index) => (
+                    sortedStaff.map((s, index) => (
                       <tr
                         key={s.id}
                         className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}

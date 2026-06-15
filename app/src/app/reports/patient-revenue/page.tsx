@@ -18,14 +18,17 @@ interface PatientRow {
 }
 
 export default function PatientRevenueReportPage() {
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<PatientRow[]>([]);
   const [summary, setSummary] = useState({ invoiced: 0, paid: 0, outstanding: 0 });
   const [sort, setSort] = useState<"paid" | "invoiced" | "outstanding" | "name">("paid");
 
-  useEffect(() => { loadData(); }, [clinicId]);
+  useEffect(() => {
+    if (clinicLoading || !clinicId) return;
+    loadData();
+  }, [clinicLoading, clinicId]);
 
   async function loadData() {
     if (!clinicId) return;

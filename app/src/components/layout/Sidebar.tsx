@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
 import { cn } from "@/lib/cn";
@@ -120,13 +120,40 @@ const navItems: NavItem[] = [
   { href: "/reports/payments",label: "Reports",      icon: <IconReports />,   matchPrefix: "/reports" },
 ];
 
+// ─── Gear dropdown toggle switch ──────────────────────────────────────────────
+
+interface GearToggleProps {
+  isDark: boolean;
+  onToggle: () => void;
+}
+
+function GearToggle({ isDark, onToggle }: GearToggleProps) {
+  const switchClass = cn("switch-btn", isDark ? "switch-btn-on" : "switch-btn-off");
+  const thumbClass = cn("switch-thumb", isDark ? "switch-thumb-on" : "switch-thumb-off");
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      onClick={onToggle}
+      className={switchClass}
+      aria-label="Toggle dark mode"
+    >
+      <span className={thumbClass} />
+    </button>
+  );
+}
+
 // ─── Sidebar component ─────────────────────────────────────────────────────────
 
 export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { clinicName, plan, isOwner, userFullName, userEmail } = useClinic();
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
+  const [gearOpen, setGearOpen] = useState(false);
+  const gearRef = useRef<HTMLDivElement>(null);
 
   // Sync dark mode state from localStorage on mount
   useEffect(() => {
@@ -139,6 +166,35 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     setIsDark(next);
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("molaris_theme", next ? "dark" : "light");
+  }
+
+  // Close gear dropdown on outside click or Escape key
+  useEffect(() => {
+    if (!gearOpen) return;
+
+    function handleMouseDown(e: MouseEvent) {
+      if (gearRef.current && !gearRef.current.contains(e.target as Node)) {
+        setGearOpen(false);
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setGearOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [gearOpen]);
+
+  function handleSettingsClick() {
+    setGearOpen(false);
+    router.push("/settings/clinic-profile");
   }
 
   // Load clinic logo from localStorage cache, then refresh from DB
@@ -210,6 +266,52 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     ? "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700"
     : "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500";
 
+  const appearanceLabel = isDark ? "Dark" : "Light";
+  const dropdownItemClass = "flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer rounded-md w-full text-left text-slate-700 dark:text-slate-200";
+
+  // ─── Gear button + dropdown (shared between collapsed and expanded) ──────────
+  const gearDropdown = (
+    <div ref={gearRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setGearOpen((prev) => !prev)}
+        className="sidebar-toggle-btn"
+        title="Settings & appearance"
+        aria-label="Settings & appearance"
+        aria-expanded={gearOpen}
+      >
+        <IconGear />
+      </button>
+
+      {gearOpen && (
+        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
+          {/* Appearance row */}
+          <div
+            className={dropdownItemClass}
+            role="button"
+            tabIndex={0}
+            onClick={toggleDark}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleDark(); }}
+          >
+            {isDark ? <IconSun /> : <IconMoon />}
+            <span className="flex-1">{appearanceLabel}</span>
+            <GearToggle isDark={isDark} onToggle={toggleDark} />
+          </div>
+
+          {/* Settings row */}
+          <button
+            type="button"
+            className={dropdownItemClass}
+            onClick={handleSettingsClick}
+          >
+            <IconGear />
+            <span>Settings</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <aside
       className={cn("sidebar-wrapper hidden lg:flex", collapsed ? "w-14" : "w-[220px]")}
@@ -227,14 +329,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
               </div>
             )}
           </Link>
-          <Link
-            href="/settings/clinic-profile"
-            className="sidebar-toggle-btn"
-            title="Settings"
-            aria-label="Settings"
-          >
-            <IconGear />
-          </Link>
+          {gearDropdown}
         </div>
       ) : (
         <div className="px-3 py-3 border-b border-slate-100">
@@ -252,14 +347,9 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
               <div className="sidebar-clinic-name">{clinicName}</div>
               <span className={planClass}>{planLabel}</span>
             </div>
-            <Link
-              href="/settings/clinic-profile"
-              className="sidebar-toggle-btn shrink-0"
-              title="Settings"
-              aria-label="Settings"
-            >
-              <IconGear />
-            </Link>
+            <div className="shrink-0">
+              {gearDropdown}
+            </div>
           </div>
         </div>
       )}
@@ -288,22 +378,8 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
         })}
       </nav>
 
-      {/* ── BOTTOM: dark mode toggle + user info + sign out + collapse toggle ── */}
+      {/* ── BOTTOM: user info + sign out + collapse toggle ── */}
       <div className="border-t border-slate-100 px-2 py-3 flex flex-col gap-1">
-        {/* Light / dark toggle */}
-        <button
-          type="button"
-          onClick={toggleDark}
-          className={cn(
-            "sidebar-nav-item text-slate-400 hover:text-slate-700",
-            collapsed && "justify-center"
-          )}
-          title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          {isDark ? <IconSun /> : <IconMoon />}
-          {!collapsed && <span>{isDark ? "Light mode" : "Dark mode"}</span>}
-        </button>
-
         {/* User identity */}
         <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-xl", collapsed && "justify-center px-0")}>
           <div className="sidebar-user-avatar w-8 h-8 text-xs shrink-0">

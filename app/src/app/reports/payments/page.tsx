@@ -9,7 +9,7 @@ import { PageLoader, Spinner } from "@/components/Spinner";
 
 
 export default function PaymentReportsPage() {
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [payments, setPayments] = useState<any[]>([]);
@@ -20,8 +20,9 @@ export default function PaymentReportsPage() {
   const [patientSort, setPatientSort] = useState<"paid" | "invoiced" | "outstanding" | "name">("paid");
 
   useEffect(() => {
+    if (clinicLoading || !clinicId) return;
     loadData();
-  }, [clinicId]);
+  }, [clinicLoading, clinicId]);
 
   async function loadData() {
     if (!clinicId) return;

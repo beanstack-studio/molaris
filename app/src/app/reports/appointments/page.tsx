@@ -23,14 +23,17 @@ interface MonthStat {
 }
 
 export default function AppointmentsReportPage() {
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState({ total: 0, confirmed: 0, cancelled: 0, pending: 0 });
   const [byDentist, setByDentist] = useState<DentistStat[]>([]);
   const [byMonth, setByMonth] = useState<MonthStat[]>([]);
 
-  useEffect(() => { loadData(); }, [clinicId]);
+  useEffect(() => {
+    if (clinicLoading || !clinicId) return;
+    loadData();
+  }, [clinicLoading, clinicId]);
 
   async function loadData() {
     if (!clinicId) return;

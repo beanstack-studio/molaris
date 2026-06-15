@@ -41,7 +41,7 @@ import { PageLoader } from "@/components/Spinner";
 export default function DocumentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -128,7 +128,7 @@ export default function DocumentsPage() {
   }, [documents, docSort]);
 
   const loadData = useCallback(async () => {
-    if (!id || !clinicId) return;
+    if (clinicLoading || !id || !clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -176,7 +176,7 @@ export default function DocumentsPage() {
     setDentists(!d.error && d.data ? (d.data as DentistRow[]) : []);
 
     setLoading(false);
-  }, [id, clinicId]);
+  }, [clinicLoading, id, clinicId]);
 
   useEffect(() => {
     loadData();

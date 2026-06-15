@@ -10,14 +10,15 @@ import { Appointment, Patient, DentistRow, dentistLabel } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
 import { PageLoader } from "@/components/Spinner";
-import { TableOptions, useTableColumns, type ColumnDef } from "@/components/shared/TableOptions";
+import { TableOptions, useTableColumns, type ColumnConfig } from "@/components/shared/TableOptions";
+import { useColumnResize } from "@/hooks/useColumnResize";
 
 interface AppointmentWithRelations extends Appointment {
   patients?: Patient;
   dentists?: DentistRow;
 }
 
-const APT_COLUMNS: ColumnDef[] = [
+const APT_COLUMNS: ColumnConfig[] = [
   { key: "time",     label: "Time" },
   { key: "patient",  label: "Patient",         required: true },
   { key: "reason",   label: "Concern / Reason" },
@@ -39,7 +40,7 @@ const formatTime12Hr = (time24: string): string => {
 
 export default function AppointmentsPage() {
   const router = useRouter();
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,8 +62,9 @@ export default function AppointmentsPage() {
   const [phHolidayNames, setPhHolidayNames] = useState<Record<string, string>>({});
   const [holidayOverrides, setHolidayOverrides] = useState<Set<string>>(new Set());
   const [togglingOverride, setTogglingOverride] = useState(false);
-  const [showAptOptions, setShowAptOptions] = useState(false);
-  const { visibleColumns: aptVisibleCols, onVisibilityChange: aptOnVizChange, isVisible: aptIsVisible } = useTableColumns("appointments", APT_COLUMNS);
+  const [aptSortConfig, setAptSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "appointment_date", direction: "asc" });
+  const { isVisible: aptIsVisible } = useTableColumns("appointments", APT_COLUMNS);
+  const { getWidth: aptGetWidth, startResize: aptStartResize } = useColumnResize("appointments");
 
   // Read URL params on mount (e.g. from dashboard appointment links)
   useEffect(() => {
@@ -84,6 +86,8 @@ export default function AppointmentsPage() {
   }, [loading, targetDate]);
 
   useEffect(() => {
+    if (clinicLoading || !clinicId) return;
+
     // Phase 1: appointments + dentists (needed for display) — show page when these finish
     Promise.all([loadAppointments(), loadDentists()])
       .catch((e) => setError(e?.message || "Failed to load data"))
@@ -111,12 +115,12 @@ export default function AppointmentsPage() {
 
     // Load holiday overrides (dates clinic has marked as open despite being holidays)
     supabase.from("holiday_overrides").select("date").eq("clinic_id", clinicId).then(({ data }) => {
-      if (data) setHolidayOverrides(new Set(data.map((r: any) => r.date)));
+      if (data) setHolidayOverrides(new Set(data.map((r: { date: string }) => r.date)));
     });
 
     // Run autoMarkMissed in background (fire and forget — doesn't block display)
     autoMarkMissed();
-  }, []);
+  }, [clinicLoading, clinicId]);
 
   const loadClinicHours = async () => {
     try {
@@ -276,11 +280,66 @@ export default function AppointmentsPage() {
         <table className="data-table min-w-[700px]">
           <thead className="data-table-head">
             <tr>
-              {aptIsVisible("time")    && <th className="data-table-head-cell w-28">Time</th>}
-              {aptIsVisible("patient") && <th className="data-table-head-cell">Patient</th>}
-              {aptIsVisible("reason")  && <th className="data-table-head-cell">Concern / Reason</th>}
-              {aptIsVisible("dentist") && <th className="data-table-head-cell">Dentist</th>}
-              {aptIsVisible("status")  && <th className="data-table-head-cell w-28">Status</th>}
+              {aptIsVisible("time") && (
+                <th
+                  className="data-table-head-cell relative w-28"
+                  style={{ width: aptGetWidth("time") }}
+                >
+                  Time
+                  <div
+                    onMouseDown={(e) => aptStartResize("time", e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                  />
+                </th>
+              )}
+              {aptIsVisible("patient") && (
+                <th
+                  className="data-table-head-cell relative"
+                  style={{ width: aptGetWidth("patient") }}
+                >
+                  Patient
+                  <div
+                    onMouseDown={(e) => aptStartResize("patient", e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                  />
+                </th>
+              )}
+              {aptIsVisible("reason") && (
+                <th
+                  className="data-table-head-cell relative"
+                  style={{ width: aptGetWidth("reason") }}
+                >
+                  Concern / Reason
+                  <div
+                    onMouseDown={(e) => aptStartResize("reason", e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                  />
+                </th>
+              )}
+              {aptIsVisible("dentist") && (
+                <th
+                  className="data-table-head-cell relative"
+                  style={{ width: aptGetWidth("dentist") }}
+                >
+                  Dentist
+                  <div
+                    onMouseDown={(e) => aptStartResize("dentist", e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                  />
+                </th>
+              )}
+              {aptIsVisible("status") && (
+                <th
+                  className="data-table-head-cell relative w-28"
+                  style={{ width: aptGetWidth("status") }}
+                >
+                  Status
+                  <div
+                    onMouseDown={(e) => aptStartResize("status", e)}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
+                  />
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -376,9 +435,36 @@ export default function AppointmentsPage() {
     </>
   );
 
-  const filteredAppointments = filterDentistId
-    ? appointments.filter((a) => a.dentist_id === filterDentistId)
-    : appointments;
+  const filteredAppointments = (() => {
+    const base = filterDentistId
+      ? appointments.filter((a) => a.dentist_id === filterDentistId)
+      : appointments;
+
+    const { key, direction } = aptSortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+
+    return [...base].sort((a, b) => {
+      if (key === "appointment_date") {
+        const aDate = a.appointment_date + (a.appointment_time ?? "");
+        const bDate = b.appointment_date + (b.appointment_time ?? "");
+        return dir * aDate.localeCompare(bDate);
+      }
+      if (key === "patient_name") {
+        const aName = ((a.patients?.last_name ?? "") + (a.patients?.full_name ?? "")).toLowerCase();
+        const bName = ((b.patients?.last_name ?? "") + (b.patients?.full_name ?? "")).toLowerCase();
+        return dir * aName.localeCompare(bName);
+      }
+      if (key === "status") {
+        return dir * a.status.localeCompare(b.status);
+      }
+      if (key === "dentist_name") {
+        const aD = (a.dentists?.full_name ?? "").toLowerCase();
+        const bD = (b.dentists?.full_name ?? "").toLowerCase();
+        return dir * aD.localeCompare(bD);
+      }
+      return 0;
+    });
+  })();
 
   const appointmentsByDate = filteredAppointments.reduce((acc, apt) => {
     const date = apt.appointment_date;
@@ -483,13 +569,20 @@ export default function AppointmentsPage() {
                   </select>
                 )}
                 {viewMode === "list" && (
-                  <button
-                    type="button"
-                    className="cancel-btn"
-                    onClick={() => setShowAptOptions(true)}
-                  >
-                    Options
-                  </button>
+                  <TableOptions
+                    tableName="appointments"
+                    columns={APT_COLUMNS}
+                    sorts={[
+                      { key: "appointment_date", label: "Date" },
+                      { key: "patient_name",     label: "Patient name" },
+                      { key: "status",           label: "Status" },
+                      { key: "dentist_name",     label: "Dentist" },
+                    ]}
+                    currentSort={aptSortConfig}
+                    onSortChange={(key, direction) => setAptSortConfig({ key, direction })}
+                    data={appointments}
+                    onDownloadCSV={exportAppointmentsCsv}
+                  />
                 )}
               </div>
             </div>
@@ -749,15 +842,6 @@ export default function AppointmentsPage() {
         patients={patients}
         sundayEndHour={sundayEndHour}
         holidayOverrides={holidayOverrides}
-      />
-
-      <TableOptions
-        open={showAptOptions}
-        onClose={() => setShowAptOptions(false)}
-        columns={APT_COLUMNS}
-        visibleColumns={aptVisibleCols}
-        onVisibilityChange={aptOnVizChange}
-        onExportCsv={exportAppointmentsCsv}
       />
 
     </main>

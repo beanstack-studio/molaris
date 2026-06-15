@@ -74,7 +74,7 @@ const Spin = () => <div className="w-4 h-4 border-2 border-violet-200 border-t-v
 /* ══════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
   const router = useRouter();
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const now    = new Date();
   const [mounted, setMounted] = useState(false);
 
@@ -96,7 +96,7 @@ export default function DashboardPage() {
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (!clinicId) return;
+    if (clinicLoading || !clinicId) return;
     const today       = now.toISOString().split("T")[0];
     const monthStart  = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
     const monthEnd    = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
@@ -162,7 +162,7 @@ export default function DashboardPage() {
         setChartsLoading(false);
       }
     })();
-  }, [clinicId]);
+  }, [clinicLoading, clinicId]);
 
   /* ── Chart data ──────────────────────────────────────────── */
   const chartData   = useMemo(() => buildChartData(chartInvoices, chartPayments, now), [chartInvoices, chartPayments]);

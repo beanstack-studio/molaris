@@ -1690,21 +1690,15 @@ tr.data-table-row-compact-odd:hover {
 
 /* Settings sub-sidebar */
 .settings-sub-item {
-  @apply flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 transition-colors border-l-2 border-transparent;
-}
-.settings-sub-item:hover {
-  @apply bg-slate-50 text-slate-800;
+  @apply flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors border-l-2 border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700;
 }
 
 .settings-sub-item-active {
-  font-weight: 500;
-  border-left-color: var(--color-violet-500);
-  background-color: var(--color-violet-50);
-  color: var(--color-violet-700);
+  @apply font-medium bg-white dark:bg-slate-700 border-l-2 border-blue-500 text-blue-600 dark:text-blue-400;
 }
 
 .settings-sub-section-label {
-  @apply text-xs font-semibold uppercase tracking-wide text-slate-400 px-3 mt-4 mb-1;
+  @apply text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 mt-4 mb-1;
 }
 
 /* Bottom navigation (mobile only) */

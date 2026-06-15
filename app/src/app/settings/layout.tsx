@@ -92,7 +92,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             <span className="text-slate-300">·</span>
             <span className="text-sm font-semibold text-slate-700">⚙ Settings</span>
           </div>
-          <div className="tabs">
+          <div className="tabs bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1">
             {allSettingsItems.map((item) => {
               const active = pathname === item.href;
               return (
@@ -111,7 +111,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         {/* Desktop: settings sub-sidebar + content */}
         <div className="hidden lg:flex gap-6">
           {/* Settings sub-sidebar */}
-          <aside className="w-[200px] shrink-0 flex flex-col">
+          <aside className="w-[200px] shrink-0 flex flex-col bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 rounded-xl py-3">
             {/* Header */}
             <div className="flex items-center justify-between mb-3 px-3">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">⚙ SETTINGS</span>

@@ -7,6 +7,7 @@ import { EditModal } from "@/components/EditModal";
 import { formatMoney } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
+import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
 
 
 type ServicePriceRow = {
@@ -20,6 +21,13 @@ type ServicePriceRow = {
 };
 
 type ServiceSort = "NAME_ASC" | "NAME_DESC" | "FEE_ASC" | "FEE_DESC";
+
+const SERVICE_COLUMNS: ColumnConfig[] = [
+  { key: "name",     label: "Name",     required: true },
+  { key: "duration", label: "Duration" },
+  { key: "fee",      label: "Fee" },
+  { key: "activate", label: "Activate" },
+];
 
 const TogglePill = Toggle;
 
@@ -44,11 +52,12 @@ function formatPhpAmount(value: string | number): string {
 }
 
 export default function ServicesSettingsPage() {
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState<ServiceSort>("NAME_ASC");
+  const [serviceSortConfig, setServiceSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "service_name", direction: "asc" });
 
   // Add modal state
   const [addOpen, setAddOpen] = useState(false);
@@ -91,8 +100,9 @@ export default function ServicesSettingsPage() {
   }
 
   useEffect(() => {
+    if (clinicLoading || !clinicId) return;
     load();
-  }, []);
+  }, [clinicLoading, clinicId]);
 
   const services = useMemo(
     () => sortRows(rows.filter((r) => r.item_type === "SERVICE"), sort),
@@ -245,17 +255,24 @@ export default function ServicesSettingsPage() {
       <div className="card-header">
         <div className="card-title">{title}</div>
         <div className="inline-row">
-          <select
-            className="form-select-standard"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as ServiceSort)}
-            disabled={busy}
-          >
-            <option value="NAME_ASC">Name A–Z</option>
-            <option value="NAME_DESC">Name Z–A</option>
-            <option value="FEE_ASC">Fee low → high</option>
-            <option value="FEE_DESC">Fee high → low</option>
-          </select>
+          <TableOptions
+            tableName={`services_${title.toLowerCase().replace(/\s/g, "_")}`}
+            columns={SERVICE_COLUMNS}
+            sorts={[
+              { key: "service_name",  label: "Service name" },
+              { key: "default_price", label: "Price" },
+              { key: "sort_order",    label: "Sort order" },
+              { key: "item_type",     label: "Type" },
+            ]}
+            currentSort={serviceSortConfig}
+            onSortChange={(key, direction) => {
+              setServiceSortConfig({ key, direction });
+              if (key === "service_name")  setSort(direction === "asc" ? "NAME_ASC" : "NAME_DESC");
+              if (key === "default_price") setSort(direction === "asc" ? "FEE_ASC"  : "FEE_DESC");
+            }}
+            data={data}
+            onDownloadCSV={() => {}}
+          />
           <button
             type="button"
             className="save-btn"

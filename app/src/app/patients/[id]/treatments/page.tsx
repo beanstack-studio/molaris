@@ -10,12 +10,13 @@ import { todayLocalISO, splitFullName, formatDateStandard } from "@/lib/helpers"
 import { AddVisitModal } from "./AddVisitModal";
 import { EditVisitModal } from "./EditVisitModal";
 import { PageLoader } from "@/components/Spinner";
+import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
 
 
 export default function TreatmentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,14 @@ export default function TreatmentsPage() {
 
   const [showAddVisitModal, setShowAddVisitModal] = useState(false);
   const [editingVisitDate, setEditingVisitDate] = useState<string | null>(null);
-  const [treatmentSort, setTreatmentSort] = useState<"DATE_DESC" | "DATE_ASC">("DATE_DESC");
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "treatment_date", direction: "desc" });
+
+  const TREATMENT_COLUMNS: ColumnConfig[] = [
+    { key: "date",     label: "Date",     required: true },
+    { key: "dentist",  label: "Dentist" },
+    { key: "treatments", label: "Treatments" },
+    { key: "status",   label: "Status" },
+  ];
 
   const groupedTreatmentHistory = useMemo(() => {
     const acc: Record<string, Treatment[]> = {};
@@ -48,12 +56,32 @@ export default function TreatmentsPage() {
       });
     }
     const list = Object.entries(acc);
-    if (treatmentSort === "DATE_ASC") return list.sort((a, b) => (a[0] > b[0] ? 1 : -1));
-    return list.sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [treatments, treatmentSort]);
+    const { key, direction } = sortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+
+    if (key === "treatment_date") {
+      return list.sort((a, b) => dir * (a[0] > b[0] ? 1 : a[0] < b[0] ? -1 : 0));
+    }
+    if (key === "dentist_name") {
+      return list.sort((a, b) => {
+        const aDentist = (a[1][0]?.dentist_name ?? "").toLowerCase();
+        const bDentist = (b[1][0]?.dentist_name ?? "").toLowerCase();
+        return dir * aDentist.localeCompare(bDentist);
+      });
+    }
+    if (key === "procedure") {
+      return list.sort((a, b) => {
+        const aProc = (a[1][0]?.procedure ?? "").toLowerCase();
+        const bProc = (b[1][0]?.procedure ?? "").toLowerCase();
+        return dir * aProc.localeCompare(bProc);
+      });
+    }
+    // default: date desc
+    return list.sort((a, b) => dir * (a[0] > b[0] ? 1 : a[0] < b[0] ? -1 : 0));
+  }, [treatments, sortConfig]);
 
   const loadData = useCallback(async () => {
-    if (!id || !clinicId) return;
+    if (clinicLoading || !id || !clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -133,7 +161,7 @@ export default function TreatmentsPage() {
     }
 
     setLoading(false);
-  }, [id, clinicId]);
+  }, [clinicLoading, id, clinicId]);
 
   useEffect(() => {
     loadData();
@@ -157,14 +185,19 @@ export default function TreatmentsPage() {
             <div className="flex-wrap-items-center-justify-between">
               <div className="card-title">Treatment history</div>
               <div className="inline-row">
-                <select
-                  className="form-select-standard"
-                  value={treatmentSort}
-                  onChange={(e) => setTreatmentSort(e.target.value as any)}
-                >
-                  <option value="DATE_DESC">Newest</option>
-                  <option value="DATE_ASC">Oldest</option>
-                </select>
+                <TableOptions
+                  tableName="treatments"
+                  columns={TREATMENT_COLUMNS}
+                  sorts={[
+                    { key: "treatment_date", label: "Date" },
+                    { key: "procedure",      label: "Procedure" },
+                    { key: "dentist_name",   label: "Dentist" },
+                  ]}
+                  currentSort={sortConfig}
+                  onSortChange={(key, direction) => setSortConfig({ key, direction })}
+                  data={treatments}
+                  onDownloadCSV={() => {}}
+                />
                 <button className="save-btn" onClick={() => setShowAddVisitModal(true)}>
                   Add visit
                 </button>

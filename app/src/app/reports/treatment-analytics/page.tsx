@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatMoney } from "@/lib/helpers";
 import { downloadCSV } from "@/lib/exportHelpers";
@@ -14,13 +15,17 @@ interface ServiceRow {
 }
 
 export default function TreatmentAnalyticsReportPage() {
+  const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ServiceRow[]>([]);
   const [summary, setSummary] = useState({ totalServices: 0, totalRevenue: 0, uniqueServices: 0 });
   const [sort, setSort] = useState<"count" | "revenue" | "avg" | "name">("count");
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    if (clinicLoading || !clinicId) return;
+    loadData();
+  }, [clinicLoading, clinicId]);
 
   async function loadData() {
     setLoading(true);
@@ -28,7 +33,8 @@ export default function TreatmentAnalyticsReportPage() {
     try {
       const { data: items, error: err } = await supabase
         .from("invoice_items")
-        .select("service_name, qty, unit_price, line_total");
+        .select("service_name, qty, unit_price, line_total")
+        .eq("clinic_id", clinicId);
       if (err) throw err;
 
       const serviceMap: Record<string, ServiceRow> = {};

@@ -30,6 +30,7 @@ import { VoidPaymentModal } from "./VoidPaymentModal";
 import { ViewInvoiceModal } from "./ViewInvoiceModal";
 import { PaymentReminderModal } from "./PaymentReminderModal";
 import { PageLoader, Spinner } from "@/components/Spinner";
+import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
 
 
 /* Helpers */
@@ -41,7 +42,7 @@ function num(n: unknown) {
 export default function BillingPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -66,6 +67,7 @@ export default function BillingPage() {
   const [paymentReceivedBy, setPaymentReceivedBy] = useState<string>("");
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
 
+  const [billingSortConfig, setBillingSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "invoice_date", direction: "desc" });
   const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
   const [verifyingPaymentDetails, setVerifyingPaymentDetails] = useState<any | null>(null);
   const [verificationConfirmation, setVerificationConfirmation] = useState("");
@@ -206,7 +208,7 @@ export default function BillingPage() {
   }, [invoices, invoiceTotalsById, payments, computeVisitTotalFromTreatments]);
 
   const loadData = useCallback(async () => {
-    if (!id || !clinicId) return;
+    if (clinicLoading || !id || !clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -269,7 +271,7 @@ export default function BillingPage() {
     setPayments(allPayments);
 
     setLoading(false);
-  }, [id, clinicId]);
+  }, [clinicLoading, id, clinicId]);
 
   useEffect(() => {
     loadData();
@@ -871,6 +873,31 @@ export default function BillingPage() {
       setBusy(false);
     }
   }
+  const BILLING_COLUMNS: ColumnConfig[] = [
+    { key: "date",    label: "Date",           required: true },
+    { key: "number",  label: "Invoice #" },
+    { key: "amount",  label: "Invoice Amount" },
+    { key: "paid",    label: "Paid" },
+    { key: "balance", label: "Balance" },
+    { key: "status",  label: "Status" },
+    { key: "actions", label: "Actions" },
+  ];
+
+  const sortedInvoices = [...invoices].sort((a, b) => {
+    const { key, direction } = billingSortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+    if (key === "invoice_date") {
+      return dir * (a.invoice_date ?? "").localeCompare(b.invoice_date ?? "");
+    }
+    if (key === "total") {
+      return dir * ((a.total ?? 0) - (b.total ?? 0));
+    }
+    if (key === "status") {
+      return dir * (a.status ?? "").localeCompare(b.status ?? "");
+    }
+    return 0;
+  });
+
   if (loading) {
     return (
       <PageLoader />
@@ -924,12 +951,27 @@ export default function BillingPage() {
               <div className="card">
                 <div className="card-header">
                   <div className="card-title">Invoices</div>
-                  <button
-                    className="save-btn"
-                    onClick={() => setShowCreateInvoice(true)}
-                  >
-                    Create invoice
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <TableOptions
+                      tableName="billing_invoices"
+                      columns={BILLING_COLUMNS}
+                      sorts={[
+                        { key: "invoice_date", label: "Date" },
+                        { key: "total",        label: "Total" },
+                        { key: "status",       label: "Status" },
+                      ]}
+                      currentSort={billingSortConfig}
+                      onSortChange={(k, d) => setBillingSortConfig({ key: k, direction: d })}
+                      data={invoices}
+                      onDownloadCSV={() => {}}
+                    />
+                    <button
+                      className="save-btn"
+                      onClick={() => setShowCreateInvoice(true)}
+                    >
+                      Create invoice
+                    </button>
+                  </div>
                 </div>
 
                 <div className="table-wrapper hidden md:block">
@@ -955,7 +997,8 @@ export default function BillingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {invoices.map((inv: any, index: number) => {
+                      {(sortedInvoices as unknown[]).map((invRaw, index: number) => {
+                        const inv = invRaw as Invoice & { invoice_type?: string };
                         const invoiceAmount = inv.total ?? 0;
                         const paidAmount = payments
                           .filter((p: any) => p.invoice_id === inv.id && !p.voided_at)
@@ -1005,13 +1048,13 @@ export default function BillingPage() {
                                   const html = await generateInvoiceDocument(
                                     inv.id,
                                     formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null),
-                                    inv.invoice_number,
+                                    inv.invoice_number ?? "",
                                     formatDateStandard(inv.invoice_date),
                                   );
                                   openDocumentViewer({
                                     html,
                                     docType: "INVOICE",
-                                    docNumber: inv.invoice_number,
+                                    docNumber: inv.invoice_number ?? "",
                                   });
                                 } catch (error) {
                                   console.error("Error generating invoice document:", error);
@@ -1028,7 +1071,7 @@ export default function BillingPage() {
                         </tr>
                         );
                       })}
-                      {invoices.length === 0 ? (
+                      {sortedInvoices.length === 0 ? (
                         <tr>
                           <td className="data-table-empty" colSpan={7}>
                             No invoices yet.
@@ -1041,9 +1084,10 @@ export default function BillingPage() {
 
                 {/* Mobile invoice cards */}
                 <div className="mt-3 grid gap-2 md:hidden">
-                  {invoices.length === 0 ? (
+                  {sortedInvoices.length === 0 ? (
                     <div className="text-center py-8 text-slate-400 text-sm">No invoices yet.</div>
-                  ) : invoices.map((inv: any) => {
+                  ) : (sortedInvoices as unknown[]).map((invRaw) => {
+                    const inv = invRaw as Invoice & { invoice_type?: string };
                     const invoiceAmount = inv.total ?? 0;
                     const paidAmount = payments.filter((p: any) => p.invoice_id === inv.id && !p.voided_at).reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0);
                     const balance = invoiceAmount - paidAmount;
@@ -1067,7 +1111,7 @@ export default function BillingPage() {
                           <div><div className="text-slate-400">Balance</div><div className={`font-semibold ${balance > 0 ? "text-red-600" : "text-green-600"}`}>{formatMoney(Math.max(0, balance))}</div></div>
                         </div>
                         <div className="mt-2 flex justify-end">
-                          <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generateInvoiceDocument(inv.id, formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), inv.invoice_number, formatDateStandard(inv.invoice_date)); openDocumentViewer({ html, docType: "INVOICE", docNumber: inv.invoice_number }); } catch { alert("Failed to generate invoice document"); } finally { setBusy(false); } }}>Open</button>
+                          <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generateInvoiceDocument(inv.id, formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), inv.invoice_number ?? "", formatDateStandard(inv.invoice_date)); openDocumentViewer({ html, docType: "INVOICE", docNumber: inv.invoice_number ?? "" }); } catch { alert("Failed to generate invoice document"); } finally { setBusy(false); } }}>Open</button>
                         </div>
                       </div>
                     );

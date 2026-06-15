@@ -20,7 +20,7 @@ function num(n: unknown) {
 export default function OrthoPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId } = useClinic();
+  const { clinicId, isLoading: clinicLoading } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -79,7 +79,7 @@ export default function OrthoPage() {
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
   const loadData = useCallback(async () => {
-    if (!id || !clinicId) return;
+    if (clinicLoading || !id || !clinicId) return;
     setLoading(true);
     setError(null);
 
@@ -202,7 +202,7 @@ export default function OrthoPage() {
     }
 
     setLoading(false);
-  }, [id, clinicId]);
+  }, [clinicLoading, id, clinicId]);
 
   const loadEntries = useCallback(async () => {
     if (!orthoCase) return;
