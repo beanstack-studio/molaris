@@ -270,11 +270,10 @@ export default function ServicesSettingsPage() {
       <div className="table-wrapper">
         <table className="data-table">
           <colgroup>
-            <col className="col-30" />
-            <col className="col-15" />
-            <col className="col-15" />
+            <col className="col-45" />
             <col className="col-20" />
             <col className="col-20" />
+            <col className="col-15" />
           </colgroup>
           <thead className="data-table-head">
             <tr>
@@ -282,16 +281,23 @@ export default function ServicesSettingsPage() {
               <th className="data-table-head-cell-right">Duration</th>
               <th className="data-table-head-cell-right">Fee</th>
               <th className="data-table-head-cell-right">Activate</th>
-              <th className="data-table-head-cell-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {data.map((r, index) => (
-              <tr key={r.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+              <tr
+                key={r.id}
+                className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                onClick={() => openEdit(r)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
+                tabIndex={0}
+                role="button"
+                aria-label={`Edit ${r.service_name}`}
+              >
                 <td className="data-table-cell">{r.service_name}</td>
                 <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
                 <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
-                <td className="data-table-cell-right">
+                <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end">
                     <TogglePill
                       checked={r.is_active}
@@ -300,23 +306,11 @@ export default function ServicesSettingsPage() {
                     />
                   </div>
                 </td>
-                <td className="data-table-cell-right">
-                  <div className="flex items-center justify-end">
-                    <button
-                      type="button"
-                      className="data-table-btn"
-                      onClick={() => openEdit(r)}
-                      disabled={busy}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </td>
               </tr>
             ))}
             {data.length === 0 ? (
               <tr>
-                <td className="data-table-empty" colSpan={5}>
+                <td className="data-table-empty" colSpan={4}>
                   No items yet.
                 </td>
               </tr>

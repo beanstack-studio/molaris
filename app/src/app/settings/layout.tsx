@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 interface SettingsNavItem {
   label: string;
   href: string;
+  emoji: string;
 }
 
 interface SettingsSection {
@@ -21,22 +22,39 @@ const settingsSections: SettingsSection[] = [
   {
     title: "Clinic",
     items: [
-      { label: "Clinic Profile", href: "/settings/clinic-profile" },
-      { label: "Services", href: "/settings/services" },
-      { label: "Payment Modes", href: "/settings/payment-modes" },
-      { label: "Document Templates", href: "/settings/document-templates" },
+      { label: "Clinic Profile",      href: "/settings/clinic-profile",      emoji: "🏥" },
+      { label: "Services",            href: "/settings/services",            emoji: "🦷" },
+      { label: "Payment Modes",       href: "/settings/payment-modes",       emoji: "💳" },
+      { label: "Document Templates",  href: "/settings/document-templates",  emoji: "📄" },
     ],
   },
   {
-    title: "Team",
+    title: "Account",
     items: [
-      { label: "Team Members", href: "/settings/team" },
+      { label: "Team Members",  href: "/settings/team",           emoji: "👥" },
+      { label: "Calendar Sync", href: "/settings/calendar-sync",  emoji: "📅" },
     ],
   },
 ];
 
-// Flat list for mobile tabs
+// Flat list used for mobile tab strip
 const allSettingsItems: SettingsNavItem[] = settingsSections.flatMap((s) => s.items);
+
+function IconBack() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -63,30 +81,51 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div className="page-bg">
       <main className="app-section">
-        <div className="app-section-header">
-          <div className="app-section-title">Settings</div>
+
+        {/* Mobile: horizontal scrollable tab strip */}
+        <div className="lg:hidden mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Link href="/dashboard" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 transition-colors">
+              <IconBack />
+              Back
+            </Link>
+            <span className="text-slate-300">·</span>
+            <span className="text-sm font-semibold text-slate-700">⚙ Settings</span>
+          </div>
+          <div className="tabs">
+            {allSettingsItems.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn("tab-item", active && "tab-item-active")}
+                >
+                  {item.emoji} {item.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Mobile: horizontal scroll tabs */}
-        <div className="lg:hidden tabs">
-          {allSettingsItems.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn("tab-item", active && "tab-item-active")}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Desktop: sub-sidebar + content */}
-        <div className="hidden lg:flex gap-6 pt-2">
-          {/* Sub-sidebar */}
+        {/* Desktop: settings sub-sidebar + content */}
+        <div className="hidden lg:flex gap-6">
+          {/* Settings sub-sidebar */}
           <aside className="w-[200px] shrink-0 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3 px-3">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">⚙ SETTINGS</span>
+              <Link
+                href="/dashboard"
+                className="sidebar-toggle-btn"
+                title="Back to dashboard"
+                aria-label="Close settings"
+              >
+                <IconClose />
+              </Link>
+            </div>
+
+            {/* Grouped nav items */}
             {settingsSections.map((section) => (
               <div key={section.title}>
                 <div className="settings-sub-section-label">{section.title}</div>
@@ -96,11 +135,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={cn(
-                        "settings-sub-item",
-                        active && "settings-sub-item-active"
-                      )}
+                      className={cn("settings-sub-item", active && "settings-sub-item-active")}
+                      aria-current={active ? "page" : undefined}
                     >
+                      <span aria-hidden="true">{item.emoji}</span>
                       {item.label}
                     </Link>
                   );
@@ -109,13 +147,13 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             ))}
           </aside>
 
-          {/* Settings content */}
+          {/* Page content */}
           <div className="flex-1 min-w-0">
             <div className="app-section-body pt-0">{children}</div>
           </div>
         </div>
 
-        {/* Mobile content (below tabs) */}
+        {/* Mobile: content below tab strip */}
         <div className="lg:hidden">
           <div className="app-section-body">{children}</div>
         </div>

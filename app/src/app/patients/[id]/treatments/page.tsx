@@ -185,12 +185,20 @@ export default function TreatmentsPage() {
                     <th className="data-table-head-cell">Date</th>
                     <th className="data-table-head-cell">Dentist</th>
                     <th className="data-table-head-cell">Treatments</th>
-                    <th className="data-table-head-cell-right">Actions</th>
+                    <th className="data-table-head-cell-right">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {groupedTreatmentHistory.map(([date, txs], index) => (
-                    <tr key={date} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                    <tr
+                      key={date}
+                      className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                      onClick={() => { if (!invoicedDates.has(date)) setEditingVisitDate(date); }}
+                      onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !invoicedDates.has(date)) { e.preventDefault(); setEditingVisitDate(date); } }}
+                      tabIndex={invoicedDates.has(date) ? -1 : 0}
+                      role={invoicedDates.has(date) ? undefined : "button"}
+                      aria-label={invoicedDates.has(date) ? undefined : `Edit visit on ${formatDateStandard(date)}`}
+                    >
                       <td className="data-table-cell">{formatDateStandard(date)}</td>
                       <td className="data-table-cell">{txs[0]?.dentist_name || "—"}</td>
                       <td className="data-table-cell">
@@ -207,14 +215,7 @@ export default function TreatmentsPage() {
                       <td className="data-table-cell-right">
                         {invoicedDates.has(date) ? (
                           <div className="inline-block px-3 py-1 rounded-lg bg-amber-100 text-amber-800 text-sm font-semibold">Invoiced</div>
-                        ) : (
-                          <button
-                            className="data-table-btn"
-                            onClick={() => setEditingVisitDate(date)}
-                          >
-                            Edit Visit
-                          </button>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -232,30 +233,37 @@ export default function TreatmentsPage() {
               {groupedTreatmentHistory.length === 0 ? (
                 <div className="text-center py-8 text-slate-400 text-sm">No treatments yet.</div>
               ) : (
-                groupedTreatmentHistory.map(([date, txs]) => (
-                  <div key={date} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-semibold text-slate-800 text-sm">{formatDateStandard(date)}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">{txs[0]?.dentist_name || "—"}</div>
-                      </div>
-                      {invoicedDates.has(date) ? (
-                        <span className="inline-block px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-xs font-semibold">Invoiced</span>
-                      ) : (
-                        <button className="data-table-btn" onClick={() => setEditingVisitDate(date)}>Edit</button>
-                      )}
-                    </div>
-                    <div className="mt-2 space-y-1 border-t border-slate-50 pt-2">
-                      {txs.map((t) => (
-                        <div key={t.id} className="text-sm text-slate-700">
-                          {t.tooth_number ? <span className="font-medium">Tooth {t.tooth_number}:</span> : null}{" "}
-                          {t.procedure}
-                          {t.notes ? <div className="text-xs text-slate-400">{t.notes}</div> : null}
+                groupedTreatmentHistory.map(([date, txs]) => {
+                  const isInvoiced = invoicedDates.has(date);
+                  return (
+                    <button
+                      key={date}
+                      type="button"
+                      className="w-full text-left rounded-xl border border-slate-100 bg-white p-3 shadow-sm hover:border-slate-200 transition-colors disabled:cursor-default"
+                      onClick={() => { if (!isInvoiced) setEditingVisitDate(date); }}
+                      disabled={isInvoiced}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-slate-800 text-sm">{formatDateStandard(date)}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{txs[0]?.dentist_name || "—"}</div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
+                        {isInvoiced ? (
+                          <span className="inline-block px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-xs font-semibold">Invoiced</span>
+                        ) : null}
+                      </div>
+                      <div className="mt-2 space-y-1 border-t border-slate-50 pt-2">
+                        {txs.map((t) => (
+                          <div key={t.id} className="text-sm text-slate-700">
+                            {t.tooth_number ? <span className="font-medium">Tooth {t.tooth_number}:</span> : null}{" "}
+                            {t.procedure}
+                            {t.notes ? <div className="text-xs text-slate-400">{t.notes}</div> : null}
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>

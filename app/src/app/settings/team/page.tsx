@@ -1,3 +1,31 @@
+/*
+ * SQL — run in Supabase SQL editor to create the staff_invites table:
+ *
+ * CREATE TABLE staff_invites (
+ *   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   clinic_id   uuid NOT NULL REFERENCES clinics(id),
+ *   email       text NOT NULL,
+ *   role        text NOT NULL DEFAULT 'staff',
+ *   invited_by  uuid REFERENCES profiles(id),
+ *   token       uuid NOT NULL DEFAULT gen_random_uuid(),
+ *   status      text NOT NULL DEFAULT 'pending'
+ *               CHECK (status IN ('pending', 'accepted', 'expired')),
+ *   created_at  timestamptz DEFAULT now(),
+ *   expires_at  timestamptz DEFAULT (now() + interval '7 days')
+ * );
+ * ALTER TABLE staff_invites ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "clinic members can view invites"
+ *   ON staff_invites FOR SELECT
+ *   USING (clinic_id IN (
+ *     SELECT clinic_id FROM profiles WHERE id = auth.uid()
+ *   ));
+ * CREATE POLICY "owners can insert invites"
+ *   ON staff_invites FOR INSERT
+ *   WITH CHECK (clinic_id IN (
+ *     SELECT clinic_id FROM profiles WHERE id = auth.uid() AND role = 'owner'
+ *   ));
+ */
+
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -6,7 +34,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
-import { PageLoader, Spinner } from "@/components/Spinner";
+import { Spinner } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
 
 const TogglePill = Toggle;
@@ -53,6 +81,15 @@ type StaffRow = {
   is_active: boolean;
 };
 
+type InviteRow = {
+  id: string;
+  email: string;
+  role: string;
+  status: "pending" | "accepted" | "expired";
+  created_at: string;
+  expires_at: string;
+};
+
 function LoadingBlock() {
   return (
     <div className="flex items-center justify-center py-16">
@@ -62,12 +99,19 @@ function LoadingBlock() {
 }
 
 export default function TeamSettingsPage() {
-  const { clinicId } = useClinic();
+  const { clinicId, isOwner, isPro } = useClinic();
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
+  const [invites, setInvites] = useState<InviteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Invite modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("staff");
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   // Dentist form & modal
   const [showAddDentistModal, setShowAddDentistModal] = useState(false);
@@ -147,6 +191,21 @@ export default function TeamSettingsPage() {
         }
       } catch {
         setStaff([]);
+      }
+
+      try {
+        const inviteRes = await supabase
+          .from("staff_invites")
+          .select("id, email, role, status, created_at, expires_at")
+          .eq("clinic_id", clinicId)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false });
+
+        if (!inviteRes.error) {
+          setInvites((inviteRes.data || []) as InviteRow[]);
+        }
+      } catch {
+        setInvites([]);
       }
     } catch (error) {
       console.error("Load error:", error);
@@ -420,6 +479,41 @@ export default function TeamSettingsPage() {
     }
   }
 
+  async function sendInvite() {
+    if (!inviteEmail.trim()) {
+      setError("Please enter an email address");
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setInviteSuccess(null);
+
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      if (!userId) throw new Error("User not authenticated");
+
+      const { error: insertError } = await supabase.from("staff_invites").insert({
+        clinic_id: clinicId,
+        email: inviteEmail.trim().toLowerCase(),
+        role: inviteRole,
+        invited_by: userId,
+      });
+
+      if (insertError) throw insertError;
+
+      setInviteSuccess("Invite recorded. Email sending coming soon.");
+      setInviteEmail("");
+      setInviteRole("staff");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to record invite");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function openScheduleModal(d: DentistRow) {
     setScheduleDentist(d);
     setSchedBusy(true);
@@ -520,7 +614,7 @@ export default function TeamSettingsPage() {
                     <th className="data-table-head-cell">PRC Number</th>
                     <th className="data-table-head-cell">PTR Number</th>
                     <th className="data-table-head-cell">Activate</th>
-                    <th className="data-table-head-cell-right">Actions</th>
+                    <th className="data-table-head-cell-right">Schedule</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -534,7 +628,33 @@ export default function TeamSettingsPage() {
                     dentists.map((d, index) => (
                       <tr
                         key={d.id}
-                        className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                        className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                        onClick={() => {
+                          setEditingDentist(d);
+                          setDentistName(d.full_name);
+                          setDentistNickname(d.nickname || "");
+                          setDentistDob(d.date_of_birth || "");
+                          setDentistPrc(d.prc_number || "");
+                          setDentistPtr(d.ptr_number || "");
+                          setDentistColor(d.color || DENTIST_COLORS[0].hex);
+                          setShowAddDentistModal(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setEditingDentist(d);
+                            setDentistName(d.full_name);
+                            setDentistNickname(d.nickname || "");
+                            setDentistDob(d.date_of_birth || "");
+                            setDentistPrc(d.prc_number || "");
+                            setDentistPtr(d.ptr_number || "");
+                            setDentistColor(d.color || DENTIST_COLORS[0].hex);
+                            setShowAddDentistModal(true);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Edit dentist ${d.full_name}`}
                       >
                         <td className="data-table-cell">
                           <div className="flex items-center gap-2">
@@ -552,39 +672,21 @@ export default function TeamSettingsPage() {
                         </td>
                         <td className="data-table-cell">{d.prc_number || "—"}</td>
                         <td className="data-table-cell">{d.ptr_number || "—"}</td>
-                        <td className="data-table-cell">
+                        <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                           <TogglePill
                             checked={d.is_active}
                             onChange={(v) => toggleDentistActive(d.id, v)}
                             disabled={busy}
                           />
                         </td>
-                        <td className="data-table-cell-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              className="data-table-btn"
-                              onClick={() => openScheduleModal(d)}
-                              disabled={busy}
-                            >
-                              Schedule
-                            </button>
-                            <button
-                              className="data-table-btn"
-                              onClick={() => {
-                                setEditingDentist(d);
-                                setDentistName(d.full_name);
-                                setDentistNickname(d.nickname || "");
-                                setDentistDob(d.date_of_birth || "");
-                                setDentistPrc(d.prc_number || "");
-                                setDentistPtr(d.ptr_number || "");
-                                setDentistColor(d.color || DENTIST_COLORS[0].hex);
-                                setShowAddDentistModal(true);
-                              }}
-                              disabled={busy}
-                            >
-                              Edit
-                            </button>
-                          </div>
+                        <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="data-table-btn"
+                            onClick={() => openScheduleModal(d)}
+                            disabled={busy}
+                          >
+                            Schedule
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -598,29 +700,54 @@ export default function TeamSettingsPage() {
             <div className="card">
               <div className="card-header">
                 <h2 className="card-title">Staff Members</h2>
-                <button
-                  className="save-btn"
-                  onClick={() => {
-                    setStaffName("");
-                    setStaffRole("");
-                    setStaffDob("");
-                    setEditingStaff(null);
-                    setShowAddStaffModal(true);
-                  }}
-                  disabled={busy}
-                >
-                  Add Staff
-                </button>
+                <div className="flex items-center gap-2">
+                  {isOwner && (
+                    isPro ? (
+                      <button
+                        className="cancel-btn"
+                        onClick={() => {
+                          setInviteEmail("");
+                          setInviteRole("staff");
+                          setInviteSuccess(null);
+                          setShowInviteModal(true);
+                        }}
+                        disabled={busy}
+                      >
+                        Invite Staff
+                      </button>
+                    ) : (
+                      <button
+                        className="cancel-btn opacity-50 cursor-not-allowed"
+                        disabled
+                        title="Upgrade to Pro to invite staff"
+                      >
+                        🔒 Invite Staff
+                      </button>
+                    )
+                  )}
+                  <button
+                    className="save-btn"
+                    onClick={() => {
+                      setStaffName("");
+                      setStaffRole("");
+                      setStaffDob("");
+                      setEditingStaff(null);
+                      setShowAddStaffModal(true);
+                    }}
+                    disabled={busy}
+                  >
+                    Add Staff
+                  </button>
+                </div>
               </div>
 
               <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
-                  <col className="col-30" />
-                  <col className="col-20" />
+                  <col className="col-35" />
+                  <col className="col-25" />
                   <col className="col-25" />
                   <col className="col-15" />
-                  <col className="col-10" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -628,13 +755,12 @@ export default function TeamSettingsPage() {
                     <th className="data-table-head-cell">Role</th>
                     <th className="data-table-head-cell">Date of Birth</th>
                     <th className="data-table-head-cell">Activate</th>
-                    <th className="data-table-head-cell-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {staff.length === 0 ? (
                     <tr className="data-table-row">
-                      <td colSpan={5} className="data-table-empty">
+                      <td colSpan={4} className="data-table-empty">
                         No staff members yet.
                       </td>
                     </tr>
@@ -642,7 +768,27 @@ export default function TeamSettingsPage() {
                     staff.map((s, index) => (
                       <tr
                         key={s.id}
-                        className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                        className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                        onClick={() => {
+                          setEditingStaff(s);
+                          setStaffName(s.full_name);
+                          setStaffRole(s.role);
+                          setStaffDob(s.date_of_birth || "");
+                          setShowAddStaffModal(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setEditingStaff(s);
+                            setStaffName(s.full_name);
+                            setStaffRole(s.role);
+                            setStaffDob(s.date_of_birth || "");
+                            setShowAddStaffModal(true);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Edit staff member ${s.full_name}`}
                       >
                         <td className="data-table-cell">{s.full_name}</td>
                         <td className="data-table-cell">{s.role}</td>
@@ -651,27 +797,12 @@ export default function TeamSettingsPage() {
                             ? formatDateStandard(s.date_of_birth.split('T')[0])
                             : "—"}
                         </td>
-                        <td className="data-table-cell">
+                        <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                           <TogglePill
                             checked={s.is_active}
                             onChange={(v) => toggleStaffActive(s.id, v)}
                             disabled={busy}
                           />
-                        </td>
-                        <td className="data-table-cell-right">
-                          <button
-                            className="data-table-btn"
-                            onClick={() => {
-                              setEditingStaff(s);
-                              setStaffName(s.full_name);
-                              setStaffRole(s.role);
-                              setStaffDob(s.date_of_birth || "");
-                              setShowAddStaffModal(true);
-                            }}
-                            disabled={busy}
-                          >
-                            Edit
-                          </button>
                         </td>
                       </tr>
                     ))
@@ -679,6 +810,46 @@ export default function TeamSettingsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* PENDING INVITES */}
+            {invites.length > 0 && (
+              <div className="border-t border-slate-100 px-4 pt-4 pb-2">
+                <p className="field-label-text mb-2">Pending invites</p>
+                <div className="table-wrapper">
+                  <table className="data-table">
+                    <colgroup>
+                      <col className="col-40" />
+                      <col className="col-20" />
+                      <col className="col-20" />
+                      <col className="col-20" />
+                    </colgroup>
+                    <thead className="data-table-head">
+                      <tr>
+                        <th className="data-table-head-cell">Email</th>
+                        <th className="data-table-head-cell">Role</th>
+                        <th className="data-table-head-cell">Invited</th>
+                        <th className="data-table-head-cell">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invites.map((inv, idx) => (
+                        <tr
+                          key={inv.id}
+                          className={`data-table-row ${idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                        >
+                          <td className="data-table-cell">{inv.email}</td>
+                          <td className="data-table-cell capitalize">{inv.role}</td>
+                          <td className="data-table-cell">{formatDateStandard(inv.created_at.split("T")[0])}</td>
+                          <td className="data-table-cell">
+                            <span className="badge badge-secondary">Pending</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             </div>
 
       {/* ADD/EDIT DENTIST MODAL */}
@@ -883,6 +1054,72 @@ export default function TeamSettingsPage() {
                 {busy ? "Saving…" : editingStaff ? "Update" : "Add"}
               </button>
             </div>
+          </div>
+        </div>
+      </EditModal>
+
+      {/* INVITE STAFF MODAL */}
+      <EditModal
+        open={showInviteModal}
+        title="Invite staff member"
+        onClose={() => {
+          setShowInviteModal(false);
+          setInviteEmail("");
+          setInviteRole("staff");
+          setInviteSuccess(null);
+        }}
+      >
+        <div className="spacing-vertical-lg">
+          {inviteSuccess ? (
+            <div className="success-banner">{inviteSuccess}</div>
+          ) : null}
+          <label className="field-label">
+            <span className="field-label-text">Email address</span>
+            <input
+              type="email"
+              className="field-input"
+              placeholder="staff@example.com"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Role</span>
+            <select
+              className="field-input"
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value)}
+              disabled={busy}
+            >
+              <option value="staff">Staff</option>
+            </select>
+          </label>
+          <p className="hint-text">
+            The invitee will be able to log in once their account is set up. Email delivery is coming soon.
+          </p>
+          <div className="modal-actions-right">
+            <button
+              type="button"
+              className="cancel-btn"
+              onClick={() => {
+                setShowInviteModal(false);
+                setInviteEmail("");
+                setInviteRole("staff");
+                setInviteSuccess(null);
+              }}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="save-btn"
+              onClick={sendInvite}
+              disabled={busy || !inviteEmail.trim()}
+            >
+              {busy ? "Saving…" : "Send invite"}
+            </button>
           </div>
         </div>
       </EditModal>

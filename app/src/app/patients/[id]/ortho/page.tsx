@@ -678,11 +678,10 @@ export default function OrthoPage() {
                 <div className="table-wrapper">
                   <table className="data-table">
                     <colgroup>
-                      <col className="col-12" />
                       <col className="col-14" />
-                      <col className="col-50" />
+                      <col className="col-16" />
+                      <col className="col-56" />
                       <col className="col-14" />
-                      <col className="col-10" />
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
@@ -690,7 +689,6 @@ export default function OrthoPage() {
                         <th className="data-table-head-cell">Visit Type</th>
                         <th className="data-table-head-cell">Service</th>
                         <th className="data-table-head-cell">Charged Amount</th>
-                        <th className="data-table-head-cell-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -730,7 +728,15 @@ export default function OrthoPage() {
                           : '—';
 
                         return (
-                          <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                          <tr
+                            key={entry.id}
+                            className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                            onClick={() => openEditVisitModal(entry)}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditVisitModal(entry); } }}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`Edit ortho visit on ${formatDateStandard(entry.entry_date)}`}
+                          >
                             <td className="data-table-cell">{formatDateStandard(entry.entry_date)}</td>
                             <td className="data-table-cell">
                               <span className="badge badge-secondary">{visitTypeDisplay}</span>
@@ -748,15 +754,6 @@ export default function OrthoPage() {
                             </td>
                             <td className="data-table-cell">
                               <span className="font-medium">{chargedTotal > 0 ? `₱ ${Number(chargedTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</span>
-                            </td>
-                            <td className="data-table-cell-right">
-                              <button
-                                className="data-table-btn"
-                                disabled={busy}
-                                onClick={() => openEditVisitModal(entry)}
-                              >
-                                Edit
-                              </button>
                             </td>
                           </tr>
                         );

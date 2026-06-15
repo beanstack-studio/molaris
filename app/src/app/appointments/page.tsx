@@ -10,11 +10,20 @@ import { Appointment, Patient, DentistRow, dentistLabel } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
 import { PageLoader } from "@/components/Spinner";
+import { TableOptions, useTableColumns, type ColumnDef } from "@/components/shared/TableOptions";
 
 interface AppointmentWithRelations extends Appointment {
   patients?: Patient;
   dentists?: DentistRow;
 }
+
+const APT_COLUMNS: ColumnDef[] = [
+  { key: "time",     label: "Time" },
+  { key: "patient",  label: "Patient",         required: true },
+  { key: "reason",   label: "Concern / Reason" },
+  { key: "dentist",  label: "Dentist" },
+  { key: "status",   label: "Status" },
+];
 
 // PH holidays — fetched dynamically from /api/holidays, keyed by date
 // Populated on mount; empty until then (calendar shows correctly, closed days won't highlight until loaded)
@@ -52,6 +61,8 @@ export default function AppointmentsPage() {
   const [phHolidayNames, setPhHolidayNames] = useState<Record<string, string>>({});
   const [holidayOverrides, setHolidayOverrides] = useState<Set<string>>(new Set());
   const [togglingOverride, setTogglingOverride] = useState(false);
+  const [showAptOptions, setShowAptOptions] = useState(false);
+  const { visibleColumns: aptVisibleCols, onVisibilityChange: aptOnVizChange, isVisible: aptIsVisible } = useTableColumns("appointments", APT_COLUMNS);
 
   // Read URL params on mount (e.g. from dashboard appointment links)
   useEffect(() => {
@@ -265,49 +276,61 @@ export default function AppointmentsPage() {
         <table className="data-table min-w-[700px]">
           <thead className="data-table-head">
             <tr>
-              <th className="data-table-head-cell w-28">Time</th>
-              <th className="data-table-head-cell">Patient</th>
-              <th className="data-table-head-cell">Concern / Reason</th>
-              <th className="data-table-head-cell">Dentist</th>
-              <th className="data-table-head-cell w-28">Status</th>
-              <th className="data-table-head-cell w-44">Actions</th>
+              {aptIsVisible("time")    && <th className="data-table-head-cell w-28">Time</th>}
+              {aptIsVisible("patient") && <th className="data-table-head-cell">Patient</th>}
+              {aptIsVisible("reason")  && <th className="data-table-head-cell">Concern / Reason</th>}
+              {aptIsVisible("dentist") && <th className="data-table-head-cell">Dentist</th>}
+              {aptIsVisible("status")  && <th className="data-table-head-cell w-28">Status</th>}
             </tr>
           </thead>
           <tbody>
             {rows.map((apt, idx) => (
-              <tr key={apt.id} className={idx % 2 === 0 ? "data-table-row-even data-table-row" : "data-table-row-odd data-table-row"}>
-                <td className="data-table-cell font-semibold text-slate-800 whitespace-nowrap">
-                  {formatTime12Hr(apt.appointment_time)}
-                </td>
-                <td className="data-table-cell">
-                  <div className="font-medium text-slate-900">{apt.patients?.full_name || "—"}</div>
-                </td>
-                <td className="data-table-cell text-slate-600 italic">
-                  {(apt as any).concern_type ? getVisitReasonLabel((apt as any).concern_type) : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="data-table-cell">
-                  {apt.dentists?.full_name ? (
-                    <span
-                      className="inline-block rounded-full px-2 py-0.5 text-sm font-medium whitespace-nowrap"
-                      style={{
-                        backgroundColor: (dentistColorMap[apt.dentist_id!] || "#6366f1") + "22",
-                        color: dentistColorMap[apt.dentist_id!] || "#6366f1",
-                      }}
-                    >
-                      {dentistLabel(apt.dentists)}
-                    </span>
-                  ) : (
-                    <span className="text-slate-300">—</span>
-                  )}
-                </td>
-                <td className="data-table-cell">
-                  <span className={statusBadge(apt.status)}>{apt.status}</span>
-                </td>
-                <td className="data-table-cell">
-                  <button onClick={() => setEditingAppointment(apt)} className="data-table-btn justify-center">
-                    Edit
-                  </button>
-                </td>
+              <tr
+                key={apt.id}
+                className={`${idx % 2 === 0 ? "data-table-row-even data-table-row" : "data-table-row-odd data-table-row"} cursor-pointer`}
+                onClick={() => setEditingAppointment(apt)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditingAppointment(apt); } }}
+                tabIndex={0}
+                role="button"
+                aria-label={`Edit appointment for ${apt.patients?.full_name ?? "patient"}`}
+              >
+                {aptIsVisible("time") && (
+                  <td className="data-table-cell font-semibold text-slate-800 whitespace-nowrap">
+                    {apt.appointment_time ? formatTime12Hr(apt.appointment_time) : "—"}
+                  </td>
+                )}
+                {aptIsVisible("patient") && (
+                  <td className="data-table-cell">
+                    <div className="font-medium text-slate-900">{apt.patients?.full_name || "—"}</div>
+                  </td>
+                )}
+                {aptIsVisible("reason") && (
+                  <td className="data-table-cell text-slate-600 italic">
+                    {(apt as any).concern_type ? getVisitReasonLabel((apt as any).concern_type) : <span className="text-slate-300">—</span>}
+                  </td>
+                )}
+                {aptIsVisible("dentist") && (
+                  <td className="data-table-cell">
+                    {apt.dentists?.full_name ? (
+                      <span
+                        className="inline-block rounded-full px-2 py-0.5 text-sm font-medium whitespace-nowrap"
+                        style={{
+                          backgroundColor: (dentistColorMap[apt.dentist_id!] || "#6366f1") + "22",
+                          color: dentistColorMap[apt.dentist_id!] || "#6366f1",
+                        }}
+                      >
+                        {dentistLabel(apt.dentists)}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
+                )}
+                {aptIsVisible("status") && (
+                  <td className="data-table-cell">
+                    <span className={statusBadge(apt.status)}>{apt.status}</span>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -317,7 +340,13 @@ export default function AppointmentsPage() {
       {/* Mobile cards */}
       <div className="grid gap-2 md:hidden">
         {rows.map((apt) => (
-          <div key={apt.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+          <button
+            key={apt.id}
+            type="button"
+            className="w-full text-left rounded-xl border border-slate-100 bg-white p-3 shadow-sm hover:border-slate-200 transition-colors"
+            onClick={() => setEditingAppointment(apt)}
+            aria-label={`Edit appointment for ${apt.patients?.full_name ?? "patient"}`}
+          >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-slate-900 text-sm">{apt.patients?.full_name || "—"}</div>
@@ -325,7 +354,7 @@ export default function AppointmentsPage() {
               <span className={statusBadge(apt.status)}>{apt.status}</span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-              <span className="font-medium text-slate-800">{formatTime12Hr(apt.appointment_time)}</span>
+              <span className="font-medium text-slate-800">{apt.appointment_time ? formatTime12Hr(apt.appointment_time) : "—"}</span>
               {apt.dentists?.full_name && (
                 <span
                   className="rounded-full px-2 py-0.5 font-medium"
@@ -341,10 +370,7 @@ export default function AppointmentsPage() {
                 <span className="italic text-slate-500">{getVisitReasonLabel((apt as any).concern_type)}</span>
               )}
             </div>
-            <div className="mt-2 flex justify-end gap-1">
-              <button onClick={() => setEditingAppointment(apt)} className="data-table-btn">Edit</button>
-            </div>
-          </div>
+          </button>
         ))}
       </div>
     </>
@@ -362,6 +388,39 @@ export default function AppointmentsPage() {
   }, {} as Record<string, AppointmentWithRelations[]>);
 
   const datesList = Object.keys(appointmentsByDate).sort();
+
+  function exportAppointmentsCsv() {
+    const visCols = [{ key: "date", label: "Date" }, ...APT_COLUMNS.filter((c) => aptIsVisible(c.key))];
+    const getVal = (apt: AppointmentWithRelations, key: string): string => {
+      switch (key) {
+        case "date":    return apt.appointment_date;
+        case "time":    return apt.appointment_time ? formatTime12Hr(apt.appointment_time) : "";
+        case "patient": return apt.patients?.full_name ?? "";
+        case "reason":  return (apt as any).concern_type ? getVisitReasonLabel((apt as any).concern_type) : "";
+        case "dentist": return apt.dentists ? dentistLabel(apt.dentists) : "";
+        case "status":  return apt.status;
+        default:        return "";
+      }
+    };
+    const escape = (v: string) =>
+      v.includes(",") || v.includes('"') || v.includes("\n")
+        ? `"${v.replace(/"/g, '""')}"`
+        : v;
+    const header = visCols.map((c) => c.label).join(",");
+    const rows = filteredAppointments.map((apt) =>
+      visCols.map((c) => escape(getVal(apt, c.key))).join(",")
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `appointments-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   if (loading) {
     return (
@@ -406,22 +465,33 @@ export default function AppointmentsPage() {
                 </button>
               </div>
 
-              {/* Dentist filter dropdown */}
-              {dentists.length > 0 && (
-                <select
-                  className="input-standard w-auto min-w-[160px] text-sm"
-                  value={filterDentistId}
-                  onChange={(e) => {
-                    setFilterDentistId(e.target.value);
-                    loadDentistCalendarInfo(e.target.value);
-                  }}
-                >
-                  <option value="">All dentists</option>
-                  {dentists.map((d) => (
-                    <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
-                  ))}
-                </select>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Dentist filter dropdown */}
+                {dentists.length > 0 && (
+                  <select
+                    className="input-standard w-auto min-w-[160px] text-sm"
+                    value={filterDentistId}
+                    onChange={(e) => {
+                      setFilterDentistId(e.target.value);
+                      loadDentistCalendarInfo(e.target.value);
+                    }}
+                  >
+                    <option value="">All dentists</option>
+                    {dentists.map((d) => (
+                      <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
+                    ))}
+                  </select>
+                )}
+                {viewMode === "list" && (
+                  <button
+                    type="button"
+                    className="cancel-btn"
+                    onClick={() => setShowAptOptions(true)}
+                  >
+                    Options
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* List View */}
@@ -679,6 +749,15 @@ export default function AppointmentsPage() {
         patients={patients}
         sundayEndHour={sundayEndHour}
         holidayOverrides={holidayOverrides}
+      />
+
+      <TableOptions
+        open={showAptOptions}
+        onClose={() => setShowAptOptions(false)}
+        columns={APT_COLUMNS}
+        visibleColumns={aptVisibleCols}
+        onVisibilityChange={aptOnVizChange}
+        onExportCsv={exportAppointmentsCsv}
       />
 
     </main>

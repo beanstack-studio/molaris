@@ -73,3 +73,27 @@ export function useClinic(): ClinicContextValue {
   if (!ctx) throw new Error('useClinic must be used within ClinicProvider')
   return ctx
 }
+
+// ─── Feature gates ─────────────────────────────────────────────────────────────
+
+const PRO_FEATURES = [
+  'billing',       // invoices, payments, receipts
+  'reports',       // all /reports/* pages
+  'documents',     // document generation
+  'ortho',         // ortho module
+  'staff_invite',  // invite staff members
+  'calendar_sync', // Google Calendar integration
+] as const
+
+export type ProFeature = typeof PRO_FEATURES[number]
+
+/**
+ * Returns true if the current clinic has access to the requested feature.
+ * Free plan has access to: patients, appointments, treatments, dental chart,
+ * attachments, and medical history. Everything in PRO_FEATURES requires Pro.
+ */
+export function useFeatureGate(feature: ProFeature): boolean {
+  const { isPro } = useClinic()
+  if (!PRO_FEATURES.includes(feature)) return true
+  return isPro
+}

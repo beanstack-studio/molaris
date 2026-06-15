@@ -9,6 +9,7 @@ import type { GenderDB } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { DatePickerField } from "@/components/DatePickerField";
 import { useClinic } from "@/contexts/ClinicContext";
+import { TableOptions, useTableColumns, type ColumnDef } from "@/components/shared/TableOptions";
 
 type PatientRow = {
   id: string;
@@ -36,11 +37,22 @@ type PatientSort =
   | "LASTVISIT_ASC"
   | "LASTVISIT_DESC";
 
+const PATIENT_COLUMNS: ColumnDef[] = [
+  { key: "last_name",    label: "Last name",    required: true },
+  { key: "first_name",   label: "First name",   required: true },
+  { key: "middle_name",  label: "Middle name" },
+  { key: "age",          label: "Age" },
+  { key: "gender",       label: "Gender" },
+  { key: "phone",        label: "Phone" },
+  { key: "last_visit",   label: "Last visit" },
+  { key: "balance",      label: "Balance" },
+];
+
 function onlyDigits(s: string) {
   return (s || "").replace(/\D/g, "");
 }
 
-function safeText(s: any) {
+function safeText(s: unknown) {
   return String(s ?? "").trim();
 }
 
@@ -59,6 +71,8 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [patientSort, setPatientSort] = useState<PatientSort>("LASTNAME_ASC");
+  const [showOptions, setShowOptions] = useState(false);
+  const { visibleColumns, onVisibilityChange, isVisible } = useTableColumns("patients", PATIENT_COLUMNS);
 
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(1);
@@ -300,6 +314,59 @@ export default function PatientsPage() {
     }
   }
 
+  const SORTABLE_COLS: Record<string, { asc: PatientSort; desc: PatientSort }> = {
+    last_name:  { asc: "LASTNAME_ASC",  desc: "LASTNAME_DESC" },
+    balance:    { asc: "BALANCE_ASC",   desc: "BALANCE_DESC" },
+    last_visit: { asc: "LASTVISIT_ASC", desc: "LASTVISIT_DESC" },
+  };
+
+  function handleColSort(col: string) {
+    const entry = SORTABLE_COLS[col];
+    if (!entry) return;
+    setPatientSort(patientSort === entry.asc ? entry.desc : entry.asc);
+  }
+
+  function getSortIcon(col: string): string {
+    const entry = SORTABLE_COLS[col];
+    if (!entry) return "";
+    if (patientSort === entry.asc)  return " ↑";
+    if (patientSort === entry.desc) return " ↓";
+    return " ↕";
+  }
+
+  function exportPatientsCsv() {
+    const visCols = PATIENT_COLUMNS.filter((c) => isVisible(c.key));
+    const getVal = (p: PatientRow, key: string): string => {
+      switch (key) {
+        case "last_name":   return p.last_name ?? "";
+        case "first_name":  return p.first_name ?? "";
+        case "middle_name": return p.middle_name ?? "";
+        case "age":         return String(calcAge(p.birth_date) ?? "");
+        case "gender":      return formatGenderShort(p.gender);
+        case "phone":       return p.phone ? formatPhoneLocal(p.phone) : "";
+        case "last_visit":  return p.last_visit_date ? formatDateStandard(p.last_visit_date) : "";
+        case "balance":     return p.balance != null ? String(p.balance) : "";
+        default:            return "";
+      }
+    };
+    const escape = (v: string) =>
+      v.includes(",") || v.includes('"') || v.includes("\n")
+        ? `"${v.replace(/"/g, '""')}"`
+        : v;
+    const header = visCols.map((c) => c.label).join(",");
+    const rows = filtered.map((p) => visCols.map((c) => escape(getVal(p, c.key))).join(","));
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `patients-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main className="app-section">
       <div className="app-section-header">
@@ -338,6 +405,13 @@ export default function PatientsPage() {
                 <option value="LASTVISIT_ASC">Last visit old–new</option>
                 <option value="LASTVISIT_DESC">Last visit new–old</option>
               </select>
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={() => setShowOptions(true)}
+              >
+                Options
+              </button>
             </div>
           </div>
 
@@ -359,20 +433,21 @@ export default function PatientsPage() {
             <table className="data-table">
               <thead className="data-table-head">
                 <tr>
-                  <th className="data-table-head-cell">Last name</th>
-                  <th className="data-table-head-cell">First name</th>
-                  <th className="data-table-head-cell">Age</th>
-                  <th className="data-table-head-cell">Gender</th>
-                  <th className="data-table-head-cell">Phone number</th>
-                  <th className="data-table-head-cell">Last visit</th>
-                  <th className="data-table-head-cell-right">Balance</th>
+                  {isVisible("last_name")   && <th className="data-table-head-cell cursor-pointer select-none hover:bg-slate-100" onClick={() => handleColSort("last_name")}>Last name{getSortIcon("last_name")}</th>}
+                  {isVisible("first_name")  && <th className="data-table-head-cell">First name</th>}
+                  {isVisible("middle_name") && <th className="data-table-head-cell">Middle name</th>}
+                  {isVisible("age")         && <th className="data-table-head-cell">Age</th>}
+                  {isVisible("gender")     && <th className="data-table-head-cell">Gender</th>}
+                  {isVisible("phone")      && <th className="data-table-head-cell">Phone number</th>}
+                  {isVisible("last_visit") && <th className="data-table-head-cell cursor-pointer select-none hover:bg-slate-100" onClick={() => handleColSort("last_visit")}>Last visit{getSortIcon("last_visit")}</th>}
+                  {isVisible("balance")    && <th className="data-table-head-cell-right cursor-pointer select-none hover:bg-slate-100" onClick={() => handleColSort("balance")}>Balance{getSortIcon("balance")}</th>}
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center">
+                    <td colSpan={visibleColumns.length} className="py-12 text-center">
                       <div className="flex justify-center">
                         <Spinner />
                       </div>
@@ -394,18 +469,19 @@ export default function PatientsPage() {
                         tabIndex={0}
                         role="link"
                       >
-                        <td className="data-table-cell font-medium">{p.last_name ?? "-"}</td>
-                        <td className="data-table-cell">{p.first_name ?? "-"}</td>
-                        <td className="data-table-cell">{calcAge(p.birth_date)}</td>
-                        <td className="data-table-cell">{formatGenderShort(p.gender)}</td>
-                        <td className="data-table-cell">{p.phone ? formatPhoneLocal(p.phone) : "-"}</td>
-                        <td className="data-table-cell">{formatDateStandard(p.last_visit_date)}</td>
-                        <td className="data-table-cell-right num">{formatMoney(p.balance ?? 0)}</td>
+                        {isVisible("last_name")   && <td className="data-table-cell font-medium">{p.last_name ?? "-"}</td>}
+                        {isVisible("first_name")  && <td className="data-table-cell">{p.first_name ?? "-"}</td>}
+                        {isVisible("middle_name") && <td className="data-table-cell">{p.middle_name ?? "—"}</td>}
+                        {isVisible("age")         && <td className="data-table-cell">{calcAge(p.birth_date)}</td>}
+                        {isVisible("gender")     && <td className="data-table-cell">{formatGenderShort(p.gender)}</td>}
+                        {isVisible("phone")      && <td className="data-table-cell">{p.phone ? formatPhoneLocal(p.phone) : "-"}</td>}
+                        {isVisible("last_visit") && <td className="data-table-cell">{formatDateStandard(p.last_visit_date)}</td>}
+                        {isVisible("balance")    && <td className="data-table-cell-right num">{formatMoney(p.balance ?? 0)}</td>}
                       </tr>
                     ))}
                     {filtered.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="data-table-empty">
+                        <td colSpan={visibleColumns.length} className="data-table-empty">
                           No patients found.
                         </td>
                       </tr>
@@ -626,6 +702,15 @@ export default function PatientsPage() {
           </div>
         </div>
       ) : null}
+
+      <TableOptions
+        open={showOptions}
+        onClose={() => setShowOptions(false)}
+        columns={PATIENT_COLUMNS}
+        visibleColumns={visibleColumns}
+        onVisibilityChange={onVisibilityChange}
+        onExportCsv={exportPatientsCsv}
+      />
     </main>
   );
 }

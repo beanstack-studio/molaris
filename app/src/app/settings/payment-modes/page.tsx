@@ -135,13 +135,12 @@ export default function PaymentModesSettingsPage() {
               <div className="table-wrapper">
                 <table className="data-table">
                 <colgroup>
-                  <col className="col-18" />
+                  <col className="col-22" />
                   <col className="col-13" />
                   <col className="col-13" />
                   <col className="col-13" />
                   <col className="col-13" />
-                  <col className="col-13" />
-                  <col className="col-17" />
+                  <col className="col-26" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -161,13 +160,12 @@ export default function PaymentModesSettingsPage() {
                     <th className="data-table-head-cell">
                       <div className="centered-cell">Activate</div>
                     </th>
-                    <th className="data-table-head-cell-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paymentModes.length === 0 ? (
                     <tr className="data-table-row">
-                      <td className="data-table-empty" colSpan={7}>
+                      <td className="data-table-empty" colSpan={6}>
                         No payment modes configured.
                       </td>
                     </tr>
@@ -175,12 +173,17 @@ export default function PaymentModesSettingsPage() {
                     paymentModes.map((mode, i) => (
                       <tr
                         key={mode.id}
-                        className={`data-table-row ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                        className={`data-table-row ${editingId === mode.id ? "" : "cursor-pointer hover:bg-slate-50"} ${i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                        onClick={() => { if (editingId !== mode.id) startEdit(mode); }}
+                        onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && editingId !== mode.id) { e.preventDefault(); startEdit(mode); } }}
+                        tabIndex={editingId === mode.id ? -1 : 0}
+                        role={editingId === mode.id ? undefined : "button"}
+                        aria-label={editingId === mode.id ? undefined : `Edit ${mode.name}`}
                       >
                         {editingId === mode.id && editData ? (
                           <>
-                            <td className="data-table-cell font-semibold">{mode.name}</td>
-                            <td className="data-table-cell">
+                            <td className="data-table-cell font-semibold" onClick={(e) => e.stopPropagation()}>{mode.name}</td>
+                            <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                               <div className="centered-cell">
                                 <input
                                   type="checkbox"
@@ -193,7 +196,7 @@ export default function PaymentModesSettingsPage() {
                                 />
                               </div>
                             </td>
-                            <td className="data-table-cell">
+                            <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                               <div className="centered-cell">
                                 <input
                                   type="checkbox"
@@ -206,7 +209,7 @@ export default function PaymentModesSettingsPage() {
                                 />
                               </div>
                             </td>
-                            <td className="data-table-cell">
+                            <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                               <div className="centered-cell">
                                 <input
                                   type="checkbox"
@@ -219,7 +222,7 @@ export default function PaymentModesSettingsPage() {
                                 />
                               </div>
                             </td>
-                            <td className="data-table-cell">
+                            <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                               <div className="centered-cell">
                                 <input
                                   type="checkbox"
@@ -232,16 +235,14 @@ export default function PaymentModesSettingsPage() {
                                 />
                               </div>
                             </td>
-                            <td className="data-table-cell">
+                            <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                               <div className="centered-cell">
                                 <TogglePill
                                   checked={mode.is_active}
                                   onChange={(newValue) => toggleActive(mode.id, newValue)}
                                 />
                               </div>
-                            </td>
-                            <td className="data-table-cell-right">
-                              <div className="flex gap-2 justify-end">
+                              <div className="flex gap-2 justify-center mt-2">
                                 <button
                                   className="save-btn"
                                   onClick={saveEdit}
@@ -298,22 +299,13 @@ export default function PaymentModesSettingsPage() {
                                 ></span>
                               </div>
                             </td>
-                            <td className="data-table-cell">
+                            <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                               <div className="centered-cell">
                                 <TogglePill
                                   checked={mode.is_active}
                                   onChange={(newValue) => toggleActive(mode.id, newValue)}
                                 />
                               </div>
-                            </td>
-                            <td className="data-table-cell-right">
-                              <button
-                                className="data-table-btn"
-                                onClick={() => startEdit(mode)}
-                                disabled={busy}
-                              >
-                                Edit
-                              </button>
                             </td>
                           </>
                         )}

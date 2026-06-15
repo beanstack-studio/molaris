@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppShell from "@/components/layout/AppShell";
-import { ThemeLoader } from "@/components/ThemeLoader";
-import { ThemeBackground } from "@/components/ThemeBackground";
 import { ClinicProvider } from "@/contexts/ClinicContext";
 import "./globals.css";
 
@@ -32,10 +30,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="bg-slate-50 dark:bg-slate-900">
+      <head>
+        {/* Prevent dark-mode flash: set class before first paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('molaris_theme');if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeLoader />
-        <ThemeBackground />
         <ClinicProvider>
           <AppShell>
             {children}

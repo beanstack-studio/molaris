@@ -1,9 +1,17 @@
 @import 'tailwindcss';
 
-/* html carries the solid fallback color (shows while bg image loads or as the canvas base).
-   body must be transparent so ThemeBackground (z:-1) isn't hidden behind a white body bg. */
+/* Class-based dark mode — Tailwind v4 syntax.
+   dark: variants activate when <html> has class="dark". */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Flat background — light: slate-50, dark: slate-900.
+   The old animated ThemeBackground image has been removed. */
 html {
-  background-color: var(--theme-bg-color, #bfdbfe);
+  @apply bg-slate-50;
+  background-color: #f8fafc;
+}
+html.dark {
+  background-color: #0f172a;
 }
 body {
   background-color: transparent;
@@ -1669,6 +1677,11 @@ tr.data-table-row-compact-odd:hover {
 .sidebar-user-avatar {
   @apply flex items-center justify-center rounded-full text-white font-bold flex-shrink-0;
   background-color: var(--color-violet-500);
+}
+
+.sidebar-clinic-name {
+  @apply text-sm font-bold truncate;
+  color: var(--accent-text);
 }
 
 .sidebar-section-label {
