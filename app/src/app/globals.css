@@ -23,14 +23,18 @@ body {
   --accent-sat: 70%;
   --theme-bg-blur: 0px;
 
-  --color-violet-50:  hsl(var(--accent-hue) 100% 97%);
-  --color-violet-100: hsl(var(--accent-hue)  91% 94%);
-  --color-violet-200: hsl(var(--accent-hue)  88% 86%);
-  --color-violet-300: hsl(var(--accent-hue)  84% 76%);
-  --color-violet-400: hsl(var(--accent-hue)  80% 64%);
+  --color-violet-50: hsl(var(--accent-hue) 100% 97%);
+  --color-violet-100: hsl(var(--accent-hue) 91% 94%);
+  --color-violet-200: hsl(var(--accent-hue) 88% 86%);
+  --color-violet-300: hsl(var(--accent-hue) 84% 76%);
+  --color-violet-400: hsl(var(--accent-hue) 80% 64%);
   --color-violet-500: hsl(var(--accent-hue) var(--accent-sat) 54%);
-  --color-violet-600: hsl(var(--accent-hue) var(--accent-sat) 44%);   /* primary buttons, active nav */
-  --color-violet-700: hsl(var(--accent-hue) var(--accent-sat) 36%);   /* table headers, links — AA on white */
+  --color-violet-600: hsl(
+    var(--accent-hue) var(--accent-sat) 44%
+  ); /* primary buttons, active nav */
+  --color-violet-700: hsl(
+    var(--accent-hue) var(--accent-sat) 36%
+  ); /* table headers, links — AA on white */
   --color-violet-800: hsl(var(--accent-hue) var(--accent-sat) 26%);
   --color-violet-900: hsl(var(--accent-hue) var(--accent-sat) 18%);
   --color-violet-950: hsl(var(--accent-hue) var(--accent-sat) 12%);
@@ -161,11 +165,11 @@ select {
   background: rgba(255, 255, 255, 0.25);
 }
 .tab-item:hover {
-  background: rgba(255, 255, 255, 0.50);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .tab-item-active {
-  background: hsl(var(--accent-hue) var(--accent-sat) 44% / 0.50);
+  background: hsl(var(--accent-hue) var(--accent-sat) 44% / 0.5);
   color: var(--text-on-bg);
   font-weight: 600;
 }
@@ -245,7 +249,9 @@ select {
 
 .modal-panel-raised {
   @apply bg-white rounded-2xl p-6 w-full max-w-md;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .form-textarea {
@@ -714,7 +720,7 @@ tr.data-table-row-compact-odd:hover {
 
 .field-input-readonly {
   @apply w-full rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-slate-500 text-sm;
-  box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.10);
+  box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.1);
 }
 
 .field-input-white {
@@ -873,22 +879,30 @@ tr.data-table-row-compact-odd:hover {
 
 .modal-wrapper {
   @apply bg-white rounded-2xl overflow-hidden w-full max-w-md mx-3 sm:mx-0;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .modal-panel {
   @apply w-full max-w-md rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .modal-panel-wide {
   @apply w-full max-w-2xl rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .modal-panel-lg {
   @apply w-full max-w-lg rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* Themed modal header — full accent color, white text */
@@ -1209,7 +1223,7 @@ tr.data-table-row-compact-odd:hover {
 
 .readonly-input {
   @apply rounded-xl border border-slate-100 bg-slate-50 px-2 py-1 text-sm text-slate-500;
-  box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.10);
+  box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.1);
 }
 
 /* ========================================
@@ -1564,20 +1578,38 @@ tr.data-table-row-compact-odd:hover {
   .med-form-row {
     grid-template-columns: 1fr 1fr;
   }
-  .med-field-name        { grid-column: 1 / -1; }
-  .med-field-instructions { grid-column: 1 / -1; }
-  .med-field-action      { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+  .med-field-name {
+    grid-column: 1 / -1;
+  }
+  .med-field-instructions {
+    grid-column: 1 / -1;
+  }
+  .med-field-action {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+  }
 }
 
 .med-form-field {
   @apply grid gap-1 min-w-0 overflow-hidden;
 }
 
-.med-field-name        { @apply grid gap-1 min-w-0 overflow-hidden; }
-.med-field-dosage      { @apply grid gap-1 min-w-0 overflow-hidden; }
-.med-field-duration    { @apply grid gap-1 min-w-0 overflow-hidden; }
-.med-field-instructions { @apply grid gap-1 min-w-0 overflow-hidden; }
-.med-field-action      { @apply grid gap-1; }
+.med-field-name {
+  @apply grid gap-1 min-w-0 overflow-hidden;
+}
+.med-field-dosage {
+  @apply grid gap-1 min-w-0 overflow-hidden;
+}
+.med-field-duration {
+  @apply grid gap-1 min-w-0 overflow-hidden;
+}
+.med-field-instructions {
+  @apply grid gap-1 min-w-0 overflow-hidden;
+}
+.med-field-action {
+  @apply grid gap-1;
+}
 
 /* ========================================
    TEXTAREA SIZE VARIANTS
@@ -1664,7 +1696,7 @@ tr.data-table-row-compact-odd:hover {
 
 /* Bottom navigation (mobile only) */
 .bottom-nav-wrapper {
-  @apply fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 pt-2 pb-safe lg:hidden;
+  @apply fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 pt-2 lg:hidden;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
