@@ -316,10 +316,11 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     <aside
       className={cn("sidebar-wrapper hidden lg:flex", collapsed ? "w-14" : "w-[220px]")}
       aria-label="Main navigation"
+      onClick={onToggle}
     >
       {/* ── TOP: clinic logo + name + plan badge + gear icon ── */}
       {collapsed ? (
-        <div className="flex flex-col items-center gap-2 px-2 py-3 border-b border-slate-100">
+        <div className="flex flex-col items-center gap-2 px-2 py-3 border-b border-slate-100" onClick={(e) => e.stopPropagation()}>
           <Link href="/dashboard" aria-label="Dashboard">
             {logoSrc ? (
               <img src={logoSrc} alt="Clinic logo" className="h-8 w-8 rounded-full object-contain" />
@@ -332,7 +333,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
           {gearDropdown}
         </div>
       ) : (
-        <div className="px-3 py-3 border-b border-slate-100">
+        <div className="px-3 py-3 border-b border-slate-100" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2">
             <Link href="/dashboard" className="shrink-0" aria-label="Dashboard">
               {logoSrc ? (

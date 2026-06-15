@@ -83,7 +83,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       <main className="app-section">
 
         {/* Mobile: horizontal scrollable tab strip */}
-        <div className="lg:hidden mb-4">
+        <div className="md:hidden mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Link href="/dashboard" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 transition-colors">
               <IconBack />
@@ -108,8 +108,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           </div>
         </div>
 
-        {/* Desktop: settings sub-sidebar + content */}
-        <div className="hidden lg:flex gap-6">
+        {/* Desktop/tablet: settings sub-sidebar + content */}
+        <div className="hidden md:flex gap-6">
           {/* Settings sub-sidebar */}
           <aside className="w-[200px] shrink-0 flex flex-col bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 rounded-xl py-3">
             {/* Header */}
@@ -154,7 +154,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </div>
 
         {/* Mobile: content below tab strip */}
-        <div className="lg:hidden">
+        <div className="md:hidden">
           <div className="app-section-body">{children}</div>
         </div>
       </main>
