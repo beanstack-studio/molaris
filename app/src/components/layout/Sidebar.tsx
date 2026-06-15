@@ -176,7 +176,6 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   const [gearOpen, setGearOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const gearRef = useRef<HTMLDivElement>(null);
-  const settingsFlyoutRef = useRef<HTMLDivElement>(null);
 
   // Sync dark mode from localStorage on mount
   useEffect(() => {
@@ -203,19 +202,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     return () => { document.removeEventListener("mousedown", onMouseDown); document.removeEventListener("keydown", onKeyDown); };
   }, [gearOpen]);
 
-  // Close settings flyout on outside click or Escape
-  useEffect(() => {
-    if (!settingsOpen) return;
-    function onMouseDown(e: MouseEvent) {
-      if (settingsFlyoutRef.current && !settingsFlyoutRef.current.contains(e.target as Node)) setSettingsOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) { if (e.key === "Escape") setSettingsOpen(false); }
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => { document.removeEventListener("mousedown", onMouseDown); document.removeEventListener("keydown", onKeyDown); };
-  }, [settingsOpen]);
-
-  // Auto-open settings flyout when on a settings route
+  // Auto-open settings accordion when on a settings route
   useEffect(() => {
     if (pathname?.startsWith("/settings")) setSettingsOpen(true);
     else setSettingsOpen(false);
@@ -264,9 +251,6 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     : "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500";
   const dropdownItemClass = "flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer rounded-md w-full text-left text-slate-700 dark:text-slate-200";
 
-  // Settings flyout left offset depends on collapsed state
-  const flyoutLeft = collapsed ? "left-14" : "left-[220px]";
-
   // ─── Gear dropdown (appearance only) ─────────────────────────────────────────
   const gearDropdown = (
     <div ref={gearRef} className="relative">
@@ -299,61 +283,8 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     </div>
   );
 
-  // ─── Settings flyout panel ────────────────────────────────────────────────────
-  const settingsFlyout = settingsOpen && isOwner ? (
-    <div
-      ref={settingsFlyoutRef}
-      className={cn(
-        "fixed top-0 h-screen w-56 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-xl z-40 flex flex-col transition-all duration-200",
-        flyoutLeft
-      )}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-2">
-          <IconGearSmall />
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Settings</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setSettingsOpen(false); router.push("/dashboard"); }}
-          className="sidebar-toggle-btn"
-          title="Close settings"
-          aria-label="Close settings"
-        >
-          <IconClose />
-        </button>
-      </div>
-
-      {/* Nav items */}
-      <div className="flex-1 overflow-y-auto py-2">
-        {settingsFlyoutSections.map((section) => (
-          <div key={section.title}>
-            <p className="settings-sub-section-label">{section.title}</p>
-            {section.items.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setSettingsOpen(false)}
-                  className={cn("settings-sub-item", active && "settings-sub-item-active")}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  ) : null;
-
   return (
     <>
-      {settingsFlyout}
-
       <aside
         className={cn("sidebar-wrapper hidden lg:flex", collapsed ? "w-14" : "w-[220px]")}
         aria-label="Main navigation"
@@ -410,23 +341,57 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
             );
 
             if (item.isSettings) {
+              const allSubItems = settingsFlyoutSections.flatMap((s) => s.items);
               return (
-                <button
-                  key={item.href}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (collapsed) { onToggle(); return; }
-                    setSettingsOpen((prev) => !prev);
-                    if (!pathname?.startsWith("/settings")) router.push("/settings/clinic-profile");
-                  }}
-                  className={cn(itemClass, "w-full text-left")}
-                  title={collapsed ? item.label : undefined}
-                  aria-expanded={settingsOpen}
-                >
-                  {item.icon}
-                  {!collapsed && <span>{item.label}</span>}
-                </button>
+                <div key="settings-group">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (collapsed) { onToggle(); return; }
+                      setSettingsOpen((prev) => !prev);
+                    }}
+                    className={cn(itemClass, "w-full text-left")}
+                    title={collapsed ? item.label : undefined}
+                    aria-expanded={settingsOpen}
+                  >
+                    {item.icon}
+                    {!collapsed && <span className="flex-1">{item.label}</span>}
+                    {!collapsed && (
+                      <svg
+                        className={cn("w-3 h-3 shrink-0 transition-transform duration-200", settingsOpen && "rotate-90")}
+                        fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Inline accordion sub-items */}
+                  {settingsOpen && !collapsed && (
+                    <div className="ml-3 mt-0.5 border-l border-slate-200 dark:border-slate-700 pl-2 flex flex-col gap-0.5">
+                      {allSubItems.map((sub) => {
+                        const subActive = pathname === sub.href;
+                        return (
+                          <Link
+                            key={sub.href}
+                            href={sub.href}
+                            onClick={(e) => e.stopPropagation()}
+                            className={cn(
+                              "block px-2 py-1.5 text-sm rounded-md transition-colors",
+                              subActive
+                                ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
+                                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
+                            )}
+                            aria-current={subActive ? "page" : undefined}
+                          >
+                            {sub.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             }
 
