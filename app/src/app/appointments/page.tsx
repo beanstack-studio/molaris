@@ -66,6 +66,29 @@ export default function AppointmentsPage() {
   const { isVisible: aptIsVisible } = useTableColumns("appointments", APT_COLUMNS);
   const { getWidth: aptGetWidth, startResize: aptStartResize } = useColumnResize("appointments");
 
+  // Map column key → sort key
+  const APT_SORT_KEYS: Record<string, string> = {
+    time: "appointment_date",
+    patient: "patient_name",
+    dentist: "dentist_name",
+    status: "status",
+  };
+  function handleAptColSort(col: string) {
+    const sk = APT_SORT_KEYS[col];
+    if (!sk) return;
+    setAptSortConfig((prev) =>
+      prev.key === sk
+        ? { key: sk, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key: sk, direction: "asc" }
+    );
+  }
+  function getAptSortIcon(col: string): string {
+    const sk = APT_SORT_KEYS[col];
+    if (!sk) return "";
+    if (aptSortConfig.key === sk) return aptSortConfig.direction === "asc" ? " ↑" : " ↓";
+    return " ↕";
+  }
+
   // Read URL params on mount (e.g. from dashboard appointment links)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -282,24 +305,26 @@ export default function AppointmentsPage() {
             <tr>
               {aptIsVisible("time") && (
                 <th
-                  className="data-table-head-cell relative w-28"
+                  className="data-table-head-cell relative w-28 cursor-pointer select-none hover:bg-slate-100"
                   style={{ width: aptGetWidth("time") }}
+                  onClick={() => handleAptColSort("time")}
                 >
-                  Time
+                  Date{getAptSortIcon("time")}
                   <div
-                    onMouseDown={(e) => aptStartResize("time", e)}
+                    onMouseDown={(e) => { e.stopPropagation(); aptStartResize("time", e); }}
                     className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
                   />
                 </th>
               )}
               {aptIsVisible("patient") && (
                 <th
-                  className="data-table-head-cell relative"
+                  className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
                   style={{ width: aptGetWidth("patient") }}
+                  onClick={() => handleAptColSort("patient")}
                 >
-                  Patient
+                  Patient{getAptSortIcon("patient")}
                   <div
-                    onMouseDown={(e) => aptStartResize("patient", e)}
+                    onMouseDown={(e) => { e.stopPropagation(); aptStartResize("patient", e); }}
                     className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
                   />
                 </th>
@@ -318,24 +343,26 @@ export default function AppointmentsPage() {
               )}
               {aptIsVisible("dentist") && (
                 <th
-                  className="data-table-head-cell relative"
+                  className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
                   style={{ width: aptGetWidth("dentist") }}
+                  onClick={() => handleAptColSort("dentist")}
                 >
-                  Dentist
+                  Dentist{getAptSortIcon("dentist")}
                   <div
-                    onMouseDown={(e) => aptStartResize("dentist", e)}
+                    onMouseDown={(e) => { e.stopPropagation(); aptStartResize("dentist", e); }}
                     className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
                   />
                 </th>
               )}
               {aptIsVisible("status") && (
                 <th
-                  className="data-table-head-cell relative w-28"
+                  className="data-table-head-cell relative w-28 cursor-pointer select-none hover:bg-slate-100"
                   style={{ width: aptGetWidth("status") }}
+                  onClick={() => handleAptColSort("status")}
                 >
-                  Status
+                  Status{getAptSortIcon("status")}
                   <div
-                    onMouseDown={(e) => aptStartResize("status", e)}
+                    onMouseDown={(e) => { e.stopPropagation(); aptStartResize("status", e); }}
                     className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
                   />
                 </th>

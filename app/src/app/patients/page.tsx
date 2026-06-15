@@ -476,6 +476,16 @@ export default function PatientsPage() {
               data={patients}
               onDownloadCSV={exportPatientsCsv}
             />
+            {Object.values(activeFilters).some((v) => v !== "") && (
+              <button
+                type="button"
+                onClick={() => setActiveFilters({})}
+                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 whitespace-nowrap"
+                title="Clear all filters"
+              >
+                Filters active ×
+              </button>
+            )}
           </div>
         </div>
 

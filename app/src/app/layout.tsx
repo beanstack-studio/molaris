@@ -30,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="bg-slate-50 dark:bg-slate-900">
+    <html lang="en" className="bg-slate-50 dark:bg-slate-900" suppressHydrationWarning>
       <head>
         {/* Prevent dark-mode flash: set class before first paint */}
         <script

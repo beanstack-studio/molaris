@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 
 export function EditModal({
   open,
@@ -41,15 +42,16 @@ export function EditModal({
   );
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  return ReactDOM.createPortal(
     <div className="modal-container p-4" onClick={handleBackdropEvent} onDoubleClick={handleBackdropEvent}>
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`${wide ? "w-full max-w-2xl" : "w-full max-w-lg"} rounded-2xl bg-white overflow-hidden`}
+        className={`${wide ? "w-full max-w-2xl" : "w-full max-w-lg"} rounded-2xl bg-white dark:bg-slate-800 overflow-hidden`}
         style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}
       >
         <div className="modal-header">
@@ -59,6 +61,7 @@ export function EditModal({
         {/* Body scroll on small screens */}
         <div className="max-h-[75vh] overflow-y-auto p-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

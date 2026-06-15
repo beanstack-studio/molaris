@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { EditModal } from "@/components/EditModal";
 import { cn } from "@/lib/cn";
 
@@ -135,6 +135,18 @@ function IconSliders() {
   );
 }
 
+// ─── Build combined sort options ─────────────────────────────────────────────
+
+function sortOptionLabel(sort: SortConfig, direction: "asc" | "desc"): string {
+  const key = sort.key.toLowerCase();
+  const label = sort.label.toLowerCase();
+  const isDate = key.includes("date") || label.includes("date") || label.includes("visit");
+  const isMoney = key === "balance" || key.includes("price") || key.includes("total") || key.includes("amount");
+  if (isDate) return direction === "asc" ? `${sort.label} — Oldest first` : `${sort.label} — Newest first`;
+  if (isMoney) return direction === "asc" ? `${sort.label} — Lowest first` : `${sort.label} — Highest first`;
+  return direction === "asc" ? `${sort.label} — A to Z` : `${sort.label} — Z to A`;
+}
+
 // ─── TableOptions component ──────────────────────────────────────────────────
 
 export function TableOptions({
@@ -223,60 +235,25 @@ export function TableOptions({
           {sorts && sorts.length > 0 && (
             <div>
               <SectionLabel>Sort</SectionLabel>
-              <div className="flex items-center gap-2 flex-wrap">
-                <select
-                  className="field-input flex-1 min-w-0"
-                  value={currentSort?.key ?? ""}
-                  onChange={(e) => {
-                    if (onSortChange) {
-                      onSortChange(
-                        e.target.value,
-                        currentSort?.direction ?? "asc"
-                      );
-                    }
-                  }}
-                >
-                  {sorts.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex rounded-lg border border-slate-200 overflow-hidden flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onSortChange &&
-                      currentSort &&
-                      onSortChange(currentSort.key, "asc")
-                    }
-                    className={cn(
-                      "px-3 py-2 text-sm font-medium transition-colors",
-                      currentSort?.direction === "asc"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-white text-slate-600 hover:bg-slate-50"
-                    )}
-                  >
-                    Asc ↑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onSortChange &&
-                      currentSort &&
-                      onSortChange(currentSort.key, "desc")
-                    }
-                    className={cn(
-                      "px-3 py-2 text-sm font-medium border-l border-slate-200 transition-colors",
-                      currentSort?.direction === "desc"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-white text-slate-600 hover:bg-slate-50"
-                    )}
-                  >
-                    Desc ↓
-                  </button>
-                </div>
-              </div>
+              <select
+                className="field-input w-full"
+                value={currentSort?.key ? `${currentSort.key}:${currentSort.direction}` : ""}
+                onChange={(e) => {
+                  if (!onSortChange) return;
+                  const val = e.target.value;
+                  if (!val) { onSortChange("", "asc"); return; }
+                  const [key, dir] = val.split(":");
+                  onSortChange(key, (dir as "asc" | "desc") ?? "asc");
+                }}
+              >
+                <option value="">— No sort —</option>
+                {sorts.map((s) => (
+                  <React.Fragment key={s.key}>
+                    <option value={`${s.key}:asc`}>{sortOptionLabel(s, "asc")}</option>
+                    <option value={`${s.key}:desc`}>{sortOptionLabel(s, "desc")}</option>
+                  </React.Fragment>
+                ))}
+              </select>
             </div>
           )}
 
