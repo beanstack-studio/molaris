@@ -9,25 +9,28 @@
    ============================================================ */
 :root {
   /* page + card backgrounds */
-  --bg-page:        #f8fafc;
+  --bg-page:        #e8edf4;   /* cool blue-gray — cards stand out against this */
   --bg-card:        #ffffff;
-  --bg-card-muted:  #f8fafc;
+  --bg-card-muted:  #f1f5f9;   /* zebra rows, nested sections */
+  --bg-input:       #f8fafc;   /* inputs sit slightly off-white inside white cards */
   /* borders */
-  --border-card:    #e2e8f0;
-  --border-input:   #cbd5e1;
-  /* shadows */
-  --shadow-card:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-modal:   0 20px 60px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.07);
+  --border-card:    #dde3ec;
+  --border-input:   #c8d0dc;
+  /* shadows — slightly more visible on the richer bg */
+  --shadow-card:    0 1px 4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-modal:   0 20px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08);
 }
 
 html.dark {
   --bg-page:        #0f172a;
   --bg-card:        #1e293b;
-  --bg-card-muted:  #172030;
-  --border-card:    rgba(148,163,184,0.12);
-  --border-input:   rgba(148,163,184,0.25);
-  --shadow-card:    0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-  --shadow-modal:   0 20px 60px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3);
+  --bg-card-muted:  #172336;
+  --bg-input:       #152133;   /* slightly recessed — "sunken" feel inside cards */
+  /* borders — more visible in dark for definition */
+  --border-card:    rgba(148,163,184,0.15);
+  --border-input:   rgba(148,163,184,0.28);
+  --shadow-card:    0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-modal:   0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4);
 }
 
 html {
@@ -265,7 +268,7 @@ html.dark .tab-item-active {
 
 .form-input {
   @apply h-10 rounded-xl border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .form-input:focus {
@@ -280,7 +283,7 @@ html.dark .tab-item-active {
 
 .form-input-full-focus {
   @apply w-full px-3 py-2 border rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .form-input-full-focus:focus {
@@ -291,14 +294,14 @@ html.dark .tab-item-active {
 
 .modal-panel-raised {
   @apply rounded-2xl p-6 w-full max-w-md;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
 
 .form-textarea {
   @apply rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .form-textarea:focus {
@@ -309,7 +312,7 @@ html.dark .tab-item-active {
 
 .form-select {
   @apply h-10 rounded-lg border px-3 pr-8 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
   -webkit-appearance: none;
   appearance: none;
@@ -359,7 +362,7 @@ html.dark .tab-item-active {
 }
 
 .data-table-row-even {
-  background: var(--bg-card);
+  background-color: var(--bg-card);
 }
 
 .data-table-row-odd {
@@ -383,7 +386,7 @@ html.dark tr.data-table-row-odd:hover {
 }
 
 .data-table-row-compact-even {
-  background: var(--bg-card);
+  background-color: var(--bg-card);
 }
 
 .data-table-row-compact-odd {
@@ -519,7 +522,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .delete-confirmation-input {
   @apply w-full h-10 rounded-xl border px-3 py-2 text-sm font-mono text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 
@@ -538,7 +541,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .entry-row-select {
   @apply w-1/4 flex-shrink-0 h-10 rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .entry-row-select:focus {
@@ -549,7 +552,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .entry-row-input {
   @apply flex-1 min-w-0 h-10 rounded-xl border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 
@@ -597,7 +600,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .card-shell {
   @apply block rounded-2xl p-4;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-card);
 }
@@ -627,7 +630,7 @@ html.dark tr.data-table-row-compact-odd:hover {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-card);
   margin-bottom: 1rem;
 }
@@ -712,7 +715,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 /* Primary card */
 .card {
   @apply rounded-2xl px-5 pt-4 pb-6;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-card);
 }
@@ -720,7 +723,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 /* Stat/KPI card */
 .stat-card {
   @apply rounded-2xl p-6;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-card);
 }
@@ -773,7 +776,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 /* Inputs */
 .field-input {
   @apply h-10 w-full rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .field-input:focus {
@@ -784,7 +787,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .field-textarea {
   @apply min-h-[88px] rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .field-textarea:focus {
@@ -801,7 +804,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .field-input-white {
   @apply rounded-lg border px-3 py-2 text-slate-700 dark:text-slate-200 transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .field-input-white:focus {
@@ -841,7 +844,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .cancel-btn {
   @apply h-10 rounded-xl px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-60 transition-colors;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
 }
 .cancel-btn:hover {
@@ -878,7 +881,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .section-check-group {
   @apply rounded-lg overflow-hidden;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
 }
 
@@ -896,7 +899,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .section-check-sub-row {
   @apply flex items-center gap-2.5 text-sm text-slate-600 dark:text-slate-300 cursor-pointer rounded-md px-2.5 py-1.5 hover:border-violet-300 transition-colors select-none;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
 }
 
@@ -922,7 +925,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .topnav-wrapper {
   @apply sticky top-0 z-50;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-card);
   box-shadow: var(--shadow-card);
 }
@@ -970,28 +973,28 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .modal-wrapper {
   @apply rounded-2xl overflow-hidden w-full max-w-md mx-3 sm:mx-0;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
 
 .modal-panel {
   @apply w-full max-w-md rounded-2xl overflow-hidden mx-3 sm:mx-0;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
 
 .modal-panel-wide {
   @apply w-full max-w-2xl rounded-2xl overflow-hidden mx-3 sm:mx-0;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
 
 .modal-panel-lg {
   @apply w-full max-w-lg rounded-2xl overflow-hidden mx-3 sm:mx-0;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
@@ -999,13 +1002,13 @@ html.dark tr.data-table-row-compact-odd:hover {
 /* Modal header — clean white/dark with bottom border */
 .modal-header {
   @apply px-6 py-4;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-card);
 }
 
 .modal-sticky-header {
   @apply sticky top-0 px-6 py-4;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-card);
 }
 
@@ -1099,7 +1102,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .table-wrapper {
   @apply mt-4 overflow-x-auto rounded-2xl;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-card);
 }
@@ -1169,7 +1172,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .input-standard {
   @apply h-10 rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .input-standard:focus {
@@ -1180,7 +1183,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .input-standard-sm {
   @apply h-9 rounded-lg border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .input-standard-sm:focus {
@@ -1191,7 +1194,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .textarea-standard {
   @apply min-h-[88px] rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 
@@ -1228,14 +1231,14 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 .container-bg-white-rounded-shadow {
   @apply rounded-2xl w-full max-w-md mx-4 p-6;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
 
 .input-sm-text-sm {
   @apply h-8 rounded-lg border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .input-sm-text-sm:focus {
@@ -1250,7 +1253,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .overflow-scroll-bordered {
   @apply overflow-y-auto max-h-96 rounded-xl;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
 }
 
@@ -1264,7 +1267,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .form-select-standard {
   @apply h-9 w-40 rounded-lg border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .form-select-standard:focus {
@@ -1322,7 +1325,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .compact-input {
   @apply w-full rounded-lg border px-2 py-1 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .compact-input:focus {
@@ -1427,7 +1430,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .input-full {
   @apply h-10 w-full rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .input-full:focus {
@@ -1438,7 +1441,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .textarea-input {
   @apply w-full rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 resize-none focus:outline-none transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .textarea-input:focus {
@@ -1449,13 +1452,13 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .input-xs {
   @apply rounded-md border px-2 py-1 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 
 .input-flex-sm {
   @apply h-9 flex-1 rounded-xl border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 
@@ -1636,7 +1639,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .mobile-doc-card {
   @apply rounded-xl p-3;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-card);
 }
@@ -1755,7 +1758,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 .sidebar-wrapper {
   @apply fixed inset-y-0 left-0 z-40 flex flex-col;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-right: 1px solid var(--border-card);
   transition: width 200ms ease;
 }
@@ -1815,7 +1818,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 /* Bottom navigation (mobile only) */
 .bottom-nav-wrapper {
   @apply fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 pt-2 lg:hidden;
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   border-top: 1px solid var(--border-card);
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
@@ -1831,4 +1834,33 @@ html.dark tr.data-table-row-compact-odd:hover {
 /* Content offset for sidebar */
 .sidebar-content-offset {
   @apply transition-all duration-200;
+}
+
+/* ========================================
+   INPUT SURFACE OVERRIDE
+   All form inputs use --bg-input so they sit
+   slightly recessed inside card surfaces.
+   Light: barely-off-white (#f8fafc) vs white card.
+   Dark: deeper (#152133) vs card (#1e293b) — clear "sunken" feel.
+   ======================================== */
+.form-input,
+.form-input-full-focus,
+.form-textarea,
+.form-select,
+.field-input,
+.field-textarea,
+.field-input-white,
+.input-standard,
+.input-standard-sm,
+.textarea-standard,
+.input-sm-text-sm,
+.compact-input,
+.input-full,
+.textarea-input,
+.input-xs,
+.input-flex-sm,
+.delete-confirmation-input,
+.entry-row-select,
+.entry-row-input {
+  background-color: var(--bg-input);
 }

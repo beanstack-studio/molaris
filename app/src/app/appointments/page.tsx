@@ -305,7 +305,7 @@ export default function AppointmentsPage() {
             <tr>
               {aptIsVisible("time") && (
                 <th
-                  className="data-table-head-cell relative w-28 cursor-pointer select-none hover:bg-slate-100"
+                  className="data-table-head-cell relative w-28 cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-700"
                   style={{ width: aptGetWidth("time") }}
                   onClick={() => handleAptColSort("time")}
                 >
@@ -318,7 +318,7 @@ export default function AppointmentsPage() {
               )}
               {aptIsVisible("patient") && (
                 <th
-                  className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
+                  className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-700"
                   style={{ width: aptGetWidth("patient") }}
                   onClick={() => handleAptColSort("patient")}
                 >
@@ -343,7 +343,7 @@ export default function AppointmentsPage() {
               )}
               {aptIsVisible("dentist") && (
                 <th
-                  className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
+                  className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-700"
                   style={{ width: aptGetWidth("dentist") }}
                   onClick={() => handleAptColSort("dentist")}
                 >
@@ -356,7 +356,7 @@ export default function AppointmentsPage() {
               )}
               {aptIsVisible("status") && (
                 <th
-                  className="data-table-head-cell relative w-28 cursor-pointer select-none hover:bg-slate-100"
+                  className="data-table-head-cell relative w-28 cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-700"
                   style={{ width: aptGetWidth("status") }}
                   onClick={() => handleAptColSort("status")}
                 >
@@ -381,13 +381,13 @@ export default function AppointmentsPage() {
                 aria-label={`Edit appointment for ${apt.patients?.full_name ?? "patient"}`}
               >
                 {aptIsVisible("time") && (
-                  <td className="data-table-cell font-semibold text-slate-800 whitespace-nowrap">
+                  <td className="data-table-cell font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                     {apt.appointment_time ? formatTime12Hr(apt.appointment_time) : "—"}
                   </td>
                 )}
                 {aptIsVisible("patient") && (
                   <td className="data-table-cell">
-                    <div className="font-medium text-slate-900">{apt.patients?.full_name || "—"}</div>
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{apt.patients?.full_name || "—"}</div>
                   </td>
                 )}
                 {aptIsVisible("reason") && (
@@ -429,18 +429,18 @@ export default function AppointmentsPage() {
           <button
             key={apt.id}
             type="button"
-            className="w-full text-left rounded-xl border border-slate-100 bg-white p-3 shadow-sm hover:border-slate-200 transition-colors"
+            className="w-full text-left rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-colors"
             onClick={() => setEditingAppointment(apt)}
             aria-label={`Edit appointment for ${apt.patients?.full_name ?? "patient"}`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-slate-900 text-sm">{apt.patients?.full_name || "—"}</div>
+                <div className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{apt.patients?.full_name || "—"}</div>
               </div>
               <span className={statusBadge(apt.status)}>{apt.status}</span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-              <span className="font-medium text-slate-800">{apt.appointment_time ? formatTime12Hr(apt.appointment_time) : "—"}</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200">{apt.appointment_time ? formatTime12Hr(apt.appointment_time) : "—"}</span>
               {apt.dentists?.full_name && (
                 <span
                   className="rounded-full px-2 py-0.5 font-medium"
@@ -618,7 +618,7 @@ export default function AppointmentsPage() {
             {viewMode === "list" && (
               <div className="space-y-6">
                 {datesList.length === 0 ? (
-                  <div className="text-center py-12 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
                     <p className="text-slate-500">
                       {filterDentistId
                         ? `No appointments for ${dentistLabel(dentists.find((d) => d.id === filterDentistId)!)}`
@@ -659,9 +659,9 @@ export default function AppointmentsPage() {
 
             {/* Calendar View */}
             {viewMode === "calendar" && (
-              <div className="rounded-lg border border-slate-200 p-4">
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
-                  <h2 className="text-xl font-bold text-slate-900">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     {currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                   </h2>
                   <div className="flex flex-wrap gap-2">
@@ -689,7 +689,7 @@ export default function AppointmentsPage() {
                 {/* Calendar Grid */}
                 <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-8">
                   {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => (
-                    <div key={day} className="text-center font-bold text-slate-700 py-2 md:py-3 bg-slate-100 rounded text-xs md:text-sm">
+                    <div key={day} className="text-center font-bold text-slate-700 dark:text-slate-200 py-2 md:py-3 bg-slate-100 dark:bg-slate-800 rounded text-xs md:text-sm">
                       {day.slice(0, 3)}
                     </div>
                   ))}
@@ -723,33 +723,33 @@ export default function AppointmentsPage() {
                         className={`min-h-20 md:min-h-32 p-1 md:p-2 rounded border-2 transition text-xs md:text-sm ${
                           isCurrentMonth
                             ? isPast
-                              ? "bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed opacity-60"
+                              ? "bg-slate-100 dark:bg-slate-800/60 border-slate-300 dark:border-slate-700 text-slate-500 cursor-not-allowed opacity-60"
                               : selectedDate === dateStr
-                              ? "bg-indigo-100 border-indigo-500 shadow-md cursor-pointer"
+                              ? "bg-indigo-100 dark:bg-indigo-900/50 border-indigo-500 dark:border-indigo-400 shadow-md cursor-pointer"
                               : isDentistBlockout
-                              ? "bg-rose-50 border-rose-300 cursor-pointer"
+                              ? "bg-rose-50 dark:bg-rose-900/30 border-rose-300 dark:border-rose-700 cursor-pointer"
                               : isDentistOffDay
-                              ? "bg-slate-50 border-slate-200 opacity-60 cursor-pointer"
+                              ? "bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 opacity-60 cursor-pointer"
                               : isHoliday
-                              ? "bg-red-50 border-red-400 cursor-pointer"
+                              ? "bg-red-50 dark:bg-red-900/30 border-red-400 dark:border-red-700 cursor-pointer"
                               : isToday
-                              ? "bg-emerald-50 border-emerald-300 cursor-pointer"
+                              ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-600 cursor-pointer"
                               : dayAppointments.length > 0
-                              ? "bg-orange-50 border-orange-300 hover:border-orange-400 cursor-pointer"
-                              : "bg-white border-slate-200 hover:border-slate-400 cursor-pointer"
-                            : "bg-slate-50 border-slate-100"
+                              ? "bg-orange-50 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700 hover:border-orange-400 dark:hover:border-orange-500 cursor-pointer"
+                              : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 cursor-pointer"
+                            : "bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800"
                         }`}
                       >
                         <div className={`text-xs md:text-sm font-bold mb-0.5 md:mb-1 flex justify-between items-center ${
                           isCurrentMonth
                             ? isPast
-                              ? "text-slate-400"
+                              ? "text-slate-400 dark:text-slate-600"
                               : isHoliday
-                              ? "text-red-700"
+                              ? "text-red-700 dark:text-red-400"
                               : isToday
-                              ? "text-emerald-700"
-                              : "text-slate-900"
-                            : "text-slate-400"
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-slate-900 dark:text-slate-100"
+                            : "text-slate-400 dark:text-slate-600"
                         }`}>
                           <span>{isCurrentMonth ? dayNum : ""}</span>
                           {isPhHoliday && !isOverridden && (
@@ -839,7 +839,7 @@ export default function AppointmentsPage() {
                     {appointmentsByDate[selectedDate]?.length > 0 ? (
                       <AppointmentsTable rows={appointmentsByDate[selectedDate]} />
                     ) : (
-                      <div className="text-center py-8 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
                         <p className="text-slate-500 text-sm">No appointments for this date</p>
                       </div>
                     )}
