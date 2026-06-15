@@ -348,8 +348,8 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (collapsed) { onToggle(); return; }
-                      setSettingsOpen((prev) => !prev);
+                      onToggle();
+                      if (!collapsed) setSettingsOpen((prev) => !prev);
                     }}
                     className={cn(itemClass, "w-full text-left")}
                     title={collapsed ? item.label : undefined}
@@ -399,7 +399,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onToggle(); }}
                 className={itemClass}
                 title={collapsed ? item.label : undefined}
                 aria-current={isActive ? "page" : undefined}

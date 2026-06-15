@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getVisitReasonLabel } from "@/lib/visitReasonHelpers";
@@ -10,7 +10,7 @@ import { Appointment, Patient, DentistRow, dentistLabel } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
 import { PageLoader } from "@/components/Spinner";
-import { TableOptions, useTableColumns, type ColumnConfig } from "@/components/shared/TableOptions";
+import { TableOptions, useTableColumns, SortArrow, type ColumnConfig } from "@/components/shared/TableOptions";
 import { useColumnResize } from "@/hooks/useColumnResize";
 
 interface AppointmentWithRelations extends Appointment {
@@ -82,11 +82,11 @@ export default function AppointmentsPage() {
         : { key: sk, direction: "asc" }
     );
   }
-  function getAptSortIcon(col: string): string {
+  function getAptSortIcon(col: string): React.ReactElement | null {
     const sk = APT_SORT_KEYS[col];
-    if (!sk) return "";
-    if (aptSortConfig.key === sk) return aptSortConfig.direction === "asc" ? " ↑" : " ↓";
-    return " ↕";
+    if (!sk) return null;
+    const dir = aptSortConfig.key === sk ? aptSortConfig.direction : null;
+    return <SortArrow dir={dir} />;
   }
 
   // Read URL params on mount (e.g. from dashboard appointment links)

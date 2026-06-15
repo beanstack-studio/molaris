@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { EditModal } from "@/components/EditModal";
 import { cn } from "@/lib/cn";
 
@@ -35,6 +35,10 @@ export type TableOptionsProps = {
   onFilterChange?: (key: string, value: string) => void;
   data: unknown[];
   onDownloadCSV: () => void;
+  /** Pass the page's visibleColumns state to sync visibility (fixes dual-hook bug) */
+  visibleColumns?: string[];
+  /** Pass the page's onVisibilityChange setter to sync visibility */
+  onColsChange?: (cols: string[]) => void;
 };
 
 // ─── Legacy ColumnDef — kept for backward compat ────────────────────────────
@@ -52,22 +56,26 @@ export function useTableColumns(tableName: string, columns: ColumnDef[]) {
   const allKeys = columns.map((c) => c.key);
   const requiredKeys = columns.filter((c) => c.required).map((c) => c.key);
 
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
-    if (typeof window === "undefined") return allKeys;
+  // SSR-safe: always start with allKeys, hydrate from localStorage after mount
+  // to avoid React hydration mismatch between server and client
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(allKeys);
+
+  useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed: unknown = JSON.parse(stored);
         if (Array.isArray(parsed)) {
           const valid = (parsed as string[]).filter((k) => allKeys.includes(k));
-          return [...new Set([...requiredKeys, ...valid])];
+          const final = [...new Set([...requiredKeys, ...valid])];
+          setVisibleColumns(final);
         }
       }
     } catch {
       // ignore
     }
-    return allKeys;
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
   function onVisibilityChange(cols: string[]) {
     const final = [...new Set([...requiredKeys, ...cols])];
@@ -94,6 +102,30 @@ export function useTableColumns(tableName: string, columns: ColumnDef[]) {
   }
 
   return { visibleColumns, onVisibilityChange, isVisible, toggleColumn };
+}
+
+// ─── SortArrow — plain SVG, no Unicode emoji ─────────────────────────────────
+
+export function SortArrow({ dir }: { dir: "asc" | "desc" | null }) {
+  if (dir === "asc") {
+    return (
+      <svg className="inline-block w-3 h-3 ml-1 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+      </svg>
+    );
+  }
+  if (dir === "desc") {
+    return (
+      <svg className="inline-block w-3 h-3 ml-1 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="inline-block w-3 h-3 ml-1 text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 10l5-5 5 5M7 14l5 5 5-5" />
+    </svg>
+  );
 }
 
 // ─── Section header ──────────────────────────────────────────────────────────
@@ -159,20 +191,23 @@ export function TableOptions({
   currentFilters,
   onFilterChange,
   onDownloadCSV,
+  visibleColumns: externalVisible,
+  onColsChange,
 }: TableOptionsProps) {
   const [open, setOpen] = useState(false);
-  const { visibleColumns, onVisibilityChange } = useTableColumns(tableName, columns);
 
-  const storageKey = `molaris_cols_${tableName}`;
+  // Internal hook as fallback when parent doesn't pass controlled visibility
+  const internal = useTableColumns(tableName, columns);
+  const effectiveVisible = externalVisible ?? internal.visibleColumns;
+  const effectiveOnChange = onColsChange ?? internal.onVisibilityChange;
+
   const requiredKeys = columns.filter((c) => c.required).map((c) => c.key);
   const allKeys = columns.map((c) => c.key);
 
-  // Sync column visibility into localStorage via the hook's setter.
-  // We track a separate local state for the panel so changes are live.
-  const [panelVisible, setPanelVisible] = useState<string[]>(visibleColumns);
+  const [panelVisible, setPanelVisible] = useState<string[]>(effectiveVisible);
 
   function handleOpen() {
-    setPanelVisible(visibleColumns);
+    setPanelVisible(effectiveVisible);
     setOpen(true);
   }
 
@@ -189,7 +224,7 @@ export function TableOptions({
       : [...panelVisible, key];
     const final = [...new Set([...requiredKeys, ...next])];
     setPanelVisible(final);
-    onVisibilityChange(final);
+    effectiveOnChange(final);
   }
 
   function selectAllCols() {
@@ -198,14 +233,13 @@ export function TableOptions({
     );
     const allSelected = allNonRequired.every((k) => panelVisible.includes(k));
     if (allSelected) {
-      // Deselect all non-required
       const next = [...requiredKeys];
       setPanelVisible(next);
-      onVisibilityChange(next);
+      effectiveOnChange(next);
     } else {
       const next = [...allKeys];
       setPanelVisible(next);
-      onVisibilityChange(next);
+      effectiveOnChange(next);
     }
   }
 
@@ -370,7 +404,7 @@ export function TableOptions({
                   disabled
                   aria-disabled="true"
                 >
-                  🔒 Download PDF
+                  Download PDF (coming soon)
                 </button>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
                   <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap shadow-lg">

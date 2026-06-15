@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -9,7 +9,7 @@ import type { GenderDB } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { DatePickerField } from "@/components/DatePickerField";
 import { useClinic } from "@/contexts/ClinicContext";
-import { TableOptions, useTableColumns, type ColumnConfig } from "@/components/shared/TableOptions";
+import { TableOptions, useTableColumns, SortArrow, type ColumnConfig } from "@/components/shared/TableOptions";
 import { useColumnResize } from "@/hooks/useColumnResize";
 
 type PatientRow = {
@@ -398,11 +398,11 @@ export default function PatientsPage() {
     }
   }
 
-  function getSortIcon(col: string): string {
+  function getSortIcon(col: string): React.ReactElement | null {
     const mappedKey = SORTABLE_COLS[col];
-    if (!mappedKey) return "";
-    if (sortConfig.key === mappedKey) return sortConfig.direction === "asc" ? " ↑" : " ↓";
-    return " ↕";
+    if (!mappedKey) return null;
+    const dir = sortConfig.key === mappedKey ? sortConfig.direction : null;
+    return <SortArrow dir={dir} />;
   }
 
   function exportPatientsCsv() {
@@ -475,6 +475,8 @@ export default function PatientsPage() {
               onFilterChange={(key, value) => setActiveFilters((prev) => ({ ...prev, [key]: value }))}
               data={patients}
               onDownloadCSV={exportPatientsCsv}
+              visibleColumns={visibleColumns}
+              onColsChange={onVisibilityChange}
             />
             {Object.values(activeFilters).some((v) => v !== "") && (
               <button
