@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
@@ -62,32 +62,6 @@ function IconSettings() {
   );
 }
 
-function IconGearSmall() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="3" />
-      <path strokeLinecap="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
-function IconSun() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="5" />
-      <path strokeLinecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-    </svg>
-  );
-}
-
-function IconMoon() {
-  return (
-    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  );
-}
-
 function IconSignOut() {
   return (
     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -139,31 +113,10 @@ const settingsFlyoutSections = [
     items: [
       { label: "Team Members",  href: "/settings/team" },
       { label: "Calendar Sync", href: "/settings/calendar-sync" },
+      { label: "Appearance",    href: "/settings/appearance" },
     ],
   },
 ];
-
-// ─── Gear toggle switch ───────────────────────────────────────────────────────
-
-interface GearToggleProps {
-  isDark: boolean;
-  onToggle: () => void;
-}
-
-function GearToggle({ isDark, onToggle }: GearToggleProps) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={isDark}
-      onClick={onToggle}
-      className={cn("switch-btn", isDark ? "switch-btn-on" : "switch-btn-off")}
-      aria-label="Toggle dark mode"
-    >
-      <span className={cn("switch-thumb", isDark ? "switch-thumb-on" : "switch-thumb-off")} />
-    </button>
-  );
-}
 
 // ─── Sidebar component ────────────────────────────────────────────────────────
 
@@ -172,35 +125,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   const router = useRouter();
   const { clinicName, plan, isOwner, userFullName, userEmail } = useClinic();
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
-  const [isDark, setIsDark] = useState(false);
-  const [gearOpen, setGearOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const gearRef = useRef<HTMLDivElement>(null);
-
-  // Sync dark mode from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem("molaris_theme");
-    setIsDark(stored === "dark");
-  }, []);
-
-  function toggleDark() {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("molaris_theme", next ? "dark" : "light");
-  }
-
-  // Close gear dropdown on outside click or Escape
-  useEffect(() => {
-    if (!gearOpen) return;
-    function onMouseDown(e: MouseEvent) {
-      if (gearRef.current && !gearRef.current.contains(e.target as Node)) setGearOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) { if (e.key === "Escape") setGearOpen(false); }
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => { document.removeEventListener("mousedown", onMouseDown); document.removeEventListener("keydown", onKeyDown); };
-  }, [gearOpen]);
 
   // Auto-open settings accordion when on a settings route
   useEffect(() => {
@@ -249,39 +174,6 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   const roleBadgeClass = isOwner
     ? "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700"
     : "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500";
-  const dropdownItemClass = "flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer rounded-md w-full text-left text-slate-700 dark:text-slate-200";
-
-  // ─── Gear dropdown (appearance only) ─────────────────────────────────────────
-  const gearDropdown = (
-    <div ref={gearRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setGearOpen((prev) => !prev)}
-        className="sidebar-toggle-btn"
-        title="Appearance"
-        aria-label="Appearance settings"
-        aria-expanded={gearOpen}
-      >
-        <IconGearSmall />
-      </button>
-
-      {gearOpen && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50">
-          <div
-            className={dropdownItemClass}
-            role="button"
-            tabIndex={0}
-            onClick={toggleDark}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleDark(); }}
-          >
-            {isDark ? <IconSun /> : <IconMoon />}
-            <span className="flex-1">{isDark ? "Dark" : "Light"}</span>
-            <GearToggle isDark={isDark} onToggle={toggleDark} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <>
@@ -290,9 +182,9 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
         aria-label="Main navigation"
         onClick={() => { if (collapsed) onToggle(); }}
       >
-        {/* ── TOP: clinic logo + name + plan badge + gear icon ── */}
+        {/* ── TOP: clinic logo + name + plan badge ── */}
         {collapsed ? (
-          <div className="flex flex-col items-center gap-2 px-2 py-3 border-b border-slate-100 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col items-center px-2 py-3 border-b border-slate-100 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
             <Link href="/dashboard" aria-label="Dashboard">
               {logoSrc ? (
                 <img src={logoSrc} alt="Clinic logo" className="h-8 w-8 rounded-full object-contain" />
@@ -302,7 +194,6 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                 </div>
               )}
             </Link>
-            {gearDropdown}
           </div>
         ) : (
           <div className="px-3 py-3 border-b border-slate-100 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
@@ -316,12 +207,9 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                   </div>
                 )}
               </Link>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0">
                 <div className="sidebar-clinic-name break-words">{clinicName}</div>
                 <span className={planClass}>{planLabel}</span>
-              </div>
-              <div className="shrink-0">
-                {gearDropdown}
               </div>
             </div>
           </div>
@@ -348,8 +236,15 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onToggle();
-                      if (!collapsed) setSettingsOpen((prev) => !prev);
+                      if (collapsed) {
+                        onToggle();
+                        router.push(item.href);
+                      } else if (isActive) {
+                        onToggle(); // collapse when re-clicking the active settings group
+                      } else {
+                        setSettingsOpen(true);
+                        router.push(item.href);
+                      }
                     }}
                     className={cn(itemClass, "w-full text-left")}
                     title={collapsed ? item.label : undefined}
@@ -399,7 +294,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={(e) => { e.stopPropagation(); onToggle(); }}
+                onClick={(e) => { e.stopPropagation(); if (collapsed || isActive) onToggle(); }}
                 className={itemClass}
                 title={collapsed ? item.label : undefined}
                 aria-current={isActive ? "page" : undefined}

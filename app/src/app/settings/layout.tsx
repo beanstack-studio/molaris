@@ -14,6 +14,7 @@ const mobileSettingsItems = [
   { label: "Document Templates", href: "/settings/document-templates" },
   { label: "Team Members",       href: "/settings/team" },
   { label: "Calendar Sync",      href: "/settings/calendar-sync" },
+  { label: "Appearance",         href: "/settings/appearance" },
 ];
 
 function IconBack() {

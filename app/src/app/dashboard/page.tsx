@@ -106,7 +106,7 @@ export default function DashboardPage() {
     (async () => {
       try {
         const [inv, pay, pts] = await Promise.all([
-          supabase.from("invoices").select("id, total").eq("clinic_id", clinicId).gte("invoice_date", monthStart).lte("invoice_date", monthEnd).is("deleted_at", null),
+          supabase.from("invoices").select("id, total").eq("clinic_id", clinicId).gte("invoice_date", monthStart).lte("invoice_date", monthEnd),
           supabase.from("payments").select("id, amount").eq("clinic_id", clinicId).gte("payment_date", monthStart).lte("payment_date", monthEnd).is("voided_at", null),
           supabase.from("patients").select("id", { count: "exact" }).eq("clinic_id", clinicId).limit(1).gte("created_at", monthStart + "T00:00:00"),
         ]);
@@ -144,10 +144,10 @@ export default function DashboardPage() {
     (async () => {
       try {
         const [chartInv, chartPay, treats, txs, patientsSeen] = await Promise.all([
-          supabase.from("invoices").select("invoice_date, total").eq("clinic_id", clinicId).gte("invoice_date", sixMonthsAgo).lte("invoice_date", monthEnd).is("deleted_at", null),
+          supabase.from("invoices").select("invoice_date, total").eq("clinic_id", clinicId).gte("invoice_date", sixMonthsAgo).lte("invoice_date", monthEnd),
           supabase.from("payments").select("payment_date, amount").eq("clinic_id", clinicId).gte("payment_date", sixMonthsAgo).lte("payment_date", monthEnd).is("voided_at", null),
           supabase.from("treatments").select("procedure, dentist_name").eq("clinic_id", clinicId).gte("treatment_date", monthStart).lte("treatment_date", today),
-          supabase.from("invoices").select("id, invoice_date, invoice_number, total, status, patient_id, patients(full_name)").eq("clinic_id", clinicId).is("deleted_at", null).order("invoice_date", { ascending: false }).limit(10),
+          supabase.from("invoices").select("id, invoice_date, invoice_number, total, status, patient_id, patients(full_name)").eq("clinic_id", clinicId).order("invoice_date", { ascending: false }).limit(10),
           supabase.from("treatments").select("patient_id").eq("clinic_id", clinicId).gte("treatment_date", monthStart).lte("treatment_date", today),
         ]);
         setChartInvoices((chartInv.data ?? []) as { invoice_date: string; total: number }[]);
