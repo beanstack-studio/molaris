@@ -51,8 +51,7 @@ export function EditModal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`${wide ? "w-full max-w-2xl" : "w-full max-w-lg"} rounded-2xl bg-white dark:bg-slate-800 overflow-hidden`}
-        style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)" }}
+        className={`${wide ? "modal-panel-wide" : "modal-panel-lg"} overflow-hidden`}
       >
         <div className="modal-header">
           <div className="modal-title">{title}</div>

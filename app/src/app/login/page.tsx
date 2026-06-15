@@ -3,129 +3,443 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+type Tab = "signin" | "signup";
+
+// ─── Password validation ──────────────────────────────────────────────────────
+
+function validatePassword(pwd: string): string | null {
+  if (pwd.length < 8) return "Password must be at least 8 characters.";
+  if (!/\d/.test(pwd)) return "Password must contain at least one number.";
+  return null;
+}
+
+function PasswordHints({ password }: { password: string }) {
+  if (!password) return null;
+  const hasLength = password.length >= 8;
+  const hasNumber = /\d/.test(password);
+  return (
+    <div className="mt-1.5 flex gap-3 text-xs">
+      <span className={hasLength ? "text-emerald-600 font-medium" : "text-stone-400"}>
+        {hasLength ? "✓" : "·"} 8+ characters
+      </span>
+      <span className={hasNumber ? "text-emerald-600 font-medium" : "text-stone-400"}>
+        {hasNumber ? "✓" : "·"} one number
+      </span>
+    </div>
+  );
+}
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
+
+function IconEye() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+    </svg>
+  );
+}
+
+function IconEyeOff() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+    </svg>
+  );
+}
+
+// ─── PasswordInput ────────────────────────────────────────────────────────────
+
+function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+  show,
+  onToggleShow,
+  autoComplete = "current-password",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  show: boolean;
+  onToggleShow: () => void;
+  autoComplete?: string;
+}) {
+  return (
+    <div className="relative">
+      <input
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        required
+        className="w-full h-12 rounded-xl bg-stone-100 border border-stone-200 px-4 pr-12 text-sm text-slate-700 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition"
+      />
+      <button
+        type="button"
+        onClick={onToggleShow}
+        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors"
+        tabIndex={-1}
+        aria-label={show ? "Hide password" : "Show password"}
+      >
+        {show ? <IconEyeOff /> : <IconEye />}
+      </button>
+    </div>
+  );
+}
+
+// ─── LoginPage ────────────────────────────────────────────────────────────────
+
 export default function LoginPage() {
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
-  const [clinicName, setClinicName] = useState("Clinic Portal");
+  const [clinicName, setClinicName] = useState("Molaris");
 
+  const [tab, setTab] = useState<Tab>("signin");
+
+  // Sign In
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
+  // Forgot password
   const [showForgot, setShowForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
+
+  // Sign Up
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [signupConfirm, setSignupConfirm] = useState("");
+  const [showSignupConfirm, setShowSignupConfirm] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
+
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const cached = localStorage.getItem("clinic-logo-url");
     if (cached) setLogoSrc(cached);
     fetch("/api/clinic-info")
       .then((r) => r.json())
-      .then((data) => {
+      .then((data: { logo_url?: string; clinic_name?: string }) => {
         if (data.logo_url) setLogoSrc(data.logo_url);
         if (data.clinic_name) setClinicName(data.clinic_name);
       })
       .catch(() => {});
   }, []);
 
-  async function onSubmit(e: React.FormEvent) {
+  function switchTab(next: Tab) {
+    setTab(next);
+    setError(null);
+    setShowForgot(false);
+    setResetSent(false);
+    setSignupSuccess(false);
+  }
+
+  async function onSignIn(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
-    if (error) { setError(error.message); return; }
-    // Mark this window/tab as authenticated — used by TopNav to block direct URL access
+    if (err) { setError(err.message); return; }
     if (typeof window !== "undefined") window.name = "molaris_auth_active";
     window.location.href = "/dashboard";
   }
 
-  async function sendReset(e: React.FormEvent) {
+  async function onSendReset(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+    const { error: err } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setBusy(false);
-    if (error) { setError(error.message); return; }
+    if (err) { setError(err.message); return; }
     setResetSent(true);
   }
 
-  return (
-    <main className="page-bg min-h-screen flex items-center justify-center p-6">
-      <div className="card w-full max-w-md">
+  async function onSignUp(e: React.FormEvent) {
+    e.preventDefault();
+    const pwdError = validatePassword(signupPassword);
+    if (pwdError) { setError(pwdError); return; }
+    if (signupPassword !== signupConfirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const { error: err } = await supabase.auth.signUp({
+      email: signupEmail.trim(),
+      password: signupPassword,
+      options: { data: { full_name: signupName.trim() } },
+    });
+    setBusy(false);
+    if (err) { setError(err.message); return; }
+    setSignupSuccess(true);
+  }
 
-        {/* Logo + clinic name */}
-        <div className="flex flex-col items-center mb-6">
-          {logoSrc ? (
-            <img src={logoSrc} alt="Clinic logo" className="h-16 w-16 rounded-2xl object-contain shadow mb-3" />
-          ) : (
-            <div className="h-16 w-16 rounded-2xl bg-violet-100 flex items-center justify-center text-3xl shadow mb-3">🦷</div>
-          )}
-          <h1 className="text-xl font-bold text-slate-800">{clinicName}</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Clinic Portal</p>
+  // ─── Shared input class ──────────────────────────────────────────────────────
+  const textInput = "w-full h-12 rounded-xl bg-stone-100 border border-stone-200 px-4 text-sm text-slate-700 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition";
+  const labelText = "block text-sm font-bold text-slate-800 mb-1.5";
+
+  return (
+    <main className="min-h-screen bg-stone-100 flex flex-col items-center justify-center px-4 py-10 gap-6">
+
+      {/* ── Logo + clinic name ── */}
+      <div className="flex flex-col items-center gap-3">
+        {logoSrc ? (
+          <img
+            src={logoSrc}
+            alt="Clinic logo"
+            className="w-20 h-20 rounded-full object-cover ring-2 ring-white shadow-md"
+          />
+        ) : (
+          <div className="w-20 h-20 rounded-full bg-teal-100 ring-2 ring-white shadow-md flex items-center justify-center text-teal-700 font-bold text-2xl select-none">
+            {clinicName.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{clinicName}</h1>
+      </div>
+
+      {/* ── Card ── */}
+      <div className="w-full max-w-md bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+
+        {/* Tab strip */}
+        <div className="flex border-b border-stone-200">
+          {(["signin", "signup"] as Tab[]).map((t) => {
+            const active = tab === t && !showForgot;
+            const label = t === "signin" ? "Sign In" : "Sign Up";
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => switchTab(t)}
+                className={[
+                  "flex-1 py-4 text-sm font-semibold transition-colors relative",
+                  active
+                    ? "text-teal-600"
+                    : "text-slate-400 hover:text-slate-600",
+                ].join(" ")}
+              >
+                {label}
+                {active && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500 rounded-full" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* ── Forgot password view ── */}
-        {showForgot ? (
-          <form onSubmit={sendReset} className="flex flex-col gap-4">
-            {resetSent ? (
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700 text-center">
-                Reset link sent! Check your email to set a new password.
+        {/* Content */}
+        <div className="p-6">
+
+          {/* ── Sign In ── */}
+          {tab === "signin" && !showForgot && (
+            <form onSubmit={onSignIn} className="flex flex-col gap-4">
+              <div>
+                <label className={labelText}>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                  className={textInput}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={labelText}>Password</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgot(true);
+                      setResetEmail(email);
+                      setError(null);
+                    }}
+                    className="text-sm text-stone-400 hover:text-teal-600 transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <PasswordInput
+                  value={password}
+                  onChange={setPassword}
+                  placeholder="••••••••"
+                  show={showPassword}
+                  onToggleShow={() => setShowPassword(!showPassword)}
+                />
+              </div>
+
+              {error && (
+                <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-sm text-red-600">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold transition-colors disabled:opacity-60 mt-1"
+              >
+                {busy ? "Signing in…" : "Sign In"}
+              </button>
+            </form>
+          )}
+
+          {/* ── Forgot password ── */}
+          {tab === "signin" && showForgot && (
+            <form onSubmit={onSendReset} className="flex flex-col gap-4">
+              {resetSent ? (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 text-center">
+                  Reset link sent! Check your email to set a new password.
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-500">
+                    Enter your email and we'll send you a password reset link.
+                  </p>
+                  <div>
+                    <label className={labelText}>Email</label>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      required
+                      className={textInput}
+                    />
+                  </div>
+                  {error && (
+                    <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-sm text-red-600">
+                      {error}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                  >
+                    {busy ? "Sending…" : "Send reset link"}
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => { setShowForgot(false); setResetSent(false); setError(null); }}
+                className="text-sm text-stone-400 hover:text-slate-700 transition-colors text-center"
+              >
+                ← Back to sign in
+              </button>
+            </form>
+          )}
+
+          {/* ── Sign Up ── */}
+          {tab === "signup" && (
+            signupSuccess ? (
+              <div className="flex flex-col items-center gap-4 py-4 text-center">
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 w-full">
+                  Account created! Check your email to confirm your address, then sign in.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => switchTab("signin")}
+                  className="text-sm text-teal-600 hover:text-teal-700 font-medium transition-colors"
+                >
+                  Go to sign in →
+                </button>
               </div>
             ) : (
-              <>
-                <p className="text-sm text-slate-500">Enter your email and we'll send you a password reset link.</p>
-                <label className="field-label">
-                  <span className="field-label-text">Email</span>
-                  <input className="field-input" type="email" autoComplete="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} required />
-                </label>
-                {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>}
-                <button className="save-btn w-full" disabled={busy} type="submit">
-                  {busy ? "Sending…" : "Send reset link"}
-                </button>
-              </>
-            )}
-            <button type="button" className="text-sm text-slate-400 hover:text-slate-700 transition-colors text-center"
-              onClick={() => { setShowForgot(false); setResetSent(false); setError(null); }}>
-              ← Back to sign in
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <label className="field-label">
-              <span className="field-label-text">Email</span>
-              <input className="field-input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </label>
-            <label className="field-label">
-              <span className="field-label-text">Password</span>
-              <div className="relative">
-                <input className="field-input pr-10" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6" fill="none" stroke="currentColor" strokeWidth="1.5" /><circle cx="12" cy="12" r="3" fill="currentColor" /></svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M4 11c0 0 2 3 8 3s8-3 8-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><circle cx="5.5" cy="14.5" r="0.7" fill="currentColor" /><circle cx="8" cy="15" r="0.7" fill="currentColor" /><circle cx="10.5" cy="15.3" r="0.7" fill="currentColor" /><circle cx="13" cy="15" r="0.7" fill="currentColor" /><circle cx="15.5" cy="14.5" r="0.7" fill="currentColor" /></svg>
-                  )}
-                </button>
-              </div>
-            </label>
-            {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>}
-            <button className="save-btn w-full" disabled={busy} type="submit">
-              {busy ? "Signing in…" : "Sign in"}
-            </button>
-            <button type="button" className="text-sm text-slate-400 hover:text-slate-700 transition-colors text-center"
-              onClick={() => { setShowForgot(true); setResetEmail(email); setError(null); }}>
-              Forgot password?
-            </button>
-          </form>
-        )}
+              <form onSubmit={onSignUp} className="flex flex-col gap-4">
+                <p className="text-sm text-stone-500">
+                  For clinic owners only. Staff receive an email invite from their owner.
+                </p>
 
-        {/* Molaris credit — subtle, no extra space */}
-        <p className="text-center text-[10px] text-slate-300 mt-5">Powered by Molaris · BeanStack Studio</p>
+                <div>
+                  <label className={labelText}>Your Name</label>
+                  <input
+                    type="text"
+                    value={signupName}
+                    onChange={(e) => setSignupName(e.target.value)}
+                    placeholder="Full name"
+                    autoComplete="name"
+                    required
+                    className={textInput}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelText}>Email</label>
+                  <input
+                    type="email"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                    className={textInput}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelText}>Password</label>
+                  <PasswordInput
+                    value={signupPassword}
+                    onChange={setSignupPassword}
+                    placeholder="8+ characters"
+                    show={showSignupPassword}
+                    onToggleShow={() => setShowSignupPassword(!showSignupPassword)}
+                    autoComplete="new-password"
+                  />
+                  <PasswordHints password={signupPassword} />
+                </div>
+
+                <div>
+                  <label className={labelText}>Confirm Password</label>
+                  <PasswordInput
+                    value={signupConfirm}
+                    onChange={setSignupConfirm}
+                    placeholder="Repeat password"
+                    show={showSignupConfirm}
+                    onToggleShow={() => setShowSignupConfirm(!showSignupConfirm)}
+                    autoComplete="new-password"
+                  />
+                </div>
+
+                {error && (
+                  <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-sm text-red-600">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold transition-colors disabled:opacity-60 mt-1"
+                >
+                  {busy ? "Creating account…" : "Create Account"}
+                </button>
+              </form>
+            )
+          )}
+
+        </div>
       </div>
+
+      {/* ── Footer ── */}
+      <div className="flex items-center gap-2 text-sm text-stone-400">
+        <span>Powered by</span>
+        <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-5 w-5 object-contain" />
+        <span className="font-medium text-stone-500">Beanstack Studio</span>
+      </div>
+
     </main>
   );
 }

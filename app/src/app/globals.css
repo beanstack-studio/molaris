@@ -4,16 +4,38 @@
    dark: variants activate when <html> has class="dark". */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Flat background — light: slate-50, dark: slate-900.
-   The old animated ThemeBackground image has been removed. */
-html {
-  @apply bg-slate-50;
-  background-color: #f8fafc;
+/* ============================================================
+   SURFACE TOKENS — light-mode defaults; html.dark overrides
+   ============================================================ */
+:root {
+  /* page + card backgrounds */
+  --bg-page:        #f8fafc;
+  --bg-card:        #ffffff;
+  --bg-card-muted:  #f8fafc;
+  /* borders */
+  --border-card:    #e2e8f0;
+  --border-input:   #cbd5e1;
+  /* shadows */
+  --shadow-card:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-modal:   0 20px 60px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.07);
 }
+
 html.dark {
-  background-color: #0f172a;
+  --bg-page:        #0f172a;
+  --bg-card:        #1e293b;
+  --bg-card-muted:  #172030;
+  --border-card:    rgba(148,163,184,0.12);
+  --border-input:   rgba(148,163,184,0.25);
+  --shadow-card:    0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-modal:   0 20px 60px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3);
 }
+
+html {
+  background-color: var(--bg-page);
+}
+
 body {
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, sans-serif;
   background-color: transparent;
 }
 
@@ -114,6 +136,9 @@ select {
   background-position: right 10px center;
   padding-right: 2rem;
 }
+html.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
 
 /* =========================
    App Section Layout
@@ -168,18 +193,25 @@ select {
 }
 
 .tab-item {
-  @apply px-4 py-2 text-sm font-medium rounded-lg transition-all;
-  color: var(--text-on-bg);
-  background: rgba(255, 255, 255, 0.25);
+  @apply px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-500 dark:text-slate-400;
+  background: transparent;
 }
 .tab-item:hover {
-  background: rgba(255, 255, 255, 0.5);
+  @apply text-slate-700 dark:text-slate-200;
+  background: rgba(255, 255, 255, 0.65);
+}
+html.dark .tab-item:hover {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .tab-item-active {
-  background: hsl(var(--accent-hue) var(--accent-sat) 44% / 0.5);
-  color: var(--text-on-bg);
-  font-weight: 600;
+  @apply font-semibold text-slate-800 dark:text-slate-100;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+html.dark .tab-item-active {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
 }
 
 /* =========================
@@ -232,8 +264,9 @@ select {
 }
 
 .form-input {
-  @apply h-10 rounded-xl border bg-white px-3 text-sm focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply h-10 rounded-xl border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .form-input:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -246,8 +279,9 @@ select {
 }
 
 .form-input-full-focus {
-  @apply w-full px-3 py-2 border bg-white/70 rounded-lg text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply w-full px-3 py-2 border rounded-lg text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .form-input-full-focus:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -256,15 +290,16 @@ select {
 }
 
 .modal-panel-raised {
-  @apply bg-white rounded-2xl p-6 w-full max-w-md;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.08);
+  @apply rounded-2xl p-6 w-full max-w-md;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-modal);
 }
 
 .form-textarea {
-  @apply rounded-lg border bg-white/70 px-3 py-2 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .form-textarea:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -273,8 +308,9 @@ select {
 }
 
 .form-select {
-  @apply h-10 rounded-lg border bg-white/70 px-3 pr-8 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply h-10 rounded-lg border px-3 pr-8 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
   -webkit-appearance: none;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -304,31 +340,30 @@ select {
 
 .data-table-head {
   @apply font-medium;
-  background: hsl(var(--accent-hue) var(--accent-sat) 88%);
+  background: var(--bg-card-muted);
 }
 
 .data-table-head-cell {
-  @apply px-3 py-3 text-left font-semibold;
-  color: hsl(var(--accent-hue) var(--accent-sat) 22%);
-  border-bottom: 1px solid hsl(var(--accent-hue) var(--accent-sat) 76%);
+  @apply px-3 py-3 text-left font-semibold text-slate-500 dark:text-slate-400;
+  border-bottom: 1px solid var(--border-card);
 }
 
 .data-table-head-cell-right {
-  @apply px-3 py-3 text-right font-semibold;
-  color: hsl(var(--accent-hue) var(--accent-sat) 22%);
-  border-bottom: 1px solid hsl(var(--accent-hue) var(--accent-sat) 76%);
+  @apply px-3 py-3 text-right font-semibold text-slate-500 dark:text-slate-400;
+  border-bottom: 1px solid var(--border-card);
 }
 
 .data-table-row {
-  @apply border-b border-slate-100 transition-colors;
+  @apply transition-colors;
+  border-bottom: 1px solid var(--border-card);
 }
 
 .data-table-row-even {
-  @apply bg-white;
+  background: var(--bg-card);
 }
 
 .data-table-row-odd {
-  @apply bg-slate-50/40;
+  background: var(--bg-card-muted);
 }
 
 tr.data-table-row:hover,
@@ -336,17 +371,23 @@ tr.data-table-row-even:hover,
 tr.data-table-row-odd:hover {
   background-color: hsl(var(--accent-hue) var(--accent-sat) 94%);
 }
+html.dark tr.data-table-row:hover,
+html.dark tr.data-table-row-even:hover,
+html.dark tr.data-table-row-odd:hover {
+  background-color: hsl(var(--accent-hue) var(--accent-sat) 18% / 0.5);
+}
 
 .data-table-row-compact {
-  @apply border-b border-slate-100 transition-colors;
+  @apply border-b transition-colors;
+  border-color: var(--border-card);
 }
 
 .data-table-row-compact-even {
-  @apply bg-white;
+  background: var(--bg-card);
 }
 
 .data-table-row-compact-odd {
-  @apply bg-slate-50/40;
+  background: var(--bg-card-muted);
 }
 
 tr.data-table-row-compact:hover,
@@ -354,25 +395,30 @@ tr.data-table-row-compact-even:hover,
 tr.data-table-row-compact-odd:hover {
   background-color: hsl(var(--accent-hue) var(--accent-sat) 94%);
 }
+html.dark tr.data-table-row-compact:hover,
+html.dark tr.data-table-row-compact-even:hover,
+html.dark tr.data-table-row-compact-odd:hover {
+  background-color: hsl(var(--accent-hue) var(--accent-sat) 18% / 0.5);
+}
 
 .data-table-cell {
-  @apply px-3 py-3 text-slate-700;
+  @apply px-3 py-3 text-slate-700 dark:text-slate-300;
 }
 
 .data-table-cell-right {
-  @apply px-3 py-3 text-right text-slate-700;
+  @apply px-3 py-3 text-right text-slate-700 dark:text-slate-300;
 }
 
 .data-table-cell-truncate {
-  @apply px-3 py-3 truncate text-slate-700;
+  @apply px-3 py-3 truncate text-slate-700 dark:text-slate-300;
 }
 
 .data-table-cell-compact {
-  @apply px-3 py-2 text-slate-700;
+  @apply px-3 py-2 text-slate-700 dark:text-slate-300;
 }
 
 .data-table-cell-compact-right {
-  @apply px-3 py-2 text-right text-slate-700;
+  @apply px-3 py-2 text-right text-slate-700 dark:text-slate-300;
 }
 
 .data-table-empty {
@@ -380,7 +426,12 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .data-table-btn {
-  @apply inline-flex items-center justify-center gap-1 px-3 py-1 text-sm font-medium text-slate-600 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap;
+  @apply inline-flex items-center justify-center gap-1 px-3 py-1 text-sm font-medium text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer whitespace-nowrap;
+  background: var(--bg-card-muted);
+  border: 1px solid var(--border-card);
+}
+.data-table-btn:hover {
+  background: var(--border-card);
 }
 
 .data-table-btn-danger {
@@ -467,7 +518,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .delete-confirmation-input {
-  @apply w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply w-full h-10 rounded-xl border px-3 py-2 text-sm font-mono text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 
 .item-delete-btn {
@@ -484,8 +537,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .entry-row-select {
-  @apply w-1/4 flex-shrink-0 h-10 rounded-lg border bg-white/70 px-3 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply w-1/4 flex-shrink-0 h-10 rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .entry-row-select:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -494,7 +548,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .entry-row-input {
-  @apply flex-1 min-w-0 h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply flex-1 min-w-0 h-10 rounded-xl border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 
 /* Toggle switch (ortho charge-extra toggle in ortho page) */
@@ -540,7 +596,10 @@ tr.data-table-row-compact-odd:hover {
 ========================= */
 
 .card-shell {
-  @apply block rounded-2xl border border-white/70 bg-white/80 backdrop-blur-sm p-4 shadow-md;
+  @apply block rounded-2xl p-4;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
 }
 
 .card-interactive {
@@ -568,9 +627,8 @@ tr.data-table-row-compact-odd:hover {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid hsl(var(--accent-hue) 91% 95% / 0.8);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
   margin-bottom: 1rem;
 }
 
@@ -651,15 +709,20 @@ tr.data-table-row-compact-odd:hover {
    PAGE LAYOUT
    ======================================== */
 
-/* Primary card — glass morphism with top-to-bottom white gradient opacity */
+/* Primary card */
 .card {
-  @apply rounded-2xl border border-white/70 backdrop-blur-sm px-5 pt-4 pb-6 shadow-md;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.5));
+  @apply rounded-2xl px-5 pt-4 pb-6;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
 }
 
 /* Stat/KPI card */
 .stat-card {
-  @apply rounded-2xl border border-white/70 bg-white/85 backdrop-blur-sm p-6 shadow-md;
+  @apply rounded-2xl p-6;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
 }
 
 .detail-label {
@@ -668,7 +731,9 @@ tr.data-table-row-compact-odd:hover {
 
 /* Muted / nested card */
 .card-muted {
-  @apply rounded-xl border border-slate-100/80 bg-slate-50/60 pr-4 pl-4 pt-2 pb-6;
+  @apply rounded-xl pr-4 pl-4 pt-2 pb-6;
+  background: var(--bg-card-muted);
+  border: 1px solid var(--border-card);
 }
 
 .card-header {
@@ -681,7 +746,7 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .card-title {
-  @apply text-lg font-bold text-slate-800 no-underline;
+  @apply text-lg font-bold no-underline text-slate-800 dark:text-slate-100;
 }
 
 .card-grid {
@@ -707,8 +772,9 @@ tr.data-table-row-compact-odd:hover {
 
 /* Inputs */
 .field-input {
-  @apply h-10 w-full rounded-lg border bg-white/70 px-3 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply h-10 w-full rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .field-input:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -717,8 +783,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .field-textarea {
-  @apply min-h-[88px] rounded-lg border bg-white/70 px-3 py-2 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply min-h-[88px] rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .field-textarea:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -727,13 +794,15 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .field-input-readonly {
-  @apply w-full rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-slate-500 text-sm;
-  box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.1);
+  @apply w-full rounded-xl px-3 py-2 text-slate-500 dark:text-slate-400 text-sm;
+  background: var(--bg-card-muted);
+  border: 1px solid var(--border-card);
 }
 
 .field-input-white {
-  @apply rounded-lg border bg-white/70 px-3 py-2 text-slate-700 transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply rounded-lg border px-3 py-2 text-slate-700 dark:text-slate-200 transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .field-input-white:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -771,7 +840,12 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .cancel-btn {
-  @apply h-10 rounded-xl border border-violet-100 bg-white/80 px-5 text-sm font-semibold text-slate-600 hover:bg-white hover:text-slate-800 disabled:opacity-60 transition-colors;
+  @apply h-10 rounded-xl px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-60 transition-colors;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+}
+.cancel-btn:hover {
+  background: var(--bg-card-muted);
 }
 
 .total-row {
@@ -780,7 +854,9 @@ tr.data-table-row-compact-odd:hover {
 
 /* Section card inside modals (entry rows) */
 .form-section {
-  @apply space-y-2 border border-slate-100 rounded-xl bg-slate-50/60 p-3;
+  @apply space-y-2 rounded-xl p-3;
+  background: var(--bg-card-muted);
+  border: 1px solid var(--border-card);
 }
 
 .delete-btn {
@@ -801,7 +877,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .section-check-group {
-  @apply rounded-lg border border-slate-200 bg-white overflow-hidden;
+  @apply rounded-lg overflow-hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
 }
 
 .section-check-group-header {
@@ -817,7 +895,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .section-check-sub-row {
-  @apply flex items-center gap-2.5 text-sm text-slate-600 cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1.5 hover:border-violet-300 transition-colors select-none;
+  @apply flex items-center gap-2.5 text-sm text-slate-600 dark:text-slate-300 cursor-pointer rounded-md px-2.5 py-1.5 hover:border-violet-300 transition-colors select-none;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
 }
 
 .section-check-sub-area-scroll {
@@ -841,7 +921,10 @@ tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .topnav-wrapper {
-  @apply sticky top-0 z-50 border-b border-violet-100/60 bg-white/80 backdrop-blur-md shadow-sm;
+  @apply sticky top-0 z-50;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
 }
 
 .topnav-container {
@@ -886,44 +969,44 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .modal-wrapper {
-  @apply bg-white rounded-2xl overflow-hidden w-full max-w-md mx-3 sm:mx-0;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.08);
+  @apply rounded-2xl overflow-hidden w-full max-w-md mx-3 sm:mx-0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-modal);
 }
 
 .modal-panel {
-  @apply w-full max-w-md rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.08);
+  @apply w-full max-w-md rounded-2xl overflow-hidden mx-3 sm:mx-0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-modal);
 }
 
 .modal-panel-wide {
-  @apply w-full max-w-2xl rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.08);
+  @apply w-full max-w-2xl rounded-2xl overflow-hidden mx-3 sm:mx-0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-modal);
 }
 
 .modal-panel-lg {
-  @apply w-full max-w-lg rounded-2xl bg-white overflow-hidden mx-3 sm:mx-0;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.08);
+  @apply w-full max-w-lg rounded-2xl overflow-hidden mx-3 sm:mx-0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-modal);
 }
 
-/* Themed modal header — full accent color, white text */
+/* Modal header — clean white/dark with bottom border */
 .modal-header {
   @apply px-6 py-4;
-  background: hsl(var(--accent-hue) var(--accent-sat) 44%);
-  border-bottom: none;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
 }
 
 .modal-sticky-header {
   @apply sticky top-0 px-6 py-4;
-  background: hsl(var(--accent-hue) var(--accent-sat) 44%);
-  border-bottom: none;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
 }
 
 .form-field {
@@ -932,7 +1015,9 @@ tr.data-table-row-compact-odd:hover {
 
 /* Light nested container */
 .card-light {
-  @apply rounded-xl border border-slate-100 bg-white/60 p-3;
+  @apply rounded-xl p-3;
+  background: var(--bg-card-muted);
+  border: 1px solid var(--border-card);
 }
 
 .section-divider {
@@ -1013,7 +1098,10 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .table-wrapper {
-  @apply mt-4 overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-md;
+  @apply mt-4 overflow-x-auto rounded-2xl;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
 }
 
 .form-grid-3 {
@@ -1080,8 +1168,9 @@ tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .input-standard {
-  @apply h-10 rounded-lg border bg-white/70 px-3 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply h-10 rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .input-standard:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -1090,8 +1179,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .input-standard-sm {
-  @apply h-9 rounded-lg border px-2 bg-white/70 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply h-9 rounded-lg border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .input-standard-sm:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -1100,7 +1190,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .textarea-standard {
-  @apply min-h-[88px] rounded-lg border border-violet-100 px-3 py-2 bg-white/70 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply min-h-[88px] rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 
 /* ========================================
@@ -1135,12 +1227,16 @@ tr.data-table-row-compact-odd:hover {
   @apply flex flex-wrap items-center justify-between gap-3;
 }
 .container-bg-white-rounded-shadow {
-  @apply bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6;
+  @apply rounded-2xl w-full max-w-md mx-4 p-6;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-modal);
 }
 
 .input-sm-text-sm {
-  @apply h-8 rounded-lg border px-2 text-sm focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply h-8 rounded-lg border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .input-sm-text-sm:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -1153,7 +1249,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .overflow-scroll-bordered {
-  @apply overflow-y-auto max-h-96 rounded-xl border border-slate-100 bg-white;
+  @apply overflow-y-auto max-h-96 rounded-xl;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
 }
 
 .spacing-vertical-lg {
@@ -1165,8 +1263,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .form-select-standard {
-  @apply h-9 w-40 rounded-lg border bg-white/70 px-2 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply h-9 w-40 rounded-lg border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .form-select-standard:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -1174,7 +1273,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .empty-state {
-  @apply rounded-2xl bg-slate-50/60 border border-slate-100 p-10 text-center;
+  @apply rounded-2xl p-10 text-center;
+  background: var(--bg-card-muted);
+  border: 1px solid var(--border-card);
 }
 
 .info-box {
@@ -1220,8 +1321,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .compact-input {
-  @apply w-full rounded-lg border bg-white/70 px-2 py-1 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply w-full rounded-lg border px-2 py-1 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .compact-input:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -1230,8 +1332,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .readonly-input {
-  @apply rounded-xl border border-slate-100 bg-slate-50 px-2 py-1 text-sm text-slate-500;
-  box-shadow: 0 1px 3px 0 hsl(var(--accent-hue) var(--accent-sat) 40% / 0.1);
+  @apply rounded-xl px-2 py-1 text-sm text-slate-500 dark:text-slate-400;
+  background: var(--bg-card-muted);
+  border: 1px solid var(--border-card);
 }
 
 /* ========================================
@@ -1242,7 +1345,7 @@ tr.data-table-row-compact-odd:hover {
   @apply text-sm text-slate-400 mt-2;
 }
 .modal-title {
-  @apply text-base font-semibold text-white;
+  @apply text-base font-semibold text-slate-800 dark:text-slate-100;
 }
 .field-full-row {
   @apply grid gap-1 col-span-2;
@@ -1323,8 +1426,9 @@ tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .input-full {
-  @apply h-10 w-full rounded-lg border bg-white/70 px-3 text-sm text-slate-700 focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply h-10 w-full rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .input-full:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -1333,8 +1437,9 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .textarea-input {
-  @apply w-full rounded-lg border bg-white/70 px-3 py-2 text-sm text-slate-700 resize-none focus:outline-none transition;
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 70% / 0.4);
+  @apply w-full rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 resize-none focus:outline-none transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 .textarea-input:focus {
   border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
@@ -1343,11 +1448,15 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .input-xs {
-  @apply rounded-md border border-violet-100 px-2 py-1 text-sm bg-white/70 text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  @apply rounded-md border px-2 py-1 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-400/30 focus:border-violet-400 transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 
 .input-flex-sm {
-  @apply h-9 flex-1 rounded-xl border border-slate-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply h-9 flex-1 rounded-xl border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  background: var(--bg-card);
+  border-color: var(--border-input);
 }
 
 /* ========================================
@@ -1526,7 +1635,10 @@ tr.data-table-row-compact-odd:hover {
 }
 
 .mobile-doc-card {
-  @apply rounded-xl border border-slate-100 bg-white p-3 shadow-sm;
+  @apply rounded-xl p-3;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
 }
 
 .mobile-doc-card-inner {
@@ -1575,9 +1687,9 @@ tr.data-table-row-compact-odd:hover {
   grid-template-columns: 3fr 90px 90px 2fr auto;
   gap: 0.5rem;
   align-items: end;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-card);
   border-radius: 0.5rem;
-  background: #f8fafc;
+  background: var(--bg-card-muted);
   padding: 0.75rem;
 }
 
@@ -1642,20 +1754,19 @@ tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .sidebar-wrapper {
-  @apply fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/80;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  @apply fixed inset-y-0 left-0 z-40 flex flex-col;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-card);
   transition: width 200ms ease;
 }
 
 .sidebar-nav-item {
-  @apply flex items-center gap-3 rounded-xl text-sm font-medium transition-colors text-slate-600 hover:text-slate-800;
+  @apply flex items-center gap-3 rounded-xl text-sm font-medium transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100;
   background: transparent;
   padding: 0.6rem 0.75rem;
 }
 .sidebar-nav-item:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-card-muted);
 }
 
 .sidebar-nav-item-active {
@@ -1704,10 +1815,8 @@ tr.data-table-row-compact-odd:hover {
 /* Bottom navigation (mobile only) */
 .bottom-nav-wrapper {
   @apply fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 pt-2 lg:hidden;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-card);
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
