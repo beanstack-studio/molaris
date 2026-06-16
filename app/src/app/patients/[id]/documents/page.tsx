@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/FeatureGate";
+
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
@@ -38,7 +40,7 @@ import { openDocumentViewer } from "@/components/DocumentViewer";
 import { PageLoader } from "@/components/Spinner";
 
 
-export default function DocumentsPage() {
+function DocumentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
   const { clinicId, isLoading: clinicLoading } = useClinic();
@@ -1099,4 +1101,7 @@ export default function DocumentsPage() {
       </EditModal>
     </>
   );
+}
+export default function DocumentsPageGated() {
+  return <FeatureGate feature="documents"><DocumentsPage /></FeatureGate>;
 }

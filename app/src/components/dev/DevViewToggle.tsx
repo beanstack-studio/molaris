@@ -15,6 +15,15 @@ function getBreakpoint(w: number): "Mobile" | "Tablet" | "Desktop" {
   return "Desktop";
 }
 
+type Preset = "admin" | "dentist" | "staff" | "free";
+
+const PRESETS: { key: Preset; label: string }[] = [
+  { key: "admin",   label: "Admin" },
+  { key: "dentist", label: "Dentist" },
+  { key: "staff",   label: "Staff" },
+  { key: "free",    label: "Free" },
+];
+
 export function DevViewToggle() {
   const ctx = useDevOverride();
   const { userEmail } = useClinic();
@@ -31,85 +40,41 @@ export function DevViewToggle() {
   if (userEmail !== "matiradentalstudio@gmail.com") return null;
   if (!ctx) return null;
 
-  const { override, setPlan, setRole } = ctx;
+  const { override, setPreset } = ctx;
+
+  // Determine which preset is active
+  const activePreset: Preset =
+    override.plan === "free" ? "free"
+    : override.role === "admin"   ? "admin"
+    : override.role === "dentist" ? "dentist"
+    : "staff";
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9998] bg-slate-900/95 text-white text-xs flex items-center gap-4 px-4 py-2 backdrop-blur-sm border-b border-slate-700 select-none">
-      <span className="font-bold text-amber-400 shrink-0 tracking-wide">DEV</span>
+    <div className="fixed top-0 left-0 right-0 z-[9999] bg-yellow-50 border-b border-yellow-200 h-8 flex items-center gap-3 px-4 select-none text-xs">
+      <span className="font-bold text-orange-500 shrink-0 tracking-wide">DEV</span>
+      <span className="text-yellow-600 shrink-0">View as:</span>
 
-      {/* Plan */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-slate-400">Plan:</span>
-        <button
-          onClick={() => setPlan("free")}
-          className={cn(
-            "px-2 py-0.5 rounded transition-colors",
-            override.plan === "free"
-              ? "bg-slate-600 font-bold text-white"
-              : "text-slate-400 hover:text-white"
-          )}
-        >
-          Free
-        </button>
-        <button
-          onClick={() => setPlan("pro")}
-          className={cn(
-            "px-2 py-0.5 rounded transition-colors",
-            override.plan === "pro"
-              ? "bg-slate-600 font-bold text-blue-300"
-              : "text-slate-400 hover:text-white"
-          )}
-        >
-          Pro
-        </button>
+      <div className="flex items-center gap-1">
+        {PRESETS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setPreset(key)}
+            className={cn(
+              "px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors",
+              activePreset === key
+                ? "bg-orange-500 text-white"
+                : "border border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
+            )}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      <span className="text-slate-600 shrink-0">·</span>
-
-      {/* Role */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-slate-400">Role:</span>
-        <button
-          onClick={() => setRole("owner")}
-          className={cn(
-            "px-2 py-0.5 rounded transition-colors",
-            override.role === "owner"
-              ? "bg-slate-600 font-bold text-white"
-              : "text-slate-400 hover:text-white"
-          )}
-        >
-          Owner
-        </button>
-        <button
-          onClick={() => setRole("staff")}
-          className={cn(
-            "px-2 py-0.5 rounded transition-colors",
-            override.role === "staff"
-              ? "bg-slate-600 font-bold text-white"
-              : "text-slate-400 hover:text-white"
-          )}
-        >
-          Staff
-        </button>
-      </div>
-
-      <span className="text-slate-600 shrink-0">·</span>
-
-      {/* Viewport indicator */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-slate-400">Viewport:</span>
-        <span
-          className={cn(
-            "font-semibold",
-            breakpoint === "Mobile" && "text-rose-400",
-            breakpoint === "Tablet" && "text-amber-400",
-            breakpoint === "Desktop" && "text-emerald-400"
-          )}
-        >
-          {breakpoint}
-        </span>
-        {width > 0 && <span className="text-slate-500">({width}px)</span>}
-      </div>
+      <span className="ml-auto text-yellow-600 italic shrink-0">
+        {breakpoint} {width > 0 && `· ${width}px`} · resets on refresh
+      </span>
     </div>
   );
 }

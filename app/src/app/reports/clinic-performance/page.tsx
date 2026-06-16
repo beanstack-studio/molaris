@@ -21,7 +21,7 @@ interface MonthRevenue {
   revenue: number;
 }
 
-export default function ClinicPerformanceReportPage() {
+function ClinicPerformanceReportPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,4 +189,9 @@ export default function ClinicPerformanceReportPage() {
       )}
     </>
   );
+}
+
+import { FeatureGate } from "@/components/shared/FeatureGate";
+export default function ClinicPerformancePageGated() {
+  return <FeatureGate feature="reports"><ClinicPerformanceReportPage /></FeatureGate>;
 }

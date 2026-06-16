@@ -48,7 +48,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${mono.variable} antialiased`}>
+      <body className={`${inter.variable} ${mono.variable} antialiased${isDev ? " pt-8" : ""}`}>
         <PWAUpdateBanner />
         {isDev ? (
           <DevOverrideProvider>

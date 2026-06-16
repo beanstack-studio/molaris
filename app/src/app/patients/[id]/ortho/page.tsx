@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/FeatureGate";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
@@ -17,7 +19,7 @@ function num(n: unknown) {
   return Number.isFinite(v) ? v : 0;
 }
 
-export default function OrthoPage() {
+function OrthoPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
   const { clinicId, isLoading: clinicLoading } = useClinic();
@@ -1183,4 +1185,8 @@ export default function OrthoPage() {
       )}
     </>
   );
+}
+
+export default function OrthoPageGated() {
+  return <FeatureGate feature="ortho"><OrthoPage /></FeatureGate>;
 }

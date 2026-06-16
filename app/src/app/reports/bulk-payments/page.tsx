@@ -19,7 +19,7 @@ import { formatMoney, todayLocalISO } from "@/lib/helpers";
 
 type TabType = "manual" | "csv" | "review" | "results";
 
-export default function BulkPaymentsPage() {
+function BulkPaymentsPage() {
   const [activeTab, setActiveTab] = useState<TabType>("manual");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -621,4 +621,9 @@ export default function BulkPaymentsPage() {
         </div>
     </div>
   );
+}
+
+import { FeatureGate } from "@/components/shared/FeatureGate";
+export default function BulkPaymentsPageGated() {
+  return <FeatureGate feature="reports"><BulkPaymentsPage /></FeatureGate>;
 }

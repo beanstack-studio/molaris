@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/FeatureGate";
+
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
@@ -43,7 +45,7 @@ function sortRows(list: ServicePriceRow[], sort: ServiceSort) {
 }
 
 
-export default function ServicesSettingsPage() {
+function ServicesSettingsPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -574,4 +576,8 @@ export default function ServicesSettingsPage() {
       </EditModal>
     </>
   );
+}
+
+export default function ServicesSettingsPageGated() {
+  return <FeatureGate feature="edit_catalog"><ServicesSettingsPage /></FeatureGate>;
 }

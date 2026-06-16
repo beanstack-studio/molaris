@@ -22,7 +22,7 @@ interface MonthStat {
   cancelled: number;
 }
 
-export default function AppointmentsReportPage() {
+function AppointmentsReportPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,4 +195,9 @@ export default function AppointmentsReportPage() {
       </div>
     </>
   );
+}
+
+import { FeatureGate } from "@/components/shared/FeatureGate";
+export default function AppointmentsReportPageGated() {
+  return <FeatureGate feature="reports"><AppointmentsReportPage /></FeatureGate>;
 }

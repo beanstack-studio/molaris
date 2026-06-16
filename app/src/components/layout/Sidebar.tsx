@@ -98,27 +98,39 @@ const navItems: NavItem[] = [
 
 // ─── Settings flyout nav data ─────────────────────────────────────────────────
 
-const settingsFlyoutSections = [
+interface SettingsNavItem {
+  label: string;
+  href: string;
+  /** If true, item is hidden for non-admins (not just locked). */
+  adminOnly?: boolean;
+  /** If true, show 🔒 for non-admins but keep item visible. */
+  adminLock?: boolean;
+  /** If true, show 🔒 for free-plan users but keep item visible. */
+  proLock?: boolean;
+}
+
+const settingsFlyoutSections: { title: string; items: SettingsNavItem[] }[] = [
   {
     title: "Clinic",
     items: [
-      { label: "Clinic Profile", href: "/settings/clinic-profile" },
-      { label: "Schedule",       href: "/settings/schedule" },
-      { label: "Team",           href: "/settings/team" },
+      { label: "Clinic Profile",  href: "/settings/clinic-profile" },
+      { label: "Services",        href: "/settings/services",           adminLock: true },
+      { label: "Payment Modes",   href: "/settings/payment-modes",      adminLock: true },
+      { label: "Documents",       href: "/settings/document-templates", adminLock: true },
     ],
   },
   {
-    title: "Catalog",
+    title: "Team",
     items: [
-      { label: "Services",       href: "/settings/services" },
-      { label: "Payment Modes",  href: "/settings/payment-modes" },
-      { label: "Documents",      href: "/settings/document-templates" },
+      { label: "Team",            href: "/settings/team" },
     ],
   },
   {
     title: "Account",
     items: [
-      { label: "Account",        href: "/settings/account" },
+      { label: "My Account",      href: "/settings/account" },
+      { label: "Plan & Billing",  href: "/settings/billing",            adminOnly: true },
+      { label: "Calendar Sync",   href: "/settings/calendar-sync",      proLock: true },
     ],
   },
 ];
@@ -128,7 +140,7 @@ const settingsFlyoutSections = [
 export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { clinicName, plan, isOwner, userFullName, userEmail } = useClinic();
+  const { clinicName, plan, isAdmin, isPro, userFullName, userEmail } = useClinic();
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -173,11 +185,14 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     .split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "C";
 
   const displayName = userFullName ?? userEmail ?? "User";
-  const roleLabel = isOwner ? "Owner" : "Staff";
+  const { role } = useClinic();
+  const roleLabel = role === "admin" ? "Admin" : role === "dentist" ? "Dentist" : "Staff";
   const planLabel = plan === "pro" ? "Pro" : "Free";
   const planClass = plan === "pro" ? "badge badge-info" : "badge badge-secondary";
-  const roleBadgeClass = isOwner
+  const roleBadgeClass = isAdmin
     ? "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700"
+    : role === "dentist"
+    ? "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700"
     : "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500";
 
   return (
@@ -269,32 +284,45 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                   {/* Inline accordion sub-items — grouped by section */}
                   {settingsOpen && !collapsed && (
                     <div className="ml-3 mt-0.5 border-l border-slate-200 dark:border-slate-700 pl-2 flex flex-col gap-0">
-                      {settingsFlyoutSections.map((section, si) => (
-                        <div key={section.title} className={si > 0 ? "mt-2" : ""}>
-                          <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                            {section.title}
+                      {settingsFlyoutSections.map((section, si) => {
+                        const visibleItems = section.items.filter(
+                          (sub) => !(sub.adminOnly && !isAdmin)
+                        );
+                        if (visibleItems.length === 0) return null;
+                        return (
+                          <div key={section.title} className={si > 0 ? "mt-2" : ""}>
+                            <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                              {section.title}
+                            </div>
+                            {visibleItems.map((sub) => {
+                              const subActive = pathname === sub.href;
+                              const isLocked = (sub.adminLock && !isAdmin) || (sub.proLock && !isPro);
+                              return (
+                                <Link
+                                  key={sub.href}
+                                  href={sub.href}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={cn(
+                                    "flex items-center gap-1 px-2 py-1.5 text-sm rounded-md transition-colors",
+                                    subActive
+                                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
+                                      : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
+                                  )}
+                                  aria-current={subActive ? "page" : undefined}
+                                >
+                                  <span className="flex-1">{sub.label}</span>
+                                  {isLocked && (
+                                    <svg className="w-3 h-3 shrink-0 opacity-40" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                                      <path strokeLinecap="round" d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                    </svg>
+                                  )}
+                                </Link>
+                              );
+                            })}
                           </div>
-                          {section.items.map((sub) => {
-                            const subActive = pathname === sub.href;
-                            return (
-                              <Link
-                                key={sub.href}
-                                href={sub.href}
-                                onClick={(e) => e.stopPropagation()}
-                                className={cn(
-                                  "block px-2 py-1.5 text-sm rounded-md transition-colors",
-                                  subActive
-                                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
-                                    : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
-                                )}
-                                aria-current={subActive ? "page" : undefined}
-                              >
-                                {sub.label}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

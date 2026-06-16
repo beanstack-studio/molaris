@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useClinic } from "@/contexts/ClinicContext";
+import { FeatureGate } from "@/components/shared/FeatureGate";
 import { supabase } from "@/lib/supabaseClient";
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
 import { downloadCSV } from "@/lib/exportHelpers";
 import { PageLoader, Spinner } from "@/components/Spinner";
 
 
-export default function PaymentReportsPage() {
+function PaymentReportsPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -336,4 +337,8 @@ export default function PaymentReportsPage() {
       </div>
     </>
   );
+}
+
+export default function PaymentReportsPageGated() {
+  return <FeatureGate feature="reports"><PaymentReportsPage /></FeatureGate>;
 }

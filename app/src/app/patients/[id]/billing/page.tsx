@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/FeatureGate";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import PatientTabs from "@/components/PatientTabs";
@@ -39,7 +41,7 @@ function num(n: unknown) {
   return Number.isFinite(v) ? v : 0;
 }
 
-export default function BillingPage() {
+function BillingPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
   const { clinicId, isLoading: clinicLoading } = useClinic();
@@ -1378,4 +1380,8 @@ export default function BillingPage() {
       />
     </>
   );
+}
+
+export default function BillingPageGated() {
+  return <FeatureGate feature="billing"><BillingPage /></FeatureGate>;
 }

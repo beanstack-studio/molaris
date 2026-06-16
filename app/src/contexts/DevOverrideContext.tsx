@@ -9,19 +9,20 @@ const SESSION_KEY = "molaris_dev_override";
 
 type DevOverride = {
   plan: "free" | "pro";
-  role: "owner" | "staff";
+  role: "admin" | "dentist" | "staff";
 };
 
 type DevOverrideContextValue = {
   override: DevOverride;
   setPlan: (plan: "free" | "pro") => void;
-  setRole: (role: "owner" | "staff") => void;
+  setRole: (role: "admin" | "dentist" | "staff") => void;
+  setPreset: (preset: "admin" | "dentist" | "staff" | "free") => void;
 };
 
 const DevOverrideContext = createContext<DevOverrideContextValue | null>(null);
 
 export function DevOverrideProvider({ children }: { children: ReactNode }) {
-  const [override, setOverride] = useState<DevOverride>({ plan: "pro", role: "owner" });
+  const [override, setOverride] = useState<DevOverride>({ plan: "pro", role: "admin" });
 
   useEffect(() => {
     try {
@@ -32,20 +33,26 @@ export function DevOverrideProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  function setPlan(plan: "free" | "pro") {
-    const next = { ...override, plan };
+  function persist(next: DevOverride) {
     setOverride(next);
     try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   }
 
-  function setRole(role: "owner" | "staff") {
-    const next = { ...override, role };
-    setOverride(next);
-    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  function setPlan(plan: "free" | "pro") { persist({ ...override, plan }); }
+  function setRole(role: "admin" | "dentist" | "staff") { persist({ ...override, role }); }
+
+  function setPreset(preset: "admin" | "dentist" | "staff" | "free") {
+    const presets: Record<string, DevOverride> = {
+      admin:   { plan: "pro",  role: "admin" },
+      dentist: { plan: "pro",  role: "dentist" },
+      staff:   { plan: "pro",  role: "staff" },
+      free:    { plan: "free", role: "admin" },
+    };
+    persist(presets[preset]);
   }
 
   return (
-    <DevOverrideContext.Provider value={{ override, setPlan, setRole }}>
+    <DevOverrideContext.Provider value={{ override, setPlan, setRole, setPreset }}>
       {children}
     </DevOverrideContext.Provider>
   );

@@ -14,7 +14,7 @@ interface ServiceRow {
   avg_price: number;
 }
 
-export default function TreatmentAnalyticsReportPage() {
+function TreatmentAnalyticsReportPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -156,4 +156,9 @@ export default function TreatmentAnalyticsReportPage() {
       </div>
     </>
   );
+}
+
+import { FeatureGate } from "@/components/shared/FeatureGate";
+export default function TreatmentAnalyticsPageGated() {
+  return <FeatureGate feature="reports"><TreatmentAnalyticsReportPage /></FeatureGate>;
 }

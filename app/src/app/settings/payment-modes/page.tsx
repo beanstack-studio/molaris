@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/FeatureGate";
+
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { PaymentMode } from "@/lib/types";
@@ -18,7 +20,7 @@ const PM_COLUMNS: ColumnConfig[] = [
   { key: "active",  label: "Activate" },
 ];
 
-export default function PaymentModesSettingsPage() {
+function PaymentModesSettingsPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -387,4 +389,8 @@ export default function PaymentModesSettingsPage() {
             </div>
     </>
   );
+}
+
+export default function PaymentModesSettingsPageGated() {
+  return <FeatureGate feature="edit_catalog"><PaymentModesSettingsPage /></FeatureGate>;
 }

@@ -17,7 +17,7 @@ interface PatientRow {
   last_invoice_date: string;
 }
 
-export default function PatientRevenueReportPage() {
+function PatientRevenueReportPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,4 +179,9 @@ export default function PatientRevenueReportPage() {
       </div>
     </>
   );
+}
+
+import { FeatureGate } from "@/components/shared/FeatureGate";
+export default function PatientRevenuePageGated() {
+  return <FeatureGate feature="reports"><PatientRevenueReportPage /></FeatureGate>;
 }

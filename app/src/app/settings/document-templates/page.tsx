@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/FeatureGate";
+
 import { useEffect, useState } from "react";
 import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
@@ -10,7 +12,7 @@ import { generateInvoicePreviewHTML, generateReceiptPreviewHTML } from "@/lib/in
 const TABS = ["Prescription", "Certificate", "Referral", "Invoice", "Receipt"] as const;
 type Tab = typeof TABS[number];
 
-export default function DocumentTemplatesSettingsPage() {
+function DocumentTemplatesSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Prescription");
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -146,4 +148,8 @@ export default function DocumentTemplatesSettingsPage() {
       </div>
     </>
   );
+}
+
+export default function DocumentTemplatesSettingsPageGated() {
+  return <FeatureGate feature="edit_catalog"><DocumentTemplatesSettingsPage /></FeatureGate>;
 }

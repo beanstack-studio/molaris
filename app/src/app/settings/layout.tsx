@@ -6,17 +6,6 @@ import { usePathname } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
 import { cn } from "@/lib/cn";
 
-// Mobile-only tab strip items (no emoji)
-const mobileSettingsItems = [
-  { label: "Profile",    href: "/settings/clinic-profile" },
-  { label: "Schedule",   href: "/settings/schedule" },
-  { label: "Team",       href: "/settings/team" },
-  { label: "Services",   href: "/settings/services" },
-  { label: "Payments",   href: "/settings/payment-modes" },
-  { label: "Documents",  href: "/settings/document-templates" },
-  { label: "Account",    href: "/settings/account" },
-];
-
 function IconBack() {
   return (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -25,9 +14,27 @@ function IconBack() {
   );
 }
 
+function IconLock() {
+  return (
+    <svg className="w-3 h-3 inline-block ml-0.5 opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path strokeLinecap="round" d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+interface MobileNavItem {
+  label: string;
+  href: string;
+  /** If set, item is hidden when false. */
+  show?: boolean;
+  /** If set, show lock icon. */
+  locked?: boolean;
+}
+
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isOwner, isLoading } = useClinic();
+  const { isAdmin, isPro, isLoading } = useClinic();
 
   if (isLoading) {
     return (
@@ -37,21 +44,20 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     );
   }
 
-  if (!isOwner) {
-    return (
-      <div className="page-bg">
-        <main className="app-section">
-          <div className="app-section-header">
-            <div className="app-section-title">Settings</div>
-          </div>
-          <div className="card text-center py-16">
-            <div className="text-slate-500 font-medium mb-1">Access restricted</div>
-            <div className="text-sm text-slate-400">This section is only available to owners.</div>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  // Mobile tab items — ordered to match spec groupings
+  const mobileSettingsItems: MobileNavItem[] = [
+    // CLINIC
+    { label: "Profile",    href: "/settings/clinic-profile" },
+    { label: "Services",   href: "/settings/services",          locked: !isAdmin },
+    { label: "Payments",   href: "/settings/payment-modes",     locked: !isAdmin },
+    { label: "Documents",  href: "/settings/document-templates",locked: !isAdmin },
+    // TEAM
+    { label: "Team",       href: "/settings/team" },
+    // ACCOUNT
+    { label: "Account",    href: "/settings/account" },
+    { label: "Billing",    href: "/settings/billing",           show: isAdmin },
+    { label: "Calendar",   href: "/settings/calendar-sync",     locked: !isPro },
+  ].filter((item) => item.show !== false);
 
   return (
     <div className="page-bg">
@@ -77,13 +83,14 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   className={cn("tab-item", active && "tab-item-active")}
                 >
                   {item.label}
+                  {item.locked && <IconLock />}
                 </Link>
               );
             })}
           </div>
         </div>
 
-        {/* Content — no sub-sidebar on desktop (handled by main Sidebar flyout) */}
+        {/* Content — desktop nav is in main Sidebar flyout */}
         <div className="app-section-body">
           <div className="w-full max-w-3xl">
             {children}
