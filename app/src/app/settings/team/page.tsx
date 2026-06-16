@@ -24,11 +24,15 @@
  *   WITH CHECK (clinic_id IN (
  *     SELECT clinic_id FROM profiles WHERE id = auth.uid() AND role = 'admin'
  *   ));
+ *
+ * Run before using nickname and clinical access features:
+ * ALTER TABLE staff ADD COLUMN IF NOT EXISTS nickname text;
+ * ALTER TABLE staff ADD COLUMN IF NOT EXISTS can_access_clinical boolean DEFAULT false;
  */
 
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
@@ -53,16 +57,27 @@ const DENTIST_COLORS = [
 
 const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 type DayKey = typeof DAY_KEYS[number];
+
 const DAY_SHORT: Record<DayKey, string> = {
   monday: "Mon", tuesday: "Tue", wednesday: "Wed",
   thursday: "Thu", friday: "Fri", saturday: "Sat", sunday: "Sun",
 };
 
-// Maps team page day keys to clinic hours entry IDs
 const DAY_KEY_TO_CLINIC_ID: Record<DayKey, string> = {
   monday: "mon", tuesday: "tue", wednesday: "wed",
   thursday: "thu", friday: "fri", saturday: "sat", sunday: "sun",
 };
+
+// Week display order for the schedule table (Sun first)
+const WEEK_ORDER: { header: string; key: DayKey }[] = [
+  { header: "Sun", key: "sunday" },
+  { header: "Mon", key: "monday" },
+  { header: "Tue", key: "tuesday" },
+  { header: "Wed", key: "wednesday" },
+  { header: "Thu", key: "thursday" },
+  { header: "Fri", key: "friday" },
+  { header: "Sat", key: "saturday" },
+];
 
 const TIME_OPTIONS: { value: number; label: string }[] = [];
 for (let h = 7; h <= 20; h++) {
@@ -73,6 +88,7 @@ for (let h = 7; h <= 20; h++) {
     TIME_OPTIONS.push({ value: v, label: `${dh}:${m === 0 ? "00" : "30"} ${period}` });
   }
 }
+
 function formatTime(v: number) {
   const h = Math.floor(v); const m = (v % 1) * 60;
   const period = h < 12 ? "AM" : "PM";
@@ -86,8 +102,9 @@ type DentistRow = {
   date_of_birth: string | null; is_active: boolean; color: string | null;
 };
 type StaffRow = {
-  id: string; full_name: string; role: string;
+  id: string; full_name: string; nickname: string | null; role: string;
   date_of_birth: string | null; is_active: boolean;
+  can_access_clinical: boolean | null;
 };
 type InviteRow = {
   id: string; email: string; role: string;
@@ -108,20 +125,14 @@ const DEFAULT_SCHEDULE: DentistSchedule = {
   sunday: DEFAULT_DAY,
 };
 
-function LoadingBlock() {
-  return <div className="flex items-center justify-center py-16"><Spinner /></div>;
+function formatDayCell(ds: DaySchedule | undefined): string {
+  if (!ds || !ds.is_working) return "—";
+  const fmt12 = (h: number) => (h > 12 ? h - 12 : h === 0 ? 12 : h);
+  return `${fmt12(Math.floor(ds.start_time))}–${fmt12(Math.floor(ds.end_time))}`;
 }
 
-function AccountBadge({ hasLogin }: { hasLogin: boolean }) {
-  return hasLogin ? (
-    <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-      Has login
-    </span>
-  ) : (
-    <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-400">
-      No login
-    </span>
-  );
+function LoadingBlock() {
+  return <div className="flex items-center justify-center py-16"><Spinner /></div>;
 }
 
 export default function TeamSettingsPage() {
@@ -135,20 +146,12 @@ export default function TeamSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Expanded rows — set of IDs
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  // Schedule data per dentist_id
+  // Schedule editor state
   const [schedules, setSchedules] = useState<Record<string, DentistSchedule>>({});
-  const [scheduleLoading, setScheduleLoading] = useState<Set<string>>(new Set());
-  const [editingScheduleFor, setEditingScheduleFor] = useState<{ id: string; type: "dentist" | "staff" } | null>(null);
+  const [editingScheduleFor, setEditingScheduleFor] = useState<{ id: string } | null>(null);
   const [scheduleEdit, setScheduleEdit] = useState<DentistSchedule>(DEFAULT_SCHEDULE);
 
-  // Invite state
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("staff");
-  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
-
-  // Dentist modal
+  // Dentist modal state
   const [showAddDentistModal, setShowAddDentistModal] = useState(false);
   const [editingDentist, setEditingDentist] = useState<DentistRow | null>(null);
   const [dentistName, setDentistName] = useState("");
@@ -157,14 +160,20 @@ export default function TeamSettingsPage() {
   const [dentistPrc, setDentistPrc] = useState("");
   const [dentistPtr, setDentistPtr] = useState("");
   const [dentistColor, setDentistColor] = useState<string>(DENTIST_COLORS[0].hex);
+  const [dentistInviteEmail, setDentistInviteEmail] = useState("");
+  const [dentistInviteSuccess, setDentistInviteSuccess] = useState<string | null>(null);
   const dentistDobRef = useRef<HTMLInputElement | null>(null);
 
-  // Staff modal
+  // Staff modal state
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null);
   const [staffName, setStaffName] = useState("");
+  const [staffNickname, setStaffNickname] = useState("");
   const [staffRole, setStaffRole] = useState("");
   const [staffDob, setStaffDob] = useState("");
+  const [staffCanClinical, setStaffCanClinical] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
@@ -187,7 +196,7 @@ export default function TeamSettingsPage() {
         setClinicHours(profileRes.data.clinic_hours as ClinicHoursEntry[]);
       }
 
-      // Batch-load all dentist schedules in a single query
+      // Batch-load all dentist schedules
       if (loadedDentists.length > 0) {
         const schedRes = await supabase
           .from("dentist_schedules")
@@ -230,81 +239,16 @@ export default function TeamSettingsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Fallback lazy-loader for expanded non-admin rows
-  async function loadSchedule(dentistId: string) {
-    if (schedules[dentistId] !== undefined) return;
-    setScheduleLoading((s) => new Set(s).add(dentistId));
-    try {
-      const { data } = await supabase
-        .from("dentist_schedules")
-        .select("*")
-        .eq("dentist_id", dentistId)
-        .eq("clinic_id", clinicId);
-      if (data && data.length > 0) {
-        const sched: DentistSchedule = {
-          monday: { ...DEFAULT_SCHEDULE.monday },
-          tuesday: { ...DEFAULT_SCHEDULE.tuesday },
-          wednesday: { ...DEFAULT_SCHEDULE.wednesday },
-          thursday: { ...DEFAULT_SCHEDULE.thursday },
-          friday: { ...DEFAULT_SCHEDULE.friday },
-          saturday: { ...DEFAULT_SCHEDULE.saturday },
-          sunday: { ...DEFAULT_SCHEDULE.sunday },
-        };
-        for (const row of data) {
-          const day = row.day_of_week as DayKey;
-          if (DAY_KEYS.includes(day)) {
-            sched[day] = {
-              is_working: row.is_working ?? false,
-              start_time: row.start_time ?? 8,
-              end_time: row.end_time ?? 17,
-            };
-          }
-        }
-        setSchedules((p) => ({ ...p, [dentistId]: sched }));
-      } else {
-        setSchedules((p) => ({
-          ...p,
-          [dentistId]: {
-            monday: { ...DEFAULT_SCHEDULE.monday },
-            tuesday: { ...DEFAULT_SCHEDULE.tuesday },
-            wednesday: { ...DEFAULT_SCHEDULE.wednesday },
-            thursday: { ...DEFAULT_SCHEDULE.thursday },
-            friday: { ...DEFAULT_SCHEDULE.friday },
-            saturday: { ...DEFAULT_SCHEDULE.saturday },
-            sunday: { ...DEFAULT_SCHEDULE.sunday },
-          },
-        }));
-      }
-    } finally {
-      setScheduleLoading((s) => { const n = new Set(s); n.delete(dentistId); return n; });
-    }
-  }
-
-  function toggleExpand(id: string, type: "dentist" | "staff") {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); }
-      else {
-        next.add(id);
-        if (type === "dentist") loadSchedule(id);
-      }
-      return next;
-    });
-  }
-
-  // Returns time options constrained to clinic hours for the given day
   function getConstrainedTimeOptions(day: DayKey): { value: number; label: string }[] {
     if (clinicHours.length === 0) return TIME_OPTIONS;
-    const clinicHourId = DAY_KEY_TO_CLINIC_ID[day];
-    const ch = clinicHours.find((h) => h.id === clinicHourId);
+    const ch = clinicHours.find((h) => h.id === DAY_KEY_TO_CLINIC_ID[day]);
     if (!ch || !ch.is_open) return TIME_OPTIONS;
     return TIME_OPTIONS.filter((o) => o.value >= ch.open_hour && o.value <= ch.close_hour);
   }
 
-  function openScheduleEdit(id: string, type: "dentist" | "staff") {
-    const sched = schedules[id] ?? DEFAULT_SCHEDULE;
-    setScheduleEdit({ ...sched });
-    setEditingScheduleFor({ id, type });
+  function openScheduleEdit(id: string) {
+    setScheduleEdit({ ...(schedules[id] ?? DEFAULT_SCHEDULE) });
+    setEditingScheduleFor({ id });
   }
 
   async function saveSchedule() {
@@ -335,17 +279,20 @@ export default function TeamSettingsPage() {
   function openAddDentist() {
     setEditingDentist(null); setDentistName(""); setDentistNickname("");
     setDentistDob(""); setDentistPrc(""); setDentistPtr(""); setDentistColor(DENTIST_COLORS[0].hex);
+    setDentistInviteEmail(""); setDentistInviteSuccess(null);
     setShowAddDentistModal(true);
   }
   function openEditDentist(d: DentistRow) {
     setEditingDentist(d); setDentistName(d.full_name); setDentistNickname(d.nickname ?? "");
     setDentistDob(d.date_of_birth ?? ""); setDentistPrc(d.prc_number ?? "");
     setDentistPtr(d.ptr_number ?? ""); setDentistColor(d.color ?? DENTIST_COLORS[0].hex);
+    setDentistInviteEmail(""); setDentistInviteSuccess(null);
     setShowAddDentistModal(true);
   }
   function closeDentistModal() {
     setShowAddDentistModal(false); setEditingDentist(null);
     setDentistName(""); setDentistNickname(""); setDentistDob(""); setDentistPrc(""); setDentistPtr("");
+    setDentistInviteEmail(""); setDentistInviteSuccess(null);
   }
   async function saveDentist() {
     if (!dentistName.trim()) return;
@@ -374,21 +321,41 @@ export default function TeamSettingsPage() {
     else { closeDentistModal(); await loadData(); }
     setBusy(false);
   }
+  async function sendDentistInvite() {
+    if (!dentistInviteEmail.trim()) return;
+    setBusy(true); setDentistInviteSuccess(null);
+    try {
+      const { error } = await supabase.from("staff_invites").insert({
+        clinic_id: clinicId,
+        email: dentistInviteEmail.trim().toLowerCase(),
+        role: "staff",
+        invited_by: profileId,
+      });
+      if (error) throw error;
+      setDentistInviteSuccess(`Invite sent to ${dentistInviteEmail.trim().toLowerCase()}`);
+      setDentistInviteEmail("");
+      await loadData();
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to send invite"); }
+    finally { setBusy(false); }
+  }
 
   // ── Staff CRUD ────────────────────────────────────────────────────────────────
   function openAddStaff() {
-    setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob("");
-    setInviteEmail(""); setInviteRole("staff"); setInviteSuccess(null);
+    setEditingStaff(null); setStaffName(""); setStaffNickname(""); setStaffRole(""); setStaffDob("");
+    setStaffCanClinical(false); setInviteEmail(""); setInviteSuccess(null);
     setShowAddStaffModal(true);
   }
   function openEditStaff(s: StaffRow) {
-    setEditingStaff(s); setStaffName(s.full_name); setStaffRole(s.role);
-    setStaffDob(s.date_of_birth ?? ""); setInviteEmail(""); setInviteRole("staff"); setInviteSuccess(null);
+    setEditingStaff(s); setStaffName(s.full_name); setStaffNickname(s.nickname ?? "");
+    setStaffRole(s.role); setStaffDob(s.date_of_birth ?? "");
+    setStaffCanClinical(s.can_access_clinical ?? false);
+    setInviteEmail(""); setInviteSuccess(null);
     setShowAddStaffModal(true);
   }
   function closeStaffModal() {
     setShowAddStaffModal(false); setEditingStaff(null);
-    setStaffName(""); setStaffRole(""); setStaffDob(""); setInviteEmail(""); setInviteSuccess(null);
+    setStaffName(""); setStaffNickname(""); setStaffRole(""); setStaffDob("");
+    setStaffCanClinical(false); setInviteEmail(""); setInviteSuccess(null);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -396,7 +363,9 @@ export default function TeamSettingsPage() {
     try {
       const payload = {
         clinic_id: clinicId, full_name: staffName.trim(),
+        nickname: staffNickname.trim() || null,
         role: staffRole.trim(), date_of_birth: staffDob || null,
+        can_access_clinical: staffCanClinical,
       };
       const { error } = editingStaff
         ? await supabase.from("staff").update(payload).eq("id", editingStaff.id)
@@ -415,35 +384,19 @@ export default function TeamSettingsPage() {
     else { closeStaffModal(); await loadData(); }
     setBusy(false);
   }
-
   async function sendInvite() {
     if (!inviteEmail.trim()) return;
     setBusy(true); setInviteSuccess(null);
     try {
       const { error } = await supabase.from("staff_invites").insert({
         clinic_id: clinicId, email: inviteEmail.trim().toLowerCase(),
-        role: inviteRole, invited_by: profileId,
+        role: "staff", invited_by: profileId,
       });
       if (error) throw error;
       setInviteSuccess(`Invite sent to ${inviteEmail.trim().toLowerCase()}`);
       setInviteEmail(""); await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to send invite"); }
     finally { setBusy(false); }
-  }
-
-  // Invite emails for quick lookup
-  const pendingInviteEmails = useMemo(() => new Set(invites.map((i) => i.email)), [invites]);
-
-  function scheduleSummary(id: string): string {
-    const sched = schedules[id];
-    if (!sched) return "—";
-    const working = DAY_KEYS.filter((d) => sched[d].is_working);
-    if (working.length === 0) return "No schedule";
-    if (working.length === 5 && !sched.saturday.is_working && !sched.sunday.is_working)
-      return `Mon–Fri · ${formatTime(sched.monday.start_time)}–${formatTime(sched.monday.end_time)}`;
-    if (working.length === 6 && !sched.sunday.is_working)
-      return `Mon–Sat · ${formatTime(sched.monday.start_time)}–${formatTime(sched.monday.end_time)}`;
-    return working.map((d) => DAY_SHORT[d]).join(", ");
   }
 
   if (loading) return <LoadingBlock />;
@@ -466,83 +419,52 @@ export default function TeamSettingsPage() {
           </div>
 
           <div className="table-wrapper">
-            <table className="data-table min-w-[560px]">
+            <table className="data-table">
               <colgroup>
-                <col className="col-35" />
-                <col className="col-20" />
-                <col className="col-25" />
-                <col className="col-20" />
+                <col className="col-40" />
+                <col className="col-30" />
+                <col className="col-30" />
               </colgroup>
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell">Name</th>
-                  <th className="data-table-head-cell">Nickname</th>
-                  <th className="data-table-head-cell">Schedule</th>
-                  <th className="data-table-head-cell">Account</th>
+                  <th className="data-table-head-cell">PTR No.</th>
+                  <th className="data-table-head-cell">License No.</th>
                 </tr>
               </thead>
               <tbody>
                 {dentists.length === 0 ? (
-                  <tr><td className="data-table-empty" colSpan={4}>No dentists yet.</td></tr>
-                ) : dentists.map((d, idx) => {
-                  const isExpanded = expandedIds.has(d.id);
-                  const isLoadingSched = scheduleLoading.has(d.id);
-                  const sched = schedules[d.id];
-                  return (
-                    <>
-                      <tr
-                        key={d.id}
-                        className={cn(
-                          "data-table-row cursor-pointer",
-                          idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                          isExpanded && "bg-blue-50/50 dark:bg-blue-900/10"
+                  <tr><td className="data-table-empty" colSpan={3}>No dentists yet.</td></tr>
+                ) : dentists.map((d, idx) => (
+                  <tr
+                    key={d.id}
+                    className={cn(
+                      "data-table-row",
+                      idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                      isAdmin && "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
+                    onClick={isAdmin ? () => openEditDentist(d) : undefined}
+                    onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditDentist(d); } } : undefined}
+                    tabIndex={isAdmin ? 0 : undefined}
+                    role={isAdmin ? "button" : undefined}
+                    aria-label={isAdmin ? d.full_name : undefined}
+                  >
+                    <td className="data-table-cell">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-block w-3 h-3 rounded-full shrink-0"
+                          style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                        />
+                        <span className="font-medium">{d.full_name}</span>
+                        {!d.is_active && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
                         )}
-                        onClick={() => isAdmin ? openEditDentist(d) : toggleExpand(d.id, "dentist")}
-                        onKeyDown={(e) => { if (e.key === "Enter") isAdmin ? openEditDentist(d) : toggleExpand(d.id, "dentist"); }}
-                        tabIndex={0}
-                        role="button"
-                        aria-label={d.full_name}
-                        aria-expanded={isExpanded}
-                      >
-                        <td className="data-table-cell">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="inline-block w-3 h-3 rounded-full shrink-0"
-                              style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                            />
-                            <span className="font-medium">{d.full_name}</span>
-                            {!d.is_active && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="data-table-cell text-slate-500">{d.nickname ?? "—"}</td>
-                        <td className="data-table-cell text-slate-500 text-sm">
-                          {isLoadingSched ? "…" : (sched ? scheduleSummary(d.id) : "—")}
-                        </td>
-                        <td className="data-table-cell">
-                          <AccountBadge hasLogin={false} />
-                        </td>
-                      </tr>
-
-                      {/* Expanded row — schedule (non-admin view) */}
-                      {isExpanded && !isAdmin && (
-                        <tr key={`${d.id}-expand`}>
-                          <td colSpan={4} className="px-4 pb-4 pt-2 bg-slate-50 dark:bg-slate-800/50">
-                            <ScheduleExpandPanel
-                              entityId={d.id}
-                              entityType="dentist"
-                              schedule={sched}
-                              isLoading={isLoadingSched}
-                              canEdit={false}
-                              onEditSchedule={() => openScheduleEdit(d.id, "dentist")}
-                            />
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  );
-                })}
+                      </div>
+                    </td>
+                    <td className="data-table-cell text-slate-600">{d.ptr_number ?? "—"}</td>
+                    <td className="data-table-cell text-slate-600">{d.prc_number ?? "—"}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -562,80 +484,44 @@ export default function TeamSettingsPage() {
           <div className="table-wrapper">
             <table className="data-table">
               <colgroup>
-                <col className="col-35" />
-                <col className="col-20" />
-                <col className="col-25" />
-                <col className="col-20" />
+                <col className="col-60" />
+                <col className="col-40" />
               </colgroup>
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell">Name</th>
                   <th className="data-table-head-cell">Role</th>
-                  <th className="data-table-head-cell">Schedule</th>
-                  <th className="data-table-head-cell">Account</th>
                 </tr>
               </thead>
               <tbody>
                 {staff.length === 0 ? (
-                  <tr><td className="data-table-empty" colSpan={4}>No staff members yet.</td></tr>
-                ) : staff.map((s, idx) => {
-                  const isExpanded = expandedIds.has(s.id);
-                  return (
-                    <>
-                      <tr
-                        key={s.id}
-                        className={cn(
-                          "data-table-row cursor-pointer",
-                          idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                          isExpanded && "bg-blue-50/50 dark:bg-blue-900/10"
-                        )}
-                        onClick={() => isAdmin ? openEditStaff(s) : toggleExpand(s.id, "staff")}
-                        onKeyDown={(e) => { if (e.key === "Enter") isAdmin ? openEditStaff(s) : toggleExpand(s.id, "staff"); }}
-                        tabIndex={0}
-                        role="button"
-                        aria-label={s.full_name}
-                        aria-expanded={isExpanded}
-                      >
-                        <td className="data-table-cell">
-                          <span className="font-medium">{s.full_name}</span>
-                          {!s.is_active && (
-                            <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
-                          )}
-                        </td>
-                        <td className="data-table-cell text-slate-500 capitalize">{s.role}</td>
-                        <td className="data-table-cell text-slate-500 text-sm">—</td>
-                        <td className="data-table-cell">
-                          <div className="flex items-center gap-2">
-                            <AccountBadge hasLogin={false} />
-                            {isAdmin && isPro && (
-                              <button
-                                type="button"
-                                className="text-xs text-blue-600 hover:underline"
-                                onClick={(e) => { e.stopPropagation(); openEditStaff(s); }}
-                              >
-                                Invite
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Expanded row — info (non-admin view) */}
-                      {isExpanded && !isAdmin && (
-                        <tr key={`${s.id}-expand`}>
-                          <td colSpan={4} className="px-4 pb-4 pt-2 bg-slate-50 dark:bg-slate-800/50">
-                            <p className="text-sm text-slate-500">
-                              Role: <span className="font-medium capitalize">{s.role}</span>
-                              {s.date_of_birth && (
-                                <> · DOB: <span className="font-medium">{formatDateStandard(s.date_of_birth.split("T")[0])}</span></>
-                              )}
-                            </p>
-                          </td>
-                        </tr>
+                  <tr><td className="data-table-empty" colSpan={2}>No staff members yet.</td></tr>
+                ) : staff.map((s, idx) => (
+                  <tr
+                    key={s.id}
+                    className={cn(
+                      "data-table-row",
+                      idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                      isAdmin && "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
+                    onClick={isAdmin ? () => openEditStaff(s) : undefined}
+                    onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditStaff(s); } } : undefined}
+                    tabIndex={isAdmin ? 0 : undefined}
+                    role={isAdmin ? "button" : undefined}
+                    aria-label={isAdmin ? s.full_name : undefined}
+                  >
+                    <td className="data-table-cell">
+                      <span className="font-medium">{s.full_name}</span>
+                      {!s.is_active && (
+                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
                       )}
-                    </>
-                  );
-                })}
+                      {s.can_access_clinical && (
+                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">Clinical</span>
+                      )}
+                    </td>
+                    <td className="data-table-cell text-slate-500">{s.role || "—"}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -677,57 +563,80 @@ export default function TeamSettingsPage() {
           </div>
           {clinicHours.length > 0 && (
             <p className="hint-text px-4 pb-2">
-              Time options are constrained to clinic operating hours set in Clinic Profile.
+              Time options constrained to clinic operating hours set in Clinic Profile.
             </p>
           )}
-          {dentists.length === 0 ? (
-            <div className="data-table-empty">Add dentists above to manage their schedules.</div>
+          {dentists.length === 0 && staff.length === 0 ? (
+            <div className="data-table-empty">Add team members above to manage their schedules.</div>
           ) : (
             <div className="table-wrapper">
-              <table className="data-table">
+              <table className="data-table min-w-[700px]">
                 <colgroup>
-                  <col className="col-40" />
-                  <col className="col-40" />
-                  {isAdmin && <col className="col-20" />}
+                  <col className="col-20" />
+                  <col className="col-10" />
+                  <col className="col-10" />
+                  <col className="col-10" />
+                  <col className="col-10" />
+                  <col className="col-10" />
+                  <col className="col-10" />
+                  <col className="col-10" />
+                  <col className="col-10" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
-                    <th className="data-table-head-cell">Dentist</th>
-                    <th className="data-table-head-cell">Schedule</th>
-                    {isAdmin && <th className="data-table-head-cell-right">Actions</th>}
+                    <th className="data-table-head-cell">Nickname</th>
+                    {WEEK_ORDER.map(({ header }) => (
+                      <th key={header} className="data-table-head-cell text-center">{header}</th>
+                    ))}
+                    <th className="data-table-head-cell-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dentists.map((d, idx) => {
-                    const isLoadingSched = scheduleLoading.has(d.id);
+                    const sched = schedules[d.id];
+                    const displayName = d.nickname || d.full_name;
                     return (
-                      <tr
-                        key={d.id}
-                        className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
-                      >
+                      <tr key={d.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
                         <td className="data-table-cell">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="w-3 h-3 rounded-full shrink-0"
-                              style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                            />
-                            <span className="font-medium">{d.full_name}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color ?? DENTIST_COLORS[0].hex }} />
+                            <span className="font-medium truncate text-sm">{displayName}</span>
                           </div>
                         </td>
-                        <td className="data-table-cell text-sm text-slate-500">
-                          {isLoadingSched ? "Loading…" : scheduleSummary(d.id)}
-                        </td>
-                        {isAdmin && (
-                          <td className="data-table-cell-right">
-                            <button
-                              type="button"
-                              className="data-table-btn"
-                              onClick={() => openScheduleEdit(d.id, "dentist")}
-                            >
+                        {WEEK_ORDER.map(({ key }) => {
+                          const ds = sched?.[key];
+                          const isWorking = ds?.is_working ?? false;
+                          return (
+                            <td key={key} className={cn("data-table-cell text-center text-xs", isWorking ? "text-blue-600 dark:text-blue-400 font-medium" : "text-slate-300 dark:text-slate-600")}>
+                              {formatDayCell(ds)}
+                            </td>
+                          );
+                        })}
+                        <td className="data-table-cell-right">
+                          {isAdmin && (
+                            <button type="button" className="data-table-btn" onClick={() => openScheduleEdit(d.id)}>
                               Edit
                             </button>
-                          </td>
-                        )}
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {staff.map((s, idx) => {
+                    const displayName = s.nickname || s.full_name;
+                    const rowIdx = dentists.length + idx;
+                    return (
+                      <tr key={s.id} className={cn("data-table-row", rowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                        <td className="data-table-cell">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600" />
+                            <span className="font-medium truncate text-sm text-slate-500 dark:text-slate-400">{displayName}</span>
+                          </div>
+                        </td>
+                        {WEEK_ORDER.map(({ key }) => (
+                          <td key={key} className="data-table-cell text-center text-xs text-slate-300 dark:text-slate-600">—</td>
+                        ))}
+                        <td className="data-table-cell-right"></td>
                       </tr>
                     );
                   })}
@@ -748,9 +657,8 @@ export default function TeamSettingsPage() {
           <div className="divide-y divide-slate-100 dark:divide-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
             {DAY_KEYS.map((day) => {
               const ds = scheduleEdit[day];
-              const clinicHourId = DAY_KEY_TO_CLINIC_ID[day];
-              const clinicDay = clinicHours.find((h) => h.id === clinicHourId);
-              const isClinicClosed = !!clinicDay && !clinicDay.is_open;
+              const ch = clinicHours.find((h) => h.id === DAY_KEY_TO_CLINIC_ID[day]);
+              const isClinicClosed = !!ch && !ch.is_open;
               const constrainedOptions = getConstrainedTimeOptions(day);
               return (
                 <div key={day} className="p-3">
@@ -829,15 +737,15 @@ export default function TeamSettingsPage() {
           </label>
           <label className="field-label">
             <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional)</span></span>
-            <input className="field-input" placeholder="e.g. Dr. Ana" value={dentistNickname} onChange={(e) => setDentistNickname(e.target.value)} disabled={busy} />
+            <input className="field-input" placeholder="e.g. Doc Daisy" value={dentistNickname} onChange={(e) => setDentistNickname(e.target.value)} disabled={busy} />
           </label>
           <DatePickerField label="Date of Birth" value={dentistDob} onChange={setDentistDob} inputRef={dentistDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
           <label className="field-label">
-            <span className="field-label-text">PRC Number</span>
+            <span className="field-label-text">PRC / License No.</span>
             <input className="field-input" placeholder="Permanent registration" value={dentistPrc} onChange={(e) => setDentistPrc(e.target.value)} disabled={busy} />
           </label>
           <label className="field-label">
-            <span className="field-label-text">PTR Number</span>
+            <span className="field-label-text">PTR No.</span>
             <input type="number" className="field-input" placeholder="Annual" value={dentistPtr} onChange={(e) => setDentistPtr(e.target.value)} disabled={busy} />
           </label>
           <div>
@@ -860,6 +768,37 @@ export default function TeamSettingsPage() {
               ))}
             </div>
           </div>
+
+          {/* Invite to app */}
+          {isAdmin && (
+            <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+              <p className="field-label-text mb-1">Invite to Molaris</p>
+              <p className="hint-text mb-3">
+                Send a login invite so this dentist can access the app.
+                {!isPro && <span className="text-amber-600 dark:text-amber-400"> Requires Pro plan.</span>}
+              </p>
+              {dentistInviteSuccess && <div className="success-banner mb-3">{dentistInviteSuccess}</div>}
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  className="field-input flex-1"
+                  placeholder="email@example.com"
+                  value={dentistInviteEmail}
+                  onChange={(e) => setDentistInviteEmail(e.target.value)}
+                  disabled={busy || !isPro}
+                />
+                <button
+                  type="button"
+                  className="save-btn shrink-0"
+                  onClick={sendDentistInvite}
+                  disabled={busy || !dentistInviteEmail.trim() || !isPro}
+                >
+                  Send invite
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="modal-actions">
             {editingDentist && (
               <button type="button" className="delete-btn" onClick={() => deleteDentist(editingDentist.id)} disabled={busy}>Delete</button>
@@ -882,14 +821,43 @@ export default function TeamSettingsPage() {
             <input className="field-input" value={staffName} onChange={(e) => setStaffName(e.target.value)} disabled={busy} />
           </label>
           <label className="field-label">
-            <span className="field-label-text">Role</span>
+            <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional)</span></span>
+            <input className="field-input" placeholder="e.g. Carol" value={staffNickname} onChange={(e) => setStaffNickname(e.target.value)} disabled={busy} />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Role / Job title</span>
             <select className="field-input" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} disabled={busy}>
               <option value="">Select role</option>
-              <option value="admin">Admin</option>
-              <option value="staff">Staff</option>
+              <option value="Dental Assistant">Dental Assistant</option>
+              <option value="Dental Aide">Dental Aide</option>
+              <option value="Dental Hygienist">Dental Hygienist</option>
+              <option value="Receptionist">Receptionist</option>
+              <option value="Secretary">Secretary</option>
+              <option value="Nurse">Nurse</option>
+              <option value="Sterilization Technician">Sterilization Technician</option>
+              <option value="Billing Staff">Billing Staff</option>
+              <option value="Other">Other</option>
             </select>
           </label>
           <DatePickerField label="Date of Birth" value={staffDob} onChange={setStaffDob} inputRef={staffDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
+
+          {/* Clinical access */}
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+            <p className="field-label-text mb-1">Clinical Access</p>
+            <p className="hint-text mb-3">
+              Grants this staff member permission to record treatments and create invoices.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={staffCanClinical}
+                onChange={(e) => setStaffCanClinical(e.target.checked)}
+                disabled={busy}
+                className="h-4 w-4 rounded"
+              />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Can record treatments and create invoices</span>
+            </label>
+          </div>
 
           {/* Invite to app */}
           {isAdmin && (
@@ -935,45 +903,5 @@ export default function TeamSettingsPage() {
         </div>
       </EditModal>
     </>
-  );
-}
-
-// ── Schedule expand panel (non-admin view) ──────────────────────────────────────
-
-function ScheduleExpandPanel({
-  schedule, isLoading, canEdit, onEditSchedule,
-}: {
-  entityId: string;
-  entityType: "dentist" | "staff";
-  schedule: DentistSchedule | undefined;
-  isLoading: boolean;
-  canEdit: boolean;
-  onEditSchedule: () => void;
-}) {
-  if (isLoading) return <div className="text-sm text-slate-400 py-2">Loading schedule…</div>;
-  if (!schedule) return <div className="text-sm text-slate-400 py-2">No schedule configured.</div>;
-  return (
-    <div>
-      <div className="grid grid-cols-7 gap-1 mt-1">
-        {DAY_KEYS.map((day) => {
-          const ds = schedule[day];
-          return (
-            <div key={day} className={cn("rounded-lg p-2 text-center text-xs", ds.is_working ? "bg-blue-50 dark:bg-blue-900/20" : "bg-slate-100 dark:bg-slate-700/30")}>
-              <div className="font-semibold text-slate-600 dark:text-slate-300 mb-1">{DAY_SHORT[day]}</div>
-              {ds.is_working ? (
-                <div className="text-blue-600 dark:text-blue-400 leading-tight">
-                  {formatTime(ds.start_time)}<br />–{formatTime(ds.end_time)}
-                </div>
-              ) : (
-                <div className="text-slate-400 uppercase tracking-wide text-[10px]">Off</div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {canEdit && (
-        <button type="button" className="save-btn mt-3" onClick={onEditSchedule}>Edit Schedule</button>
-      )}
-    </div>
   );
 }

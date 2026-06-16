@@ -64,7 +64,7 @@ function ServicesSettingsPage() {
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [sort, setSort] = useState<ServiceSort>("NAME_ASC");
+  const [sort, setSort] = useState<ServiceSort>("TYPE_DESC");
 
   // Add modal state
   const [addOpen, setAddOpen] = useState(false);

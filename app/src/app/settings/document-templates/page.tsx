@@ -121,15 +121,15 @@ function DocumentTemplatesSettingsPage() {
         </div>
 
         {/* Preview area */}
-        <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 h-[700px]">
+        <div className="rounded-xl border border-slate-200 overflow-x-auto bg-slate-50 h-[700px]">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-sm text-slate-500">
+            <div className="flex items-center justify-center h-full text-sm text-slate-500 min-w-[800px]">
               Generating preview…
             </div>
           ) : previewHtml ? (
             <iframe
               srcDoc={previewHtml}
-              className="w-full h-full border-0"
+              className="min-w-[800px] w-full h-full border-0"
               title={`${activeTab} Preview`}
               sandbox="allow-same-origin"
             />
