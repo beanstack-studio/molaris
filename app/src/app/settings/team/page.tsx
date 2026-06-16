@@ -126,8 +126,7 @@ export default function TeamSettingsPage() {
   const [dentistSortConfig, setDentistSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "full_name", direction: "asc" });
   const [staffSortConfig, setStaffSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "full_name", direction: "asc" });
 
-  // Invite modal state
-  const [showInviteModal, setShowInviteModal] = useState(false);
+  // Invite state (embedded inside Add/Edit Staff modal)
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("staff");
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
@@ -617,7 +616,9 @@ export default function TeamSettingsPage() {
 
   return (
     <>
-      {error ? <div className="error-banner">{error}</div> : null}
+      {error ? <div className="error-banner mb-4">{error}</div> : null}
+      <div className="spacing-vertical-lg">
+
             {/* DENTISTS SECTION */}
             <div className="card">
               <div className="card-header">
@@ -655,7 +656,7 @@ export default function TeamSettingsPage() {
               </div>
 
               <div className="table-wrapper">
-              <table className="data-table">
+              <table className="data-table min-w-[700px]">
                 <colgroup>
                   <col className="col-35" />
                   <col className="col-18" />
@@ -770,30 +771,6 @@ export default function TeamSettingsPage() {
                     data={staff}
                     onDownloadCSV={() => {}}
                   />
-                  {isOwner && (
-                    isPro ? (
-                      <button
-                        className="cancel-btn"
-                        onClick={() => {
-                          setInviteEmail("");
-                          setInviteRole("staff");
-                          setInviteSuccess(null);
-                          setShowInviteModal(true);
-                        }}
-                        disabled={busy}
-                      >
-                        Invite Staff
-                      </button>
-                    ) : (
-                      <button
-                        className="cancel-btn opacity-50 cursor-not-allowed"
-                        disabled
-                        title="Upgrade to Pro to invite staff"
-                      >
-                        🔒 Invite Staff
-                      </button>
-                    )
-                  )}
                   <button
                     className="save-btn"
                     onClick={() => {
@@ -920,6 +897,8 @@ export default function TeamSettingsPage() {
               </div>
             )}
             </div>
+
+      </div> {/* end spacing-vertical-lg */}
 
       {/* ADD/EDIT DENTIST MODAL */}
       <EditModal
@@ -1055,6 +1034,9 @@ export default function TeamSettingsPage() {
           setStaffName("");
           setStaffRole("");
           setStaffDob("");
+          setInviteEmail("");
+          setInviteRole("staff");
+          setInviteSuccess(null);
         }}
       >
         <div className="spacing-vertical-lg">
@@ -1088,6 +1070,37 @@ export default function TeamSettingsPage() {
             variant="case-modal"
             max={new Date().toISOString().split("T")[0]}
           />
+
+          {/* Invite to app — inline inside staff modal */}
+          {isOwner && (
+            <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+              <p className="field-label-text mb-1">Invite to Molaris</p>
+              <p className="hint-text mb-3">
+                Send a login invite so this staff member can access the app.
+                {!isPro && <span className="text-amber-600 dark:text-amber-400"> Requires Pro plan.</span>}
+              </p>
+              {inviteSuccess && <div className="success-banner mb-3">{inviteSuccess}</div>}
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  className="field-input flex-1"
+                  placeholder="staff@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  disabled={busy || !isPro}
+                />
+                <button
+                  type="button"
+                  className={isPro ? "save-btn shrink-0" : "save-btn shrink-0 opacity-50 cursor-not-allowed"}
+                  onClick={isPro ? sendInvite : undefined}
+                  disabled={busy || !inviteEmail.trim() || !isPro}
+                >
+                  Send invite
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="modal-actions">
             {editingStaff && (
               <button
@@ -1109,6 +1122,9 @@ export default function TeamSettingsPage() {
                   setStaffName("");
                   setStaffRole("");
                   setStaffDob("");
+                  setInviteEmail("");
+                  setInviteRole("staff");
+                  setInviteSuccess(null);
                 }}
                 disabled={busy}
               >
@@ -1123,72 +1139,6 @@ export default function TeamSettingsPage() {
                 {busy ? "Saving…" : editingStaff ? "Update" : "Add"}
               </button>
             </div>
-          </div>
-        </div>
-      </EditModal>
-
-      {/* INVITE STAFF MODAL */}
-      <EditModal
-        open={showInviteModal}
-        title="Invite staff member"
-        onClose={() => {
-          setShowInviteModal(false);
-          setInviteEmail("");
-          setInviteRole("staff");
-          setInviteSuccess(null);
-        }}
-      >
-        <div className="spacing-vertical-lg">
-          {inviteSuccess ? (
-            <div className="success-banner">{inviteSuccess}</div>
-          ) : null}
-          <label className="field-label">
-            <span className="field-label-text">Email address</span>
-            <input
-              type="email"
-              className="field-input"
-              placeholder="staff@example.com"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              disabled={busy}
-            />
-          </label>
-          <label className="field-label">
-            <span className="field-label-text">Role</span>
-            <select
-              className="field-input"
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value)}
-              disabled={busy}
-            >
-              <option value="staff">Staff</option>
-            </select>
-          </label>
-          <p className="hint-text">
-            The invitee will be able to log in once their account is set up. Email delivery is coming soon.
-          </p>
-          <div className="modal-actions-right">
-            <button
-              type="button"
-              className="cancel-btn"
-              onClick={() => {
-                setShowInviteModal(false);
-                setInviteEmail("");
-                setInviteRole("staff");
-                setInviteSuccess(null);
-              }}
-              disabled={busy}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="save-btn"
-              onClick={sendInvite}
-              disabled={busy || !inviteEmail.trim()}
-            >
-              {busy ? "Saving…" : "Send invite"}
-            </button>
           </div>
         </div>
       </EditModal>

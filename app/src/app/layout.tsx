@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import AppShell from "@/components/layout/AppShell";
 import { ClinicProvider } from "@/contexts/ClinicContext";
+import { DevOverrideProvider } from "@/contexts/DevOverrideContext";
+import { PWAUpdateBanner } from "@/components/shared/PWAUpdateBanner";
+import { DevViewToggle } from "@/components/dev/DevViewToggle";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -28,6 +31,8 @@ export const viewport = {
   themeColor: "#0f172a",
 };
 
+const isDev = process.env.NEXT_PUBLIC_DEV_TOOLS === "true";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -44,11 +49,19 @@ export default function RootLayout({
         />
       </head>
       <body className={`${jakarta.variable} ${mono.variable} antialiased`}>
-        <ClinicProvider>
-          <AppShell>
-            {children}
-          </AppShell>
-        </ClinicProvider>
+        <PWAUpdateBanner />
+        {isDev ? (
+          <DevOverrideProvider>
+            <ClinicProvider>
+              <AppShell>{children}</AppShell>
+            </ClinicProvider>
+            <DevViewToggle />
+          </DevOverrideProvider>
+        ) : (
+          <ClinicProvider>
+            <AppShell>{children}</AppShell>
+          </ClinicProvider>
+        )}
       </body>
     </html>
   );

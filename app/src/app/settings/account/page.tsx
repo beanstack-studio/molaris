@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
+import { cn } from "@/lib/cn";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -14,11 +15,18 @@ function IconCheck() {
   );
 }
 
-function IconLock() {
+function IconXMark() {
   return (
-    <svg className="w-4 h-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path strokeLinecap="round" d="M7 11V7a5 5 0 0 1 10 0v4" />
+    <svg className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function IconStar() {
+  return (
+    <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z" />
     </svg>
   );
 }
@@ -67,20 +75,24 @@ function IconEyeOff() {
 
 // ─── Plan feature lists ───────────────────────────────────────────────────────
 
-const FREE_FEATURES = [
+const FREE_INCLUDED = [
   "Patient records (unlimited)",
   "Appointments calendar",
   "Treatment records",
   "Billing & invoicing",
   "Document generation",
-  "Up to 2 staff accounts",
 ];
 
-const PRO_FEATURES = [
+const FREE_EXCLUDED = [
+  "Unlimited staff accounts",
+  "Advanced reports & analytics",
+  "Priority support",
+];
+
+const PRO_FEATURES_LIST = [
   "Everything in Free",
   "Unlimited staff accounts",
   "Advanced reports & analytics",
-  "Google Calendar sync",
   "Priority support",
 ];
 
@@ -141,72 +153,111 @@ export default function AccountPage() {
         </div>
 
         <div className="spacing-vertical-lg">
-          {/* Current plan badge */}
-          <div className="flex items-center gap-3">
-            <span className={isPro ? "badge badge-info text-sm px-3 py-1" : "badge badge-secondary text-sm px-3 py-1"}>
-              {isPro ? "Pro" : "Free"}
-            </span>
-            <span className="text-sm text-slate-600 dark:text-slate-400">
-              {clinicName} is on the <strong>{isPro ? "Pro" : "Free"}</strong> plan.
-            </span>
-          </div>
+          {/* Pricing cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-          {/* Feature comparison */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Free column */}
-            <div className={`card card-light p-4 ${!isPro ? "ring-2 ring-blue-500 ring-offset-1" : ""}`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Free</span>
-                {!isPro && <span className="badge badge-secondary text-xs">Current plan</span>}
+            {/* Free card */}
+            <div className={cn(
+              "rounded-xl border-2 p-5 flex flex-col gap-4 transition-colors",
+              !isPro
+                ? "border-slate-700 dark:border-slate-300 bg-white dark:bg-slate-900"
+                : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40"
+            )}>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Free</span>
+                  {!isPro && (
+                    <span className="badge badge-secondary text-xs">Your plan</span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-slate-800 dark:text-slate-100">₱0</span>
+                  <span className="text-sm text-slate-400 dark:text-slate-500">/month</span>
+                </div>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">1 owner · up to 2 staff</p>
               </div>
-              <ul className="space-y-2">
-                {FREE_FEATURES.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+
+              <div className="border-t border-slate-100 dark:border-slate-700 pt-4 flex flex-col gap-2.5 flex-1">
+                {FREE_INCLUDED.map((f) => (
+                  <div key={f} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <IconCheck />
                     {f}
-                  </li>
+                  </div>
                 ))}
-              </ul>
+                {FREE_EXCLUDED.map((f) => (
+                  <div key={f} className="flex items-start gap-2 text-sm text-slate-400 dark:text-slate-600">
+                    <IconXMark />
+                    {f}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Pro column */}
-            <div className={`card card-light p-4 ${isPro ? "ring-2 ring-blue-500 ring-offset-1" : ""}`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Pro</span>
-                {isPro
-                  ? <span className="badge badge-info text-xs">Current plan</span>
-                  : (
-                    <div className="relative group">
-                      <button
-                        type="button"
-                        className="save-btn h-7 px-3 text-xs opacity-60 cursor-not-allowed"
-                        disabled
-                        aria-disabled="true"
-                      >
-                        Upgrade
-                      </button>
-                      <div className="absolute bottom-full right-0 mb-1 hidden group-hover:block z-10 pointer-events-none">
-                        <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap">
-                          Contact support to upgrade
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
+            {/* Pro card */}
+            <div className={cn(
+              "rounded-xl border-2 p-5 flex flex-col gap-4 relative transition-colors",
+              isPro
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30"
+                : "border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900"
+            )}>
+              {/* Badges */}
+              <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5">
+                <span className="inline-flex items-center gap-1 text-xs font-bold bg-blue-500 text-white px-2.5 py-0.5 rounded-full">
+                  <IconStar /> Popular
+                </span>
+                {isPro && (
+                  <span className="badge badge-info text-xs">Your plan</span>
+                )}
               </div>
-              <ul className="space-y-2">
-                {PRO_FEATURES.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
-                    {isPro ? <IconCheck /> : <IconLock />}
+
+              <div>
+                <div className="mb-2">
+                  <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">Pro</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-slate-800 dark:text-slate-100">₱499</span>
+                  <span className="text-sm text-slate-400 dark:text-slate-500">/month</span>
+                </div>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Unlimited owner · unlimited staff</p>
+              </div>
+
+              <div className="border-t border-blue-100 dark:border-blue-900 pt-4 flex flex-col gap-2.5 flex-1">
+                {PRO_FEATURES_LIST.map((f) => (
+                  <div key={f} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                    <IconCheck />
                     {f}
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
+
+              {!isPro && (
+                <div className="relative group">
+                  <button
+                    type="button"
+                    className="save-btn w-full opacity-70 cursor-not-allowed"
+                    disabled
+                    aria-disabled="true"
+                  >
+                    Upgrade to Pro
+                  </button>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
+                    <div className="bg-slate-800 dark:bg-slate-700 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap">
+                      Contact hello@beanstack.studio to upgrade
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Footer */}
+          <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+            You&rsquo;re on the <strong className="text-slate-700 dark:text-slate-300">{isPro ? "Pro" : "Free"}</strong> plan — thank you for supporting Molaris!{" "}
+            Questions? <span className="font-medium">hello@beanstack.studio</span>
+          </p>
+
           {!isOwner && (
-            <p className="hint-text">Plan changes can only be made by the clinic owner.</p>
+            <p className="hint-text text-center">Plan changes can only be made by the clinic owner.</p>
           )}
         </div>
       </div>

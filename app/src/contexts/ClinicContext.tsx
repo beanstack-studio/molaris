@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { Clinic, UserProfile } from '@/lib/types'
+import { useDevOverride } from '@/contexts/DevOverrideContext'
 
 interface ClinicContextValue {
   clinicId: string
@@ -71,6 +72,17 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 export function useClinic(): ClinicContextValue {
   const ctx = useContext(ClinicContext)
   if (!ctx) throw new Error('useClinic must be used within ClinicProvider')
+  const devOverride = useDevOverride()
+  if (devOverride && !ctx.isLoading) {
+    const { plan, role } = devOverride.override
+    return {
+      ...ctx,
+      plan,
+      role,
+      isOwner: role === 'owner',
+      isPro: plan === 'pro',
+    }
+  }
   return ctx
 }
 
