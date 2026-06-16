@@ -43,7 +43,7 @@ import { PageLoader } from "@/components/Spinner";
 function DocumentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId, isLoading: clinicLoading } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, handlerFor } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -183,6 +183,14 @@ function DocumentsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Auto-select dentist when handler has exactly one assigned dentist
+  useEffect(() => {
+    if (showGenerateModal && isHandler && filteredDentists.length === 1) {
+      setDocDentistId(filteredDentists[0].id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showGenerateModal]);
 
 
   /**
@@ -533,6 +541,9 @@ function DocumentsPage() {
     }
   }
 
+  const canWrite = isAdmin || isDentist || isHandler;
+  const filteredDentists = isAdmin || isDentist ? dentists : dentists.filter((d) => handlerFor.includes(d.id));
+
   if (loading) {
     return (
       <PageLoader />
@@ -556,12 +567,14 @@ function DocumentsPage() {
                 <option value="DATE_ASC">Oldest</option>
                 <option value="TYPE_ASC">Type A–Z</option>
               </select>
-              <button
-                className="save-btn"
-                onClick={() => setShowGenerateModal(true)}
-              >
-                Generate document
-              </button>
+              {canWrite && (
+                <button
+                  className="save-btn"
+                  onClick={() => setShowGenerateModal(true)}
+                >
+                  Generate document
+                </button>
+              )}
             </div>
           </div>
 
@@ -637,6 +650,27 @@ function DocumentsPage() {
         }}
       >
         <div className="spacing-vertical-lg">
+          {/* Recording on behalf of — shown to handlers only */}
+          {isHandler && filteredDentists.length > 0 && (
+            <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+              <span className="font-medium shrink-0">Recording on behalf of:</span>
+              {filteredDentists.length === 1 ? (
+                <span>{filteredDentists[0].full_name}</span>
+              ) : (
+                <select
+                  className="flex-1 h-8 rounded-lg border border-blue-200 bg-blue-50 px-2 text-sm text-blue-700 focus:outline-none"
+                  value={docDentistId}
+                  onChange={(e) => setDocDentistId(e.target.value)}
+                >
+                  <option value="">Select dentist…</option>
+                  {filteredDentists.map((d) => (
+                    <option key={d.id} value={d.id}>{d.full_name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           {/* STEP 1: Select Document Type (always visible first) */}
           <div className="grid-gap-1">
             <label className="text-field-label">Document type</label>
@@ -686,7 +720,7 @@ function DocumentsPage() {
                     onChange={(e) => setDocDentistId(e.target.value)}
                   >
                     <option value="">Select dentist</option>
-                    {dentists.map((d) => (
+                    {filteredDentists.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.full_name}
                       </option>

@@ -34,7 +34,7 @@ const formatTime12Hr = (t: string) => {
 };
 
 export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, serviceMenu, defaultConcern }: Props) {
-  const { clinicId } = useClinic();
+  const { clinicId, isHandler } = useClinic();
   const [visitDate, setVisitDate] = useState(() => todayLocalISO());
   const [visitDentistId, setVisitDentistId] = useState("");
   const [visitConcern, setVisitConcern] = useState("");
@@ -49,7 +49,8 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
   useEffect(() => {
     if (open) {
       setVisitDate(todayLocalISO());
-      setVisitDentistId("");
+      // Auto-select dentist for handlers with a single assignment
+      setVisitDentistId(isHandler && dentists.length === 1 ? dentists[0].id : "");
       setVisitConcern(defaultConcern);
       setDraftLines([]);
       setBusy(false);
@@ -57,7 +58,8 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
       setLinkedApptId("");
       loadConfirmedAppts();
     }
-  }, [open, defaultConcern]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultConcern, isHandler]);
 
   async function loadConfirmedAppts() {
     if (!patientId || !clinicId) return;
@@ -149,6 +151,27 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
     <EditModal open={open} title="Add visit" onClose={handleClose}>
       <div className="spacing-vertical-lg">
         {error && <div className="error-banner">{error}</div>}
+
+        {/* Recording on behalf of — shown to handlers only */}
+        {isHandler && dentists.length > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            <span className="font-medium shrink-0">Recording on behalf of:</span>
+            {dentists.length === 1 ? (
+              <span>{dentistLabel(dentists[0])}</span>
+            ) : (
+              <select
+                className="flex-1 h-8 rounded-lg border border-blue-200 bg-blue-50 px-2 text-sm text-blue-700 focus:outline-none"
+                value={visitDentistId}
+                onChange={(e) => setVisitDentistId(e.target.value)}
+              >
+                <option value="">Select dentist…</option>
+                {dentists.map((d) => (
+                  <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
         {/* Linked appointment */}
         <div className="grid-gap-1">

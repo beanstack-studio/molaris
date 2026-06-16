@@ -449,16 +449,95 @@ export type Appointment = {
 
 ## User roles & feature gates
 
-```typescript
-// src/contexts/ClinicContext.tsx
-const { isOwner, isPro } = useClinic();
+### Roles
 
-// Owner-only features: clinic settings, staff management, reports, billing config
-// Pro-only features: [TBD — gate with isPro check]
-// Staff can: view patients, record treatments, schedule appointments
+Three roles exist in `profiles.role`:
+
+| Role    | Who                       | Clinical access                          | Admin access            |
+|---------|---------------------------|------------------------------------------|-------------------------|
+| `admin` | Clinic owner/admin        | Full — all patients, all dentists        | Full settings & reports |
+| `dentist` | Attending dentist        | Clinical — own patients/treatments       | None                    |
+| `staff` | Receptionist, assistant   | Scheduling only — unless handler-assigned| None                    |
+
+### Handler system (`dentist_handlers` table)
+
+Staff members can be assigned as **handlers** for specific dentists. A handler can perform clinical operations (record treatments, create invoices, manage ortho, generate documents) on behalf of their assigned dentists.
+
+**DB schema:**
+```sql
+dentist_handlers (
+  id uuid PRIMARY KEY,
+  clinic_id uuid NOT NULL REFERENCES clinics(id),
+  staff_id uuid NOT NULL REFERENCES staff(id),   -- staff.id (NOT profiles.id)
+  dentist_id uuid NOT NULL REFERENCES dentists(id),
+  can_record_treatments boolean DEFAULT true,
+  can_create_invoices boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (staff_id, dentist_id)
+)
+-- staff table also requires:
+-- profile_id uuid REFERENCES profiles(id)  ← links staff row to auth user
 ```
 
-Role is stored in `profiles.role`. Gate UI with `isOwner` from context — never re-fetch role inside components.
+**Context values (from `useClinic()`):**
+```typescript
+const { isAdmin, isDentist, isHandler, handlerFor, canActFor } = useClinic();
+// isHandler: true if staff with ≥1 dentist_handler assignment
+// handlerFor: string[] of dentist IDs this user can act for
+// canActFor(dentistId): returns true if admin OR handler for that dentist
+```
+
+**Lookup chain (ClinicContext on login for staff role):**
+1. Find `staff.id` where `staff.profile_id = auth.uid()`
+2. Query `dentist_handlers` where `staff_id = staff.id`
+3. Store resulting `dentist_id[]` as `handlerFor`
+
+### Feature gates
+
+```typescript
+// Clinical write gate — use this before all clinical action buttons
+const canWrite = isAdmin || isDentist || isHandler;
+
+// Billing void gate — admin only
+const canVoid = isAdmin;
+
+// Dentist dropdown filtering — handlers see only their assigned dentists
+const filteredDentists = isAdmin || isDentist
+  ? dentists
+  : dentists.filter((d) => handlerFor.includes(d.id));
+```
+
+| Feature                            | Admin | Dentist | Handler (staff) | Staff (no handler) |
+|-----------------------------------|-------|---------|------------------|--------------------|
+| Record treatments                  | ✓     | ✓       | ✓                | ✗                  |
+| Create invoices                    | ✓     | ✓       | ✓                | ✗                  |
+| Manage ortho                       | ✓     | ✓       | ✓                | ✗                  |
+| Generate documents                 | ✓     | ✓       | ✓                | ✗                  |
+| Void invoices                      | ✓     | ✗       | ✗                | ✗                  |
+| Settings / team management        | ✓     | ✗       | ✗                | ✗                  |
+| Assign handlers (Pro+Admin only)   | ✓     | ✗       | ✗                | ✗                  |
+| View patients & appointments       | ✓     | ✓       | ✓                | ✓                  |
+
+### "Recording on behalf of" indicator
+
+When `isHandler` is true and a clinical form is open (Add Visit modal, Generate Document modal), show a blue banner at the top:
+
+```tsx
+{isHandler && filteredDentists.length > 0 && (
+  <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+    <span className="font-medium shrink-0">Recording on behalf of:</span>
+    {filteredDentists.length === 1 ? (
+      <span>{filteredDentists[0].full_name}</span>
+    ) : (
+      <select className="..." value={dentistId} onChange={(e) => setDentistId(e.target.value)}>
+        {filteredDentists.map((d) => <option key={d.id} value={d.id}>{d.full_name}</option>)}
+      </select>
+    )}
+  </div>
+)}
+```
+
+Role is stored in `profiles.role`. Gate UI with `isAdmin`, `isDentist`, `isHandler` from `useClinic()` — never re-fetch role inside components.
 
 ---
 

@@ -22,7 +22,7 @@ function num(n: unknown) {
 function OrthoPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId, isLoading: clinicLoading } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, handlerFor } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -511,6 +511,9 @@ function OrthoPage() {
     setEditVisitItems(updated);
   }
 
+  const canWrite = isAdmin || isDentist || isHandler;
+  const filteredDentists = isAdmin || isDentist ? dentists : dentists.filter((d) => handlerFor.includes(d.id));
+
   if (loading) {
     return <PageLoader text="Loading ortho records…" />;
   }
@@ -523,14 +526,16 @@ function OrthoPage() {
           <div className="card">
             <div className="card-header">
               <div className="card-title">Case Overview</div>
-              {orthoCase ? (
-                <button className="save-btn" disabled={busy} onClick={openEditCaseModal}>
-                  Edit
-                </button>
-              ) : (
-                <button className="save-btn" disabled={busy} onClick={openCreateCaseModal}>
-                  Create Case
-                </button>
+              {canWrite && (
+                orthoCase ? (
+                  <button className="save-btn" disabled={busy} onClick={openEditCaseModal}>
+                    Edit
+                  </button>
+                ) : (
+                  <button className="save-btn" disabled={busy} onClick={openCreateCaseModal}>
+                    Create Case
+                  </button>
+                )
               )}
             </div>
 
@@ -667,9 +672,11 @@ function OrthoPage() {
             <div className="card">
               <div className="card-header">
                 <div className="card-title">Ortho Visit Log</div>
-                <button className="save-btn" disabled={busy || entriesLoading} onClick={openCreateVisitModal}>
-                  Add Visit
-                </button>
+                {canWrite && (
+                  <button className="save-btn" disabled={busy || entriesLoading} onClick={openCreateVisitModal}>
+                    Add Visit
+                  </button>
+                )}
               </div>
 
               {entriesLoading ? (
@@ -829,7 +836,7 @@ function OrthoPage() {
               <span className="field-label-text">Orthodontist</span>
               <select className="field-input" value={editProviderDentistId} onChange={(e) => setEditProviderDentistId(e.target.value)}>
                 <option value="">— None —</option>
-                {dentists.map((d) => (
+                {filteredDentists.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.full_name}
                   </option>

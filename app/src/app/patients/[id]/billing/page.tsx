@@ -44,7 +44,9 @@ function num(n: unknown) {
 function BillingPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId, isLoading: clinicLoading } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler } = useClinic();
+  const canCreateInvoice = isAdmin || isDentist || isHandler;
+  const canVoid = isAdmin;
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -967,12 +969,14 @@ function BillingPage() {
                       data={invoices}
                       onDownloadCSV={() => {}}
                     />
-                    <button
-                      className="save-btn"
-                      onClick={() => setShowCreateInvoice(true)}
-                    >
-                      Create invoice
-                    </button>
+                    {canCreateInvoice && (
+                      <button
+                        className="save-btn"
+                        onClick={() => setShowCreateInvoice(true)}
+                      >
+                        Create invoice
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1228,7 +1232,7 @@ function BillingPage() {
                                     View
                                   </button>
                                 )}
-                                {!isVoided && (
+                                {!isVoided && canVoid && (
                                   <button
                                     className="data-table-btn-danger"
                                     title="Void this payment"
@@ -1281,7 +1285,7 @@ function BillingPage() {
                           {pay.status === 'verified' && !isVoided && (
                             <button className="data-table-btn" disabled={busy} onClick={async () => { try { setBusy(true); const html = await generatePaymentReceiptDocument(pay.id, formatPatientNameFormal(patient?.first_name ?? null, patient?.middle_name ?? null, patient?.last_name ?? null), pay.transaction_id || "PMT00000"); openDocumentViewer({ html, docType: "PAYMENT_RECEIPT", docNumber: pay.transaction_id || "PMT00000" }); } catch { alert("Failed to generate receipt"); } finally { setBusy(false); } }}>View</button>
                           )}
-                          {!isVoided && (
+                          {!isVoided && canVoid && (
                             <button className="data-table-btn-danger" disabled={busy} onClick={() => setVoidingPaymentId(pay.id)}>Void</button>
                           )}
                         </div>

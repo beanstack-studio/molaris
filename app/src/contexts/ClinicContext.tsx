@@ -1,5 +1,59 @@
 'use client'
 
+// ─── SQL Migrations (run in Supabase SQL editor) ──────────────────────────────
+//
+// 1. dentist_handlers — staff member handler assignments:
+// CREATE TABLE IF NOT EXISTS dentist_handlers (
+//   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+//   clinic_id             uuid NOT NULL REFERENCES clinics(id),
+//   staff_id              uuid NOT NULL REFERENCES staff(id),
+//   dentist_id            uuid NOT NULL REFERENCES dentists(id),
+//   can_record_treatments boolean DEFAULT true,
+//   can_create_invoices   boolean DEFAULT true,
+//   created_at            timestamptz DEFAULT now(),
+//   UNIQUE (staff_id, dentist_id)
+// );
+// ALTER TABLE dentist_handlers ENABLE ROW LEVEL SECURITY;
+// CREATE POLICY "clinic members can view handlers"
+//   ON dentist_handlers FOR SELECT
+//   USING (clinic_id IN (SELECT clinic_id FROM profiles WHERE id = auth.uid()));
+// CREATE POLICY "admins can manage handlers"
+//   ON dentist_handlers FOR ALL
+//   USING (clinic_id IN (SELECT clinic_id FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+//
+// 2. Link staff records to auth profiles:
+// ALTER TABLE staff ADD COLUMN IF NOT EXISTS profile_id uuid REFERENCES profiles(id);
+// CREATE UNIQUE INDEX IF NOT EXISTS staff_profile_id_idx ON staff (profile_id) WHERE profile_id IS NOT NULL;
+//
+// 3. Staff table new columns:
+// ALTER TABLE staff ADD COLUMN IF NOT EXISTS nickname text;
+// ALTER TABLE staff ADD COLUMN IF NOT EXISTS can_access_clinical boolean DEFAULT false;
+// ALTER TABLE staff ADD COLUMN IF NOT EXISTS email text;
+//
+// 4. staff_invites — dentist invite support:
+// CREATE TABLE IF NOT EXISTS staff_invites (
+//   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+//   clinic_id   uuid NOT NULL REFERENCES clinics(id),
+//   email       text NOT NULL,
+//   role        text NOT NULL DEFAULT 'staff',
+//   dentist_id  uuid REFERENCES dentists(id),
+//   invited_by  uuid REFERENCES profiles(id),
+//   token       uuid NOT NULL DEFAULT gen_random_uuid(),
+//   status      text NOT NULL DEFAULT 'pending'
+//               CHECK (status IN ('pending', 'accepted', 'expired')),
+//   created_at  timestamptz DEFAULT now(),
+//   expires_at  timestamptz DEFAULT (now() + interval '7 days')
+// );
+// ALTER TABLE staff_invites ENABLE ROW LEVEL SECURITY;
+// CREATE POLICY "clinic members can view invites"
+//   ON staff_invites FOR SELECT
+//   USING (clinic_id IN (SELECT clinic_id FROM profiles WHERE id = auth.uid()));
+// CREATE POLICY "admins can insert invites"
+//   ON staff_invites FOR INSERT
+//   WITH CHECK (clinic_id IN (SELECT clinic_id FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+//
+// ──────────────────────────────────────────────────────────────────────────────
+
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { Clinic, UserProfile } from '@/lib/types'
@@ -18,6 +72,12 @@ interface ClinicContextValue {
   isLoading: boolean
   userFullName: string | null
   userEmail: string | null
+  /** dentist_ids this staff member is authorised to act on behalf of */
+  handlerFor: string[]
+  /** true when this staff member has at least one handler assignment */
+  isHandler: boolean
+  /** Returns true if the current user may act on behalf of dentistId */
+  canActFor: (dentistId: string) => boolean
 }
 
 const ClinicContext = createContext<ClinicContextValue | null>(null)
@@ -27,6 +87,18 @@ function mapRole(dbRole: string | null | undefined): 'admin' | 'dentist' | 'staf
   if (dbRole === 'owner' || dbRole === 'admin') return 'admin'
   if (dbRole === 'dentist') return 'dentist'
   return 'staff'
+}
+
+/** Builds the canActFor helper given the resolved role and handlerFor array. */
+function buildCanActFor(
+  role: 'admin' | 'dentist' | 'staff',
+  handlerFor: string[],
+): (dentistId: string) => boolean {
+  return (dentistId: string) => {
+    if (role === 'admin') return true
+    if (role === 'dentist') return false
+    return handlerFor.includes(dentistId)
+  }
 }
 
 export function ClinicProvider({ children }: { children: ReactNode }) {
@@ -43,6 +115,9 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     isLoading: true,
     userFullName: null,
     userEmail: null,
+    handlerFor: [],
+    isHandler: false,
+    canActFor: () => false,
   })
 
   useEffect(() => {
@@ -66,6 +141,30 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 
       const role = mapRole((profile as { role?: string }).role)
 
+      // Fetch handler assignments for staff members via staff.profile_id → dentist_handlers.staff_id
+      let handlerFor: string[] = []
+      if (role === 'staff') {
+        const { data: staffRow } = await supabase
+          .from('staff')
+          .select('id')
+          .eq('clinic_id', profile.clinic_id)
+          .eq('profile_id', user.id)
+          .maybeSingle()
+
+        if (staffRow) {
+          const { data: handlers } = await supabase
+            .from('dentist_handlers')
+            .select('dentist_id')
+            .eq('staff_id', staffRow.id)
+            .eq('clinic_id', profile.clinic_id)
+          if (handlers) {
+            handlerFor = handlers.map((h: { dentist_id: string }) => h.dentist_id)
+          }
+        }
+      }
+
+      const canActFor = buildCanActFor(role, handlerFor)
+
       setValue({
         clinicId: profile.clinic_id,
         clinicName: clinic?.name ?? 'Clinic',
@@ -79,6 +178,9 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         isLoading: false,
         userFullName: (profile as { full_name?: string | null }).full_name ?? null,
         userEmail: (profile as { email?: string | null }).email ?? null,
+        handlerFor,
+        isHandler: handlerFor.length > 0,
+        canActFor,
       })
     }
     load()
@@ -93,14 +195,20 @@ export function useClinic(): ClinicContextValue {
   const devOverride = useDevOverride()
   if (devOverride && !ctx.isLoading) {
     const { plan, role } = devOverride.override
+    const isAdminOvr = role === 'admin'
+    const isDentistOvr = role === 'dentist'
+    const isStaffOvr = role === 'staff'
+    const canActForOvr = buildCanActFor(role, ctx.handlerFor)
     return {
       ...ctx,
       plan,
       role,
-      isAdmin: role === 'admin',
-      isDentist: role === 'dentist',
-      isStaff: role === 'staff',
+      isAdmin: isAdminOvr,
+      isDentist: isDentistOvr,
+      isStaff: isStaffOvr,
       isPro: plan === 'pro',
+      isHandler: isStaffOvr ? ctx.handlerFor.length > 0 : false,
+      canActFor: canActForOvr,
     }
   }
   return ctx
@@ -124,18 +232,33 @@ const ADMIN_ONLY_FEATURES = [
   'edit_catalog',
 ] as const
 
+/**
+ * Features that require admin, dentist, OR handler status.
+ * Not Pro-gated — any assigned handler gets access.
+ */
+const CLINICAL_FEATURES = [
+  'record_treatments',
+  'create_invoices',
+  'manage_ortho',
+  'generate_documents',
+] as const
+
 export type ProFeature = typeof PRO_FEATURES[number]
 export type AdminFeature = typeof ADMIN_ONLY_FEATURES[number]
+export type ClinicalFeature = typeof CLINICAL_FEATURES[number]
 
 /**
  * Returns true if the current user has access to the requested feature.
- * Admin-only features require role === 'admin'.
- * Pro features require isPro.
- * Everything else is accessible to all authenticated users.
+ *
+ * - Admin-only features → role === 'admin'
+ * - Clinical features   → isAdmin || isDentist || isHandler (not Pro-gated)
+ * - Pro features        → isPro
+ * - Everything else     → true (all authenticated users)
  */
 export function useFeatureGate(feature: string): boolean {
-  const { isPro, isAdmin } = useClinic()
+  const { isPro, isAdmin, isDentist, isHandler } = useClinic()
   if (ADMIN_ONLY_FEATURES.includes(feature as AdminFeature)) return isAdmin
+  if (CLINICAL_FEATURES.includes(feature as ClinicalFeature)) return isAdmin || isDentist || isHandler
   if (PRO_FEATURES.includes(feature as ProFeature)) return isPro
   return true
 }

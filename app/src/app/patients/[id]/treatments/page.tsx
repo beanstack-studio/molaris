@@ -16,7 +16,7 @@ import { TableOptions, type ColumnConfig } from "@/components/shared/TableOption
 export default function TreatmentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId, isLoading: clinicLoading } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, handlerFor } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +172,9 @@ export default function TreatmentsPage() {
     [editingVisitDate, groupedTreatmentHistory]
   );
 
+  const canWrite = isAdmin || isDentist || isHandler;
+  const filteredDentists = isAdmin || isDentist ? dentists : dentists.filter((d) => handlerFor.includes(d.id));
+
   if (loading) {
     return (
       <PageLoader />
@@ -198,9 +201,11 @@ export default function TreatmentsPage() {
                   data={treatments}
                   onDownloadCSV={() => {}}
                 />
-                <button className="save-btn" onClick={() => setShowAddVisitModal(true)}>
-                  Add visit
-                </button>
+                {canWrite && (
+                  <button className="save-btn" onClick={() => setShowAddVisitModal(true)}>
+                    Add visit
+                  </button>
+                )}
               </div>
             </div>
 
@@ -306,7 +311,7 @@ export default function TreatmentsPage() {
         onClose={() => setShowAddVisitModal(false)}
         onSaved={loadData}
         patientId={id}
-        dentists={dentists}
+        dentists={filteredDentists}
         serviceMenu={serviceMenu}
         defaultConcern={defaultAppointmentConcern}
       />
@@ -317,7 +322,7 @@ export default function TreatmentsPage() {
         onClose={() => setEditingVisitDate(null)}
         onSaved={loadData}
         patientId={id}
-        dentists={dentists}
+        dentists={filteredDentists}
         serviceMenu={serviceMenu}
         visitTreatments={editingTreatments}
       />

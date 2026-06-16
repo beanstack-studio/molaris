@@ -1,33 +1,15 @@
 /*
- * SQL — run in Supabase SQL editor if staff_invites table doesn't exist:
+ * SQL Migrations — run in Supabase SQL editor before using these features:
+ * (See ClinicContext.tsx for full migration SQL including dentist_handlers table)
  *
- * CREATE TABLE staff_invites (
- *   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
- *   clinic_id   uuid NOT NULL REFERENCES clinics(id),
- *   email       text NOT NULL,
- *   role        text NOT NULL DEFAULT 'staff',
- *   invited_by  uuid REFERENCES profiles(id),
- *   token       uuid NOT NULL DEFAULT gen_random_uuid(),
- *   status      text NOT NULL DEFAULT 'pending'
- *               CHECK (status IN ('pending', 'accepted', 'expired')),
- *   created_at  timestamptz DEFAULT now(),
- *   expires_at  timestamptz DEFAULT (now() + interval '7 days')
- * );
- * ALTER TABLE staff_invites ENABLE ROW LEVEL SECURITY;
- * CREATE POLICY "clinic members can view invites"
- *   ON staff_invites FOR SELECT
- *   USING (clinic_id IN (
- *     SELECT clinic_id FROM profiles WHERE id = auth.uid()
- *   ));
- * CREATE POLICY "admins can insert invites"
- *   ON staff_invites FOR INSERT
- *   WITH CHECK (clinic_id IN (
- *     SELECT clinic_id FROM profiles WHERE id = auth.uid() AND role = 'admin'
- *   ));
+ * Quick reference:
+ *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS nickname text;
+ *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS can_access_clinical boolean DEFAULT false;
+ *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS profile_id uuid REFERENCES profiles(id);
+ *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS email text;
+ *   ALTER TABLE staff_invites ADD COLUMN IF NOT EXISTS dentist_id uuid REFERENCES dentists(id);
  *
- * Run before using nickname and clinical access features:
- * ALTER TABLE staff ADD COLUMN IF NOT EXISTS nickname text;
- * ALTER TABLE staff ADD COLUMN IF NOT EXISTS can_access_clinical boolean DEFAULT false;
+ * dentist_handlers table — see ClinicContext.tsx for full CREATE TABLE statement.
  */
 
 "use client";
@@ -68,7 +50,6 @@ const DAY_KEY_TO_CLINIC_ID: Record<DayKey, string> = {
   thursday: "thu", friday: "fri", saturday: "sat", sunday: "sun",
 };
 
-// Week display order for the schedule table (Sun first)
 const WEEK_ORDER: { header: string; key: DayKey }[] = [
   { header: "Sun", key: "sunday" },
   { header: "Mon", key: "monday" },
@@ -79,6 +60,19 @@ const WEEK_ORDER: { header: string; key: DayKey }[] = [
   { header: "Sat", key: "saturday" },
 ];
 
+const STAFF_ROLES = [
+  "Dental Assistant",
+  "Dental Aide",
+  "Dental Hygienist",
+  "Receptionist",
+  "Secretary",
+  "Nurse",
+  "Sterilization Technician",
+  "Billing Staff",
+  "Office Manager",
+  "Other",
+] as const;
+
 const TIME_OPTIONS: { value: number; label: string }[] = [];
 for (let h = 7; h <= 20; h++) {
   for (const m of [0, 30]) {
@@ -87,13 +81,6 @@ for (let h = 7; h <= 20; h++) {
     const dh = h > 12 ? h - 12 : h === 0 ? 12 : h;
     TIME_OPTIONS.push({ value: v, label: `${dh}:${m === 0 ? "00" : "30"} ${period}` });
   }
-}
-
-function formatTime(v: number) {
-  const h = Math.floor(v); const m = (v % 1) * 60;
-  const period = h < 12 ? "AM" : "PM";
-  const dh = h > 12 ? h - 12 : h === 0 ? 12 : h;
-  return `${dh}:${m === 0 ? "00" : "30"} ${period}`;
 }
 
 type DentistRow = {
@@ -113,6 +100,13 @@ type InviteRow = {
 };
 type DaySchedule = { is_working: boolean; start_time: number; end_time: number };
 type DentistSchedule = Record<DayKey, DaySchedule>;
+type HandlerDentistRef = { id: string; full_name: string; nickname: string | null };
+type HandlerGroupRow = {
+  staffId: string;
+  staffName: string;
+  staffNickname: string | null;
+  dentists: HandlerDentistRef[];
+};
 
 const DEFAULT_DAY: DaySchedule = { is_working: false, start_time: 8, end_time: 17 };
 const DEFAULT_SCHEDULE: DentistSchedule = {
@@ -140,6 +134,7 @@ export default function TeamSettingsPage() {
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [handlers, setHandlers] = useState<HandlerGroupRow[]>([]);
   const [clinicHours, setClinicHours] = useState<ClinicHoursEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -171,10 +166,16 @@ export default function TeamSettingsPage() {
   const [staffNickname, setStaffNickname] = useState("");
   const [staffRole, setStaffRole] = useState("");
   const [staffDob, setStaffDob] = useState("");
-  const [staffCanClinical, setStaffCanClinical] = useState(false);
+  const [staffHandlerDentistIds, setStaffHandlerDentistIds] = useState<string[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
+
+  // Assign Handler modal (Sub-task 4)
+  const [showAssignHandlerModal, setShowAssignHandlerModal] = useState(false);
+  const [assignHandlerStaffId, setAssignHandlerStaffId] = useState("");
+  const [assignHandlerDentistIds, setAssignHandlerDentistIds] = useState<string[]>([]);
+  const [editingHandlerStaffId, setEditingHandlerStaffId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (clinicLoading || !clinicId) return;
@@ -194,6 +195,39 @@ export default function TeamSettingsPage() {
       if (!inviteRes.error) setInvites((inviteRes.data ?? []) as InviteRow[]);
       if (profileRes.data?.clinic_hours) {
         setClinicHours(profileRes.data.clinic_hours as ClinicHoursEntry[]);
+      }
+
+      // Load handler assignments (Pro + Admin view)
+      const handlerRes = await supabase
+        .from("dentist_handlers")
+        .select("staff_id, dentist_id")
+        .eq("clinic_id", clinicId);
+      if (!handlerRes.error && handlerRes.data && staffRes.data && dentistRes.data) {
+        const loadedStaff = (staffRes.data ?? []) as StaffRow[];
+        const loadedDentistMap = new Map<string, DentistRow>(
+          loadedDentists.map((d) => [d.id, d])
+        );
+        const staffMap = new Map<string, StaffRow>(loadedStaff.map((s) => [s.id, s]));
+        const groupMap = new Map<string, HandlerGroupRow>();
+        for (const row of handlerRes.data as { staff_id: string; dentist_id: string }[]) {
+          const staffMember = staffMap.get(row.staff_id);
+          const dentist = loadedDentistMap.get(row.dentist_id);
+          if (!staffMember || !dentist) continue;
+          if (!groupMap.has(row.staff_id)) {
+            groupMap.set(row.staff_id, {
+              staffId: row.staff_id,
+              staffName: staffMember.full_name,
+              staffNickname: staffMember.nickname ?? null,
+              dentists: [],
+            });
+          }
+          groupMap.get(row.staff_id)!.dentists.push({
+            id: dentist.id,
+            full_name: dentist.full_name,
+            nickname: dentist.nickname ?? null,
+          });
+        }
+        setHandlers(Array.from(groupMap.values()));
       }
 
       // Batch-load all dentist schedules
@@ -325,12 +359,15 @@ export default function TeamSettingsPage() {
     if (!dentistInviteEmail.trim()) return;
     setBusy(true); setDentistInviteSuccess(null);
     try {
-      const { error } = await supabase.from("staff_invites").insert({
+      const payload: Record<string, unknown> = {
         clinic_id: clinicId,
         email: dentistInviteEmail.trim().toLowerCase(),
-        role: "staff",
+        role: "dentist",
         invited_by: profileId,
-      });
+      };
+      // Link to existing dentist record if editing
+      if (editingDentist) payload.dentist_id = editingDentist.id;
+      const { error } = await supabase.from("staff_invites").insert(payload);
       if (error) throw error;
       setDentistInviteSuccess(`Invite sent to ${dentistInviteEmail.trim().toLowerCase()}`);
       setDentistInviteEmail("");
@@ -342,20 +379,26 @@ export default function TeamSettingsPage() {
   // ── Staff CRUD ────────────────────────────────────────────────────────────────
   function openAddStaff() {
     setEditingStaff(null); setStaffName(""); setStaffNickname(""); setStaffRole(""); setStaffDob("");
-    setStaffCanClinical(false); setInviteEmail(""); setInviteSuccess(null);
+    setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
     setShowAddStaffModal(true);
   }
-  function openEditStaff(s: StaffRow) {
+  async function openEditStaff(s: StaffRow) {
     setEditingStaff(s); setStaffName(s.full_name); setStaffNickname(s.nickname ?? "");
     setStaffRole(s.role); setStaffDob(s.date_of_birth ?? "");
-    setStaffCanClinical(s.can_access_clinical ?? false);
     setInviteEmail(""); setInviteSuccess(null);
+    // Load existing handler dentist assignments
+    const { data: hRows } = await supabase
+      .from("dentist_handlers")
+      .select("dentist_id")
+      .eq("staff_id", s.id)
+      .eq("clinic_id", clinicId);
+    setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
     setShowAddStaffModal(true);
   }
   function closeStaffModal() {
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffNickname(""); setStaffRole(""); setStaffDob("");
-    setStaffCanClinical(false); setInviteEmail(""); setInviteSuccess(null);
+    setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -365,12 +408,52 @@ export default function TeamSettingsPage() {
         clinic_id: clinicId, full_name: staffName.trim(),
         nickname: staffNickname.trim() || null,
         role: staffRole.trim(), date_of_birth: staffDob || null,
-        can_access_clinical: staffCanClinical,
+        can_access_clinical: staffHandlerDentistIds.length > 0,
       };
-      const { error } = editingStaff
-        ? await supabase.from("staff").update(payload).eq("id", editingStaff.id)
-        : await supabase.from("staff").insert({ ...payload, is_active: true, created_by: profileId });
-      if (error) throw error;
+
+      let staffId: string;
+      if (editingStaff) {
+        const { error } = await supabase.from("staff").update(payload).eq("id", editingStaff.id);
+        if (error) throw error;
+        staffId = editingStaff.id;
+      } else {
+        const { data, error } = await supabase
+          .from("staff")
+          .insert({ ...payload, is_active: true, created_by: profileId })
+          .select("id")
+          .single();
+        if (error) throw error;
+        staffId = (data as { id: string }).id;
+      }
+
+      // Sync dentist_handlers: get existing, diff, delete removed, add new
+      const { data: existingHandlers } = await supabase
+        .from("dentist_handlers")
+        .select("dentist_id")
+        .eq("staff_id", staffId)
+        .eq("clinic_id", clinicId);
+      const existingIds = (existingHandlers ?? []).map((h: { dentist_id: string }) => h.dentist_id);
+      const toRemove = existingIds.filter((id) => !staffHandlerDentistIds.includes(id));
+      const toAdd = staffHandlerDentistIds.filter((id) => !existingIds.includes(id));
+      if (toRemove.length > 0) {
+        await supabase.from("dentist_handlers")
+          .delete()
+          .eq("staff_id", staffId)
+          .eq("clinic_id", clinicId)
+          .in("dentist_id", toRemove);
+      }
+      if (toAdd.length > 0) {
+        await supabase.from("dentist_handlers").insert(
+          toAdd.map((dentistId) => ({
+            clinic_id: clinicId,
+            staff_id: staffId,
+            dentist_id: dentistId,
+            can_record_treatments: true,
+            can_create_invoices: true,
+          }))
+        );
+      }
+
       closeStaffModal();
       await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to save staff"); }
@@ -379,6 +462,8 @@ export default function TeamSettingsPage() {
   async function deleteStaff(id: string) {
     if (!confirm("Delete this staff member? This cannot be undone.")) return;
     setBusy(true);
+    // Remove handler assignments first
+    await supabase.from("dentist_handlers").delete().eq("staff_id", id).eq("clinic_id", clinicId);
     const { error } = await supabase.from("staff").delete().eq("id", id);
     if (error) setError(error.message);
     else { closeStaffModal(); await loadData(); }
@@ -398,6 +483,71 @@ export default function TeamSettingsPage() {
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to send invite"); }
     finally { setBusy(false); }
   }
+
+  // ── Handler Assignment (Sub-task 4) ──────────────────────────────────────────
+  function openAssignHandler(existingStaffId?: string) {
+    const existing = existingStaffId ? handlers.find((h) => h.staffId === existingStaffId) : undefined;
+    setEditingHandlerStaffId(existingStaffId ?? null);
+    setAssignHandlerStaffId(existingStaffId ?? "");
+    setAssignHandlerDentistIds(existing ? existing.dentists.map((d) => d.id) : []);
+    setShowAssignHandlerModal(true);
+  }
+  function closeAssignHandlerModal() {
+    setShowAssignHandlerModal(false);
+    setEditingHandlerStaffId(null);
+    setAssignHandlerStaffId("");
+    setAssignHandlerDentistIds([]);
+  }
+  async function saveAssignHandler() {
+    if (!assignHandlerStaffId) return;
+    setBusy(true); setError(null);
+    try {
+      const { data: existingRows } = await supabase
+        .from("dentist_handlers")
+        .select("dentist_id")
+        .eq("staff_id", assignHandlerStaffId)
+        .eq("clinic_id", clinicId);
+      const existingIds = (existingRows ?? []).map((r: { dentist_id: string }) => r.dentist_id);
+      const toRemove = existingIds.filter((id) => !assignHandlerDentistIds.includes(id));
+      const toAdd = assignHandlerDentistIds.filter((id) => !existingIds.includes(id));
+      if (toRemove.length > 0) {
+        await supabase.from("dentist_handlers").delete()
+          .eq("staff_id", assignHandlerStaffId).eq("clinic_id", clinicId).in("dentist_id", toRemove);
+      }
+      if (toAdd.length > 0) {
+        await supabase.from("dentist_handlers").insert(
+          toAdd.map((dentistId) => ({
+            clinic_id: clinicId,
+            staff_id: assignHandlerStaffId,
+            dentist_id: dentistId,
+            can_record_treatments: true,
+            can_create_invoices: true,
+          }))
+        );
+      }
+      // Update can_access_clinical flag on staff
+      await supabase.from("staff").update({
+        can_access_clinical: assignHandlerDentistIds.length > 0,
+      }).eq("id", assignHandlerStaffId).eq("clinic_id", clinicId);
+
+      closeAssignHandlerModal();
+      await loadData();
+      setSuccess("Handler assignments updated."); setTimeout(() => setSuccess(null), 3000);
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to save assignments"); }
+    finally { setBusy(false); }
+  }
+  async function removeAllHandlers(staffId: string) {
+    if (!confirm("Remove all handler assignments for this staff member?")) return;
+    setBusy(true);
+    await supabase.from("dentist_handlers").delete().eq("staff_id", staffId).eq("clinic_id", clinicId);
+    await supabase.from("staff").update({ can_access_clinical: false }).eq("id", staffId).eq("clinic_id", clinicId);
+    await loadData();
+    setSuccess("Handler assignments removed."); setTimeout(() => setSuccess(null), 3000);
+    setBusy(false);
+  }
+
+  // Staff not already assigned as handlers (for Assign Handler modal staff dropdown)
+  const unassignedStaff = staff.filter((s) => !handlers.some((h) => h.staffId === s.id) || editingHandlerStaffId === s.id);
 
   if (loading) return <LoadingBlock />;
 
@@ -441,7 +591,7 @@ export default function TeamSettingsPage() {
                     className={cn(
                       "data-table-row",
                       idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                      isAdmin && "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                      isAdmin && "cursor-pointer"
                     )}
                     onClick={isAdmin ? () => openEditDentist(d) : undefined}
                     onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditDentist(d); } } : undefined}
@@ -502,10 +652,10 @@ export default function TeamSettingsPage() {
                     className={cn(
                       "data-table-row",
                       idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                      isAdmin && "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                      isAdmin && "cursor-pointer"
                     )}
                     onClick={isAdmin ? () => openEditStaff(s) : undefined}
-                    onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditStaff(s); } } : undefined}
+                    onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openEditStaff(s); } } : undefined}
                     tabIndex={isAdmin ? 0 : undefined}
                     role={isAdmin ? "button" : undefined}
                     aria-label={isAdmin ? s.full_name : undefined}
@@ -556,13 +706,92 @@ export default function TeamSettingsPage() {
           )}
         </div>
 
+        {/* ── STAFF HANDLERS (Pro + Admin only) ── */}
+        {isAdmin && isPro && (
+          <div className="card">
+            <div className="card-header">
+              <div className="flex items-center gap-2">
+                <h2 className="card-title">Staff Handlers</h2>
+                <span className="badge badge-info text-xs">Pro</span>
+              </div>
+              <button
+                className="save-btn"
+                onClick={() => openAssignHandler()}
+                disabled={busy || staff.length === 0 || dentists.length === 0}
+              >
+                + Assign Handler
+              </button>
+            </div>
+            <p className="hint-text mt-1 mb-3">
+              Staff members authorised to record treatments and create invoices on behalf of assigned dentists.
+            </p>
+
+            {handlers.length === 0 ? (
+              <div className="data-table-empty">
+                No handlers assigned. Use &ldquo;+ Assign Handler&rdquo; to grant a staff member clinical access.
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <colgroup>
+                    <col className="col-35" />
+                    <col className="col-50" />
+                    <col className="col-15" />
+                  </colgroup>
+                  <thead className="data-table-head">
+                    <tr>
+                      <th className="data-table-head-cell">Staff Member</th>
+                      <th className="data-table-head-cell">Acting for</th>
+                      <th className="data-table-head-cell-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {handlers.map((h, idx) => {
+                      const displayName = h.staffNickname || h.staffName;
+                      const dentistList = h.dentists
+                        .map((d) => d.nickname || d.full_name)
+                        .join(", ");
+                      return (
+                        <tr key={h.staffId} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                          <td className="data-table-cell font-medium">{displayName}</td>
+                          <td className="data-table-cell text-slate-600 text-sm">{dentistList || "—"}</td>
+                          <td className="data-table-cell-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                className="data-table-btn"
+                                onClick={() => openAssignHandler(h.staffId)}
+                                disabled={busy}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="data-table-btn-danger"
+                                onClick={() => removeAllHandlers(h.staffId)}
+                                disabled={busy}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── SCHEDULES ── */}
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">Schedules</h2>
           </div>
           {clinicHours.length > 0 && (
-            <p className="hint-text px-4 pb-2">
+            <p className="hint-text px-0 pb-2">
               Time options constrained to clinic operating hours set in Clinic Profile.
             </p>
           )}
@@ -732,7 +961,7 @@ export default function TeamSettingsPage() {
       <EditModal open={showAddDentistModal} title={editingDentist ? "Edit Dentist" : "Add Dentist"} onClose={closeDentistModal}>
         <div className="spacing-vertical-lg">
           <label className="field-label">
-            <span className="field-label-text">Full name</span>
+            <span className="field-label-text">Full name <span className="text-red-400">*</span></span>
             <input className="field-input" value={dentistName} onChange={(e) => setDentistName(e.target.value)} disabled={busy} />
           </label>
           <label className="field-label">
@@ -742,14 +971,14 @@ export default function TeamSettingsPage() {
           <DatePickerField label="Date of Birth" value={dentistDob} onChange={setDentistDob} inputRef={dentistDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
           <label className="field-label">
             <span className="field-label-text">PRC / License No.</span>
-            <input className="field-input" placeholder="Permanent registration" value={dentistPrc} onChange={(e) => setDentistPrc(e.target.value)} disabled={busy} />
+            <input className="field-input" placeholder="Permanent registration number" value={dentistPrc} onChange={(e) => setDentistPrc(e.target.value)} disabled={busy} />
           </label>
           <label className="field-label">
             <span className="field-label-text">PTR No.</span>
-            <input type="number" className="field-input" placeholder="Annual" value={dentistPtr} onChange={(e) => setDentistPtr(e.target.value)} disabled={busy} />
+            <input type="number" className="field-input" placeholder="Annual professional tax receipt" value={dentistPtr} onChange={(e) => setDentistPtr(e.target.value)} disabled={busy} />
           </label>
           <div>
-            <span className="field-label-text block mb-2">Calendar color</span>
+            <span className="field-label-text block mb-2">Color</span>
             <div className="flex gap-2 flex-wrap">
               {DENTIST_COLORS.map((c) => (
                 <button
@@ -757,45 +986,49 @@ export default function TeamSettingsPage() {
                   type="button"
                   title={c.label}
                   onClick={() => setDentistColor(c.hex)}
-                  className="w-8 h-8 rounded-full border-2 transition-transform hover:scale-110"
-                  style={{
-                    background: c.hex,
-                    borderColor: dentistColor === c.hex ? "#1e293b" : "transparent",
-                    boxShadow: dentistColor === c.hex ? `0 0 0 2px white, 0 0 0 4px ${c.hex}` : "none",
-                  }}
+                  className={cn(
+                    "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                    dentistColor === c.hex ? "ring-2 ring-offset-2 ring-slate-600" : "border-transparent"
+                  )}
+                  style={{ background: c.hex }}
                   disabled={busy}
                 />
               ))}
             </div>
           </div>
 
-          {/* Invite to app */}
+          {/* Invite to Molaris */}
           {isAdmin && (
-            <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+            <div className="section-divider">
               <p className="field-label-text mb-1">Invite to Molaris</p>
               <p className="hint-text mb-3">
-                Send a login invite so this dentist can access the app.
+                Send a login invite so this dentist can access their own records and schedule.
                 {!isPro && <span className="text-amber-600 dark:text-amber-400"> Requires Pro plan.</span>}
               </p>
+              {!editingDentist && isPro && (
+                <p className="hint-text mb-3 text-slate-500">Save this dentist first, then send an invite from the edit view.</p>
+              )}
               {dentistInviteSuccess && <div className="success-banner mb-3">{dentistInviteSuccess}</div>}
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  className="field-input flex-1"
-                  placeholder="email@example.com"
-                  value={dentistInviteEmail}
-                  onChange={(e) => setDentistInviteEmail(e.target.value)}
-                  disabled={busy || !isPro}
-                />
-                <button
-                  type="button"
-                  className="save-btn shrink-0"
-                  onClick={sendDentistInvite}
-                  disabled={busy || !dentistInviteEmail.trim() || !isPro}
-                >
-                  Send invite
-                </button>
-              </div>
+              {editingDentist && (
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    className="field-input flex-1"
+                    placeholder="email@example.com"
+                    value={dentistInviteEmail}
+                    onChange={(e) => setDentistInviteEmail(e.target.value)}
+                    disabled={busy || !isPro}
+                  />
+                  <button
+                    type="button"
+                    className="save-btn shrink-0"
+                    onClick={sendDentistInvite}
+                    disabled={busy || !dentistInviteEmail.trim() || !isPro}
+                  >
+                    Send invite
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -817,7 +1050,7 @@ export default function TeamSettingsPage() {
       <EditModal open={showAddStaffModal} title={editingStaff ? "Edit Staff Member" : "Add Staff Member"} onClose={closeStaffModal}>
         <div className="spacing-vertical-lg">
           <label className="field-label">
-            <span className="field-label-text">Full name</span>
+            <span className="field-label-text">Full name <span className="text-red-400">*</span></span>
             <input className="field-input" value={staffName} onChange={(e) => setStaffName(e.target.value)} disabled={busy} />
           </label>
           <label className="field-label">
@@ -825,43 +1058,74 @@ export default function TeamSettingsPage() {
             <input className="field-input" placeholder="e.g. Carol" value={staffNickname} onChange={(e) => setStaffNickname(e.target.value)} disabled={busy} />
           </label>
           <label className="field-label">
-            <span className="field-label-text">Role / Job title</span>
+            <span className="field-label-text">Role / Job title <span className="text-red-400">*</span></span>
             <select className="field-input" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} disabled={busy}>
               <option value="">Select role</option>
-              <option value="Dental Assistant">Dental Assistant</option>
-              <option value="Dental Aide">Dental Aide</option>
-              <option value="Dental Hygienist">Dental Hygienist</option>
-              <option value="Receptionist">Receptionist</option>
-              <option value="Secretary">Secretary</option>
-              <option value="Nurse">Nurse</option>
-              <option value="Sterilization Technician">Sterilization Technician</option>
-              <option value="Billing Staff">Billing Staff</option>
-              <option value="Other">Other</option>
+              {STAFF_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </label>
           <DatePickerField label="Date of Birth" value={staffDob} onChange={setStaffDob} inputRef={staffDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
 
-          {/* Clinical access */}
-          <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
-            <p className="field-label-text mb-1">Clinical Access</p>
-            <p className="hint-text mb-3">
-              Grants this staff member permission to record treatments and create invoices.
-            </p>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={staffCanClinical}
-                onChange={(e) => setStaffCanClinical(e.target.checked)}
-                disabled={busy}
-                className="h-4 w-4 rounded"
-              />
-              <span className="text-sm text-slate-700 dark:text-slate-300">Can record treatments and create invoices</span>
-            </label>
+          {/* Clinical Access — Pro + Admin only */}
+          <div className="section-divider">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="field-label-text">Clinical Access</p>
+              {!isPro && <span className="badge badge-secondary text-xs">Pro only</span>}
+            </div>
+            {!isPro ? (
+              <p className="hint-text text-amber-600 dark:text-amber-500">
+                Upgrade to Pro to assign this staff member to act on behalf of a dentist.
+              </p>
+            ) : (
+              <>
+                <p className="hint-text mb-3">
+                  Assign this staff member to act on behalf of a dentist. They can record treatments,
+                  create invoices, manage ortho, and generate documents on behalf of assigned dentists.
+                </p>
+                {dentists.length === 0 ? (
+                  <p className="hint-text text-slate-400">Add dentists first to assign handlers.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {dentists.map((d) => {
+                      const isChecked = staffHandlerDentistIds.includes(d.id);
+                      return (
+                        <label
+                          key={d.id}
+                          className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              setStaffHandlerDentistIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, d.id]
+                                  : prev.filter((id) => id !== d.id)
+                              );
+                            }}
+                            disabled={busy}
+                            className="h-4 w-4 rounded"
+                          />
+                          <span
+                            className="inline-block w-3 h-3 rounded-full shrink-0"
+                            style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                          />
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            {d.full_name}
+                            {d.nickname && <span className="ml-1 text-slate-400">({d.nickname})</span>}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Invite to app */}
+          {/* Invite to Molaris */}
           {isAdmin && (
-            <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+            <div className="section-divider">
               <p className="field-label-text mb-1">Invite to Molaris</p>
               <p className="hint-text mb-3">
                 Send a login invite so this person can access the app.
@@ -897,6 +1161,88 @@ export default function TeamSettingsPage() {
               <button type="button" className="cancel-btn" onClick={closeStaffModal} disabled={busy}>Cancel</button>
               <button type="button" className="save-btn" onClick={saveStaff} disabled={busy || !staffName.trim() || !staffRole.trim()}>
                 {busy ? "Saving…" : editingStaff ? "Update" : "Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
+
+      {/* ── ASSIGN HANDLER MODAL ── */}
+      <EditModal
+        open={showAssignHandlerModal}
+        title={editingHandlerStaffId ? "Edit Handler Assignment" : "Assign Handler"}
+        onClose={closeAssignHandlerModal}
+      >
+        <div className="spacing-vertical-lg">
+          <label className="field-label">
+            <span className="field-label-text">Staff member</span>
+            <select
+              className="field-input"
+              value={assignHandlerStaffId}
+              onChange={(e) => setAssignHandlerStaffId(e.target.value)}
+              disabled={busy || !!editingHandlerStaffId}
+            >
+              <option value="">Select staff member</option>
+              {(editingHandlerStaffId
+                ? staff.filter((s) => s.id === editingHandlerStaffId)
+                : unassignedStaff
+              ).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nickname ? `${s.nickname} (${s.full_name})` : s.full_name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div>
+            <p className="field-label-text mb-2">Acting on behalf of</p>
+            {dentists.length === 0 ? (
+              <p className="hint-text">No dentists added yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {dentists.map((d) => {
+                  const isChecked = assignHandlerDentistIds.includes(d.id);
+                  return (
+                    <label
+                      key={d.id}
+                      className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          setAssignHandlerDentistIds((prev) =>
+                            e.target.checked ? [...prev, d.id] : prev.filter((id) => id !== d.id)
+                          );
+                        }}
+                        disabled={busy}
+                        className="h-4 w-4 rounded"
+                      />
+                      <span
+                        className="inline-block w-3 h-3 rounded-full shrink-0"
+                        style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                      />
+                      <span className="text-sm text-slate-700 dark:text-slate-300">
+                        {d.full_name}
+                        {d.nickname && <span className="ml-1 text-slate-400">({d.nickname})</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button type="button" className="cancel-btn" onClick={closeAssignHandlerModal} disabled={busy}>Cancel</button>
+              <button
+                type="button"
+                className="save-btn"
+                onClick={saveAssignHandler}
+                disabled={busy || !assignHandlerStaffId}
+              >
+                {busy ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
