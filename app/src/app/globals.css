@@ -163,7 +163,7 @@ html.dark select {
 /* .app-section-subtitle intentionally removed — subtitles were deleted from all pages */
 
 .dentition-section-title {
-  @apply text-lg font-semibold text-slate-800;
+  @apply text-lg font-semibold text-slate-800 dark:text-slate-200;
 }
 
 .app-section-body {
@@ -263,7 +263,7 @@ html.dark .tab-item-active {
 }
 
 .form-label {
-  @apply text-sm font-medium text-slate-700;
+  @apply text-sm font-medium text-slate-700 dark:text-slate-300;
 }
 
 .form-input {
@@ -505,7 +505,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .delete-confirmation-section {
-  @apply border-t border-slate-100 pt-3 mt-4;
+  @apply border-t border-slate-100 dark:border-slate-700 pt-3 mt-4;
 }
 
 .delete-confirmation-title {
@@ -513,11 +513,11 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .delete-confirmation-hint {
-  @apply text-xs text-slate-400 mb-2;
+  @apply text-xs text-slate-400 dark:text-slate-500 mb-2;
 }
 
 .delete-confirmation-code {
-  @apply font-mono bg-slate-100 px-1 rounded text-slate-600;
+  @apply font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded text-slate-600 dark:text-slate-300;
 }
 
 .delete-confirmation-input {
@@ -527,11 +527,11 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .item-delete-btn {
-  @apply rounded-xl bg-red-50 border border-red-100 text-red-400 hover:bg-red-100 hover:text-red-600 px-3 py-1 text-sm font-semibold disabled:opacity-50 transition-colors;
+  @apply rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-400 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-300 px-3 py-1 text-sm font-semibold disabled:opacity-50 transition-colors;
 }
 
 .add-row-btn {
-  @apply inline-flex items-center justify-center w-full h-10 px-4 rounded-xl text-sm font-medium transition border border-dashed border-slate-200 bg-transparent text-slate-400 hover:bg-slate-50 hover:border-violet-300 hover:text-violet-500 mt-2;
+  @apply inline-flex items-center justify-center w-full h-10 px-4 rounded-xl text-sm font-medium transition border border-dashed border-slate-200 dark:border-slate-600 bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-violet-300 dark:hover:border-violet-500 hover:text-violet-500 mt-2;
 }
 
 /* Entry rows */
@@ -827,7 +827,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 /* Gender selector */
 .gender-selector {
-  @apply h-10 rounded-xl border border-slate-200 bg-white px-3 flex items-center gap-4;
+  @apply h-10 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 flex items-center gap-4;
 }
 
 .gender-option {
@@ -872,11 +872,11 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 /* Section checkbox rows (Patient Record generate modal) */
 .section-check-container {
-  @apply rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-1.5;
+  @apply rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 p-4 space-y-1.5;
 }
 
 .section-check-row {
-  @apply flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer py-1 px-3 select-none;
+  @apply flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300 cursor-pointer py-1 px-3 select-none;
 }
 
 .section-check-group {
@@ -886,15 +886,15 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .section-check-group-header {
-  @apply flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors select-none;
+  @apply flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors select-none;
 }
 
 .section-check-group-label {
-  @apply text-sm text-slate-700 flex-1 flex items-center gap-1.5;
+  @apply text-sm text-slate-700 dark:text-slate-200 flex-1 flex items-center gap-1.5;
 }
 
 .section-check-sub-area {
-  @apply border-t border-slate-100 px-3 pb-2 pt-1.5 space-y-1.5 bg-slate-50;
+  @apply border-t border-slate-100 dark:border-slate-700 px-3 pb-2 pt-1.5 space-y-1.5 bg-slate-50 dark:bg-slate-800/50;
 }
 
 .section-check-sub-row {
@@ -904,7 +904,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .section-check-sub-area-scroll {
-  @apply border-t border-slate-100 px-3 pb-2 pt-1.5 space-y-1.5 bg-slate-50 max-h-40 overflow-y-auto;
+  @apply border-t border-slate-100 dark:border-slate-700 px-3 pb-2 pt-1.5 space-y-1.5 bg-slate-50 dark:bg-slate-800/50 max-h-40 overflow-y-auto;
 }
 
 .toggle-btn-active {
@@ -1024,7 +1024,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .section-divider {
-  @apply border-t border-slate-100 pt-4;
+  @apply border-t border-slate-100 dark:border-slate-700 pt-4;
 }
 
 /* Grid layouts */
@@ -1142,7 +1142,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .error-message-red {
-  @apply mb-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600;
+  @apply mb-3 rounded-xl border border-red-100 dark:border-red-800/50 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-600 dark:text-red-400;
 }
 
 /* ========================================
@@ -1207,10 +1207,10 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .text-field-label {
-  @apply text-sm font-medium text-slate-600;
+  @apply text-sm font-medium text-slate-600 dark:text-slate-300;
 }
 .field-sublabel {
-  @apply text-xs font-semibold text-slate-500;
+  @apply text-xs font-semibold text-slate-500 dark:text-slate-400;
 }
 
 /* ========================================
@@ -1282,7 +1282,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .info-box {
-  @apply rounded-xl border border-violet-100 bg-violet-50/60 p-3 space-y-2;
+  @apply rounded-xl border border-violet-100 dark:border-violet-800/40 bg-violet-50/60 dark:bg-violet-900/20 p-3 space-y-2;
 }
 
 .text-muted {
@@ -1401,16 +1401,16 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .modal-heading {
-  @apply text-lg font-bold text-slate-800 mb-4;
+  @apply text-lg font-bold text-slate-800 dark:text-slate-100 mb-4;
 }
 .item-value {
-  @apply text-sm font-semibold text-slate-800;
+  @apply text-sm font-semibold text-slate-800 dark:text-slate-100;
 }
 .hint-text {
-  @apply text-xs text-slate-400;
+  @apply text-xs text-slate-400 dark:text-slate-500;
 }
 .section-heading {
-  @apply mb-4 text-lg font-bold text-slate-800;
+  @apply mb-4 text-lg font-bold text-slate-800 dark:text-slate-100;
 }
 
 /* ========================================
@@ -1418,10 +1418,10 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .tooth-section-label {
-  @apply text-xs text-slate-400 text-center mt-0.5;
+  @apply text-xs text-slate-400 dark:text-slate-500 text-center mt-0.5;
 }
 .tooth-divider {
-  @apply w-3 shrink-0 border-l-2 border-slate-100;
+  @apply w-3 shrink-0 border-l-2 border-slate-100 dark:border-slate-700;
 }
 
 /* ========================================
@@ -1502,7 +1502,7 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .invoice-line-item {
-  @apply flex items-center justify-between p-2 bg-slate-50 rounded-xl;
+  @apply flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl;
 }
 
 /* ========================================
@@ -1541,7 +1541,7 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .form-textarea-full-focus {
-  @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
+  @apply w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition;
 }
 
 /* ========================================

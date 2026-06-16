@@ -142,29 +142,27 @@ function statusTheme(s: ToothStatus) {
 }
 
 function iconTintClass(status: ToothStatus) {
-  // Applies only to the SVG (icon), not the button background.
-  // Feel free to tweak shades later.
   switch (status) {
     case "HEALTHY":
-      return "text-slate-700";
+      return "text-slate-500 dark:text-slate-400";
     case "CARIES":
-      return "text-rose-600";
+      return "text-rose-600 dark:text-rose-400";
     case "FILLED":
-      return "text-emerald-600";
+      return "text-emerald-600 dark:text-emerald-400";
     case "MISSING":
-      return "text-slate-500";
+      return "text-slate-400 dark:text-slate-500";
     case "EXTRACTED":
-      return "text-orange-600";
+      return "text-orange-600 dark:text-orange-400";
     case "RCT":
-      return "text-indigo-600";
+      return "text-indigo-600 dark:text-indigo-400";
     case "CROWN":
-      return "text-amber-600";
+      return "text-amber-600 dark:text-amber-400";
     case "DENTURE":
-      return "text-purple-600";
+      return "text-purple-600 dark:text-purple-400";
     case "IMPLANT":
-      return "text-cyan-600";
+      return "text-cyan-600 dark:text-cyan-400";
     default:
-      return "text-slate-600";
+      return "text-slate-500 dark:text-slate-400";
   }
 }
 
@@ -437,7 +435,7 @@ function ToothTile({
       ].join(" ")}
     >
       {/* Label - tooth number above for upper, below for lower */}
-      {labelAbove && <div className="text-xs font-semibold text-slate-800 leading-none">{tooth}</div>}
+      {labelAbove && <div className="text-xs font-semibold text-slate-800 dark:text-slate-300 leading-none">{tooth}</div>}
 
       {/* ICON WRAP - single surface/occlusal icon, 3x larger */}
       <div className={["relative flex h-14 w-20 justify-center", jaw === "lower" ? "items-start" : "items-center"].join(" ")}>
@@ -453,7 +451,7 @@ function ToothTile({
       </div>
 
       {/* Label - tooth number below for lower teeth */}
-      {!labelAbove && <div className="text-xs font-semibold text-slate-800 leading-none mt-1.5">{tooth}</div>}
+      {!labelAbove && <div className="text-xs font-semibold text-slate-800 dark:text-slate-300 leading-none mt-1.5">{tooth}</div>}
     </button>
   );
 }
@@ -522,7 +520,7 @@ export default function ToothChart({
       <div className="grid gap-3 min-w-max md:min-w-0 w-full">
       {/* UPPER DENTITION - Combined Primary & Permanent */}
       <div className="card-light">
-        <div className="text-s font-semibold text-slate-600 uppercase text-center mb-2 py-2">Upper Dentition</div>
+        <div className="text-s font-semibold text-slate-600 dark:text-slate-300 uppercase text-center mb-2 py-2">Upper Dentition</div>
 
         {/* Primary Upper */}
         <div>
@@ -578,7 +576,7 @@ export default function ToothChart({
         </div>
 
         {/* Lower Dentition Title - Below Primary */}
-        <div className="text-s font-semibold text-slate-600 uppercase text-center mt-1 py-2">Lower Dentition</div>
+        <div className="text-s font-semibold text-slate-600 dark:text-slate-300 uppercase text-center mt-1 py-2">Lower Dentition</div>
       </div>
       </div>
     </div>

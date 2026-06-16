@@ -84,7 +84,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
         {/* Content — no sub-sidebar on desktop (handled by main Sidebar flyout) */}
         <div className="app-section-body">
-          {children}
+          <div className="w-full max-w-4xl">
+            {children}
+          </div>
         </div>
 
       </main>
