@@ -34,7 +34,7 @@ export function DevViewToggle() {
   const { override, setPlan, setRole } = ctx;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[9998] bg-slate-900/95 text-white text-xs flex items-center gap-4 px-4 py-2 backdrop-blur-sm border-t border-slate-700 select-none">
+    <div className="fixed top-0 left-0 right-0 z-[9998] bg-slate-900/95 text-white text-xs flex items-center gap-4 px-4 py-2 backdrop-blur-sm border-b border-slate-700 select-none">
       <span className="font-bold text-amber-400 shrink-0 tracking-wide">DEV</span>
 
       {/* Plan */}

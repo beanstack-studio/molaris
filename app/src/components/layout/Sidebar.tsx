@@ -102,13 +102,23 @@ const settingsFlyoutSections = [
   {
     title: "Clinic",
     items: [
-      { label: "Clinic Profile",  href: "/settings/clinic-profile" },
-      { label: "Services",        href: "/settings/services" },
-      { label: "Payment Modes",   href: "/settings/payment-modes" },
-      { label: "Documents",       href: "/settings/document-templates" },
-      { label: "Team",            href: "/settings/team" },
-      { label: "Schedule",        href: "/settings/schedule" },
-      { label: "Account",         href: "/settings/account" },
+      { label: "Clinic Profile", href: "/settings/clinic-profile" },
+      { label: "Schedule",       href: "/settings/schedule" },
+      { label: "Team",           href: "/settings/team" },
+    ],
+  },
+  {
+    title: "Catalog",
+    items: [
+      { label: "Services",       href: "/settings/services" },
+      { label: "Payment Modes",  href: "/settings/payment-modes" },
+      { label: "Documents",      href: "/settings/document-templates" },
+    ],
+  },
+  {
+    title: "Account",
+    items: [
+      { label: "Account",        href: "/settings/account" },
     ],
   },
 ];
@@ -224,7 +234,6 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
             );
 
             if (item.isSettings) {
-              const allSubItems = settingsFlyoutSections.flatMap((s) => s.items);
               return (
                 <div key="settings-group">
                   <button
@@ -257,28 +266,35 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                     )}
                   </button>
 
-                  {/* Inline accordion sub-items */}
+                  {/* Inline accordion sub-items — grouped by section */}
                   {settingsOpen && !collapsed && (
-                    <div className="ml-3 mt-0.5 border-l border-slate-200 dark:border-slate-700 pl-2 flex flex-col gap-0.5">
-                      {allSubItems.map((sub) => {
-                        const subActive = pathname === sub.href;
-                        return (
-                          <Link
-                            key={sub.href}
-                            href={sub.href}
-                            onClick={(e) => e.stopPropagation()}
-                            className={cn(
-                              "block px-2 py-1.5 text-sm rounded-md transition-colors",
-                              subActive
-                                ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
-                                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
-                            )}
-                            aria-current={subActive ? "page" : undefined}
-                          >
-                            {sub.label}
-                          </Link>
-                        );
-                      })}
+                    <div className="ml-3 mt-0.5 border-l border-slate-200 dark:border-slate-700 pl-2 flex flex-col gap-0">
+                      {settingsFlyoutSections.map((section, si) => (
+                        <div key={section.title} className={si > 0 ? "mt-2" : ""}>
+                          <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            {section.title}
+                          </div>
+                          {section.items.map((sub) => {
+                            const subActive = pathname === sub.href;
+                            return (
+                              <Link
+                                key={sub.href}
+                                href={sub.href}
+                                onClick={(e) => e.stopPropagation()}
+                                className={cn(
+                                  "block px-2 py-1.5 text-sm rounded-md transition-colors",
+                                  subActive
+                                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
+                                    : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
+                                )}
+                                aria-current={subActive ? "page" : undefined}
+                              >
+                                {sub.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

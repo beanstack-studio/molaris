@@ -42,14 +42,6 @@ function sortRows(list: ServicePriceRow[], sort: ServiceSort) {
   return out;
 }
 
-function formatPhpAmount(value: string | number): string {
-  const num = typeof value === 'string' ? Number(value) : value;
-  if (!num) return '0.00';
-  return num.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
 
 export default function ServicesSettingsPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
@@ -73,7 +65,8 @@ export default function ServicesSettingsPage() {
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editDuration, setEditDuration] = useState<string>("");
-  const [editCategory, setEditCategory] = useState<"general" | "ortho">("general"); // PART 1
+  const [editCategory, setEditCategory] = useState<"general" | "ortho">("general");
+  const [editItemType, setEditItemType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
   const [deleteText, setDeleteText] = useState("");
 
   async function load() {
@@ -104,15 +97,12 @@ export default function ServicesSettingsPage() {
     load();
   }, [clinicLoading, clinicId]);
 
-  const services = useMemo(
-    () => sortRows(rows.filter((r) => r.item_type === "SERVICE"), sort),
-    [rows, sort]
-  );
-
-  const addOns = useMemo(
-    () => sortRows(rows.filter((r) => r.item_type === "ADD_ON"), sort),
-    [rows, sort]
-  );
+  // Services first, extras last — within each group sort by chosen sort
+  const combinedRows = useMemo(() => {
+    const svc = sortRows(rows.filter((r) => r.item_type === "SERVICE"), sort);
+    const addOn = sortRows(rows.filter((r) => r.item_type === "ADD_ON"), sort);
+    return [...svc, ...addOn];
+  }, [rows, sort]);
 
   async function addItem() {
     if (!name.trim()) return;
@@ -145,7 +135,8 @@ export default function ServicesSettingsPage() {
     setEditName(r.service_name ?? "");
     setEditPrice(String(r.default_price ?? 0));
     setEditDuration(String(r.duration_minutes ?? ""));
-    setEditCategory(r.category ?? "general"); // PART 1
+    setEditCategory(r.category ?? "general");
+    setEditItemType(r.item_type);
     setDeleteText("");
     setEditOpen(true);
   }
@@ -154,14 +145,15 @@ export default function ServicesSettingsPage() {
     setEditOpen(false);
     setEditRow(null);
     setDeleteText("");
+    setEditItemType("SERVICE");
   }
 
-  function openAdd(type: "SERVICE" | "ADD_ON") {
-    setItemType(type);
+  function openAdd() {
+    setItemType("SERVICE");
     setName("");
     setPrice("");
     setDuration("");
-    setAddCategory("general"); // PART 1
+    setAddCategory("general");
     setAddOpen(true);
   }
 
@@ -171,7 +163,7 @@ export default function ServicesSettingsPage() {
     setName("");
     setPrice("");
     setDuration("");
-    setAddCategory("general"); // PART 1
+    setAddCategory("general");
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -193,7 +185,8 @@ export default function ServicesSettingsPage() {
         service_name: editName.trim(),
         default_price: Number(editPrice) || 0,
         duration_minutes: editDuration ? Number(editDuration) : null,
-        category: editCategory, // PART 1
+        category: editCategory,
+        item_type: editItemType,
       })
       .eq("id", editRow.id)
       .eq("clinic_id", clinicId);
@@ -240,115 +233,112 @@ export default function ServicesSettingsPage() {
       <PageLoader />
     );
 
-  const Table = ({
-    title,
-    data,
-    onAdd,
-    addLabel,
-  }: {
-    title: string;
-    data: ServicePriceRow[];
-    onAdd: () => void;
-    addLabel: string;
-  }) => (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-title">{title}</div>
-        <div className="inline-row">
-          <TableOptions
-            tableName={`services_${title.toLowerCase().replace(/\s/g, "_")}`}
-            columns={SERVICE_COLUMNS}
-            sorts={[
-              { key: "service_name",  label: "Service name" },
-              { key: "default_price", label: "Price" },
-              { key: "sort_order",    label: "Sort order" },
-              { key: "item_type",     label: "Type" },
-            ]}
-            currentSort={serviceSortConfig}
-            onSortChange={(key, direction) => {
-              setServiceSortConfig({ key, direction });
-              if (key === "service_name")  setSort(direction === "asc" ? "NAME_ASC" : "NAME_DESC");
-              if (key === "default_price") setSort(direction === "asc" ? "FEE_ASC"  : "FEE_DESC");
-            }}
-            data={data}
-            onDownloadCSV={() => {}}
-          />
-          <button
-            type="button"
-            className="save-btn"
-            onClick={onAdd}
-            disabled={busy}
-          >
-            {addLabel}
-          </button>
+  return (
+    <>
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">Services &amp; Extras</div>
+          <div className="inline-row">
+            <TableOptions
+              tableName="services_combined"
+              columns={SERVICE_COLUMNS}
+              sorts={[
+                { key: "service_name",  label: "Service name" },
+                { key: "default_price", label: "Price" },
+                { key: "item_type",     label: "Type" },
+              ]}
+              currentSort={serviceSortConfig}
+              onSortChange={(key, direction) => {
+                setServiceSortConfig({ key, direction });
+                if (key === "service_name")  setSort(direction === "asc" ? "NAME_ASC" : "NAME_DESC");
+                if (key === "default_price") setSort(direction === "asc" ? "FEE_ASC"  : "FEE_DESC");
+              }}
+              data={combinedRows}
+              onDownloadCSV={() => {}}
+            />
+            <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div className="table-wrapper">
+          <table className="data-table">
+            <colgroup>
+              <col className="col-40" />
+              <col className="col-15" />
+              <col className="col-20" />
+              <col className="col-15" />
+              <col className="col-10" />
+            </colgroup>
+            <thead className="data-table-head">
+              <tr>
+                <th className="data-table-head-cell">Name</th>
+                <th className="data-table-head-cell">Type</th>
+                <th className="data-table-head-cell-right">Duration</th>
+                <th className="data-table-head-cell-right">Fee</th>
+                <th className="data-table-head-cell-right">Active</th>
+              </tr>
+            </thead>
+            <tbody>
+              {combinedRows.map((r, index) => (
+                <tr
+                  key={r.id}
+                  className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                  onClick={() => openEdit(r)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Edit ${r.service_name}`}
+                >
+                  <td className="data-table-cell">{r.service_name}</td>
+                  <td className="data-table-cell">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${r.item_type === "ADD_ON" ? "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300" : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"}`}>
+                      {r.item_type === "ADD_ON" ? "Extra" : "Service"}
+                    </span>
+                  </td>
+                  <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
+                  <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
+                  <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end">
+                      <TogglePill
+                        checked={r.is_active}
+                        disabled={busy}
+                        onChange={() => toggleActive(r.id, r.is_active)}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {combinedRows.length === 0 ? (
+                <tr>
+                  <td className="data-table-empty" colSpan={5}>No services or extras yet.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div className="table-wrapper">
-        <table className="data-table">
-          <colgroup>
-            <col className="col-45" />
-            <col className="col-20" />
-            <col className="col-20" />
-            <col className="col-15" />
-          </colgroup>
-          <thead className="data-table-head">
-            <tr>
-              <th className="data-table-head-cell">Name</th>
-              <th className="data-table-head-cell-right">Duration</th>
-              <th className="data-table-head-cell-right">Fee</th>
-              <th className="data-table-head-cell-right">Activate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((r, index) => (
-              <tr
-                key={r.id}
-                className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
-                onClick={() => openEdit(r)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
-                tabIndex={0}
-                role="button"
-                aria-label={`Edit ${r.service_name}`}
-              >
-                <td className="data-table-cell">{r.service_name}</td>
-                <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
-                <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
-                <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-end">
-                    <TogglePill
-                      checked={r.is_active}
-                      disabled={busy}
-                      onChange={(v) => toggleActive(r.id, r.is_active)}
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {data.length === 0 ? (
-              <tr>
-                <td className="data-table-empty" colSpan={4}>
-                  No items yet.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  return (
-    <>
-        <Table title="Services" data={services} onAdd={() => openAdd('SERVICE')} addLabel="Add Service" />
-        <Table title="Extras" data={addOns} onAdd={() => openAdd('ADD_ON')} addLabel="Add Extra" />
-
       <EditModal
         open={addOpen}
-        title={itemType === "ADD_ON" ? "Add Extra" : "Add Service"}
+        title="Add Service / Extra"
         onClose={closeAdd}
       >
         <div className="spacing-vertical-lg">
+          <label className="field-label">
+            <span className="field-label-text">Type</span>
+            <select
+              className="field-input"
+              value={itemType}
+              onChange={(e) => setItemType(e.target.value as "SERVICE" | "ADD_ON")}
+              disabled={busy}
+            >
+              <option value="SERVICE">Service</option>
+              <option value="ADD_ON">Extra</option>
+            </select>
+          </label>
+
           <label className="field-label">
             <span className="field-label-text">Name</span>
             <input
@@ -452,6 +442,19 @@ export default function ServicesSettingsPage() {
       >
         {!editRow ? null : (
           <div className="spacing-vertical-lg">
+            <label className="field-label">
+              <span className="field-label-text">Type</span>
+              <select
+                className="field-input"
+                value={editItemType}
+                onChange={(e) => setEditItemType(e.target.value as "SERVICE" | "ADD_ON")}
+                disabled={busy}
+              >
+                <option value="SERVICE">Service</option>
+                <option value="ADD_ON">Extra</option>
+              </select>
+            </label>
+
             <label className="field-label">
               <span className="field-label-text">Name</span>
               <input

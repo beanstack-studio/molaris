@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { EditModal } from "@/components/EditModal";
-import { formatPhoneLocal } from "@/lib/helpers";
+import { formatPhoneLocal, formatDateStandard } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
 import { useClinic } from "@/contexts/ClinicContext";
 
@@ -37,6 +37,8 @@ interface Availability {
   is_open?: boolean; // undefined/true = open, false = closed
 }
 
+const VALID_DAY_IDS = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+
 const DEFAULT_CLINIC_HOURS: Availability[] = [
   { id: "mon", day: "Monday",    open_hour: 8, close_hour: 17, is_open: true },
   { id: "tue", day: "Tuesday",   open_hour: 8, close_hour: 17, is_open: true },
@@ -46,6 +48,11 @@ const DEFAULT_CLINIC_HOURS: Availability[] = [
   { id: "sat", day: "Saturday",  open_hour: 8, close_hour: 12, is_open: true },
   { id: "sun", day: "Sunday",    open_hour: 8, close_hour: 12, is_open: false },
 ];
+
+interface HolidayOverride {
+  date: string; // YYYY-MM-DD
+  name?: string;
+}
 
 export default function ClinicProfileSettingsPage() {
   const { clinicId, clinicName, plan, isLoading: clinicLoading } = useClinic();
@@ -58,6 +65,14 @@ export default function ClinicProfileSettingsPage() {
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editingClinicHours, setEditingClinicHours] = useState(false);
   const [clinicHours, setClinicHours] = useState<Availability[]>(DEFAULT_CLINIC_HOURS);
+
+  // Holiday overrides — dates clinic has marked as closed (stored in holiday_overrides)
+  const [holidayOverrides, setHolidayOverrides] = useState<HolidayOverride[]>([]);
+  const [phHolidays, setPhHolidays] = useState<{ date: string; name: string }[]>([]);
+  const [addingHoliday, setAddingHoliday] = useState(false);
+  const [newHolidayDate, setNewHolidayDate] = useState("");
+  const [newHolidayName, setNewHolidayName] = useState("");
+  const [holidayBusy, setHolidayBusy] = useState(false);
 
   // Pending modal state — nothing applied until Save
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -78,8 +93,63 @@ export default function ClinicProfileSettingsPage() {
   useEffect(() => {
     if (clinicLoading || !clinicId) return;
     loadProfile();
+    loadHolidayData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicLoading, clinicId]);
+
+  async function loadHolidayData() {
+    // Load PH public holidays for this year + next
+    const year = new Date().getFullYear();
+    const loadYear = async (y: number) => {
+      try {
+        const res = await fetch(`/api/holidays?year=${y}`);
+        if (!res.ok) return;
+        const { dates, names }: { dates: string[]; names: Record<string, string> } = await res.json();
+        setPhHolidays((prev) => {
+          const merged = [...prev];
+          dates.forEach((d) => {
+            if (!merged.find((h) => h.date === d)) merged.push({ date: d, name: names[d] ?? d });
+          });
+          merged.sort((a, b) => a.date.localeCompare(b.date));
+          return merged;
+        });
+      } catch { /* fail open */ }
+    };
+    await loadYear(year);
+    loadYear(year + 1);
+
+    // Load clinic-specific holiday overrides (closed dates)
+    const { data } = await supabase
+      .from("holiday_overrides")
+      .select("date")
+      .eq("clinic_id", clinicId)
+      .order("date", { ascending: true });
+    setHolidayOverrides(data ? data.map((r: { date: string }) => ({ date: r.date })) : []);
+  }
+
+  async function addHoliday() {
+    if (!newHolidayDate || !clinicId) return;
+    setHolidayBusy(true);
+    const { error } = await supabase
+      .from("holiday_overrides")
+      .insert({ date: newHolidayDate, clinic_id: clinicId });
+    if (!error) {
+      setHolidayOverrides((prev) => [...prev, { date: newHolidayDate, name: newHolidayName || undefined }].sort((a, b) => a.date.localeCompare(b.date)));
+      setNewHolidayDate(""); setNewHolidayName(""); setAddingHoliday(false);
+    }
+    setHolidayBusy(false);
+  }
+
+  async function removeHoliday(date: string) {
+    setHolidayBusy(true);
+    const { error } = await supabase
+      .from("holiday_overrides")
+      .delete()
+      .eq("date", date)
+      .eq("clinic_id", clinicId);
+    if (!error) setHolidayOverrides((prev) => prev.filter((h) => h.date !== date));
+    setHolidayBusy(false);
+  }
 
   async function loadProfile() {
     setLoading(true); setError(null);
@@ -97,11 +167,14 @@ export default function ClinicProfileSettingsPage() {
           postal_code: p.postal_code || "",
           sunday_end_hour: p.sunday_end_hour || 11,
         });
-        setClinicHours(
-          p.clinic_hours && Array.isArray(p.clinic_hours) && p.clinic_hours.length > 0
-            ? p.clinic_hours
-            : DEFAULT_CLINIC_HOURS
-        );
+        // Migrate old-format clinic_hours (e.g. "Weekdays (Mon-Fri)" / "Sunday" single entries)
+        // to the canonical 7-day format. Old data has < 7 rows or uses non-standard IDs.
+        const raw = p.clinic_hours;
+        const is7DayFormat =
+          Array.isArray(raw) &&
+          raw.length === 7 &&
+          (raw as Availability[]).every((h) => VALID_DAY_IDS.has(h.id));
+        setClinicHours(is7DayFormat ? (raw as Availability[]) : DEFAULT_CLINIC_HOURS);
       } else {
         // Use the server-side API route (service role) to create the initial row —
         // the anon client is blocked by RLS when inserting into clinic_profile.
@@ -448,6 +521,93 @@ export default function ClinicProfileSettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Holidays Card */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Holidays</h3>
+          <button className="save-btn" onClick={() => setAddingHoliday(true)}>Add</button>
+        </div>
+
+        {/* PH public holidays legend */}
+        {phHolidays.length > 0 && (
+          <div className="mt-3 mb-4">
+            <div className="field-label-text mb-2">Philippine Public Holidays</div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {phHolidays.filter((h) => h.date >= new Date().toISOString().slice(0, 10)).slice(0, 8).map((h, idx, arr) => (
+                <div
+                  key={h.date}
+                  className={`flex items-center justify-between px-4 py-2.5 ${idx < arr.length - 1 ? "border-b border-slate-100 dark:border-slate-700" : ""}`}
+                >
+                  <span className="text-sm text-slate-700 dark:text-slate-200">{h.name}</span>
+                  <span className="text-xs text-slate-400 font-medium">{formatDateStandard(h.date)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Clinic-specific holiday closures */}
+        <div>
+          <div className="field-label-text mb-2">Clinic Closures</div>
+          {holidayOverrides.length === 0 ? (
+            <p className="hint-text">No custom closures added yet.</p>
+          ) : (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {holidayOverrides.map((h, idx) => (
+                <div
+                  key={h.date}
+                  className={`flex items-center justify-between px-4 py-2.5 ${idx < holidayOverrides.length - 1 ? "border-b border-slate-100 dark:border-slate-700" : ""}`}
+                >
+                  <div>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{formatDateStandard(h.date)}</span>
+                    {h.name && <span className="ml-2 text-xs text-slate-400">{h.name}</span>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeHoliday(h.date)}
+                    disabled={holidayBusy}
+                    className="text-xs text-red-400 hover:text-red-600 transition-colors px-2 py-1 rounded"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add Holiday Modal */}
+      <EditModal open={addingHoliday} title="Add Clinic Closure" onClose={() => { setAddingHoliday(false); setNewHolidayDate(""); setNewHolidayName(""); }}>
+        <div className="spacing-vertical-lg">
+          <label className="field-label">
+            <span className="field-label-text">Date</span>
+            <input
+              type="date"
+              className="field-input"
+              value={newHolidayDate}
+              onChange={(e) => setNewHolidayDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)}
+            />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Label (optional)</span>
+            <input
+              className="field-input"
+              placeholder="e.g. Clinic Anniversary, Christmas"
+              value={newHolidayName}
+              onChange={(e) => setNewHolidayName(e.target.value)}
+            />
+          </label>
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button className="cancel-btn" onClick={() => { setAddingHoliday(false); setNewHolidayDate(""); setNewHolidayName(""); }} disabled={holidayBusy}>Cancel</button>
+              <button className="save-btn" onClick={addHoliday} disabled={holidayBusy || !newHolidayDate}>{holidayBusy ? "Adding…" : "Add"}</button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
 
       {/* Edit Clinic Information Modal */}
       <EditModal open={editInfoOpen} title="Edit Clinic Information" onClose={closeEditInfo}>

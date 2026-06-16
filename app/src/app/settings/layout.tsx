@@ -8,13 +8,13 @@ import { cn } from "@/lib/cn";
 
 // Mobile-only tab strip items (no emoji)
 const mobileSettingsItems = [
-  { label: "Clinic Profile", href: "/settings/clinic-profile" },
-  { label: "Services",       href: "/settings/services" },
-  { label: "Payment Modes",  href: "/settings/payment-modes" },
-  { label: "Documents",      href: "/settings/document-templates" },
-  { label: "Team",           href: "/settings/team" },
-  { label: "Schedule",       href: "/settings/schedule" },
-  { label: "Account",        href: "/settings/account" },
+  { label: "Profile",    href: "/settings/clinic-profile" },
+  { label: "Schedule",   href: "/settings/schedule" },
+  { label: "Team",       href: "/settings/team" },
+  { label: "Services",   href: "/settings/services" },
+  { label: "Payments",   href: "/settings/payment-modes" },
+  { label: "Documents",  href: "/settings/document-templates" },
+  { label: "Account",    href: "/settings/account" },
 ];
 
 function IconBack() {
@@ -85,7 +85,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
         {/* Content — no sub-sidebar on desktop (handled by main Sidebar flyout) */}
         <div className="app-section-body">
-          <div className="w-full max-w-4xl">
+          <div className="w-full max-w-3xl">
             {children}
           </div>
         </div>
