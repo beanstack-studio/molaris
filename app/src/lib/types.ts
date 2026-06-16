@@ -12,6 +12,14 @@ export type Clinic = {
   created_at: string;
 };
 
+export type ClinicHoursEntry = {
+  id: string;          // "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | "holiday"
+  day: string;         // Display label e.g. "Monday"
+  open_hour: number;   // e.g. 8 = 8:00 AM, 8.5 = 8:30 AM
+  close_hour: number;
+  is_open: boolean;    // false = clinic closed on this day/type
+};
+
 export type ClinicProfile = {
   id: string;
   clinic_id: string;
@@ -23,7 +31,7 @@ export type ClinicProfile = {
   logo_url: string | null;
   phones: Array<{ type: string; number: string }> | null;
   contacts: Array<{ type: string; value: string }> | null;
-  clinic_hours: Array<{ id: string; day: string; open_hour: number; close_hour: number }> | null;
+  clinic_hours: ClinicHoursEntry[] | null;
   updated_at: string;
 };
 

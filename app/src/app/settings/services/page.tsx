@@ -9,8 +9,6 @@ import { EditModal } from "@/components/EditModal";
 import { formatMoney } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
-import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
-
 
 type ServicePriceRow = {
   id: string;
@@ -23,13 +21,6 @@ type ServicePriceRow = {
 };
 
 type ServiceSort = "NAME_ASC" | "NAME_DESC" | "FEE_ASC" | "FEE_DESC";
-
-const SERVICE_COLUMNS: ColumnConfig[] = [
-  { key: "name",     label: "Name",     required: true },
-  { key: "duration", label: "Duration" },
-  { key: "fee",      label: "Fee" },
-  { key: "activate", label: "Activate" },
-];
 
 const TogglePill = Toggle;
 
@@ -50,8 +41,7 @@ function ServicesSettingsPage() {
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [sort, setSort] = useState<ServiceSort>("NAME_ASC");
-  const [serviceSortConfig, setServiceSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "service_name", direction: "asc" });
+  const sort: ServiceSort = "NAME_ASC";
 
   // Add modal state
   const [addOpen, setAddOpen] = useState(false);
@@ -240,28 +230,9 @@ function ServicesSettingsPage() {
       <div className="card">
         <div className="card-header">
           <div className="card-title">Services &amp; Extras</div>
-          <div className="inline-row">
-            <TableOptions
-              tableName="services_combined"
-              columns={SERVICE_COLUMNS}
-              sorts={[
-                { key: "service_name",  label: "Service name" },
-                { key: "default_price", label: "Price" },
-                { key: "item_type",     label: "Type" },
-              ]}
-              currentSort={serviceSortConfig}
-              onSortChange={(key, direction) => {
-                setServiceSortConfig({ key, direction });
-                if (key === "service_name")  setSort(direction === "asc" ? "NAME_ASC" : "NAME_DESC");
-                if (key === "default_price") setSort(direction === "asc" ? "FEE_ASC"  : "FEE_DESC");
-              }}
-              data={combinedRows}
-              onDownloadCSV={() => {}}
-            />
-            <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
-              Add
-            </button>
-          </div>
+          <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
+            Add
+          </button>
         </div>
 
         <div className="table-wrapper">

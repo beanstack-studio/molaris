@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/cn";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
+import { useDevOverride } from "@/contexts/DevOverrideContext";
 
 const SIDEBAR_KEY = "molaris_sidebar_collapsed";
 const INACTIVITY_MS = 10 * 60 * 1000; // 10 minutes
@@ -32,6 +33,9 @@ export default function AppShell({ children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [chartCollapse, setChartCollapse] = useState(false);
   const [busy, setBusy] = useState(false);
+  const devCtx = useDevOverride();
+  const devViewMode = devCtx?.override.viewMode ?? "desktop";
+  const isDevMode = devCtx !== null;
 
   const isLoginPage = pathname === "/login";
 
@@ -160,29 +164,38 @@ export default function AppShell({ children }: AppShellProps) {
 
   const effectivelyCollapsed = collapsed || chartCollapse;
 
+  // Dev viewport simulation: in dev mode, control sidebar/bottomnav via React instead of CSS breakpoints
+  const showSidebar = !isDevMode || devViewMode === "desktop";
+  const showBottomNav = !isDevMode || devViewMode !== "desktop";
+
+  const contentClass = cn(
+    "sidebar-content-offset",
+    !isDevMode || devViewMode === "desktop"
+      ? cn(effectivelyCollapsed ? "lg:ml-14" : "lg:ml-[220px]", "pb-16 lg:pb-0")
+      : cn(
+          devViewMode === "tablet" ? "max-w-[768px]" : "max-w-[390px]",
+          "mx-auto pb-16"
+        )
+  );
+
   return (
     <>
-      {/* Sidebar — desktop only (hidden on mobile) */}
-      <Sidebar
-        collapsed={effectivelyCollapsed}
-        onToggle={handleToggle}
-        onSignOut={signOut}
-      />
+      {/* Sidebar — desktop only (hidden on mobile via CSS; or hidden by dev viewport mode) */}
+      {showSidebar && (
+        <Sidebar
+          collapsed={effectivelyCollapsed}
+          onToggle={handleToggle}
+          onSignOut={signOut}
+        />
+      )}
 
       {/* Main content — offset by sidebar width on lg+ */}
-      <div
-        className={cn(
-          "sidebar-content-offset",
-          effectivelyCollapsed ? "lg:ml-14" : "lg:ml-[220px]",
-          // Bottom padding for mobile bottom nav
-          "pb-16 lg:pb-0"
-        )}
-      >
+      <div className={contentClass}>
         {children}
       </div>
 
-      {/* Bottom nav — mobile only */}
-      <BottomNav />
+      {/* Bottom nav — mobile only (CSS) or forced by dev viewport mode */}
+      {showBottomNav && <BottomNav />}
 
       {/* Invisible overlay during sign-out */}
       {busy && (

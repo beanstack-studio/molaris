@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import { formatPhoneLocal, combineFullName } from "@/lib/helpers";
 import { useClinic } from "@/contexts/ClinicContext";
-import { Appointment, Patient, DentistRow, dentistLabel } from "@/lib/types";
+import { Appointment, Patient, DentistRow, ClinicHoursEntry, dentistLabel } from "@/lib/types";
 import { CreateAppointmentModal } from "./CreateAppointmentModal";
 import { EditAppointmentModal } from "./EditAppointmentModal";
 import { PageLoader } from "@/components/Spinner";
@@ -54,7 +54,7 @@ export default function AppointmentsPage() {
   const [targetDate, setTargetDate]     = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentWithRelations | null>(null);
-  const [sundayEndHour, setSundayEndHour] = useState(11);
+  const [clinicHours, setClinicHours] = useState<ClinicHoursEntry[]>([]);
   const [filterDentistId, setFilterDentistId] = useState<string>("");
   const [calDentistBlockouts, setCalDentistBlockouts] = useState<{ start_date: string; end_date: string; reason: string | null }[]>([]);
   const [calDentistSchedule, setCalDentistSchedule] = useState<{ day_of_week: number; is_working: boolean }[]>([]);
@@ -149,11 +149,12 @@ export default function AppointmentsPage() {
     try {
       const { data, error: err } = await supabase
         .from("clinic_profile")
-        .select("sunday_end_hour")
+        .select("clinic_hours")
+        .eq("clinic_id", clinicId)
         .limit(1)
         .single();
-      if (!err && data?.sunday_end_hour) {
-        setSundayEndHour(data.sunday_end_hour);
+      if (!err && Array.isArray(data?.clinic_hours)) {
+        setClinicHours(data.clinic_hours as ClinicHoursEntry[]);
       }
     } catch {
       // clinic hours unavailable, use default
@@ -857,7 +858,7 @@ export default function AppointmentsPage() {
         dentists={dentists}
         patients={patients}
         selectedDate={selectedDate}
-        sundayEndHour={sundayEndHour}
+        clinicHours={clinicHours}
         holidayOverrides={holidayOverrides}
       />
 
@@ -867,7 +868,7 @@ export default function AppointmentsPage() {
         onUpdated={loadAppointments}
         dentists={dentists}
         patients={patients}
-        sundayEndHour={sundayEndHour}
+        clinicHours={clinicHours}
         holidayOverrides={holidayOverrides}
       />
 

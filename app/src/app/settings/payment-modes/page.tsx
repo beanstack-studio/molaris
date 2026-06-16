@@ -6,19 +6,9 @@ import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { PaymentMode } from "@/lib/types";
 import { useClinic } from "@/contexts/ClinicContext";
-import { PageLoader, Spinner } from "@/components/Spinner";
+import { PageLoader } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
-import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
 const TogglePill = Toggle;
-
-const PM_COLUMNS: ColumnConfig[] = [
-  { key: "name",    label: "Name",        required: true },
-  { key: "proof",   label: "Proof" },
-  { key: "ref",     label: "Reference" },
-  { key: "staff",   label: "Staff" },
-  { key: "auto",    label: "Auto-Verify" },
-  { key: "active",  label: "Activate" },
-];
 
 function PaymentModesSettingsPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
@@ -28,7 +18,6 @@ function PaymentModesSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editData, setEditData] = useState<Partial<PaymentMode> | null>(null);
-  const [pmSortConfig, setPmSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "sort_order", direction: "asc" });
 
   useEffect(() => {
     if (clinicLoading || !clinicId) return;
@@ -133,16 +122,8 @@ function PaymentModesSettingsPage() {
   }
 
   const sortedPaymentModes = useMemo(() => {
-    const list = [...paymentModes];
-    const { key, direction } = pmSortConfig;
-    const dir = direction === "asc" ? 1 : -1;
-    list.sort((a, b) => {
-      if (key === "name") return dir * (a.name ?? "").localeCompare(b.name ?? "");
-      if (key === "sort_order") return dir * ((a.sort_order ?? 0) - (b.sort_order ?? 0));
-      return 0;
-    });
-    return list;
-  }, [paymentModes, pmSortConfig]);
+    return [...paymentModes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [paymentModes]);
 
   if (loading) {
     return (
@@ -153,22 +134,10 @@ function PaymentModesSettingsPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-            {/* Payment modes table */}
+            {/* Payment modes table + legend */}
             <div className="card">
               <div className="card-header">
                 <div className="card-title">Payment Modes</div>
-                <TableOptions
-                  tableName="payment_modes"
-                  columns={PM_COLUMNS}
-                  sorts={[
-                    { key: "name",       label: "Name" },
-                    { key: "sort_order", label: "Sort order" },
-                  ]}
-                  currentSort={pmSortConfig}
-                  onSortChange={(k, d) => setPmSortConfig({ key: k, direction: d })}
-                  data={paymentModes}
-                  onDownloadCSV={() => {}}
-                />
               </div>
               <div className="table-wrapper">
                 <table className="data-table">
@@ -353,37 +322,25 @@ function PaymentModesSettingsPage() {
                 </tbody>
               </table>
             </div>
-            </div>
-
-            {/* Requirements legend */}
-            <div className="card">
-              <div className="card-header">
-                <div className="card-title">Requirements Legend</div>
-              </div>
-              <div className="legend-grid">
-                <div className="legend-item">
-                  <span className="legend-indicator bg-blue-500"></span>
-                  <span>
-                    <strong>Proof</strong> - Requires proof upload
-                  </span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-indicator bg-blue-500"></span>
-                  <span>
-                    <strong>Reference</strong> - Requires reference number
-                  </span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-indicator bg-blue-500"></span>
-                  <span>
-                    <strong>Staff</strong> - Requires staff member
-                  </span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-indicator bg-green-500"></span>
-                  <span>
-                    <strong>Auto-Verify</strong> - Verifies automatically
-                  </span>
+              {/* Requirements legend — inline below table */}
+              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <div className="legend-grid">
+                  <div className="legend-item">
+                    <span className="legend-indicator bg-blue-500"></span>
+                    <span><strong>Proof</strong> - Requires proof upload</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-indicator bg-blue-500"></span>
+                    <span><strong>Reference</strong> - Requires reference number</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-indicator bg-blue-500"></span>
+                    <span><strong>Staff</strong> - Requires staff member</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-indicator bg-green-500"></span>
+                    <span><strong>Auto-Verify</strong> - Verifies automatically</span>
+                  </div>
                 </div>
               </div>
             </div>

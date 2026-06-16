@@ -6,8 +6,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType } from "@/lib/visitReasonHelpers";
 import { EditModal } from "@/components/EditModal";
-import type { Patient, DentistRow, Appointment } from "@/lib/types";
+import type { Patient, DentistRow, Appointment, ClinicHoursEntry } from "@/lib/types";
 import { dentistLabel } from "@/lib/types";
+
+const DAY_IDS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 
 const formatTime12Hr = (time24: string): string => {
@@ -28,11 +30,11 @@ interface Props {
   onUpdated: () => void;
   dentists: DentistRow[];
   patients: Patient[];
-  sundayEndHour: number;
+  clinicHours: ClinicHoursEntry[];
   holidayOverrides?: Set<string>;
 }
 
-export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists, patients, sundayEndHour, holidayOverrides }: Props) {
+export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists, patients, clinicHours, holidayOverrides }: Props) {
   const { clinicId } = useClinic();
   const [editFormData, setEditFormData] = useState({
     patientId: "",
@@ -176,8 +178,12 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
 
   function getValidHours(dateStr: string) {
     const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
-    const isHoliday = phHolidays.includes(dateStr) && !(holidayOverrides?.has(dateStr));
+    const isPhHoliday = phHolidays.includes(dateStr);
+    const isWorkingHoliday = holidayOverrides?.has(dateStr) ?? false;
+    const isHoliday = isPhHoliday && !isWorkingHoliday;
+
     if (isBlockedOut(dateStr)) return [];
+
     const daySched = dentistSchedule.find((s) => s.day_of_week === dayOfWeek);
     if (daySched) {
       if (!daySched.is_working) return [];
@@ -185,9 +191,14 @@ export function EditAppointmentModal({ appointment, onClose, onUpdated, dentists
       const end = parseInt(daySched.end_time.split(":")[0]);
       return Array.from({ length: end - start }, (_, i) => start + i).filter((h) => h !== 13);
     }
-    return (dayOfWeek === 0 || isHoliday)
-      ? Array.from({ length: sundayEndHour - 7 }, (_, i) => 8 + i)
-      : [8, 9, 10, 11, 12, 14, 15, 16];
+
+    // Use clinic hours: look up by day-of-week or "holiday"
+    const dayId = isHoliday ? "holiday" : DAY_IDS[dayOfWeek];
+    const clinicHour = clinicHours.find((h) => h.id === dayId);
+    if (!clinicHour || clinicHour.is_open === false) return [];
+    const openH = Math.floor(clinicHour.open_hour);
+    const closeH = Math.floor(clinicHour.close_hour);
+    return Array.from({ length: closeH - openH }, (_, i) => openH + i).filter((h) => h !== 13);
   }
 
   const filteredPatients = (() => {
