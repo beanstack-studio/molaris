@@ -107,6 +107,7 @@ const settingsFlyoutSections = [
       { label: "Payment Modes",   href: "/settings/payment-modes" },
       { label: "Documents",       href: "/settings/document-templates" },
       { label: "Team",            href: "/settings/team" },
+      { label: "Schedule",        href: "/settings/schedule" },
       { label: "Account",         href: "/settings/account" },
     ],
   },

@@ -58,7 +58,7 @@ export function EditModal({
         </div>
 
         {/* Body scroll on small screens */}
-        <div className="max-h-[75vh] overflow-y-auto p-4">{children}</div>
+        <div className="max-h-[80vh] overflow-y-auto p-6">{children}</div>
       </div>
     </div>,
     document.body

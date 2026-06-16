@@ -40,16 +40,6 @@ import { TableOptions, type ColumnConfig } from "@/components/shared/TableOption
 
 const TogglePill = Toggle;
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const TIME_OPTIONS = Array.from({ length: 14 }, (_, i) => {
-  const h = 6 + i;
-  const label = h < 12 ? `${h}:00 AM` : h === 12 ? "12:00 PM" : `${h - 12}:00 PM`;
-  return { value: `${String(h).padStart(2, "0")}:00`, label };
-});
-
-type DaySchedule = { isWorking: boolean; startTime: string; endTime: string };
-type BlockoutRow = { id: string; start_date: string; end_date: string; reason: string | null };
-
 const DENTIST_COLORS = [
   { hex: "#6366f1", label: "Indigo" },
   { hex: "#0d9488", label: "Teal" },
@@ -97,7 +87,6 @@ const DENTIST_TEAM_COLUMNS: ColumnConfig[] = [
   { key: "prc_number",  label: "PRC Number" },
   { key: "ptr_number",  label: "PTR Number" },
   { key: "activate",    label: "Activate" },
-  { key: "schedule",    label: "Schedule" },
 ];
 
 const STAFF_TEAM_COLUMNS: ColumnConfig[] = [
@@ -142,19 +131,6 @@ export default function TeamSettingsPage() {
   const [editingDentist, setEditingDentist] = useState<DentistRow | null>(null);
   const dentistDobRef = useRef<HTMLInputElement | null>(null);
 
-  // Dentist schedule modal
-  const [scheduleDentist, setScheduleDentist] = useState<DentistRow | null>(null);
-  const [weekSchedule, setWeekSchedule] = useState<DaySchedule[]>(
-    DAYS.map(() => ({ isWorking: true, startTime: "08:00", endTime: "17:00" }))
-  );
-  const [blockouts, setBlockouts] = useState<BlockoutRow[]>([]);
-  const [newBlockoutStart, setNewBlockoutStart] = useState("");
-  const [newBlockoutEnd, setNewBlockoutEnd] = useState("");
-  const [newBlockoutReason, setNewBlockoutReason] = useState("");
-  const [schedBusy, setSchedBusy] = useState(false);
-  const blockoutStartRef = useRef<HTMLInputElement | null>(null);
-  const blockoutEndRef   = useRef<HTMLInputElement | null>(null);
-
   // Staff form & modal
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [staffName, setStaffName] = useState("");
@@ -177,15 +153,15 @@ export default function TeamSettingsPage() {
 
       if (dentistRes.error) throw dentistRes.error;
 
-      const dentistData = (dentistRes.data || []).map((d: any) => ({
-        id: d.id,
-        full_name: d.full_name,
-        nickname: d.nickname || null,
-        prc_number: d.prc_number || null,
-        ptr_number: d.ptr_number || null,
-        date_of_birth: d.date_of_birth || null,
-        is_active: d.is_active ?? true,
-        color: d.color || null,
+      const dentistData = (dentistRes.data || []).map((d: Record<string, unknown>) => ({
+        id: d.id as string,
+        full_name: d.full_name as string,
+        nickname: (d.nickname as string | null) || null,
+        prc_number: (d.prc_number as string | null) || null,
+        ptr_number: (d.ptr_number as string | null) || null,
+        date_of_birth: (d.date_of_birth as string | null) || null,
+        is_active: (d.is_active as boolean) ?? true,
+        color: (d.color as string | null) || null,
       })) as DentistRow[];
 
       setDentists(dentistData);
@@ -198,12 +174,12 @@ export default function TeamSettingsPage() {
           .order("full_name", { ascending: true });
 
         if (!staffRes.error) {
-          const staffData = (staffRes.data || []).map((s: any) => ({
-            id: s.id,
-            full_name: s.full_name,
-            role: s.role,
-            date_of_birth: s.date_of_birth || null,
-            is_active: s.is_active ?? true,
+          const staffData = (staffRes.data || []).map((s: Record<string, unknown>) => ({
+            id: s.id as string,
+            full_name: s.full_name as string,
+            role: s.role as string,
+            date_of_birth: (s.date_of_birth as string | null) || null,
+            is_active: (s.is_active as boolean) ?? true,
           })) as StaffRow[];
           setStaff(staffData);
         }
@@ -225,9 +201,9 @@ export default function TeamSettingsPage() {
       } catch {
         setInvites([]);
       }
-    } catch (error) {
-      console.error("Load error:", error);
-      setError(error instanceof Error ? error.message : "Failed to load data");
+    } catch (err) {
+      console.error("Load error:", err);
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -250,7 +226,7 @@ export default function TeamSettingsPage() {
     try {
       const { data: session } = await supabase.auth.getSession();
       const userId = session?.session?.user?.id;
-      
+
       if (!userId) {
         throw new Error("User not authenticated");
       }
@@ -274,8 +250,8 @@ export default function TeamSettingsPage() {
       setDentistPtr("");
       setShowAddDentistModal(false);
       await loadData();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to add dentist");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add dentist");
     } finally {
       setBusy(false);
     }
@@ -318,11 +294,11 @@ export default function TeamSettingsPage() {
 
       // Small delay to ensure database is updated
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       await loadData();
-    } catch (error) {
-      console.error("Update dentist error:", error);
-      setError(error instanceof Error ? error.message : "Failed to update dentist");
+    } catch (err) {
+      console.error("Update dentist error:", err);
+      setError(err instanceof Error ? err.message : "Failed to update dentist");
     } finally {
       setBusy(false);
     }
@@ -337,7 +313,7 @@ export default function TeamSettingsPage() {
     try {
       const { data: session } = await supabase.auth.getSession();
       const userId = session?.session?.user?.id;
-      
+
       if (!userId) {
         throw new Error("User not authenticated");
       }
@@ -347,8 +323,8 @@ export default function TeamSettingsPage() {
       if (error) throw error;
       setEditingDentist(null);
       await loadData();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to delete dentist");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete dentist");
     } finally {
       setBusy(false);
     }
@@ -366,8 +342,8 @@ export default function TeamSettingsPage() {
 
       if (error) throw error;
       await loadData();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to update dentist");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update dentist");
     } finally {
       setBusy(false);
     }
@@ -412,8 +388,8 @@ export default function TeamSettingsPage() {
       setStaffDob("");
       setShowAddStaffModal(false);
       await loadData();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to add staff");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add staff");
     } finally {
       setBusy(false);
     }
@@ -452,8 +428,8 @@ export default function TeamSettingsPage() {
       setShowAddStaffModal(false);
       setError(null);
       await loadData();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to update staff");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update staff");
     } finally {
       setBusy(false);
     }
@@ -471,8 +447,8 @@ export default function TeamSettingsPage() {
       if (error) throw error;
       setEditingStaff(null);
       await loadData();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to delete staff");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete staff");
     } finally {
       setBusy(false);
     }
@@ -490,8 +466,8 @@ export default function TeamSettingsPage() {
 
       if (error) throw error;
       await loadData();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to update staff");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update staff");
     } finally {
       setBusy(false);
     }
@@ -530,62 +506,6 @@ export default function TeamSettingsPage() {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function openScheduleModal(d: DentistRow) {
-    setScheduleDentist(d);
-    setSchedBusy(true);
-    const [schedRes, blockRes] = await Promise.all([
-      supabase.from("dentist_schedules").select("*").eq("dentist_id", d.id),
-      supabase.from("dentist_blockouts").select("*").eq("dentist_id", d.id).order("start_date"),
-    ]);
-    const existing: DaySchedule[] = DAYS.map((_, idx) => {
-      const row = (schedRes.data ?? []).find((s: any) => s.day_of_week === idx);
-      return row
-        ? { isWorking: row.is_working, startTime: row.start_time.substring(0, 5), endTime: row.end_time.substring(0, 5) }
-        : { isWorking: idx >= 1 && idx <= 5, startTime: "08:00", endTime: "17:00" };
-    });
-    setWeekSchedule(existing);
-    setBlockouts(blockRes.data ?? []);
-    setNewBlockoutStart(""); setNewBlockoutEnd(""); setNewBlockoutReason("");
-    setSchedBusy(false);
-  }
-
-  async function saveSchedule() {
-    if (!scheduleDentist) return;
-    setSchedBusy(true);
-    const rows = weekSchedule.map((day, idx) => ({
-      dentist_id: scheduleDentist.id,
-      day_of_week: idx,
-      start_time: day.startTime,
-      end_time: day.endTime,
-      is_working: day.isWorking,
-    }));
-    const { error } = await supabase.from("dentist_schedules").upsert(rows, { onConflict: "dentist_id,day_of_week" });
-    setSchedBusy(false);
-    if (error) setError(error.message);
-  }
-
-  async function addBlockout() {
-    if (!scheduleDentist || !newBlockoutStart || !newBlockoutEnd) return;
-    setSchedBusy(true);
-    const { data, error } = await supabase.from("dentist_blockouts").insert({
-      dentist_id: scheduleDentist.id,
-      start_date: newBlockoutStart,
-      end_date: newBlockoutEnd,
-      reason: newBlockoutReason.trim() || null,
-    }).select().single();
-    setSchedBusy(false);
-    if (error) { setError(error.message); return; }
-    setBlockouts((prev) => [...prev, data as BlockoutRow].sort((a, b) => a.start_date.localeCompare(b.start_date)));
-    setNewBlockoutStart(""); setNewBlockoutEnd(""); setNewBlockoutReason("");
-  }
-
-  async function deleteBlockout(id: string) {
-    setSchedBusy(true);
-    await supabase.from("dentist_blockouts").delete().eq("id", id);
-    setBlockouts((prev) => prev.filter((b) => b.id !== id));
-    setSchedBusy(false);
   }
 
   const sortedDentists = useMemo(() => {
@@ -656,14 +576,13 @@ export default function TeamSettingsPage() {
               </div>
 
               <div className="table-wrapper">
-              <table className="data-table min-w-[700px]">
+              <table className="data-table min-w-[600px]">
                 <colgroup>
                   <col className="col-35" />
                   <col className="col-18" />
+                  <col className="col-17" />
                   <col className="col-15" />
-                  <col className="col-12" />
-                  <col className="col-10" />
-                  <col className="col-10" />
+                  <col className="col-15" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -672,13 +591,12 @@ export default function TeamSettingsPage() {
                     <th className="data-table-head-cell">PRC Number</th>
                     <th className="data-table-head-cell">PTR Number</th>
                     <th className="data-table-head-cell">Activate</th>
-                    <th className="data-table-head-cell-right">Schedule</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedDentists.length === 0 ? (
                     <tr className="data-table-row">
-                      <td colSpan={6} className="data-table-empty">
+                      <td colSpan={5} className="data-table-empty">
                         No dentists yet.
                       </td>
                     </tr>
@@ -736,15 +654,6 @@ export default function TeamSettingsPage() {
                             onChange={(v) => toggleDentistActive(d.id, v)}
                             disabled={busy}
                           />
-                        </td>
-                        <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            className="data-table-btn"
-                            onClick={() => openScheduleModal(d)}
-                            disabled={busy}
-                          >
-                            Schedule
-                          </button>
                         </td>
                       </tr>
                     ))
@@ -1137,141 +1046,6 @@ export default function TeamSettingsPage() {
                 disabled={busy || !staffName.trim() || !staffRole.trim()}
               >
                 {busy ? "Saving…" : editingStaff ? "Update" : "Add"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </EditModal>
-
-      {/* DENTIST SCHEDULE MODAL */}
-      <EditModal
-        open={!!scheduleDentist}
-        title={`Schedule — ${scheduleDentist?.full_name ?? ""}`}
-        onClose={() => setScheduleDentist(null)}
-      >
-        <div className="spacing-vertical-lg">
-          {schedBusy && <p className="text-xs text-slate-400">Loading…</p>}
-
-          {/* Weekly schedule */}
-          <div>
-            <p className="field-label-text mb-2">Weekly schedule</p>
-            <div className="space-y-2">
-              {DAYS.map((day, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-24 flex-shrink-0">
-                    <TogglePill
-                      checked={weekSchedule[idx].isWorking}
-                      onChange={(v) =>
-                        setWeekSchedule((prev) => prev.map((d, i) => i === idx ? { ...d, isWorking: v } : d))
-                      }
-                      disabled={schedBusy}
-                    />
-                  </div>
-                  <span className={`text-sm w-24 flex-shrink-0 ${weekSchedule[idx].isWorking ? "text-slate-700 font-medium" : "text-slate-400 line-through"}`}>
-                    {day}
-                  </span>
-                  {weekSchedule[idx].isWorking ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <select
-                        className="input-standard text-xs py-1"
-                        value={weekSchedule[idx].startTime}
-                        onChange={(e) =>
-                          setWeekSchedule((prev) => prev.map((d, i) => i === idx ? { ...d, startTime: e.target.value } : d))
-                        }
-                        disabled={schedBusy}
-                      >
-                        {TIME_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                      <span className="text-xs text-slate-400">to</span>
-                      <select
-                        className="input-standard text-xs py-1"
-                        value={weekSchedule[idx].endTime}
-                        onChange={(e) =>
-                          setWeekSchedule((prev) => prev.map((d, i) => i === idx ? { ...d, endTime: e.target.value } : d))
-                        }
-                        disabled={schedBusy}
-                      >
-                        {TIME_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-slate-400 italic">Day off</span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end mt-3">
-              <button className="save-btn" onClick={saveSchedule} disabled={schedBusy}>
-                {schedBusy ? "Saving…" : "Save schedule"}
-              </button>
-            </div>
-          </div>
-
-          {/* Blockouts */}
-          <div className="border-t border-slate-100 pt-4">
-            <p className="field-label-text mb-2">Leave / blockouts</p>
-            {blockouts.length === 0 ? (
-              <p className="text-xs text-slate-400 italic mb-3">No blockouts set.</p>
-            ) : (
-              <div className="space-y-1.5 mb-3">
-                {blockouts.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                    <div>
-                      <p className="text-xs font-medium text-slate-700">
-                        {b.start_date === b.end_date
-                          ? formatDateStandard(b.start_date)
-                          : `${formatDateStandard(b.start_date)} → ${formatDateStandard(b.end_date)}`}
-                      </p>
-                      {b.reason && <p className="text-xs text-slate-500">{b.reason}</p>}
-                    </div>
-                    <button
-                      onClick={() => deleteBlockout(b.id)}
-                      disabled={schedBusy}
-                      className="text-xs text-red-500 hover:text-red-700 flex-shrink-0"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="grid gap-2">
-              <p className="text-xs text-slate-500 font-medium">Add blockout</p>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <DatePickerField
-                    label="From"
-                    value={newBlockoutStart}
-                    onChange={setNewBlockoutStart}
-                    inputRef={blockoutStartRef}
-                    variant="case-modal"
-                  />
-                </div>
-                <div className="flex-1">
-                  <DatePickerField
-                    label="To"
-                    value={newBlockoutEnd}
-                    onChange={setNewBlockoutEnd}
-                    inputRef={blockoutEndRef}
-                    variant="case-modal"
-                    min={newBlockoutStart}
-                  />
-                </div>
-              </div>
-              <input
-                type="text"
-                className="input-standard text-xs"
-                placeholder="Reason (e.g. Vacation, Conference)"
-                value={newBlockoutReason}
-                onChange={(e) => setNewBlockoutReason(e.target.value)}
-                disabled={schedBusy}
-              />
-              <button
-                className="save-btn self-end"
-                onClick={addBlockout}
-                disabled={schedBusy || !newBlockoutStart || !newBlockoutEnd}
-              >
-                Add blockout
               </button>
             </div>
           </div>

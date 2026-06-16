@@ -34,8 +34,18 @@ interface Availability {
   day: string;
   open_hour: number;
   close_hour: number;
+  is_open?: boolean; // undefined/true = open, false = closed
 }
 
+const DEFAULT_CLINIC_HOURS: Availability[] = [
+  { id: "mon", day: "Monday",    open_hour: 8, close_hour: 17, is_open: true },
+  { id: "tue", day: "Tuesday",   open_hour: 8, close_hour: 17, is_open: true },
+  { id: "wed", day: "Wednesday", open_hour: 8, close_hour: 17, is_open: true },
+  { id: "thu", day: "Thursday",  open_hour: 8, close_hour: 17, is_open: true },
+  { id: "fri", day: "Friday",    open_hour: 8, close_hour: 17, is_open: true },
+  { id: "sat", day: "Saturday",  open_hour: 8, close_hour: 12, is_open: true },
+  { id: "sun", day: "Sunday",    open_hour: 8, close_hour: 12, is_open: false },
+];
 
 export default function ClinicProfileSettingsPage() {
   const { clinicId, clinicName, plan, isLoading: clinicLoading } = useClinic();
@@ -47,9 +57,7 @@ export default function ClinicProfileSettingsPage() {
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editingClinicHours, setEditingClinicHours] = useState(false);
-  const [clinicHours, setClinicHours] = useState<Availability[]>([]);
-  const [editingHourId, setEditingHourId] = useState<string | null>(null);
-  const [editingHour, setEditingHour] = useState<Availability | null>(null);
+  const [clinicHours, setClinicHours] = useState<Availability[]>(DEFAULT_CLINIC_HOURS);
 
   // Pending modal state — nothing applied until Save
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -70,6 +78,7 @@ export default function ClinicProfileSettingsPage() {
   useEffect(() => {
     if (clinicLoading || !clinicId) return;
     loadProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicLoading, clinicId]);
 
   async function loadProfile() {
@@ -91,10 +100,7 @@ export default function ClinicProfileSettingsPage() {
         setClinicHours(
           p.clinic_hours && Array.isArray(p.clinic_hours) && p.clinic_hours.length > 0
             ? p.clinic_hours
-            : [
-                { id: "1", day: "Sunday", open_hour: 8, close_hour: 11 },
-                { id: "2", day: "Weekdays (Mon-Fri)", open_hour: 8, close_hour: 17 },
-              ]
+            : DEFAULT_CLINIC_HOURS
         );
       } else {
         // Use the server-side API route (service role) to create the initial row —
@@ -245,7 +251,7 @@ export default function ClinicProfileSettingsPage() {
   function generateTimeOptions() {
     const options = [];
     for (let h = 7; h <= 18; h++) {
-      for (let m of [0, 30]) {
+      for (const m of [0, 30]) {
         const value = h + (m === 30 ? 0.5 : 0);
         const period = h < 12 ? "AM" : "PM";
         const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
@@ -263,28 +269,6 @@ export default function ClinicProfileSettingsPage() {
     return `${displayH}:${m === 0 ? "00" : "30"} ${period}`;
   }
 
-  function startAddClinicHour() {
-    const tempId = `temp-${Date.now()}`;
-    const newHour: Availability = { id: tempId, day: "Sunday", open_hour: 8, close_hour: 17 };
-    setClinicHours((prev) => [...prev, newHour]);
-    setEditingHourId(tempId); setEditingHour(newHour);
-  }
-  function startEditClinicHour(hour: Availability) { setEditingHourId(hour.id); setEditingHour({ ...hour }); }
-  function cancelClinicHourEdit() {
-    if (editingHourId?.startsWith("temp-")) setClinicHours((prev) => prev.filter((h) => h.id !== editingHourId));
-    setEditingHourId(null); setEditingHour(null);
-  }
-  function saveClinicHour() {
-    if (!editingHour || !editingHour.day.trim()) return;
-    if (editingHourId?.startsWith("temp-")) {
-      setClinicHours((prev) => prev.map((h) => h.id === editingHourId ? { ...editingHour, id: `hour-${Date.now()}` } : h));
-    } else {
-      setClinicHours((prev) => prev.map((h) => h.id === editingHourId ? editingHour : h));
-    }
-    cancelClinicHourEdit();
-  }
-  function deleteClinicHour(id: string) { setClinicHours((prev) => prev.filter((h) => h.id !== id)); }
-
   if (loading) {
     return (
       <PageLoader />
@@ -295,165 +279,175 @@ export default function ClinicProfileSettingsPage() {
   const contacts = profile?.contacts || [];
 
   return (
-    <>
+    <div className="spacing-vertical-lg">
       {error ? <div className="error-banner">{error}</div> : null}
       {success ? <div className="success-banner">Saved successfully</div> : null}
 
+      {/* Clinic Information Card */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Clinic Information</h3>
+          <button className="save-btn" onClick={openEditInfo}>Edit</button>
+        </div>
 
-          {/* Clinic Information Card */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Clinic Information</h3>
-              <button className="save-btn" onClick={openEditInfo}>Edit</button>
-            </div>
-
-            {/* Logo + Clinic Name inline */}
-            <div className="flex items-center gap-4 mt-3 mb-4">
-              <div className="h-16 w-16 rounded-xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {profile?.logo_url ? (
-                  <img src={profile.logo_url} alt="Clinic logo" className="h-full w-full object-contain" />
-                ) : (
-                  <span className="text-2xl">🦷</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="text-base font-semibold text-slate-900">{profile?.clinic_name || clinicName || "—"}</div>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                    plan === "pro"
-                      ? "bg-amber-50 text-amber-700"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {plan === "pro" ? "Pro" : "Free"}
-                </span>
-              </div>
-            </div>
-
-            {/* Street Address | City | Province | Zip — single row, 40/20/20/20 */}
-            <div className="address-grid">
-              <label className="field-label">
-                <span className="field-label-text">Street Address</span>
-                <input className="field-input" value={profile?.street_address || ""} readOnly />
-              </label>
-              <label className="field-label">
-                <span className="field-label-text">City</span>
-                <input className="field-input" value={profile?.city || ""} readOnly />
-              </label>
-              <label className="field-label">
-                <span className="field-label-text">Province</span>
-                <input className="field-input" value={profile?.province || ""} readOnly />
-              </label>
-              <label className="field-label">
-                <span className="field-label-text">Zip Code</span>
-                <input className="field-input" value={profile?.postal_code || ""} readOnly />
-              </label>
-            </div>
-
-            {/* Phone numbers — up to 4 in a row */}
-            {phones.length > 0 && (
-              <div className="mb-3">
-                <div className="field-label-text mb-2">Phone Numbers</div>
-                <div className="grid gap-2 sm:grid-cols-4">
-                  {phones.map((p, i) => (
-                    <label key={i} className="field-label">
-                      <span className="field-label-text">{p.type}</span>
-                      <input className="field-input" value={p.number} readOnly />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Contact/Online — up to 4 in a row */}
-            {contacts.length > 0 && (
-              <div>
-                <div className="field-label-text mb-2">Online / Socials</div>
-                <div className="grid gap-2 sm:grid-cols-4">
-                  {contacts.map((c, i) => (
-                    <label key={i} className="field-label">
-                      <span className="field-label-text">{c.type}</span>
-                      <input className="field-input" value={c.value} readOnly />
-                    </label>
-                  ))}
-                </div>
-              </div>
+        {/* Logo + Clinic Name inline */}
+        <div className="flex items-center gap-4 mt-3 mb-4">
+          <div className="h-16 w-16 rounded-xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+            {profile?.logo_url ? (
+              <img src={profile.logo_url} alt="Clinic logo" className="h-full w-full object-contain" />
+            ) : (
+              <span className="text-2xl">🦷</span>
             )}
           </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-base font-semibold text-slate-900">{profile?.clinic_name || clinicName || "—"}</div>
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                plan === "pro"
+                  ? "bg-amber-50 text-amber-700"
+                  : "bg-slate-100 text-slate-500"
+              }`}
+            >
+              {plan === "pro" ? "Pro" : "Free"}
+            </span>
+          </div>
+        </div>
 
-          {/* Clinic Hours Card */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Clinic Hours</h3>
-              <div className="action-row">
-                {editingClinicHours ? (
-                  <>
-                    <button className="cancel-btn" onClick={() => { setEditingClinicHours(false); setEditingHourId(null); setEditingHour(null); }}>Cancel</button>
-                    <button className="save-btn" onClick={startAddClinicHour}>+ Add</button>
-                    <button className="save-btn" onClick={handleSaveClinicHours} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
-                  </>
-                ) : (
-                  <button className="save-btn" onClick={() => setEditingClinicHours(true)}>Edit</button>
-                )}
-              </div>
-            </div>
+        {/* Street Address | City | Province | Zip — single row, 40/20/20/20 */}
+        <div className="address-grid">
+          <label className="field-label">
+            <span className="field-label-text">Street Address</span>
+            <input className="field-input" value={profile?.street_address || ""} readOnly />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">City</span>
+            <input className="field-input" value={profile?.city || ""} readOnly />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Province</span>
+            <input className="field-input" value={profile?.province || ""} readOnly />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Zip Code</span>
+            <input className="field-input" value={profile?.postal_code || ""} readOnly />
+          </label>
+        </div>
 
-            <div className="form-grid-3 mt-3">
-              {clinicHours.map((hour) => (
-                <div key={hour.id} className="card-light">
-                  <div className="grid gap-2">
-                    <label className="form-field">
-                      <span className="text-slate-700 font-medium">Day</span>
-                      {editingClinicHours && editingHourId === hour.id && editingHour ? (
-                        <select value={editingHour.day} onChange={(e) => setEditingHour({ ...editingHour, day: e.target.value })} className="input-xs">
-                          <option>Sunday</option><option>Monday</option><option>Tuesday</option>
-                          <option>Wednesday</option><option>Thursday</option><option>Friday</option>
-                          <option>Saturday</option><option>Weekdays (Mon-Fri)</option><option>Weekends (Sat-Sun)</option>
-                        </select>
-                      ) : (
-                        <input className="readonly-input" value={hour.day} readOnly />
-                      )}
-                    </label>
-                    <label className="form-field">
-                      <span className="text-slate-700 font-medium">Open</span>
-                      {editingClinicHours && editingHourId === hour.id && editingHour ? (
-                        <select value={editingHour.open_hour} onChange={(e) => setEditingHour({ ...editingHour, open_hour: Number(e.target.value) })} className="input-xs">
-                          {generateTimeOptions().map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                        </select>
-                      ) : (
-                        <input className="readonly-input" value={formatTimeFromValue(hour.open_hour)} readOnly />
-                      )}
-                    </label>
-                    <label className="form-field">
-                      <span className="text-slate-700 font-medium">Close</span>
-                      {editingClinicHours && editingHourId === hour.id && editingHour ? (
-                        <select value={editingHour.close_hour} onChange={(e) => setEditingHour({ ...editingHour, close_hour: Number(e.target.value) })} className="input-xs">
-                          {generateTimeOptions().map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                        </select>
-                      ) : (
-                        <input className="readonly-input" value={formatTimeFromValue(hour.close_hour)} readOnly />
-                      )}
-                    </label>
-                    {editingClinicHours && (
-                      <div className="flex gap-2 pt-1">
-                        {editingHourId === hour.id && editingHour ? (
-                          <>
-                            <button type="button" onClick={saveClinicHour} className="save-btn flex-1 h-8 text-xs">Save</button>
-                            <button type="button" onClick={cancelClinicHourEdit} className="cancel-btn flex-1 h-8 text-xs">Cancel</button>
-                          </>
-                        ) : (
-                          <>
-                            <button type="button" onClick={() => startEditClinicHour(hour)} className="data-table-btn flex-1">Edit</button>
-                            <button type="button" onClick={() => deleteClinicHour(hour.id)} className="data-table-btn-danger">✕</button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+        {/* Phone numbers + contacts combined */}
+        {(phones.length > 0 || contacts.length > 0) && (
+          <div className="mt-4">
+            <div className="field-label-text mb-2">Contact</div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {phones.map((p, i) => (
+                <label key={`ph-${i}`} className="field-label">
+                  <span className="field-label-text">{p.type}</span>
+                  <input className="field-input" value={p.number} readOnly />
+                </label>
+              ))}
+              {contacts.map((c, i) => (
+                <label key={`ct-${i}`} className="field-label">
+                  <span className="field-label-text">{c.type}</span>
+                  <input className="field-input" value={c.value} readOnly />
+                </label>
               ))}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Clinic Hours Card */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Clinic Hours</h3>
+          <div className="action-row">
+            {editingClinicHours ? (
+              <>
+                <button className="cancel-btn" onClick={() => setEditingClinicHours(false)}>Cancel</button>
+                <button className="save-btn" onClick={handleSaveClinicHours} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
+              </>
+            ) : (
+              <button className="save-btn" onClick={() => setEditingClinicHours(true)}>Edit</button>
+            )}
+          </div>
+        </div>
+
+        {/* Read mode — clean list */}
+        {!editingClinicHours && (
+          <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {clinicHours.map((hour, idx) => (
+              <div
+                key={hour.id}
+                className={`flex items-center justify-between px-4 py-3 ${idx < clinicHours.length - 1 ? "border-b border-slate-100 dark:border-slate-700" : ""}`}
+              >
+                <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{hour.day}</span>
+                {hour.is_open === false ? (
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Closed</span>
+                ) : (
+                  <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                    {formatTimeFromValue(hour.open_hour)} – {formatTimeFromValue(hour.close_hour)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Edit mode — per-day cards */}
+        {editingClinicHours && (
+          <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {clinicHours.map((hour) => {
+              const isOpen = hour.is_open !== false;
+              return (
+                <div key={hour.id} className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">{hour.day}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{isOpen ? "Open" : "Closed"}</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isOpen}
+                        onClick={() => setClinicHours((prev) => prev.map((h) => h.id === hour.id ? { ...h, is_open: !isOpen } : h))}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${isOpen ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"}`}
+                      >
+                        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${isOpen ? "translate-x-4" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block">Opens</label>
+                        <select
+                          className="input-standard w-full"
+                          value={hour.open_hour}
+                          onChange={(e) => setClinicHours((prev) => prev.map((h) => h.id === hour.id ? { ...h, open_hour: Number(e.target.value) } : h))}
+                        >
+                          {generateTimeOptions().map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block">Closes</label>
+                        <select
+                          className="input-standard w-full"
+                          value={hour.close_hour}
+                          onChange={(e) => setClinicHours((prev) => prev.map((h) => h.id === hour.id ? { ...h, close_hour: Number(e.target.value) } : h))}
+                        >
+                          {generateTimeOptions().map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Edit Clinic Information Modal */}
       <EditModal open={editInfoOpen} title="Edit Clinic Information" onClose={closeEditInfo}>
@@ -590,6 +584,6 @@ export default function ClinicProfileSettingsPage() {
           <button className="save-btn" onClick={handleSaveClinicInfo} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
         </div>
       </EditModal>
-    </>
+    </div>
   );
 }

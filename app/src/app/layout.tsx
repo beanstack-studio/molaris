@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import AppShell from "@/components/layout/AppShell";
 import { ClinicProvider } from "@/contexts/ClinicContext";
 import { DevOverrideProvider } from "@/contexts/DevOverrideContext";
@@ -7,8 +7,8 @@ import { PWAUpdateBanner } from "@/components/shared/PWAUpdateBanner";
 import { DevViewToggle } from "@/components/dev/DevViewToggle";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
@@ -48,14 +48,14 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${jakarta.variable} ${mono.variable} antialiased`}>
+      <body className={`${inter.variable} ${mono.variable} antialiased`}>
         <PWAUpdateBanner />
         {isDev ? (
           <DevOverrideProvider>
             <ClinicProvider>
               <AppShell>{children}</AppShell>
+              <DevViewToggle />
             </ClinicProvider>
-            <DevViewToggle />
           </DevOverrideProvider>
         ) : (
           <ClinicProvider>

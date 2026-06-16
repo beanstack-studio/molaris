@@ -38,7 +38,7 @@ html {
 }
 
 body {
-  font-family: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
   background-color: transparent;
 }
 
@@ -1479,10 +1479,11 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .modal-body {
-  @apply p-6 grid gap-4;
+  @apply p-6 grid gap-5;
 }
 .modal-footer {
-  @apply px-6 pb-6 flex justify-end gap-2;
+  @apply px-6 pb-6 pt-4 flex justify-end gap-2 border-t;
+  border-color: var(--border-card);
 }
 
 /* ========================================

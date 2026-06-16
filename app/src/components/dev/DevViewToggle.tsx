@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useDevOverride } from "@/contexts/DevOverrideContext";
+import { useClinic } from "@/contexts/ClinicContext";
 import { cn } from "@/lib/cn";
 
 function getBreakpoint(w: number): "Mobile" | "Tablet" | "Desktop" {
@@ -16,6 +17,7 @@ function getBreakpoint(w: number): "Mobile" | "Tablet" | "Desktop" {
 
 export function DevViewToggle() {
   const ctx = useDevOverride();
+  const { userEmail } = useClinic();
   const [width, setWidth] = useState(0);
   const breakpoint = getBreakpoint(width);
 
@@ -26,6 +28,7 @@ export function DevViewToggle() {
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  if (userEmail !== "matiradentalstudio@gmail.com") return null;
   if (!ctx) return null;
 
   const { override, setPlan, setRole } = ctx;
