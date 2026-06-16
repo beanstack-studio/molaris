@@ -48,11 +48,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const mobileSettingsItems: MobileNavItem[] = [
     // CLINIC
     { label: "Profile",    href: "/settings/clinic-profile" },
+    { label: "Team",       href: "/settings/team" },
     { label: "Services",   href: "/settings/services",          locked: !isAdmin },
     { label: "Payments",   href: "/settings/payment-modes",     locked: !isAdmin },
     { label: "Documents",  href: "/settings/document-templates",locked: !isAdmin },
-    // TEAM
-    { label: "Team",       href: "/settings/team" },
     // ACCOUNT
     { label: "Account",    href: "/settings/account" },
     { label: "Billing",    href: "/settings/billing",           show: isAdmin },

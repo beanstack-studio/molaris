@@ -8,6 +8,7 @@ import { PaymentMode } from "@/lib/types";
 import { useClinic } from "@/contexts/ClinicContext";
 import { PageLoader } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
+import { EditModal } from "@/components/EditModal";
 const TogglePill = Toggle;
 
 function PaymentModesSettingsPage() {
@@ -18,6 +19,15 @@ function PaymentModesSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editData, setEditData] = useState<Partial<PaymentMode> | null>(null);
+
+  // Add modal state
+  const [addPmOpen, setAddPmOpen] = useState(false);
+  const [pmName, setPmName] = useState("");
+  const [pmCode, setPmCode] = useState("");
+  const [pmRequiresProof, setPmRequiresProof] = useState(false);
+  const [pmRequiresReference, setPmRequiresReference] = useState(false);
+  const [pmRequiresReceivedBy, setPmRequiresReceivedBy] = useState(false);
+  const [pmAutoVerifies, setPmAutoVerifies] = useState(false);
 
   useEffect(() => {
     if (clinicLoading || !clinicId) return;
@@ -121,6 +131,41 @@ function PaymentModesSettingsPage() {
     setError(null);
   }
 
+  function openAddPm() {
+    setPmName("");
+    setPmCode("");
+    setPmRequiresProof(false);
+    setPmRequiresReference(false);
+    setPmRequiresReceivedBy(false);
+    setPmAutoVerifies(false);
+    setAddPmOpen(true);
+  }
+
+  function closeAddPm() {
+    setAddPmOpen(false);
+  }
+
+  async function addPaymentMode() {
+    if (!pmName.trim()) return;
+    const maxOrder = paymentModes.reduce((max, m) => Math.max(max, m.sort_order ?? 0), 0);
+    setBusy(true);
+    const { error: addErr } = await supabase.from("payment_modes").insert({
+      clinic_id: clinicId,
+      name: pmName.trim(),
+      code: pmCode.trim() || pmName.trim().toUpperCase().replace(/\s+/g, "_"),
+      requires_proof: pmRequiresProof,
+      requires_reference: pmRequiresReference,
+      requires_received_by: pmRequiresReceivedBy,
+      auto_verifies: pmAutoVerifies,
+      is_active: true,
+      sort_order: maxOrder + 1,
+    });
+    setBusy(false);
+    if (addErr) { setError(addErr.message); return; }
+    closeAddPm();
+    await loadPaymentModes();
+  }
+
   const sortedPaymentModes = useMemo(() => {
     return [...paymentModes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [paymentModes]);
@@ -138,6 +183,9 @@ function PaymentModesSettingsPage() {
             <div className="card">
               <div className="card-header">
                 <div className="card-title">Payment Modes</div>
+                <button type="button" className="save-btn" onClick={openAddPm} disabled={busy}>
+                  Add
+                </button>
               </div>
               <div className="table-wrapper">
                 <table className="data-table">
@@ -344,6 +392,56 @@ function PaymentModesSettingsPage() {
                 </div>
               </div>
             </div>
+      <EditModal open={addPmOpen} title="Add Payment Mode" onClose={closeAddPm}>
+        <div className="spacing-vertical-lg">
+          <label className="field-label">
+            <span className="field-label-text">Name</span>
+            <input
+              className="field-input"
+              value={pmName}
+              onChange={(e) => setPmName(e.target.value)}
+              placeholder="e.g. GCash"
+              disabled={busy}
+            />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Code <span className="text-slate-400 font-normal">(auto-generated if blank)</span></span>
+            <input
+              className="field-input"
+              value={pmCode}
+              onChange={(e) => setPmCode(e.target.value)}
+              placeholder={pmName ? pmName.toUpperCase().replace(/\s+/g, "_") : "e.g. GCASH"}
+              disabled={busy}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={pmRequiresProof} onChange={(e) => setPmRequiresProof(e.target.checked)} className="h-4 w-4 rounded" disabled={busy} />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Requires proof</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={pmRequiresReference} onChange={(e) => setPmRequiresReference(e.target.checked)} className="h-4 w-4 rounded" disabled={busy} />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Requires reference</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={pmRequiresReceivedBy} onChange={(e) => setPmRequiresReceivedBy(e.target.checked)} className="h-4 w-4 rounded" disabled={busy} />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Requires staff</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={pmAutoVerifies} onChange={(e) => setPmAutoVerifies(e.target.checked)} className="h-4 w-4 rounded" disabled={busy} />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Auto-verifies</span>
+            </label>
+          </div>
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button type="button" className="cancel-btn" onClick={closeAddPm} disabled={busy}>Cancel</button>
+              <button type="button" className="save-btn" onClick={addPaymentMode} disabled={busy || !pmName.trim()}>
+                {busy ? "Adding…" : "Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
     </>
   );
 }

@@ -35,8 +35,8 @@ import { formatDateStandard } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Spinner } from "@/components/Spinner";
-import { Toggle } from "@/components/Toggle";
 import { cn } from "@/lib/cn";
+import type { ClinicHoursEntry } from "@/lib/types";
 
 const DENTIST_COLORS = [
   { hex: "#6366f1", label: "Indigo" },
@@ -57,6 +57,13 @@ const DAY_SHORT: Record<DayKey, string> = {
   monday: "Mon", tuesday: "Tue", wednesday: "Wed",
   thursday: "Thu", friday: "Fri", saturday: "Sat", sunday: "Sun",
 };
+
+// Maps team page day keys to clinic hours entry IDs
+const DAY_KEY_TO_CLINIC_ID: Record<DayKey, string> = {
+  monday: "mon", tuesday: "tue", wednesday: "wed",
+  thursday: "thu", friday: "fri", saturday: "sat", sunday: "sun",
+};
+
 const TIME_OPTIONS: { value: number; label: string }[] = [];
 for (let h = 7; h <= 20; h++) {
   for (const m of [0, 30]) {
@@ -119,10 +126,10 @@ function AccountBadge({ hasLogin }: { hasLogin: boolean }) {
 
 export default function TeamSettingsPage() {
   const { clinicId, profileId, isAdmin, isPro, isLoading: clinicLoading } = useClinic();
-  const [activeTab, setActiveTab] = useState<"dentists" | "staff">("dentists");
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [clinicHours, setClinicHours] = useState<ClinicHoursEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,16 +171,58 @@ export default function TeamSettingsPage() {
     if (clinicLoading || !clinicId) return;
     setLoading(true); setError(null);
     try {
-      const [dentistRes, staffRes, inviteRes] = await Promise.all([
+      const [dentistRes, staffRes, inviteRes, profileRes] = await Promise.all([
         supabase.from("dentists").select("*").eq("clinic_id", clinicId).order("full_name"),
         supabase.from("staff").select("*").eq("clinic_id", clinicId).order("full_name"),
         supabase.from("staff_invites").select("id, email, role, status, created_at, expires_at")
           .eq("clinic_id", clinicId).eq("status", "pending").order("created_at", { ascending: false }),
+        supabase.from("clinic_profile").select("clinic_hours").eq("clinic_id", clinicId).maybeSingle(),
       ]);
       if (dentistRes.error) throw dentistRes.error;
-      setDentists((dentistRes.data ?? []) as DentistRow[]);
+      const loadedDentists = (dentistRes.data ?? []) as DentistRow[];
+      setDentists(loadedDentists);
       if (!staffRes.error) setStaff((staffRes.data ?? []) as StaffRow[]);
       if (!inviteRes.error) setInvites((inviteRes.data ?? []) as InviteRow[]);
+      if (profileRes.data?.clinic_hours) {
+        setClinicHours(profileRes.data.clinic_hours as ClinicHoursEntry[]);
+      }
+
+      // Batch-load all dentist schedules in a single query
+      if (loadedDentists.length > 0) {
+        const schedRes = await supabase
+          .from("dentist_schedules")
+          .select("dentist_id, day_of_week, is_working, start_time, end_time")
+          .eq("clinic_id", clinicId)
+          .in("dentist_id", loadedDentists.map((d) => d.id));
+
+        if (!schedRes.error && schedRes.data) {
+          const newSchedules: Record<string, DentistSchedule> = {};
+          for (const d of loadedDentists) {
+            const sched: DentistSchedule = {
+              monday: { ...DEFAULT_SCHEDULE.monday },
+              tuesday: { ...DEFAULT_SCHEDULE.tuesday },
+              wednesday: { ...DEFAULT_SCHEDULE.wednesday },
+              thursday: { ...DEFAULT_SCHEDULE.thursday },
+              friday: { ...DEFAULT_SCHEDULE.friday },
+              saturday: { ...DEFAULT_SCHEDULE.saturday },
+              sunday: { ...DEFAULT_SCHEDULE.sunday },
+            };
+            const rows = schedRes.data.filter((r) => r.dentist_id === d.id);
+            for (const row of rows) {
+              const day = row.day_of_week as DayKey;
+              if (DAY_KEYS.includes(day)) {
+                sched[day] = {
+                  is_working: row.is_working ?? false,
+                  start_time: row.start_time ?? 8,
+                  end_time: row.end_time ?? 17,
+                };
+              }
+            }
+            newSchedules[d.id] = sched;
+          }
+          setSchedules(newSchedules);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally { setLoading(false); }
@@ -181,6 +230,7 @@ export default function TeamSettingsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Fallback lazy-loader for expanded non-admin rows
   async function loadSchedule(dentistId: string) {
     if (schedules[dentistId] !== undefined) return;
     setScheduleLoading((s) => new Set(s).add(dentistId));
@@ -191,7 +241,15 @@ export default function TeamSettingsPage() {
         .eq("dentist_id", dentistId)
         .eq("clinic_id", clinicId);
       if (data && data.length > 0) {
-        const sched: DentistSchedule = { ...DEFAULT_SCHEDULE };
+        const sched: DentistSchedule = {
+          monday: { ...DEFAULT_SCHEDULE.monday },
+          tuesday: { ...DEFAULT_SCHEDULE.tuesday },
+          wednesday: { ...DEFAULT_SCHEDULE.wednesday },
+          thursday: { ...DEFAULT_SCHEDULE.thursday },
+          friday: { ...DEFAULT_SCHEDULE.friday },
+          saturday: { ...DEFAULT_SCHEDULE.saturday },
+          sunday: { ...DEFAULT_SCHEDULE.sunday },
+        };
         for (const row of data) {
           const day = row.day_of_week as DayKey;
           if (DAY_KEYS.includes(day)) {
@@ -204,7 +262,18 @@ export default function TeamSettingsPage() {
         }
         setSchedules((p) => ({ ...p, [dentistId]: sched }));
       } else {
-        setSchedules((p) => ({ ...p, [dentistId]: { ...DEFAULT_SCHEDULE } }));
+        setSchedules((p) => ({
+          ...p,
+          [dentistId]: {
+            monday: { ...DEFAULT_SCHEDULE.monday },
+            tuesday: { ...DEFAULT_SCHEDULE.tuesday },
+            wednesday: { ...DEFAULT_SCHEDULE.wednesday },
+            thursday: { ...DEFAULT_SCHEDULE.thursday },
+            friday: { ...DEFAULT_SCHEDULE.friday },
+            saturday: { ...DEFAULT_SCHEDULE.saturday },
+            sunday: { ...DEFAULT_SCHEDULE.sunday },
+          },
+        }));
       }
     } finally {
       setScheduleLoading((s) => { const n = new Set(s); n.delete(dentistId); return n; });
@@ -221,6 +290,15 @@ export default function TeamSettingsPage() {
       }
       return next;
     });
+  }
+
+  // Returns time options constrained to clinic hours for the given day
+  function getConstrainedTimeOptions(day: DayKey): { value: number; label: string }[] {
+    if (clinicHours.length === 0) return TIME_OPTIONS;
+    const clinicHourId = DAY_KEY_TO_CLINIC_ID[day];
+    const ch = clinicHours.find((h) => h.id === clinicHourId);
+    if (!ch || !ch.is_open) return TIME_OPTIONS;
+    return TIME_OPTIONS.filter((o) => o.value >= ch.open_hour && o.value <= ch.close_hour);
   }
 
   function openScheduleEdit(id: string, type: "dentist" | "staff") {
@@ -376,240 +454,288 @@ export default function TeamSettingsPage() {
       {success && <div className="success-banner mb-4">{success}</div>}
 
       <div className="spacing-vertical-lg">
-        {/* Tabs */}
-        <div className="tabs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1 mb-0">
-          {(["dentists", "staff"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={cn("tab-item", activeTab === tab && "tab-item-active")}
-            >
-              {tab === "dentists" ? "Dentists" : "Staff"}
-            </button>
-          ))}
-        </div>
+        {/* ── DENTISTS ── */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Dentists</h2>
+            {isAdmin && (
+              <button className="save-btn" onClick={openAddDentist} disabled={busy}>
+                Add Dentist
+              </button>
+            )}
+          </div>
 
-        {/* ── DENTISTS TAB ── */}
-        {activeTab === "dentists" && (
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Dentists</h2>
-              {isAdmin && (
-                <button className="save-btn" onClick={openAddDentist} disabled={busy}>
-                  Add Dentist
-                </button>
-              )}
-            </div>
+          <div className="table-wrapper">
+            <table className="data-table min-w-[560px]">
+              <colgroup>
+                <col className="col-35" />
+                <col className="col-20" />
+                <col className="col-25" />
+                <col className="col-20" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Name</th>
+                  <th className="data-table-head-cell">Nickname</th>
+                  <th className="data-table-head-cell">Schedule</th>
+                  <th className="data-table-head-cell">Account</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dentists.length === 0 ? (
+                  <tr><td className="data-table-empty" colSpan={4}>No dentists yet.</td></tr>
+                ) : dentists.map((d, idx) => {
+                  const isExpanded = expandedIds.has(d.id);
+                  const isLoadingSched = scheduleLoading.has(d.id);
+                  const sched = schedules[d.id];
+                  return (
+                    <>
+                      <tr
+                        key={d.id}
+                        className={cn(
+                          "data-table-row cursor-pointer",
+                          idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                          isExpanded && "bg-blue-50/50 dark:bg-blue-900/10"
+                        )}
+                        onClick={() => isAdmin ? openEditDentist(d) : toggleExpand(d.id, "dentist")}
+                        onKeyDown={(e) => { if (e.key === "Enter") isAdmin ? openEditDentist(d) : toggleExpand(d.id, "dentist"); }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={d.full_name}
+                        aria-expanded={isExpanded}
+                      >
+                        <td className="data-table-cell">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-block w-3 h-3 rounded-full shrink-0"
+                              style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                            />
+                            <span className="font-medium">{d.full_name}</span>
+                            {!d.is_active && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="data-table-cell text-slate-500">{d.nickname ?? "—"}</td>
+                        <td className="data-table-cell text-slate-500 text-sm">
+                          {isLoadingSched ? "…" : (sched ? scheduleSummary(d.id) : "—")}
+                        </td>
+                        <td className="data-table-cell">
+                          <AccountBadge hasLogin={false} />
+                        </td>
+                      </tr>
 
-            <div className="table-wrapper">
-              <table className="data-table min-w-[560px]">
-                <colgroup>
-                  <col className="col-35" />
-                  <col className="col-20" />
-                  <col className="col-25" />
-                  <col className="col-20" />
-                </colgroup>
-                <thead className="data-table-head">
-                  <tr>
-                    <th className="data-table-head-cell">Name</th>
-                    <th className="data-table-head-cell">Nickname</th>
-                    <th className="data-table-head-cell">Schedule</th>
-                    <th className="data-table-head-cell">Account</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dentists.length === 0 ? (
-                    <tr><td className="data-table-empty" colSpan={4}>No dentists yet.</td></tr>
-                  ) : dentists.map((d, idx) => {
-                    const isExpanded = expandedIds.has(d.id);
-                    const isLoadingSched = scheduleLoading.has(d.id);
-                    const sched = schedules[d.id];
-                    const hasInvite = pendingInviteEmails.size > 0; // simplified
-                    return (
-                      <>
-                        <tr
-                          key={d.id}
-                          className={cn(
-                            "data-table-row cursor-pointer",
-                            idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                            isExpanded && "bg-blue-50/50 dark:bg-blue-900/10"
-                          )}
-                          onClick={() => isAdmin ? openEditDentist(d) : toggleExpand(d.id, "dentist")}
-                          onKeyDown={(e) => { if (e.key === "Enter") isAdmin ? openEditDentist(d) : toggleExpand(d.id, "dentist"); }}
-                          tabIndex={0}
-                          role="button"
-                          aria-label={d.full_name}
-                          aria-expanded={isExpanded}
-                        >
-                          <td className="data-table-cell">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="inline-block w-3 h-3 rounded-full shrink-0"
-                                style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                              />
-                              <span className="font-medium">{d.full_name}</span>
-                              {!d.is_active && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="data-table-cell text-slate-500">{d.nickname ?? "—"}</td>
-                          <td className="data-table-cell text-slate-500 text-sm">
-                            {isLoadingSched ? "…" : (sched ? scheduleSummary(d.id) : "—")}
-                          </td>
-                          <td className="data-table-cell">
-                            <AccountBadge hasLogin={false} />
+                      {/* Expanded row — schedule (non-admin view) */}
+                      {isExpanded && !isAdmin && (
+                        <tr key={`${d.id}-expand`}>
+                          <td colSpan={4} className="px-4 pb-4 pt-2 bg-slate-50 dark:bg-slate-800/50">
+                            <ScheduleExpandPanel
+                              entityId={d.id}
+                              entityType="dentist"
+                              schedule={sched}
+                              isLoading={isLoadingSched}
+                              canEdit={false}
+                              onEditSchedule={() => openScheduleEdit(d.id, "dentist")}
+                            />
                           </td>
                         </tr>
-
-                        {/* Expanded row — schedule + actions */}
-                        {isExpanded && !isAdmin && (
-                          <tr key={`${d.id}-expand`}>
-                            <td colSpan={4} className="px-4 pb-4 pt-2 bg-slate-50 dark:bg-slate-800/50">
-                              <ScheduleExpandPanel
-                                entityId={d.id}
-                                entityType="dentist"
-                                schedule={sched}
-                                isLoading={isLoadingSched}
-                                canEdit={false}
-                                onEditSchedule={() => openScheduleEdit(d.id, "dentist")}
-                              />
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
 
-        {/* ── STAFF TAB ── */}
-        {activeTab === "staff" && (
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Staff Members</h2>
-              {isAdmin && (
-                <button className="save-btn" onClick={openAddStaff} disabled={busy}>
-                  Add Staff
-                </button>
-              )}
+        {/* ── STAFF ── */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Staff Members</h2>
+            {isAdmin && (
+              <button className="save-btn" onClick={openAddStaff} disabled={busy}>
+                Add Staff
+              </button>
+            )}
+          </div>
+
+          <div className="table-wrapper">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-35" />
+                <col className="col-20" />
+                <col className="col-25" />
+                <col className="col-20" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Name</th>
+                  <th className="data-table-head-cell">Role</th>
+                  <th className="data-table-head-cell">Schedule</th>
+                  <th className="data-table-head-cell">Account</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staff.length === 0 ? (
+                  <tr><td className="data-table-empty" colSpan={4}>No staff members yet.</td></tr>
+                ) : staff.map((s, idx) => {
+                  const isExpanded = expandedIds.has(s.id);
+                  return (
+                    <>
+                      <tr
+                        key={s.id}
+                        className={cn(
+                          "data-table-row cursor-pointer",
+                          idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                          isExpanded && "bg-blue-50/50 dark:bg-blue-900/10"
+                        )}
+                        onClick={() => isAdmin ? openEditStaff(s) : toggleExpand(s.id, "staff")}
+                        onKeyDown={(e) => { if (e.key === "Enter") isAdmin ? openEditStaff(s) : toggleExpand(s.id, "staff"); }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={s.full_name}
+                        aria-expanded={isExpanded}
+                      >
+                        <td className="data-table-cell">
+                          <span className="font-medium">{s.full_name}</span>
+                          {!s.is_active && (
+                            <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
+                          )}
+                        </td>
+                        <td className="data-table-cell text-slate-500 capitalize">{s.role}</td>
+                        <td className="data-table-cell text-slate-500 text-sm">—</td>
+                        <td className="data-table-cell">
+                          <div className="flex items-center gap-2">
+                            <AccountBadge hasLogin={false} />
+                            {isAdmin && isPro && (
+                              <button
+                                type="button"
+                                className="text-xs text-blue-600 hover:underline"
+                                onClick={(e) => { e.stopPropagation(); openEditStaff(s); }}
+                              >
+                                Invite
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expanded row — info (non-admin view) */}
+                      {isExpanded && !isAdmin && (
+                        <tr key={`${s.id}-expand`}>
+                          <td colSpan={4} className="px-4 pb-4 pt-2 bg-slate-50 dark:bg-slate-800/50">
+                            <p className="text-sm text-slate-500">
+                              Role: <span className="font-medium capitalize">{s.role}</span>
+                              {s.date_of_birth && (
+                                <> · DOB: <span className="font-medium">{formatDateStandard(s.date_of_birth.split("T")[0])}</span></>
+                              )}
+                            </p>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pending invites */}
+          {invites.length > 0 && isAdmin && (
+            <div className="border-t border-slate-100 dark:border-slate-700 px-4 pt-4 pb-2">
+              <p className="field-label-text mb-2">Pending invites</p>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead className="data-table-head">
+                    <tr>
+                      <th className="data-table-head-cell">Email</th>
+                      <th className="data-table-head-cell">Role</th>
+                      <th className="data-table-head-cell">Invited</th>
+                      <th className="data-table-head-cell">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invites.map((inv, idx) => (
+                      <tr key={inv.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                        <td className="data-table-cell">{inv.email}</td>
+                        <td className="data-table-cell capitalize">{inv.role}</td>
+                        <td className="data-table-cell">{formatDateStandard(inv.created_at.split("T")[0])}</td>
+                        <td className="data-table-cell"><span className="badge badge-secondary">Pending</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
+          )}
+        </div>
 
+        {/* ── SCHEDULES ── */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Schedules</h2>
+          </div>
+          {clinicHours.length > 0 && (
+            <p className="hint-text px-4 pb-2">
+              Time options are constrained to clinic operating hours set in Clinic Profile.
+            </p>
+          )}
+          {dentists.length === 0 ? (
+            <div className="data-table-empty">Add dentists above to manage their schedules.</div>
+          ) : (
             <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
-                  <col className="col-35" />
-                  <col className="col-20" />
-                  <col className="col-25" />
-                  <col className="col-20" />
+                  <col className="col-40" />
+                  <col className="col-40" />
+                  {isAdmin && <col className="col-20" />}
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
-                    <th className="data-table-head-cell">Name</th>
-                    <th className="data-table-head-cell">Role</th>
+                    <th className="data-table-head-cell">Dentist</th>
                     <th className="data-table-head-cell">Schedule</th>
-                    <th className="data-table-head-cell">Account</th>
+                    {isAdmin && <th className="data-table-head-cell-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {staff.length === 0 ? (
-                    <tr><td className="data-table-empty" colSpan={4}>No staff members yet.</td></tr>
-                  ) : staff.map((s, idx) => {
-                    const isExpanded = expandedIds.has(s.id);
+                  {dentists.map((d, idx) => {
+                    const isLoadingSched = scheduleLoading.has(d.id);
                     return (
-                      <>
-                        <tr
-                          key={s.id}
-                          className={cn(
-                            "data-table-row cursor-pointer",
-                            idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                            isExpanded && "bg-blue-50/50 dark:bg-blue-900/10"
-                          )}
-                          onClick={() => isAdmin ? openEditStaff(s) : toggleExpand(s.id, "staff")}
-                          onKeyDown={(e) => { if (e.key === "Enter") isAdmin ? openEditStaff(s) : toggleExpand(s.id, "staff"); }}
-                          tabIndex={0}
-                          role="button"
-                          aria-label={s.full_name}
-                          aria-expanded={isExpanded}
-                        >
-                          <td className="data-table-cell">
-                            <span className="font-medium">{s.full_name}</span>
-                            {!s.is_active && (
-                              <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
-                            )}
+                      <tr
+                        key={d.id}
+                        className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
+                      >
+                        <td className="data-table-cell">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                            />
+                            <span className="font-medium">{d.full_name}</span>
+                          </div>
+                        </td>
+                        <td className="data-table-cell text-sm text-slate-500">
+                          {isLoadingSched ? "Loading…" : scheduleSummary(d.id)}
+                        </td>
+                        {isAdmin && (
+                          <td className="data-table-cell-right">
+                            <button
+                              type="button"
+                              className="data-table-btn"
+                              onClick={() => openScheduleEdit(d.id, "dentist")}
+                            >
+                              Edit
+                            </button>
                           </td>
-                          <td className="data-table-cell text-slate-500 capitalize">{s.role}</td>
-                          <td className="data-table-cell text-slate-500 text-sm">—</td>
-                          <td className="data-table-cell">
-                            <div className="flex items-center gap-2">
-                              <AccountBadge hasLogin={false} />
-                              {isAdmin && isPro && (
-                                <button
-                                  type="button"
-                                  className="text-xs text-blue-600 hover:underline"
-                                  onClick={(e) => { e.stopPropagation(); openEditStaff(s); setActiveTab("staff"); }}
-                                >
-                                  Invite
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-
-                        {/* Expanded row — invite + info */}
-                        {isExpanded && !isAdmin && (
-                          <tr key={`${s.id}-expand`}>
-                            <td colSpan={4} className="px-4 pb-4 pt-2 bg-slate-50 dark:bg-slate-800/50">
-                              <p className="text-sm text-slate-500">
-                                Role: <span className="font-medium capitalize">{s.role}</span>
-                                {s.date_of_birth && (
-                                  <> · DOB: <span className="font-medium">{formatDateStandard(s.date_of_birth.split("T")[0])}</span></>
-                                )}
-                              </p>
-                            </td>
-                          </tr>
                         )}
-                      </>
+                      </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-
-            {/* Pending invites */}
-            {invites.length > 0 && isAdmin && (
-              <div className="border-t border-slate-100 dark:border-slate-700 px-4 pt-4 pb-2">
-                <p className="field-label-text mb-2">Pending invites</p>
-                <div className="table-wrapper">
-                  <table className="data-table">
-                    <thead className="data-table-head">
-                      <tr>
-                        <th className="data-table-head-cell">Email</th>
-                        <th className="data-table-head-cell">Role</th>
-                        <th className="data-table-head-cell">Invited</th>
-                        <th className="data-table-head-cell">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invites.map((inv, idx) => (
-                        <tr key={inv.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
-                          <td className="data-table-cell">{inv.email}</td>
-                          <td className="data-table-cell capitalize">{inv.role}</td>
-                          <td className="data-table-cell">{formatDateStandard(inv.created_at.split("T")[0])}</td>
-                          <td className="data-table-cell"><span className="badge badge-secondary">Pending</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── SCHEDULE EDITOR MODAL ── */}
@@ -622,19 +748,34 @@ export default function TeamSettingsPage() {
           <div className="divide-y divide-slate-100 dark:divide-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
             {DAY_KEYS.map((day) => {
               const ds = scheduleEdit[day];
+              const clinicHourId = DAY_KEY_TO_CLINIC_ID[day];
+              const clinicDay = clinicHours.find((h) => h.id === clinicHourId);
+              const isClinicClosed = !!clinicDay && !clinicDay.is_open;
+              const constrainedOptions = getConstrainedTimeOptions(day);
               return (
                 <div key={day} className="p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-sm text-slate-800 dark:text-slate-100 w-24">{DAY_SHORT[day]}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-slate-800 dark:text-slate-100 w-24">{DAY_SHORT[day]}</span>
+                      {isClinicClosed && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">Clinic closed</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-500">{ds.is_working ? "Working" : "Off"}</span>
                       <button
                         type="button"
                         role="switch"
                         aria-checked={ds.is_working}
-                        onClick={() => setScheduleEdit((p) => ({ ...p, [day]: { ...p[day], is_working: !p[day].is_working } }))}
+                        disabled={isClinicClosed}
+                        onClick={() => {
+                          if (!isClinicClosed) {
+                            setScheduleEdit((p) => ({ ...p, [day]: { ...p[day], is_working: !p[day].is_working } }));
+                          }
+                        }}
                         className={cn(
-                          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                          "relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors",
+                          isClinicClosed ? "opacity-40 cursor-not-allowed" : "cursor-pointer",
                           ds.is_working ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
                         )}
                       >
@@ -642,7 +783,7 @@ export default function TeamSettingsPage() {
                       </button>
                     </div>
                   </div>
-                  {ds.is_working && (
+                  {ds.is_working && !isClinicClosed && (
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-slate-500 mb-1 block">Opens</label>
@@ -651,7 +792,7 @@ export default function TeamSettingsPage() {
                           value={ds.start_time}
                           onChange={(e) => setScheduleEdit((p) => ({ ...p, [day]: { ...p[day], start_time: Number(e.target.value) } }))}
                         >
-                          {TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          {constrainedOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       </div>
                       <div>
@@ -661,7 +802,7 @@ export default function TeamSettingsPage() {
                           value={ds.end_time}
                           onChange={(e) => setScheduleEdit((p) => ({ ...p, [day]: { ...p[day], end_time: Number(e.target.value) } }))}
                         >
-                          {TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          {constrainedOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       </div>
                     </div>

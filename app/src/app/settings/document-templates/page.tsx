@@ -100,9 +100,7 @@ function DocumentTemplatesSettingsPage() {
         <div className="card-header">
           <div className="card-title">Document Templates</div>
         </div>
-        <p className="text-sm text-slate-500 mb-4">
-          Preview how your documents will look with your current clinic profile settings.
-        </p>
+        {/* TODO: add ability to edit docs */}
 
         {/* Tabs */}
         <div className="flex gap-1 mb-4 border-b border-slate-200">

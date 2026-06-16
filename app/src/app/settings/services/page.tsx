@@ -9,6 +9,7 @@ import { EditModal } from "@/components/EditModal";
 import { formatMoney } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
+import { cn } from "@/lib/cn";
 
 type ServicePriceRow = {
   id: string;
@@ -20,19 +21,41 @@ type ServicePriceRow = {
   category?: "general" | "ortho"; // PART 1: Service categorization
 };
 
-type ServiceSort = "NAME_ASC" | "NAME_DESC" | "FEE_ASC" | "FEE_DESC";
+type ServiceSort = "NAME_ASC" | "NAME_DESC" | "TYPE_ASC" | "TYPE_DESC" | "DUR_ASC" | "DUR_DESC" | "FEE_ASC" | "FEE_DESC";
 
 const TogglePill = Toggle;
 
 function sortRows(list: ServicePriceRow[], sort: ServiceSort) {
   const out = [...list];
   out.sort((a, b) => {
-    if (sort === "NAME_DESC") return b.service_name.localeCompare(a.service_name);
-    if (sort === "FEE_ASC") return a.default_price - b.default_price;
-    if (sort === "FEE_DESC") return b.default_price - a.default_price;
-    return a.service_name.localeCompare(b.service_name);
+    switch (sort) {
+      case "NAME_DESC": return b.service_name.localeCompare(a.service_name);
+      case "TYPE_ASC": return a.item_type.localeCompare(b.item_type);
+      case "TYPE_DESC": return b.item_type.localeCompare(a.item_type);
+      case "DUR_ASC": return (a.duration_minutes ?? 0) - (b.duration_minutes ?? 0);
+      case "DUR_DESC": return (b.duration_minutes ?? 0) - (a.duration_minutes ?? 0);
+      case "FEE_ASC": return a.default_price - b.default_price;
+      case "FEE_DESC": return b.default_price - a.default_price;
+      default: return a.service_name.localeCompare(b.service_name);
+    }
   });
   return out;
+}
+
+function SortIndicator({ active, asc }: { active: boolean; asc: boolean }) {
+  const path = !active
+    ? "M8 9l4-4 4 4M16 15l-4 4-4-4"
+    : asc
+    ? "M5 15l7-7 7 7"
+    : "M19 9l-7 7-7-7";
+  return (
+    <svg
+      className={cn("inline-block w-3 h-3 ml-1 shrink-0", active ? "text-blue-600" : "text-slate-300 dark:text-slate-600")}
+      fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d={path} />
+    </svg>
+  );
 }
 
 
@@ -41,7 +64,7 @@ function ServicesSettingsPage() {
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const sort: ServiceSort = "NAME_ASC";
+  const [sort, setSort] = useState<ServiceSort>("NAME_ASC");
 
   // Add modal state
   const [addOpen, setAddOpen] = useState(false);
@@ -89,12 +112,15 @@ function ServicesSettingsPage() {
     load();
   }, [clinicLoading, clinicId]);
 
-  // Services first, extras last — within each group sort by chosen sort
-  const combinedRows = useMemo(() => {
-    const svc = sortRows(rows.filter((r) => r.item_type === "SERVICE"), sort);
-    const addOn = sortRows(rows.filter((r) => r.item_type === "ADD_ON"), sort);
-    return [...svc, ...addOn];
-  }, [rows, sort]);
+  function toggleSort(col: "NAME" | "TYPE" | "DUR" | "FEE") {
+    setSort((prev) => {
+      const asc = `${col}_ASC` as ServiceSort;
+      const desc = `${col}_DESC` as ServiceSort;
+      return prev === asc ? desc : asc;
+    });
+  }
+
+  const combinedRows = useMemo(() => sortRows([...rows], sort), [rows, sort]);
 
   async function addItem() {
     if (!name.trim()) return;
@@ -246,10 +272,18 @@ function ServicesSettingsPage() {
             </colgroup>
             <thead className="data-table-head">
               <tr>
-                <th className="data-table-head-cell">Name</th>
-                <th className="data-table-head-cell">Type</th>
-                <th className="data-table-head-cell-right">Duration</th>
-                <th className="data-table-head-cell-right">Fee</th>
+                <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("NAME")}>
+                  Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
+                </th>
+                <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("TYPE")}>
+                  Type <SortIndicator active={sort.startsWith("TYPE")} asc={sort === "TYPE_ASC"} />
+                </th>
+                <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
+                  Duration <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
+                </th>
+                <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
+                  Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
+                </th>
                 <th className="data-table-head-cell-right">Active</th>
               </tr>
             </thead>
