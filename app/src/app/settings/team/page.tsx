@@ -158,7 +158,6 @@ export default function TeamSettingsPage() {
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null);
   const [staffName, setStaffName] = useState("");
-  const [staffNickname, setStaffNickname] = useState("");
   const [staffRole, setStaffRole] = useState("");
   const [staffDob, setStaffDob] = useState("");
   const [staffHandlerDentistIds, setStaffHandlerDentistIds] = useState<string[]>([]);
@@ -378,12 +377,12 @@ export default function TeamSettingsPage() {
 
   // ── Staff CRUD ────────────────────────────────────────────────────────────────
   function openAddStaff() {
-    setEditingStaff(null); setStaffName(""); setStaffNickname(""); setStaffRole(""); setStaffDob("");
+    setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob("");
     setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
     setShowAddStaffModal(true);
   }
   async function openEditStaff(s: StaffRow) {
-    setEditingStaff(s); setStaffName(s.full_name); setStaffNickname(s.nickname ?? "");
+    setEditingStaff(s); setStaffName(s.full_name);
     setStaffRole(s.role); setStaffDob(s.date_of_birth ?? "");
     setInviteEmail(""); setInviteSuccess(null);
     // Load existing handler dentist assignments
@@ -397,7 +396,7 @@ export default function TeamSettingsPage() {
   }
   function closeStaffModal() {
     setShowAddStaffModal(false); setEditingStaff(null);
-    setStaffName(""); setStaffNickname(""); setStaffRole(""); setStaffDob("");
+    setStaffName(""); setStaffRole(""); setStaffDob("");
     setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
   }
   async function saveStaff() {
@@ -406,7 +405,7 @@ export default function TeamSettingsPage() {
     try {
       const payload = {
         clinic_id: clinicId, full_name: staffName.trim(),
-        nickname: staffNickname.trim() || null,
+        nickname: null,
         role: staffRole.trim(), date_of_birth: staffDob || null,
         can_access_clinical: staffHandlerDentistIds.length > 0,
       };
@@ -484,7 +483,7 @@ export default function TeamSettingsPage() {
     finally { setBusy(false); }
   }
 
-  const atStaffLimit = !isPro && staffAccessCount >= 2;
+  const atStaffLimit = !isPro && staffAccessCount >= 1;
 
   if (loading) return <LoadingBlock />;
 
@@ -665,8 +664,8 @@ export default function TeamSettingsPage() {
               Time options constrained to clinic operating hours set in Clinic Profile.
             </p>
           )}
-          {dentists.length === 0 && staff.length === 0 ? (
-            <div className="data-table-empty">Add team members above to manage their schedules.</div>
+          {dentists.length === 0 ? (
+            <div className="data-table-empty">Add dentists above to manage their schedules.</div>
           ) : (
             <div className="table-wrapper">
               <table className="data-table min-w-[700px]">
@@ -683,7 +682,7 @@ export default function TeamSettingsPage() {
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
-                    <th className="data-table-head-cell">Nickname</th>
+                    <th className="data-table-head-cell">Dentist</th>
                     {WEEK_ORDER.map(({ header }) => (
                       <th key={header} className="data-table-head-cell text-center">{header}</th>
                     ))}
@@ -718,24 +717,6 @@ export default function TeamSettingsPage() {
                             </button>
                           )}
                         </td>
-                      </tr>
-                    );
-                  })}
-                  {staff.map((s, idx) => {
-                    const displayName = s.nickname || s.full_name;
-                    const rowIdx = dentists.length + idx;
-                    return (
-                      <tr key={s.id} className={cn("data-table-row", rowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
-                        <td className="data-table-cell">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600" />
-                            <span className="font-medium truncate text-sm text-slate-500 dark:text-slate-400">{displayName}</span>
-                          </div>
-                        </td>
-                        {WEEK_ORDER.map(({ key }) => (
-                          <td key={key} className="data-table-cell text-center text-xs text-slate-300 dark:text-slate-600">—</td>
-                        ))}
-                        <td className="data-table-cell-right"></td>
                       </tr>
                     );
                   })}
@@ -924,10 +905,6 @@ export default function TeamSettingsPage() {
             <input className="field-input" value={staffName} onChange={(e) => setStaffName(e.target.value)} disabled={busy} />
           </label>
           <label className="field-label">
-            <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional)</span></span>
-            <input className="field-input" placeholder="e.g. Carol" value={staffNickname} onChange={(e) => setStaffNickname(e.target.value)} disabled={busy} />
-          </label>
-          <label className="field-label">
             <span className="field-label-text">Role / Job title <span className="text-red-400">*</span></span>
             <select className="field-input" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} disabled={busy}>
               <option value="">Select role</option>
@@ -991,7 +968,7 @@ export default function TeamSettingsPage() {
               <p className="hint-text mb-3">
                 Send a login invite so this person can access the app.
                 {atStaffLimit && (
-                  <span className="text-amber-600 dark:text-amber-400"> Free plan includes up to 2 staff accounts.</span>
+                  <span className="text-amber-600 dark:text-amber-400"> Free plan includes up to 1 staff account.</span>
                 )}
               </p>
               {inviteSuccess && <div className="success-banner mb-3">{inviteSuccess}</div>}

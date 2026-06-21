@@ -35,7 +35,7 @@ const FREE_FEATURES = [
   { label: "Treatment records",              included: true },
   { label: "Dental chart",                   included: true },
   { label: "Medical history",               included: true },
-  { label: "1 admin · up to 2 staff",       included: true },
+  { label: "1 admin · up to 1 staff",       included: true },
   { label: "Advanced reports & analytics",  included: false },
   { label: "Billing & invoicing",           included: false },
   { label: "Document generation",           included: false },
