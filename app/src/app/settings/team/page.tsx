@@ -62,14 +62,8 @@ const WEEK_ORDER: { header: string; key: DayKey }[] = [
 
 const STAFF_ROLES = [
   "Dental Assistant",
-  "Dental Aide",
-  "Dental Hygienist",
   "Receptionist",
   "Secretary",
-  "Nurse",
-  "Sterilization Technician",
-  "Billing Staff",
-  "Office Manager",
   "Other",
 ] as const;
 
@@ -634,19 +628,26 @@ export default function TeamSettingsPage() {
           <div className="table-wrapper">
             <table className="data-table">
               <colgroup>
-                <col className="col-60" />
+                <col className="col-35" />
+                <col className="col-25" />
                 <col className="col-40" />
               </colgroup>
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell">Name</th>
                   <th className="data-table-head-cell">Role</th>
+                  <th className="data-table-head-cell">Handles for</th>
                 </tr>
               </thead>
               <tbody>
                 {staff.length === 0 ? (
-                  <tr><td className="data-table-empty" colSpan={2}>No staff members yet.</td></tr>
-                ) : staff.map((s, idx) => (
+                  <tr><td className="data-table-empty" colSpan={3}>No staff members yet.</td></tr>
+                ) : staff.map((s, idx) => {
+                  const handlerEntry = handlers.find((h) => h.staffId === s.id);
+                  const handlesFor = handlerEntry
+                    ? handlerEntry.dentists.map((d) => d.nickname || d.full_name).join(", ")
+                    : null;
+                  return (
                   <tr
                     key={s.id}
                     className={cn(
@@ -665,13 +666,17 @@ export default function TeamSettingsPage() {
                       {!s.is_active && (
                         <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
                       )}
-                      {s.can_access_clinical && (
-                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">Clinical</span>
-                      )}
                     </td>
                     <td className="data-table-cell text-slate-500">{s.role || "—"}</td>
+                    <td className="data-table-cell text-slate-500 text-sm">
+                      {handlesFor
+                        ? <span className="text-blue-600 dark:text-blue-400">{handlesFor}</span>
+                        : <span className="text-slate-300 dark:text-slate-600">—</span>
+                      }
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -383,14 +383,24 @@ export default function Page() {
       {/* Edit Modal */}
       <EditModal open={editOpen} title="Edit patient" onClose={() => setEditOpen(false)}>
         <div className="grid-gap-4">
-          {/* R1: Last name, First name, Middle name */}
-          <div className="grid-gap-4-cols-3">
-            <Field label="Last name" value={editLastName} onChange={setEditLastName} placeholder="Last name" />
-            <Field label="First name" value={editFirstName} onChange={setEditFirstName} placeholder="First name" />
-            <Field label="Middle name" value={editMiddleName} onChange={setEditMiddleName} placeholder="Optional" />
+          {/* R1: Last name + First name */}
+          <div className="two-col-grid">
+            <Field label="Last name" value={editLastName} onChange={setEditLastName} placeholder="Dela Cruz" />
+            <Field label="First name" value={editFirstName} onChange={setEditFirstName} placeholder="Juan" />
           </div>
 
-          {/* R2: Birth date, Gender */}
+          {/* R2: Middle name — full width */}
+          <label className="field-label">
+            <span className="field-label-text">Middle name <span className="text-slate-400 font-normal">(optional)</span></span>
+            <input
+              className="field-input"
+              value={editMiddleName}
+              onChange={(e) => setEditMiddleName(e.target.value)}
+              placeholder="Santos"
+            />
+          </label>
+
+          {/* R3: Birth date, Gender */}
           <div className="two-col-grid">
             <DatePickerField
               label="Birth date"
@@ -427,13 +437,13 @@ export default function Page() {
             </div>
           </div>
 
-          {/* R3: Email + Phone */}
+          {/* R4: Email + Phone */}
           <div className="two-col-grid">
             <Field label="Email" value={editEmail} onChange={setEditEmail} placeholder="email@example.com" />
             <Field label="Phone number" value={editPhone} onChange={(v) => setEditPhone(formatPhoneLocal(v))} placeholder="09XX XXX XXXX" />
           </div>
 
-          {/* R4: Address full width */}
+          {/* R5: Address full width */}
           <div className="field-label">
             <label className="field-label-text">Address</label>
             <input
