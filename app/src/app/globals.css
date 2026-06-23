@@ -52,8 +52,8 @@ body {
   /* Defaults match the Ocean theme. applyTheme() overrides all of these at runtime.
      Lower sat = softer/muted (pink, green). Higher sat = vivid (blue, orange).
      Lightness values ensure WCAG AA contrast on white backgrounds. */
-  --accent-hue: 210;
-  --accent-sat: 70%;
+  --accent-hue: 270;
+  --accent-sat: 72%;
   --theme-bg-blur: 0px;
 
   --color-violet-50: hsl(var(--accent-hue) 100% 97%);
@@ -343,19 +343,17 @@ html.dark .tab-item-active {
 
 .data-table-head {
   @apply font-medium;
-  background: linear-gradient(135deg, var(--color-violet-700) 0%, var(--color-violet-500) 100%);
-  border-bottom: none;
+  background: #f1f5f9;
+  border-bottom: 2px solid #e2e8f0;
 }
 
 .data-table-head-cell {
-  @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider;
-  color: rgba(233, 213, 255, 0.9);
+  @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500;
   border-bottom: none;
 }
 
 .data-table-head-cell-right {
-  @apply px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider;
-  color: rgba(233, 213, 255, 0.9);
+  @apply px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500;
   border-bottom: none;
 }
 
@@ -721,9 +719,10 @@ html.dark .delete-confirmation {
 
 /* Primary card */
 .card {
-  @apply rounded-2xl px-5 pt-0 pb-6;
+  @apply rounded-2xl px-5 pt-5 pb-6;
   background-color: var(--bg-card);
-  border: none;
+  border: 1px solid var(--border-card);
+  border-top: 3px solid var(--color-violet-500);
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
@@ -732,7 +731,8 @@ html.dark .delete-confirmation {
 .stat-card {
   @apply rounded-2xl p-6;
   background-color: var(--bg-card);
-  border: none;
+  border: 1px solid var(--border-card);
+  border-top: 3px solid var(--color-violet-500);
   box-shadow: var(--shadow-card);
 }
 
@@ -748,9 +748,9 @@ html.dark .delete-confirmation {
 }
 
 .card-header {
-  @apply flex items-center justify-between -mx-5 -mt-0 px-5 py-4 mb-5;
-  background: linear-gradient(135deg, var(--color-violet-700) 0%, var(--color-violet-500) 100%);
-  border-bottom: none;
+  @apply flex items-center justify-between pb-4 mb-5;
+  background: transparent;
+  border-bottom: 1px solid var(--border-card);
 }
 @media (max-width: 767px) {
   .card-header {
@@ -759,31 +759,7 @@ html.dark .delete-confirmation {
 }
 
 .card-title {
-  @apply text-[15px] font-extrabold no-underline tracking-tight;
-  color: rgba(255, 255, 255, 0.97);
-}
-
-/* Buttons inside gradient card headers — white glass look */
-.card-header .save-btn {
-  background: rgba(255, 255, 255, 0.18);
-  color: white;
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
-  box-shadow: none;
-}
-.card-header .save-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.28);
-  box-shadow: none;
-  transform: translateY(-1px);
-}
-.card-header .cancel-btn {
-  background: rgba(255, 255, 255, 0.10);
-  color: rgba(255, 255, 255, 0.85);
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  box-shadow: none;
-}
-.card-header .cancel-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.18);
-  transform: translateY(-1px);
+  @apply text-[15px] font-extrabold no-underline tracking-tight text-slate-800;
 }
 
 .card-grid {
@@ -1835,21 +1811,21 @@ html.dark .delete-confirmation {
 
 .sidebar-wrapper {
   @apply fixed inset-y-0 left-0 z-40 flex flex-col;
-  background: linear-gradient(160deg, #3b0764 0%, #4c1d95 45%, #5b21b6 100%);
+  background: linear-gradient(160deg, var(--color-violet-950) 0%, var(--color-violet-900) 45%, var(--color-violet-800) 100%);
   border-right: none;
-  box-shadow: 4px 0 32px rgba(76,29,149,0.30);
+  box-shadow: 4px 0 32px hsl(var(--accent-hue) var(--accent-sat) 25% / 0.30);
   transition: width 200ms ease;
 }
 
 .sidebar-nav-item {
   @apply flex items-center gap-3 rounded-xl text-sm font-medium transition-all;
-  color: rgba(196, 181, 253, 0.85);
+  color: hsl(var(--accent-hue) 60% 82%);
   background: transparent;
   padding: 0.55rem 0.75rem;
 }
 .sidebar-nav-item:hover {
   background: rgba(255, 255, 255, 0.09);
-  color: rgba(237, 233, 254, 1);
+  color: hsl(var(--accent-hue) 80% 96%);
 }
 
 .sidebar-nav-item-active {
@@ -1876,7 +1852,7 @@ html.dark .delete-confirmation {
 
 .sidebar-clinic-name {
   @apply text-sm font-bold truncate;
-  color: rgba(237, 233, 254, 0.97);
+  color: hsl(var(--accent-hue) 80% 97%);
 }
 
 .sidebar-section-label {

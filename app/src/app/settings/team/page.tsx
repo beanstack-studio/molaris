@@ -124,7 +124,7 @@ function LoadingBlock() {
 }
 
 export default function TeamSettingsPage() {
-  const { clinicId, profileId, isAdmin, isPro, isLoading: clinicLoading } = useClinic();
+  const { clinicId, clinicName, profileId, userFullName, isAdmin, isPro, isLoading: clinicLoading } = useClinic();
   const [dentists, setDentists] = useState<DentistRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
@@ -358,17 +358,35 @@ export default function TeamSettingsPage() {
     if (!dentistInviteEmail.trim()) return;
     setBusy(true); setDentistInviteSuccess(null);
     try {
+      const normalizedEmail = dentistInviteEmail.trim().toLowerCase();
       const payload: Record<string, unknown> = {
         clinic_id: clinicId,
-        email: dentistInviteEmail.trim().toLowerCase(),
+        email: normalizedEmail,
         role: "dentist",
         invited_by: profileId,
       };
-      // Link to existing dentist record if editing
       if (editingDentist) payload.dentist_id = editingDentist.id;
-      const { error } = await supabase.from("staff_invites").insert(payload);
-      if (error) throw error;
-      setDentistInviteSuccess(`Invite sent to ${dentistInviteEmail.trim().toLowerCase()}`);
+      const { error: dbError } = await supabase.from("staff_invites").insert(payload);
+      if (dbError) throw dbError;
+
+      // Send the actual Supabase auth invite email
+      const res = await fetch("/api/invite-staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          clinicId,
+          clinicName,
+          inviterName: userFullName ?? "",
+          role: "dentist",
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        throw new Error(json.error ?? "Failed to send invite email");
+      }
+
+      setDentistInviteSuccess(`Invite sent to ${normalizedEmail}`);
       setDentistInviteEmail("");
       await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to send invite"); }
@@ -472,12 +490,31 @@ export default function TeamSettingsPage() {
     if (!inviteEmail.trim()) return;
     setBusy(true); setInviteSuccess(null);
     try {
-      const { error } = await supabase.from("staff_invites").insert({
-        clinic_id: clinicId, email: inviteEmail.trim().toLowerCase(),
+      const normalizedEmail = inviteEmail.trim().toLowerCase();
+      const { error: dbError } = await supabase.from("staff_invites").insert({
+        clinic_id: clinicId, email: normalizedEmail,
         role: "staff", invited_by: profileId,
       });
-      if (error) throw error;
-      setInviteSuccess(`Invite sent to ${inviteEmail.trim().toLowerCase()}`);
+      if (dbError) throw dbError;
+
+      // Send the actual Supabase auth invite email
+      const res = await fetch("/api/invite-staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          clinicId,
+          clinicName,
+          inviterName: userFullName ?? "",
+          role: "staff",
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        throw new Error(json.error ?? "Failed to send invite email");
+      }
+
+      setInviteSuccess(`Invite sent to ${normalizedEmail}`);
       setInviteEmail(""); await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to send invite"); }
     finally { setBusy(false); }

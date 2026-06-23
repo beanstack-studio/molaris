@@ -483,39 +483,25 @@ function CatalogSettingsPage() {
           <div className="table-wrapper">
             <table className="data-table">
               <colgroup>
-                <col className="col-25" />
+                <col className="col-30" />
                 <col className="col-15" />
                 <col className="col-15" />
-                <col className="col-15" />
-                <col className="col-15" />
-                <col className="col-15" />
+                <col className="col-20" />
+                <col className="col-20" />
               </colgroup>
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell">Name</th>
-                  <th className="data-table-head-cell">
-                    <div className="centered-cell">Proof</div>
-                  </th>
-                  <th className="data-table-head-cell">
-                    <div className="centered-cell">Reference</div>
-                  </th>
-                  <th className="data-table-head-cell">
-                    <div className="centered-cell">Staff</div>
-                  </th>
-                  <th className="data-table-head-cell">
-                    <div className="centered-cell">Auto-Verify</div>
-                  </th>
-                  <th className="data-table-head-cell">
-                    <div className="centered-cell">Activate</div>
-                  </th>
+                  <th className="data-table-head-cell"><div className="centered-cell">Proof</div></th>
+                  <th className="data-table-head-cell"><div className="centered-cell">Reference</div></th>
+                  <th className="data-table-head-cell"><div className="centered-cell">Verification</div></th>
+                  <th className="data-table-head-cell"><div className="centered-cell">Active</div></th>
                 </tr>
               </thead>
               <tbody>
                 {sortedPaymentModes.length === 0 ? (
                   <tr className="data-table-row">
-                    <td className="data-table-empty" colSpan={6}>
-                      No payment modes configured.
-                    </td>
+                    <td className="data-table-empty" colSpan={5}>No payment modes configured.</td>
                   </tr>
                 ) : (
                   sortedPaymentModes.map((mode, i) => (
@@ -537,54 +523,38 @@ function CatalogSettingsPage() {
                           <td className="data-table-cell font-semibold" onClick={(e) => e.stopPropagation()}>{mode.name}</td>
                           <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="centered-cell">
-                              <input
-                                type="checkbox"
-                                checked={editData.requires_proof || false}
+                              <input type="checkbox" checked={editData.requires_proof || false}
                                 onChange={(e) => setEditData({ ...editData, requires_proof: e.target.checked })}
-                                disabled={pmBusy}
-                                className="h-4 w-4 rounded"
-                              />
+                                disabled={pmBusy} className="h-4 w-4 rounded" />
                             </div>
                           </td>
                           <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="centered-cell">
-                              <input
-                                type="checkbox"
-                                checked={editData.requires_reference || false}
+                              <input type="checkbox" checked={editData.requires_reference || false}
                                 onChange={(e) => setEditData({ ...editData, requires_reference: e.target.checked })}
-                                disabled={pmBusy}
-                                className="h-4 w-4 rounded"
-                              />
+                                disabled={pmBusy} className="h-4 w-4 rounded" />
                             </div>
                           </td>
                           <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="centered-cell">
-                              <input
-                                type="checkbox"
-                                checked={editData.requires_received_by || false}
-                                onChange={(e) => setEditData({ ...editData, requires_received_by: e.target.checked })}
+                              <select
+                                className="h-8 rounded-lg border border-slate-200 px-2 text-xs text-slate-700 focus:outline-none bg-white"
+                                value={editData.auto_verifies ? "auto" : editData.requires_received_by ? "staff" : "manual"}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setEditData({ ...editData, auto_verifies: v === "auto", requires_received_by: v === "staff" });
+                                }}
                                 disabled={pmBusy}
-                                className="h-4 w-4 rounded"
-                              />
+                              >
+                                <option value="auto">Auto</option>
+                                <option value="staff">Staff</option>
+                                <option value="manual">Manual</option>
+                              </select>
                             </div>
                           </td>
                           <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="centered-cell">
-                              <input
-                                type="checkbox"
-                                checked={editData.auto_verifies || false}
-                                onChange={(e) => setEditData({ ...editData, auto_verifies: e.target.checked })}
-                                disabled={pmBusy}
-                                className="h-4 w-4 rounded"
-                              />
-                            </div>
-                          </td>
-                          <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
-                            <div className="centered-cell">
-                              <TogglePill
-                                checked={mode.is_active}
-                                onChange={(newValue) => pmToggleActive(mode.id, newValue)}
-                              />
+                              <TogglePill checked={mode.is_active} onChange={(v) => pmToggleActive(mode.id, v)} />
                             </div>
                             <div className="flex gap-2 justify-center mt-2">
                               <button className="save-btn" onClick={pmSaveEdit} disabled={pmBusy}>Save</button>
@@ -605,22 +575,20 @@ function CatalogSettingsPage() {
                               <span className={cn("inline-block w-4 h-4 rounded", mode.requires_reference ? "bg-blue-500" : "bg-slate-200")} />
                             </div>
                           </td>
-                          <td className="data-table-cell">
+                          <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="centered-cell">
-                              <span className={cn("inline-block w-4 h-4 rounded", mode.requires_received_by ? "bg-blue-500" : "bg-slate-200")} />
-                            </div>
-                          </td>
-                          <td className="data-table-cell">
-                            <div className="centered-cell">
-                              <span className={cn("inline-block w-4 h-4 rounded", mode.auto_verifies ? "bg-green-500" : "bg-slate-200")} />
+                              {mode.auto_verifies ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Auto</span>
+                              ) : mode.requires_received_by ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">Staff</span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-500 border border-slate-200">Manual</span>
+                              )}
                             </div>
                           </td>
                           <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                             <div className="centered-cell">
-                              <TogglePill
-                                checked={mode.is_active}
-                                onChange={(newValue) => pmToggleActive(mode.id, newValue)}
-                              />
+                              <TogglePill checked={mode.is_active} onChange={(v) => pmToggleActive(mode.id, v)} />
                             </div>
                           </td>
                         </>
@@ -633,23 +601,27 @@ function CatalogSettingsPage() {
           </div>
 
           {/* Requirements legend */}
-          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
-            <div className="legend-grid">
-              <div className="legend-item">
-                <span className="legend-indicator bg-blue-500" />
-                <span><strong>Proof</strong> - Requires proof upload</span>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="flex flex-wrap gap-4 text-xs text-slate-600">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-blue-500" />
+                <span><strong>Proof</strong> — requires proof upload</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-indicator bg-blue-500" />
-                <span><strong>Reference</strong> - Requires reference number</span>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-blue-500" />
+                <span><strong>Reference</strong> — requires ref number</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-indicator bg-blue-500" />
-                <span><strong>Staff</strong> - Requires staff member</span>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Auto</span>
+                <span>auto-verified on record</span>
               </div>
-              <div className="legend-item">
-                <span className="legend-indicator bg-green-500" />
-                <span><strong>Auto-Verify</strong> - Verifies automatically</span>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">Staff</span>
+                <span>staff receiver must be named</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-500 border border-slate-200">Manual</span>
+                <span>requires manual verification</span>
               </div>
             </div>
           </div>
