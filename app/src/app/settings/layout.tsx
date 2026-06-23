@@ -55,7 +55,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     // ACCOUNT
     { label: "Account",    href: "/settings/account" },
     { label: "Billing",    href: "/settings/billing",           show: isAdmin },
-    { label: "Calendar",   href: "/settings/calendar-sync",     locked: !isPro },
   ].filter((item) => item.show !== false);
 
   return (
@@ -91,7 +90,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
         {/* Content — desktop nav is in main Sidebar flyout */}
         <div className="app-section-body">
-          <div className="w-full">
+          <div className="w-full max-w-4xl">
             {children}
           </div>
         </div>

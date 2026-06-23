@@ -175,31 +175,28 @@ export default function LoginPage() {
   }
 
   return (
-    <main
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-12 gap-8"
-      style={{ background: "linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 50%, #f0f9ff 100%)" }}
-    >
+    <main className="login-page-bg">
       {/* Logo + clinic name */}
       <div className="flex flex-col items-center gap-3 text-center">
         {logoSrc ? (
           <img
             src={logoSrc}
             alt="Clinic logo"
-            className="w-16 h-16 rounded-2xl object-cover shadow-md ring-2 ring-white"
+            className="w-16 h-16 rounded-2xl object-cover shadow-lg ring-4 ring-white/20"
           />
         ) : (
-          <div className="w-16 h-16 rounded-2xl bg-blue-600 shadow-md ring-2 ring-white flex items-center justify-center text-white font-bold text-2xl select-none">
+          <div className="w-16 h-16 rounded-2xl bg-blue-500 shadow-lg ring-4 ring-white/20 flex items-center justify-center text-white font-bold text-2xl select-none">
             {clinicName.slice(0, 1).toUpperCase()}
           </div>
         )}
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{clinicName}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Clinic Management Portal</p>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">{clinicName}</h1>
+          <p className="text-sm text-blue-300 mt-0.5">Clinic Management Portal</p>
         </div>
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-white/10 overflow-hidden">
 
         {/* Tab strip */}
         <div className="flex border-b border-slate-100 bg-slate-50/60">
@@ -427,10 +424,10 @@ export default function LoginPage() {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-2 text-xs text-slate-400">
+      <div className="flex items-center gap-2 text-xs text-white/30">
         <span>Powered by</span>
-        <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-4 w-4 object-contain opacity-60" />
-        <span className="font-medium text-slate-500">Beanstack Studio</span>
+        <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-4 w-4 object-contain opacity-50" />
+        <span className="font-medium text-white/50">Beanstack Studio</span>
       </div>
 
     </main>
