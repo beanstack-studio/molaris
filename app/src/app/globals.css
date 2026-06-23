@@ -9,16 +9,16 @@
    ============================================================ */
 :root {
   /* page + card backgrounds */
-  --bg-page:        #b8d4cc;   /* teal midpoint fallback (matches gradient) */
-  --bg-card:        rgba(255, 255, 255, 0.78);   /* glass — cards/tables */
+  --bg-page:        #bccfe8;   /* blue midpoint fallback (matches gradient) */
+  --bg-card:        rgba(255, 255, 255, 0.68);   /* glass — cards/tables */
   --bg-modal:       rgba(255, 255, 255, 0.97);   /* near-opaque white for modals */
-  --bg-card-muted:  rgba(220, 242, 235, 0.68);   /* glass — sage-mint nested surface */
+  --bg-card-muted:  rgba(219, 234, 254, 0.65);   /* glass — blue-tinted nested surface */
   --bg-input:       rgba(242, 252, 249, 0.92);
   /* borders */
-  --border-card:    rgba(13, 148, 136, 0.16);    /* teal — visible on glass surfaces */
-  --border-input:   rgba(13, 148, 136, 0.22);
-  /* shadows — teal glow + inset highlight */
-  --shadow-card:    0 2px 8px rgba(0,0,0,0.05), 0 8px 32px rgba(13,148,136,0.08), inset 0 1px 0 rgba(255,255,255,0.95);
+  --border-card:    rgba(59, 130, 246, 0.18);    /* blue — visible on glass surfaces */
+  --border-input:   rgba(59, 130, 246, 0.24);
+  /* shadows — blue glow + inset highlight */
+  --shadow-card:    0 2px 8px rgba(0,0,0,0.05), 0 8px 32px rgba(59,130,246,0.10), inset 0 1px 0 rgba(255,255,255,0.95);
   --shadow-modal:   0 24px 80px rgba(0,0,0,0.16), 0 8px 24px rgba(0,0,0,0.09), inset 0 1px 0 rgba(255,255,255,0.90);
 }
 
@@ -28,7 +28,7 @@ html.dark {
   --bg-card-muted:  rgba(23, 35, 54, 0.60);      /* glass dark muted */
   --bg-input:       #152133;
   /* borders */
-  --border-card:    rgba(94, 196, 176, 0.20);    /* teal-muted for dark glass */
+  --border-card:    rgba(99, 179, 237, 0.20);    /* blue-muted for dark glass */
   --border-input:   rgba(148,163,184,0.28);
   --shadow-card:    0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
   --shadow-modal:   0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
@@ -61,8 +61,8 @@ body {
   /* Defaults match the Ocean theme. applyTheme() overrides all of these at runtime.
      Lower sat = softer/muted (pink, green). Higher sat = vivid (blue, orange).
      Lightness values ensure WCAG AA contrast on white backgrounds. */
-  --accent-hue: 172;
-  --accent-sat: 42%;
+  --accent-hue: 210;
+  --accent-sat: 58%;
   --theme-bg-blur: 0px;
 
   --color-violet-50: hsl(var(--accent-hue) 100% 97%);
@@ -85,12 +85,12 @@ body {
   --accent-text: hsl(var(--accent-hue) var(--accent-sat) 36%);
 
   /* Body text rendered directly on the theme background (not on a card).
-     Each theme sets this via applyTheme(). Ocean default = deep navy. */
-  --text-on-bg: #134e4a;
+     Each theme sets this via applyTheme(). Ocean default = deep navy blue. */
+  --text-on-bg: #1a3558;
 
   /* Theme background — overridden by applyTheme() */
   --theme-bg-image: url('/bg/bg-ocean.png');
-  --theme-bg-color: #d4ede8;
+  --theme-bg-color: #c8d8f0;
 }
 
 /* ============================================================
@@ -180,70 +180,76 @@ html.dark select {
 }
 
 /* =========================
-   Tabs (Patients + Settings)
+   Tabs — underline indicator style
 ========================= */
 
 .tabs {
-  @apply flex gap-1 mb-4 flex-wrap;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 0.875rem;
-  padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  position: relative;
+  display: flex;
+  gap: 0;
+  padding: 0;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid hsl(var(--accent-hue) var(--accent-sat) 80% / 0.35);
+  box-shadow: none;
+  border-radius: 0;
 }
+.tabs::-webkit-scrollbar { display: none; }
 html.dark .tabs {
-  background: rgba(30, 41, 59, 0.55);
-  border-color: rgba(148, 163, 184, 0.12);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  border-bottom-color: hsl(var(--accent-hue) 50% 40% / 0.35);
 }
 
-@media (max-width: 767px) {
-  .tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    padding-bottom: 4px;
-  }
-  .tabs::-webkit-scrollbar {
-    display: none;
-  }
-  .tabs .tab-item {
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
+/* Sliding indicator — positioned via JS CSS vars */
+.tab-slide-indicator {
+  position: absolute;
+  bottom: -1.5px;
+  left: var(--tab-x, 0px);
+  width: var(--tab-w, 0px);
+  height: 2.5px;
+  background: hsl(var(--accent-hue) var(--accent-sat) 44%);
+  border-radius: 3px 3px 0 0;
+  pointer-events: none;
+  transition: left 240ms cubic-bezier(0.4, 0, 0.2, 1), width 240ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tab-item {
-  @apply px-4 py-2 text-sm font-medium rounded-[0.625rem] transition-all;
-  color: rgba(71, 85, 105, 0.9);
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 10px 14px;
+  border-radius: 0;
   background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(71, 85, 105, 0.75);
+  transition: color 180ms ease;
+  box-shadow: none;
 }
 html.dark .tab-item {
-  color: rgba(148, 163, 184, 0.9);
+  color: rgba(148, 163, 184, 0.75);
 }
 .tab-item:hover {
-  background: rgba(255, 255, 255, 0.7);
-  color: #1e293b;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  background: transparent;
+  color: hsl(var(--accent-hue) var(--accent-sat) 38%);
+  box-shadow: none;
 }
 html.dark .tab-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f1f5f9;
+  color: hsl(var(--accent-hue) 50% 72%);
 }
-
 .tab-item-active {
-  @apply font-semibold;
-  background: rgba(255, 255, 255, 0.97);
-  color: #1e293b;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0,0,0,0.04);
+  color: hsl(var(--accent-hue) var(--accent-sat) 34%);
+  font-weight: 700;
+  background: transparent;
+  box-shadow: none;
 }
 html.dark .tab-item-active {
-  background: rgba(255, 255, 255, 0.12);
-  color: #f1f5f9;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  color: hsl(var(--accent-hue) 50% 72%);
+  background: transparent;
+  box-shadow: none;
 }
 
 /* =========================
@@ -403,12 +409,12 @@ html.dark .tab-item-active {
 
 .data-table-head {
   @apply font-medium;
-  background: linear-gradient(to bottom, rgba(210, 245, 234, 0.95) 0%, rgba(196, 238, 224, 0.85) 100%);
-  border-bottom: 2px solid rgba(13, 148, 136, 0.20);
+  background: linear-gradient(to bottom, rgba(219, 234, 254, 0.95) 0%, rgba(191, 219, 254, 0.85) 100%);
+  border-bottom: 2px solid rgba(59, 130, 246, 0.20);
 }
 html.dark .data-table-head {
-  background: rgba(20, 50, 44, 0.90);
-  border-bottom: 2px solid rgba(94, 196, 176, 0.20);
+  background: rgba(15, 28, 58, 0.90);
+  border-bottom: 2px solid rgba(99, 179, 237, 0.20);
 }
 
 .data-table-head-cell {
@@ -431,24 +437,24 @@ html.dark .data-table-head-cell-right {
 
 .data-table-row {
   @apply transition-colors;
-  border-bottom: 1px solid rgba(13, 148, 136, 0.08);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.10);
 }
 html.dark .data-table-row {
-  border-bottom: 1px solid rgba(94, 196, 176, 0.10);
+  border-bottom: 1px solid rgba(99, 179, 237, 0.10);
 }
 
 .data-table-row-even {
   background-color: rgba(255, 255, 255, 0.90);
 }
 html.dark .data-table-row-even {
-  background-color: rgba(20, 50, 44, 0.60);
+  background-color: rgba(14, 30, 58, 0.60);
 }
 
 .data-table-row-odd {
-  background: rgba(208, 246, 232, 0.50);
+  background: rgba(219, 234, 254, 0.45);
 }
 html.dark .data-table-row-odd {
-  background: rgba(14, 42, 36, 0.65);
+  background: rgba(14, 30, 58, 0.65);
 }
 
 tr.data-table-row:hover,
@@ -464,24 +470,24 @@ html.dark tr.data-table-row-odd:hover {
 
 .data-table-row-compact {
   @apply border-b transition-colors;
-  border-color: rgba(13, 148, 136, 0.08);
+  border-color: rgba(59, 130, 246, 0.10);
 }
 html.dark .data-table-row-compact {
-  border-color: rgba(94, 196, 176, 0.10);
+  border-color: rgba(99, 179, 237, 0.10);
 }
 
 .data-table-row-compact-even {
   background-color: rgba(255, 255, 255, 0.90);
 }
 html.dark .data-table-row-compact-even {
-  background-color: rgba(20, 50, 44, 0.60);
+  background-color: rgba(15, 28, 58, 0.60);
 }
 
 .data-table-row-compact-odd {
-  background: rgba(208, 246, 232, 0.50);
+  background: rgba(219, 234, 254, 0.45);
 }
 html.dark .data-table-row-compact-odd {
-  background: rgba(14, 42, 36, 0.65);
+  background: rgba(14, 30, 58, 0.65);
 }
 
 tr.data-table-row-compact:hover,
@@ -725,8 +731,10 @@ html.dark .delete-confirmation {
   position: sticky;
   top: 0;
   z-index: 40;
-  background-color: var(--bg-card);
-  border-bottom: 1px solid var(--border-card);
+  background-color: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1.5px solid hsl(var(--accent-hue) var(--accent-sat) 80% / 0.30);
   margin-bottom: 1rem;
 }
 
@@ -1499,7 +1507,7 @@ html.dark .readonly-input {
   min-height: 100vh;
 }
 
-/* Login page — rich violet-to-indigo gradient */
+/* Login page — dark navy blue gradient */
 .login-page-bg {
   min-height: 100vh;
   display: flex;
@@ -1508,16 +1516,16 @@ html.dark .readonly-input {
   justify-content: center;
   padding: 2rem 1rem;
   gap: 2rem;
-  background: linear-gradient(145deg, #052e24 0%, #0d4038 35%, #0f5c4e 65%, #0d9488 100%);
+  background: linear-gradient(145deg, #071529 0%, #0c2244 35%, #153a72 65%, #1d64c4 100%);
 }
 
 /* Login card floats on the gradient */
 .login-card {
   width: 100%;
   max-width: 400px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
   border-radius: 1.5rem;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.15);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.35), 0 4px 16px rgba(29,100,196,0.18);
   padding: 2rem;
 }
 

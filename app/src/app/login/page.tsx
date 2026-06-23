@@ -83,7 +83,7 @@ function PasswordInput({
   );
 }
 
-const loginInput = "w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition";
+const loginInput = "w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition";
 const loginLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5";
 
 export default function LoginPage() {

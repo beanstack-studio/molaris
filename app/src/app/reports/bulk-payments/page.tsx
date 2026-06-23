@@ -209,7 +209,7 @@ function BulkPaymentsPage() {
           </p>
 
         {/* Tabs */}
-        <div className="tabs mb-6">
+        <SlidingTabBar className="mb-6">
           {[
             { key: "manual", label: "✏️ Manual Entry" },
             { key: "csv", label: "📄 CSV Import" },
@@ -227,7 +227,7 @@ function BulkPaymentsPage() {
               {tab.label}
             </button>
           ))}
-        </div>
+        </SlidingTabBar>
 
         {/* Content */}
         <div className="card">
@@ -624,6 +624,7 @@ function BulkPaymentsPage() {
 }
 
 import { FeatureGate } from "@/components/shared/FeatureGate";
+import { SlidingTabBar } from "@/components/shared/SlidingTabBar";
 export default function BulkPaymentsPageGated() {
   return <FeatureGate feature="reports"><BulkPaymentsPage /></FeatureGate>;
 }

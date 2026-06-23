@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
 import { cn } from "@/lib/cn";
+import { SlidingTabBar } from "@/components/shared/SlidingTabBar";
 
 function IconBack() {
   return (
@@ -60,7 +61,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             <span className="text-slate-300">·</span>
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Settings</span>
           </div>
-          <div className="tabs bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 rounded-xl px-2 py-1">
+          <SlidingTabBar>
             {mobileSettingsItems.map((item) => {
               const active = pathname === item.href;
               return (
@@ -73,7 +74,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 </Link>
               );
             })}
-          </div>
+          </SlidingTabBar>
         </div>
 
         {/* Content — desktop nav is in main Sidebar flyout */}

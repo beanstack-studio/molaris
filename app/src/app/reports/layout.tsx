@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
 import { FeatureGate } from "@/components/shared/FeatureGate";
+import { SlidingTabBar } from "@/components/shared/SlidingTabBar";
 
 const tabs = [
   { label: "Payments",            href: "/reports/payments" },
@@ -24,7 +25,7 @@ function ReportsShell({ children }: { children: React.ReactNode }) {
           <div className="app-section-title">Reports</div>
         </div>
 
-        <div className="tabs">
+        <SlidingTabBar>
           {tabs.map((t) => {
             const active = pathname === t.href;
             return (
@@ -37,7 +38,7 @@ function ReportsShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-        </div>
+        </SlidingTabBar>
 
         <div className="app-section-body">{children}</div>
       </main>

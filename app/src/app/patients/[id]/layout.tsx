@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import PatientTabs from "@/components/PatientTabs";
 import { formatPatientName } from "@/lib/helpers";
 import { useClinic } from "@/contexts/ClinicContext";
+import { SlidingTabBar } from "@/components/shared/SlidingTabBar";
 import type { Tab } from "@/lib/types";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -119,9 +120,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Sticky scrollable tab bar */}
         <div className="patient-tabs-sticky -mx-3 sm:-mx-4 px-3 sm:px-4">
-          <div className="tabs-scroll">
+          <SlidingTabBar>
             <PatientTabs activeTab={activeTab} />
-          </div>
+          </SlidingTabBar>
         </div>
 
         <div className="app-section-body">
