@@ -5,8 +5,6 @@ import { supabase } from "@/lib/supabaseClient";
 
 type Tab = "signin" | "signup";
 
-// ─── Password validation ──────────────────────────────────────────────────────
-
 function validatePassword(pwd: string): string | null {
   if (pwd.length < 8) return "Password must be at least 8 characters.";
   if (!/\d/.test(pwd)) return "Password must contain at least one number.";
@@ -19,21 +17,19 @@ function PasswordHints({ password }: { password: string }) {
   const hasNumber = /\d/.test(password);
   return (
     <div className="mt-1.5 flex gap-3 text-xs">
-      <span className={hasLength ? "text-emerald-600 font-medium" : "text-stone-400"}>
+      <span className={hasLength ? "text-emerald-600 font-medium" : "text-slate-400"}>
         {hasLength ? "✓" : "·"} 8+ characters
       </span>
-      <span className={hasNumber ? "text-emerald-600 font-medium" : "text-stone-400"}>
+      <span className={hasNumber ? "text-emerald-600 font-medium" : "text-slate-400"}>
         {hasNumber ? "✓" : "·"} one number
       </span>
     </div>
   );
 }
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
-
 function IconEye() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
     </svg>
@@ -42,13 +38,11 @@ function IconEye() {
 
 function IconEyeOff() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
     </svg>
   );
 }
-
-// ─── PasswordInput ────────────────────────────────────────────────────────────
 
 function PasswordInput({
   value,
@@ -74,12 +68,12 @@ function PasswordInput({
         placeholder={placeholder}
         autoComplete={autoComplete}
         required
-        className="w-full h-12 rounded-xl bg-stone-100 border border-stone-200 px-4 pr-12 text-sm text-slate-700 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition"
+        className={loginInput}
       />
       <button
         type="button"
         onClick={onToggleShow}
-        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors"
+        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
         tabIndex={-1}
         aria-label={show ? "Hide password" : "Show password"}
       >
@@ -89,7 +83,8 @@ function PasswordInput({
   );
 }
 
-// ─── LoginPage ────────────────────────────────────────────────────────────────
+const loginInput = "w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition";
+const loginLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5";
 
 export default function LoginPage() {
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
@@ -97,17 +92,14 @@ export default function LoginPage() {
 
   const [tab, setTab] = useState<Tab>("signin");
 
-  // Sign In
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Forgot password
   const [showForgot, setShowForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
 
-  // Sign Up
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -182,34 +174,35 @@ export default function LoginPage() {
     setSignupSuccess(true);
   }
 
-  // ─── Shared input class ──────────────────────────────────────────────────────
-  const textInput = "w-full h-12 rounded-xl bg-stone-100 border border-stone-200 px-4 text-sm text-slate-700 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition";
-  const labelText = "block text-sm font-bold text-slate-800 mb-1.5";
-
   return (
-    <main className="min-h-screen bg-stone-100 flex flex-col items-center justify-center px-4 py-10 gap-6">
-
-      {/* ── Logo + clinic name ── */}
-      <div className="flex flex-col items-center gap-3">
+    <main
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-12 gap-8"
+      style={{ background: "linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 50%, #f0f9ff 100%)" }}
+    >
+      {/* Logo + clinic name */}
+      <div className="flex flex-col items-center gap-3 text-center">
         {logoSrc ? (
           <img
             src={logoSrc}
             alt="Clinic logo"
-            className="w-20 h-20 rounded-full object-cover ring-2 ring-white shadow-md"
+            className="w-16 h-16 rounded-2xl object-cover shadow-md ring-2 ring-white"
           />
         ) : (
-          <div className="w-20 h-20 rounded-full bg-teal-100 ring-2 ring-white shadow-md flex items-center justify-center text-teal-700 font-bold text-2xl select-none">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600 shadow-md ring-2 ring-white flex items-center justify-center text-white font-bold text-2xl select-none">
             {clinicName.slice(0, 1).toUpperCase()}
           </div>
         )}
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{clinicName}</h1>
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{clinicName}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Clinic Management Portal</p>
+        </div>
       </div>
 
-      {/* ── Card ── */}
-      <div className="w-full max-w-md bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+      {/* Card */}
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
 
         {/* Tab strip */}
-        <div className="flex border-b border-stone-200">
+        <div className="flex border-b border-slate-100 bg-slate-50/60">
           {(["signin", "signup"] as Tab[]).map((t) => {
             const active = tab === t && !showForgot;
             const label = t === "signin" ? "Sign In" : "Sign Up";
@@ -219,15 +212,15 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => switchTab(t)}
                 className={[
-                  "flex-1 py-4 text-sm font-semibold transition-colors relative",
+                  "flex-1 py-3.5 text-sm font-semibold transition-colors relative",
                   active
-                    ? "text-teal-600"
-                    : "text-slate-400 hover:text-slate-600",
+                    ? "text-blue-600 bg-white"
+                    : "text-slate-400 hover:text-slate-600 bg-transparent",
                 ].join(" ")}
               >
                 {label}
                 {active && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500 rounded-full" />
+                  <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-blue-500 rounded-full" />
                 )}
               </button>
             );
@@ -237,11 +230,11 @@ export default function LoginPage() {
         {/* Content */}
         <div className="p-6">
 
-          {/* ── Sign In ── */}
+          {/* Sign In */}
           {tab === "signin" && !showForgot && (
             <form onSubmit={onSignIn} className="flex flex-col gap-4">
               <div>
-                <label className={labelText}>Email</label>
+                <label className={loginLabel}>Email</label>
                 <input
                   type="email"
                   value={email}
@@ -249,13 +242,13 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                   autoComplete="email"
                   required
-                  className={textInput}
+                  className={loginInput}
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className={labelText}>Password</span>
+                  <span className={loginLabel}>Password</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -263,9 +256,9 @@ export default function LoginPage() {
                       setResetEmail(email);
                       setError(null);
                     }}
-                    className="text-sm text-stone-400 hover:text-teal-600 transition-colors"
+                    className="text-xs text-slate-400 hover:text-blue-600 transition-colors font-medium"
                   >
-                    Forgot password?
+                    Forgot?
                   </button>
                 </div>
                 <PasswordInput
@@ -278,7 +271,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-sm text-red-600">
+                <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-xs text-red-600 font-medium">
                   {error}
                 </p>
               )}
@@ -286,27 +279,27 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold transition-colors disabled:opacity-60 mt-1"
+                className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold transition-all disabled:opacity-60 shadow-sm shadow-blue-200 mt-1"
               >
                 {busy ? "Signing in…" : "Sign In"}
               </button>
             </form>
           )}
 
-          {/* ── Forgot password ── */}
+          {/* Forgot password */}
           {tab === "signin" && showForgot && (
             <form onSubmit={onSendReset} className="flex flex-col gap-4">
               {resetSent ? (
-                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 text-center">
-                  Reset link sent! Check your email to set a new password.
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 text-center font-medium">
+                  Reset link sent! Check your email.
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-slate-500">
-                    Enter your email and we'll send you a password reset link.
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    Enter your email and we&apos;ll send you a password reset link.
                   </p>
                   <div>
-                    <label className={labelText}>Email</label>
+                    <label className={loginLabel}>Email</label>
                     <input
                       type="email"
                       value={resetEmail}
@@ -314,18 +307,18 @@ export default function LoginPage() {
                       placeholder="you@example.com"
                       autoComplete="email"
                       required
-                      className={textInput}
+                      className={loginInput}
                     />
                   </div>
                   {error && (
-                    <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-sm text-red-600">
+                    <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-xs text-red-600 font-medium">
                       {error}
                     </p>
                   )}
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                    className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all disabled:opacity-60 shadow-sm shadow-blue-200"
                   >
                     {busy ? "Sending…" : "Send reset link"}
                   </button>
@@ -334,36 +327,36 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setShowForgot(false); setResetSent(false); setError(null); }}
-                className="text-sm text-stone-400 hover:text-slate-700 transition-colors text-center"
+                className="text-xs text-slate-400 hover:text-slate-700 transition-colors text-center font-medium"
               >
                 ← Back to sign in
               </button>
             </form>
           )}
 
-          {/* ── Sign Up ── */}
+          {/* Sign Up */}
           {tab === "signup" && (
             signupSuccess ? (
-              <div className="flex flex-col items-center gap-4 py-4 text-center">
-                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 w-full">
-                  Account created! Check your email to confirm your address, then sign in.
+              <div className="flex flex-col items-center gap-4 py-2 text-center">
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 w-full font-medium">
+                  Account created! Check your email to confirm, then sign in.
                 </div>
                 <button
                   type="button"
                   onClick={() => switchTab("signin")}
-                  className="text-sm text-teal-600 hover:text-teal-700 font-medium transition-colors"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors"
                 >
                   Go to sign in →
                 </button>
               </div>
             ) : (
               <form onSubmit={onSignUp} className="flex flex-col gap-4">
-                <p className="text-sm text-stone-500">
+                <p className="text-xs text-slate-400 leading-relaxed bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
                   For clinic owners only. Staff receive an email invite from their owner.
                 </p>
 
                 <div>
-                  <label className={labelText}>Your Name</label>
+                  <label className={loginLabel}>Your Name</label>
                   <input
                     type="text"
                     value={signupName}
@@ -371,12 +364,12 @@ export default function LoginPage() {
                     placeholder="Full name"
                     autoComplete="name"
                     required
-                    className={textInput}
+                    className={loginInput}
                   />
                 </div>
 
                 <div>
-                  <label className={labelText}>Email</label>
+                  <label className={loginLabel}>Email</label>
                   <input
                     type="email"
                     value={signupEmail}
@@ -384,12 +377,12 @@ export default function LoginPage() {
                     placeholder="you@example.com"
                     autoComplete="email"
                     required
-                    className={textInput}
+                    className={loginInput}
                   />
                 </div>
 
                 <div>
-                  <label className={labelText}>Password</label>
+                  <label className={loginLabel}>Password</label>
                   <PasswordInput
                     value={signupPassword}
                     onChange={setSignupPassword}
@@ -402,7 +395,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label className={labelText}>Confirm Password</label>
+                  <label className={loginLabel}>Confirm Password</label>
                   <PasswordInput
                     value={signupConfirm}
                     onChange={setSignupConfirm}
@@ -414,7 +407,7 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-2.5 text-sm text-red-600">
+                  <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-xs text-red-600 font-medium">
                     {error}
                   </p>
                 )}
@@ -422,7 +415,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold transition-colors disabled:opacity-60 mt-1"
+                  className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold transition-all disabled:opacity-60 shadow-sm shadow-blue-200 mt-1"
                 >
                   {busy ? "Creating account…" : "Create Account"}
                 </button>
@@ -433,11 +426,11 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Footer ── */}
-      <div className="flex items-center gap-2 text-sm text-stone-400">
+      {/* Footer */}
+      <div className="flex items-center gap-2 text-xs text-slate-400">
         <span>Powered by</span>
-        <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-5 w-5 object-contain" />
-        <span className="font-medium text-stone-500">Beanstack Studio</span>
+        <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-4 w-4 object-contain opacity-60" />
+        <span className="font-medium text-slate-500">Beanstack Studio</span>
       </div>
 
     </main>

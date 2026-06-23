@@ -17,8 +17,8 @@
   --border-card:    #dde3ec;
   --border-input:   #c8d0dc;
   /* shadows — slightly more visible on the richer bg */
-  --shadow-card:    0 1px 4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-modal:   0 20px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08);
+  --shadow-card:    0 1px 3px rgba(0,0,0,0.07), 0 2px 8px rgba(0,0,0,0.05);
+  --shadow-modal:   0 24px 80px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.10);
 }
 
 html.dark {
@@ -156,7 +156,7 @@ html.dark select {
 }
 
 .app-section-title {
-  @apply text-lg sm:text-xl font-bold;
+  @apply text-xl sm:text-2xl font-extrabold tracking-tight;
   color: var(--accent-text);
 }
 
@@ -210,7 +210,7 @@ html.dark .tab-item:hover {
 .tab-item-active {
   @apply font-semibold text-slate-800 dark:text-slate-100;
   background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.07);
 }
 html.dark .tab-item-active {
   background: rgba(255, 255, 255, 0.1);
@@ -344,16 +344,17 @@ html.dark .tab-item-active {
 .data-table-head {
   @apply font-medium;
   background: var(--bg-card-muted);
+  border-bottom: 2px solid var(--border-card);
 }
 
 .data-table-head-cell {
-  @apply px-3 py-3 text-left font-semibold text-slate-500 dark:text-slate-400;
-  border-bottom: 1px solid var(--border-card);
+  @apply px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider;
+  border-bottom: 2px solid var(--border-card);
 }
 
 .data-table-head-cell-right {
-  @apply px-3 py-3 text-right font-semibold text-slate-500 dark:text-slate-400;
-  border-bottom: 1px solid var(--border-card);
+  @apply px-4 py-2.5 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider;
+  border-bottom: 2px solid var(--border-card);
 }
 
 .data-table-row {
@@ -405,11 +406,11 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .data-table-cell {
-  @apply px-3 py-3 text-slate-700 dark:text-slate-300;
+  @apply px-4 py-3 text-slate-700 dark:text-slate-300;
 }
 
 .data-table-cell-right {
-  @apply px-3 py-3 text-right text-slate-700 dark:text-slate-300;
+  @apply px-4 py-3 text-right text-slate-700 dark:text-slate-300;
 }
 
 .data-table-cell-truncate {
@@ -501,7 +502,11 @@ html.dark tr.data-table-row-compact-odd:hover {
 ========================= */
 
 .delete-confirmation {
-  @apply space-y-2;
+  @apply space-y-2 rounded-xl border border-red-100 dark:border-red-800/30 p-4;
+  background: rgba(254,242,242,0.6);
+}
+html.dark .delete-confirmation {
+  background: rgba(127,29,29,0.08);
 }
 
 .delete-confirmation-section {
@@ -701,11 +706,11 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .error-banner {
-  @apply mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600;
+  @apply mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 font-medium;
 }
 
 .success-banner {
-  @apply mb-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-600;
+  @apply mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 font-medium;
 }
 
 /* ========================================
@@ -740,16 +745,17 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .card-header {
-  @apply flex items-center justify-between;
+  @apply flex items-center justify-between pb-3 mb-4;
+  border-bottom: 1px solid var(--border-card);
 }
 @media (max-width: 767px) {
   .card-header {
-    @apply flex-wrap gap-2 mb-2;
+    @apply flex-wrap gap-2;
   }
 }
 
 .card-title {
-  @apply text-lg font-bold no-underline text-slate-800 dark:text-slate-100;
+  @apply text-base font-bold no-underline text-slate-800 dark:text-slate-100 tracking-tight;
 }
 
 .card-grid {
@@ -775,7 +781,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 
 /* Inputs */
 .field-input {
-  @apply h-10 w-full rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  @apply h-10 w-full rounded-xl border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
   background-color: var(--bg-card);
   border-color: var(--border-input);
 }
@@ -786,7 +792,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .field-textarea {
-  @apply min-h-[88px] rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  @apply min-h-[88px] rounded-xl border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
   background-color: var(--bg-card);
   border-color: var(--border-input);
 }
@@ -839,15 +845,22 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .save-btn {
-  @apply h-10 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors;
+  @apply h-10 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-50 transition-all;
+  background-color: var(--color-violet-600);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.08);
+}
+.save-btn:hover:not(:disabled) {
+  background-color: var(--color-violet-700);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
 }
 
 .cancel-btn {
-  @apply h-10 rounded-xl px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-60 transition-colors;
+  @apply h-10 rounded-xl px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-60 transition-all;
   background-color: var(--bg-card);
   border: 1px solid var(--border-card);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
-.cancel-btn:hover {
+.cancel-btn:hover:not(:disabled) {
   background: var(--bg-card-muted);
 }
 
@@ -863,7 +876,13 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .delete-btn {
-  @apply h-10 rounded-xl bg-red-500 px-5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60 transition-colors;
+  @apply h-10 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-60 transition-all;
+  background-color: #ef4444;
+  box-shadow: 0 1px 3px rgba(239,68,68,0.2);
+}
+.delete-btn:hover:not(:disabled) {
+  background-color: #dc2626;
+  box-shadow: 0 2px 6px rgba(239,68,68,0.3);
 }
 
 .toggle-btn {
@@ -1101,10 +1120,9 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .table-wrapper {
-  @apply mt-4 overflow-x-auto rounded-2xl;
+  @apply mt-4 overflow-x-auto rounded-xl;
   background-color: var(--bg-card);
   border: 1px solid var(--border-card);
-  box-shadow: var(--shadow-card);
 }
 
 .form-grid-3 {
@@ -1171,7 +1189,7 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .input-standard {
-  @apply h-10 rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  @apply h-10 rounded-xl border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
   background-color: var(--bg-card);
   border-color: var(--border-input);
 }
@@ -1182,7 +1200,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .input-standard-sm {
-  @apply h-9 rounded-lg border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  @apply h-9 rounded-xl border px-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
   background-color: var(--bg-card);
   border-color: var(--border-input);
 }
@@ -1324,7 +1342,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .compact-input {
-  @apply w-full rounded-lg border px-2 py-1 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  @apply w-full rounded-xl border px-2 py-1 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
   background-color: var(--bg-card);
   border-color: var(--border-input);
 }
@@ -1348,7 +1366,7 @@ html.dark tr.data-table-row-compact-odd:hover {
   @apply text-sm text-slate-400 mt-2;
 }
 .modal-title {
-  @apply text-base font-semibold text-slate-800 dark:text-slate-100;
+  @apply text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight;
 }
 .field-full-row {
   @apply grid gap-1 col-span-2;
@@ -1407,7 +1425,7 @@ html.dark tr.data-table-row-compact-odd:hover {
   @apply text-sm font-semibold text-slate-800 dark:text-slate-100;
 }
 .hint-text {
-  @apply text-xs text-slate-400 dark:text-slate-500;
+  @apply text-xs text-slate-500 dark:text-slate-400 leading-relaxed;
 }
 .section-heading {
   @apply mb-4 text-lg font-bold text-slate-800 dark:text-slate-100;
@@ -1429,7 +1447,7 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .input-full {
-  @apply h-10 w-full rounded-lg border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  @apply h-10 w-full rounded-xl border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
   background-color: var(--bg-card);
   border-color: var(--border-input);
 }
@@ -1440,7 +1458,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .textarea-input {
-  @apply w-full rounded-lg border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 resize-none focus:outline-none transition;
+  @apply w-full rounded-xl border px-3 py-2 text-sm text-slate-700 dark:text-slate-200 resize-none focus:outline-none transition;
   background-color: var(--bg-card);
   border-color: var(--border-input);
 }
@@ -1519,7 +1537,7 @@ html.dark tr.data-table-row-compact-odd:hover {
    ======================================== */
 
 .badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
 }
 .badge-secondary {
   @apply bg-slate-100 text-slate-600;
@@ -1765,9 +1783,9 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .sidebar-nav-item {
-  @apply flex items-center gap-3 rounded-xl text-sm font-medium transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100;
+  @apply flex items-center gap-3 rounded-xl text-sm font-medium transition-all text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100;
   background: transparent;
-  padding: 0.6rem 0.75rem;
+  padding: 0.55rem 0.75rem;
 }
 .sidebar-nav-item:hover {
   background: var(--bg-card-muted);
