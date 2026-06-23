@@ -4,23 +4,6 @@ import { useEffect, useState } from "react";
 import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 
-function IconSun() {
-  return (
-    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="5" />
-      <path strokeLinecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-    </svg>
-  );
-}
-
-function IconMoon() {
-  return (
-    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  );
-}
-
 export default function AccountPage() {
   const { role, isAdmin, isDentist, userFullName, userEmail } = useClinic();
 
@@ -66,23 +49,11 @@ export default function AccountPage() {
     setResetBusy(false);
   }
 
-  // ── Appearance ─────────────────────────────────────────────────────────────
-  const [isDark, setIsDark] = useState(false);
-  useEffect(() => {
-    setIsDark(localStorage.getItem("molaris_theme") === "dark");
-  }, []);
-  function toggleDark() {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("molaris_theme", next ? "dark" : "light");
-  }
-
   const roleBadgeClass = isAdmin
-    ? "text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+    ? "text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700"
     : isDentist
-    ? "text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-    : "text-xs px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300";
+    ? "text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700"
+    : "text-xs px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500";
 
   const roleLabel = isAdmin ? "Admin" : isDentist ? "Dentist" : "Staff";
 
@@ -159,37 +130,27 @@ export default function AccountPage() {
         </div>
       </div>
 
-      {/* ── Appearance ────────────────────────────────────────── */}
+      {/* ── Calendar Sync ─────────────────────────────────────── */}
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Appearance</h2>
+          <h2 className="card-title">Google Calendar Sync</h2>
+          <span className="badge badge-secondary">Coming soon</span>
         </div>
-
-        <div className="card card-light flex items-center justify-between gap-4 p-4 mt-4">
-          <div className="flex items-center gap-3">
-            <span className="text-slate-500 dark:text-slate-400">
-              {isDark ? <IconMoon /> : <IconSun />}
-            </span>
-            <div>
-              <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                {isDark ? "Dark mode" : "Light mode"}
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Saved per browser
-              </div>
-            </div>
+        <p className="text-sm text-slate-600 mt-2">
+          Connect your clinic&apos;s Google Calendar to automatically sync appointments.
+          Confirmed appointments will appear in your calendar, and cancellations will
+          be removed automatically.
+        </p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-4 p-4 rounded-xl border border-slate-100 bg-slate-50">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-slate-700 mb-0.5">Google Calendar</div>
+            <div className="text-xs text-slate-500">Not connected</div>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isDark}
-            onClick={toggleDark}
-            className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 bg-slate-200 dark:bg-blue-600"
-            aria-label="Toggle dark mode"
-          >
-            <span className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0 dark:translate-x-5" />
+          <button type="button" className="save-btn opacity-50 cursor-not-allowed" disabled aria-disabled="true">
+            Connect Google Calendar
           </button>
         </div>
+        <p className="hint-text mt-3">Google Calendar integration is coming in a future update.</p>
       </div>
 
     </div>

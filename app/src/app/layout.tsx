@@ -40,14 +40,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Prevent dark-mode flash: set class before first paint */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('molaris_theme');if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
-          }}
-        />
-      </head>
       <body className={`${plusJakarta.variable} ${mono.variable} antialiased${isDev ? " pt-8" : ""}`}>
         <PWAUpdateBanner />
         {isDev ? (
