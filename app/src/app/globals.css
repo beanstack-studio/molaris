@@ -9,7 +9,7 @@
    ============================================================ */
 :root {
   /* page + card backgrounds */
-  --bg-page:        #dde5f0;   /* richer blue-gray — more contrast with white cards */
+  --bg-page:        #f0f3f9;   /* clean blue-white — warm, cards pop against this */
   --bg-card:        #ffffff;
   --bg-card-muted:  #f1f5f9;   /* zebra rows, nested sections */
   --bg-input:       #f8fafc;   /* inputs sit slightly off-white inside white cards */
@@ -17,7 +17,7 @@
   --border-card:    #dde3ec;
   --border-input:   #c8d0dc;
   /* shadows — slightly more visible on the richer bg */
-  --shadow-card:    0 1px 4px rgba(0,0,0,0.09), 0 4px 14px rgba(0,0,0,0.07);
+  --shadow-card:    0 1px 2px rgba(0,0,0,0.04), 0 4px 20px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.03);
   --shadow-modal:   0 24px 80px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.10);
 }
 
@@ -343,21 +343,20 @@ html.dark .tab-item-active {
 
 .data-table-head {
   @apply font-medium;
-  background: hsl(var(--accent-hue) 55% 96%);
-  border-bottom: 2px solid var(--border-card);
-}
-html.dark .data-table-head {
-  background: hsl(var(--accent-hue) 30% 16%);
+  background: #1e2a3b;
+  border-bottom: none;
 }
 
 .data-table-head-cell {
-  @apply px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider;
-  border-bottom: 2px solid var(--border-card);
+  @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider;
+  color: rgba(148, 163, 184, 0.85);
+  border-bottom: none;
 }
 
 .data-table-head-cell-right {
-  @apply px-4 py-2.5 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider;
-  border-bottom: 2px solid var(--border-card);
+  @apply px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider;
+  color: rgba(148, 163, 184, 0.85);
+  border-bottom: none;
 }
 
 .data-table-row {
@@ -433,7 +432,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .data-table-btn {
-  @apply inline-flex items-center justify-center gap-1 px-3 py-1 text-sm font-medium text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer whitespace-nowrap;
+  @apply inline-flex items-center justify-center gap-1 px-3 py-1 text-sm font-medium text-slate-600 rounded-full transition-colors cursor-pointer whitespace-nowrap;
   background: var(--bg-card-muted);
   border: 1px solid var(--border-card);
 }
@@ -442,7 +441,7 @@ html.dark tr.data-table-row-compact-odd:hover {
 }
 
 .data-table-btn-danger {
-  @apply inline-flex items-center gap-1 px-3 py-1 text-sm font-medium text-red-600 bg-red-50 border border-red-100 hover:bg-red-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap;
+  @apply inline-flex items-center gap-1 px-3 py-1 text-sm font-medium text-red-600 bg-red-50 border border-red-100 hover:bg-red-100 rounded-full transition-colors cursor-pointer whitespace-nowrap;
 }
 
 .data-table-btn-warning {
@@ -535,11 +534,11 @@ html.dark .delete-confirmation {
 }
 
 .item-delete-btn {
-  @apply rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-400 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-300 px-3 py-1 text-sm font-semibold disabled:opacity-50 transition-colors;
+  @apply rounded-full bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-400 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 dark:hover:text-red-300 px-3 py-1 text-sm font-semibold disabled:opacity-50 transition-colors;
 }
 
 .add-row-btn {
-  @apply inline-flex items-center justify-center w-full h-10 px-4 rounded-xl text-sm font-medium transition border border-dashed border-slate-200 dark:border-slate-600 bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-violet-300 dark:hover:border-violet-500 hover:text-violet-500 mt-2;
+  @apply inline-flex items-center justify-center w-full h-10 px-4 rounded-full text-sm font-medium transition border border-dashed border-slate-200 dark:border-slate-600 bg-transparent text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-violet-300 dark:hover:border-violet-500 hover:text-violet-500 mt-2;
 }
 
 /* Entry rows */
@@ -722,9 +721,10 @@ html.dark .delete-confirmation {
 
 /* Primary card */
 .card {
-  @apply rounded-2xl px-5 pt-4 pb-6;
+  @apply rounded-2xl px-5 pt-5 pb-6;
   background-color: var(--bg-card);
-  border: 1px solid var(--border-card);
+  border: none;
+  border-top: 3px solid var(--color-violet-400);
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
@@ -733,7 +733,8 @@ html.dark .delete-confirmation {
 .stat-card {
   @apply rounded-2xl p-6;
   background-color: var(--bg-card);
-  border: 1px solid var(--border-card);
+  border: none;
+  border-top: 3px solid var(--color-violet-400);
   box-shadow: var(--shadow-card);
 }
 
@@ -749,10 +750,9 @@ html.dark .delete-confirmation {
 }
 
 .card-header {
-  @apply flex items-center justify-between pb-3 mb-4;
-  @apply -mx-5 -mt-4 px-5 pt-4 rounded-t-2xl;
+  @apply flex items-center justify-between pb-4 mb-5;
   border-bottom: 1px solid var(--border-card);
-  background: linear-gradient(135deg, hsl(var(--accent-hue) 75% 93%) 0%, hsl(var(--accent-hue) 55% 95%) 100%);
+  background: transparent;
 }
 @media (max-width: 767px) {
   .card-header {
@@ -761,7 +761,7 @@ html.dark .delete-confirmation {
 }
 
 .card-title {
-  @apply text-base font-bold no-underline text-slate-800 dark:text-slate-100 tracking-tight;
+  @apply text-[15px] font-extrabold no-underline text-slate-800 tracking-tight;
 }
 
 .card-grid {
@@ -787,13 +787,13 @@ html.dark .delete-confirmation {
 
 /* Inputs */
 .field-input {
-  @apply h-10 w-full rounded-xl border px-3 text-sm text-slate-700 dark:text-slate-200 focus:outline-none transition;
+  @apply h-10 w-full rounded-xl border-2 px-3 text-sm text-slate-700 focus:outline-none transition;
   background-color: var(--bg-card);
   border-color: var(--border-input);
 }
 .field-input:focus {
-  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.8);
-  box-shadow: 0 0 0 2px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.15);
+  border-color: hsl(var(--accent-hue) var(--accent-sat) 50% / 0.7);
+  box-shadow: 0 0 0 3px hsl(var(--accent-hue) var(--accent-sat) 50% / 0.12);
   outline: none;
 }
 
@@ -851,23 +851,25 @@ html.dark .delete-confirmation {
    ======================================== */
 
 .save-btn {
-  @apply h-10 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-50 transition-all;
+  @apply h-10 rounded-full px-6 text-sm font-semibold text-white disabled:opacity-50 transition-all tracking-wide;
   background: linear-gradient(135deg, var(--color-violet-700) 0%, var(--color-violet-500) 100%);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 2px 10px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.25);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 3px 12px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.3);
 }
 .save-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--color-violet-800) 0%, var(--color-violet-600) 100%);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 4px 16px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.35);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 6px 20px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.4);
+  transform: translateY(-1px);
 }
 
 .cancel-btn {
-  @apply h-10 rounded-xl px-5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-60 transition-all;
+  @apply h-10 rounded-full px-6 text-sm font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-60 transition-all tracking-wide;
   background-color: var(--bg-card);
-  border: 1px solid var(--border-card);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  border: 1.5px solid var(--border-card);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 .cancel-btn:hover:not(:disabled) {
   background: var(--bg-card-muted);
+  transform: translateY(-1px);
 }
 
 .total-row {
@@ -882,13 +884,14 @@ html.dark .delete-confirmation {
 }
 
 .delete-btn {
-  @apply h-10 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-60 transition-all;
+  @apply h-10 rounded-full px-6 text-sm font-semibold text-white disabled:opacity-60 transition-all tracking-wide;
   background-color: #ef4444;
-  box-shadow: 0 1px 3px rgba(239,68,68,0.2);
+  box-shadow: 0 1px 3px rgba(239,68,68,0.2), 0 3px 10px rgba(239,68,68,0.15);
 }
 .delete-btn:hover:not(:disabled) {
   background-color: #dc2626;
-  box-shadow: 0 2px 6px rgba(239,68,68,0.3);
+  box-shadow: 0 2px 8px rgba(239,68,68,0.35);
+  transform: translateY(-1px);
 }
 
 .toggle-btn {
@@ -1397,6 +1400,11 @@ html.dark .delete-confirmation {
   justify-content: center;
   padding: 3rem 1rem;
   gap: 2rem;
+  background: linear-gradient(150deg, #0d1424 0%, #131e35 35%, #1a2d52 65%, #0f1c3a 100%);
+}
+
+/* Login split-screen brand panel (left side, desktop only) */
+.login-brand-panel {
   background: linear-gradient(150deg, #0d1424 0%, #131e35 35%, #1a2d52 65%, #0f1c3a 100%);
 }
 
