@@ -407,10 +407,10 @@ export default function LoginPage() {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-2 text-xs text-slate-500">
+      <div className="flex items-center gap-2 text-xs text-white/50">
         <span>Powered by</span>
         <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-4 w-4 object-contain opacity-60" />
-        <span className="font-medium">Beanstack Studio</span>
+        <span className="font-medium text-white/70">Beanstack Studio</span>
       </div>
     </div>
   );

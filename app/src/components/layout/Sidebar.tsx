@@ -182,13 +182,13 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   const roleLabel = role === "admin" ? "Admin" : role === "dentist" ? "Dentist" : "Staff";
   const planLabel = plan === "pro" ? "Pro" : "Free";
   const planClass = plan === "pro"
-    ? "text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700"
-    : "text-xs px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500";
+    ? "text-xs px-2 py-0.5 rounded-full font-semibold bg-violet-400/25 text-violet-200"
+    : "text-xs px-2 py-0.5 rounded-full font-semibold bg-white/10 text-white/50";
   const roleBadgeClass = isAdmin
-    ? "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700"
+    ? "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-amber-400/20 text-amber-300"
     : role === "dentist"
-    ? "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700"
-    : "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600";
+    ? "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-blue-400/20 text-blue-300"
+    : "text-xs px-1.5 py-0.5 rounded-full font-semibold bg-white/10 text-white/60";
 
   return (
     <>
@@ -199,7 +199,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
       >
         {/* ── TOP: clinic logo + name + plan badge ── */}
         {collapsed ? (
-          <div className="flex flex-col items-center px-2 py-3 border-b border-slate-100" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col items-center px-2 py-3 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
             <Link href="/dashboard" aria-label="Dashboard">
               {logoSrc ? (
                 <img src={logoSrc} alt="Clinic logo" className="h-8 w-8 rounded-full object-contain" />
@@ -211,7 +211,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
             </Link>
           </div>
         ) : (
-          <div className="px-3 py-3 border-b border-slate-100" onClick={(e) => e.stopPropagation()}>
+          <div className="px-3 py-3 border-b border-white/10" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-2">
               <Link href="/dashboard" className="shrink-0 mt-0.5" aria-label="Dashboard">
                 {logoSrc ? (
@@ -278,7 +278,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
 
                   {/* Inline accordion sub-items — grouped by section */}
                   {settingsOpen && !collapsed && (
-                    <div className="ml-3 mt-0.5 border-l border-slate-200 pl-2 flex flex-col gap-0">
+                    <div className="ml-3 mt-0.5 border-l border-white/15 pl-2 flex flex-col gap-0">
                       {settingsFlyoutSections.map((section, si) => {
                         const visibleItems = section.items.filter(
                           (sub) => !(sub.adminOnly && !isAdmin)
@@ -286,7 +286,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                         if (visibleItems.length === 0) return null;
                         return (
                           <div key={section.title} className={si > 0 ? "mt-2" : ""}>
-                            <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
                               {section.title}
                             </div>
                             {visibleItems.map((sub) => {
@@ -301,7 +301,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                                     "flex items-center gap-1 px-2 py-1.5 text-sm rounded-lg transition-colors",
                                     subActive
                                       ? "sidebar-sub-item-active"
-                                      : "text-slate-500 hover:bg-violet-50 hover:text-violet-700"
+                                      : "text-white/60 hover:bg-white/8 hover:text-white/90"
                                   )}
                                   aria-current={subActive ? "page" : undefined}
                                 >
@@ -341,7 +341,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
         </nav>
 
         {/* ── BOTTOM: user info + sign out icon ── */}
-        <div className="border-t border-slate-100 px-2 py-3" onClick={(e) => e.stopPropagation()}>
+        <div className="border-t border-white/10 px-2 py-3" onClick={(e) => e.stopPropagation()}>
           {collapsed ? (
             <div className="flex flex-col items-center gap-2">
               <div className="sidebar-user-avatar w-8 h-8 text-xs">
@@ -351,7 +351,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                 type="button"
                 onClick={onSignOut}
                 title="Sign out"
-                className="flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                className="flex items-center justify-center w-7 h-7 rounded-lg text-violet-300 hover:text-red-400 hover:bg-white/10 transition-colors"
               >
                 <IconSignOut />
               </button>
@@ -362,14 +362,14 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                 {userInitials}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-slate-800 truncate">{displayName}</div>
+                <div className="text-sm font-medium text-white/90 truncate">{displayName}</div>
                 <span className={roleBadgeClass}>{roleLabel}</span>
               </div>
               <button
                 type="button"
                 onClick={onSignOut}
                 title="Sign out"
-                className="shrink-0 flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                className="shrink-0 flex items-center justify-center w-7 h-7 rounded-lg text-violet-300 hover:text-red-400 hover:bg-white/10 transition-colors"
               >
                 <IconSignOut />
               </button>
