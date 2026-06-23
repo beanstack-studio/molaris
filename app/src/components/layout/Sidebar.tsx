@@ -298,9 +298,9 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                                   href={sub.href}
                                   onClick={(e) => e.stopPropagation()}
                                   className={cn(
-                                    "flex items-center gap-1 px-2 py-1.5 text-sm rounded-md transition-colors",
+                                    "flex items-center gap-1 px-2 py-1.5 text-sm rounded-lg transition-colors",
                                     subActive
-                                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
+                                      ? "sidebar-sub-item-active"
                                       : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200"
                                   )}
                                   aria-current={subActive ? "page" : undefined}
@@ -340,29 +340,41 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
           })}
         </nav>
 
-        {/* ── BOTTOM: user info + sign out ── */}
-        <div className="border-t border-slate-100 dark:border-slate-700 px-2 py-3 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
-          <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-xl", collapsed && "justify-center px-0")}>
-            <div className="sidebar-user-avatar w-8 h-8 text-xs shrink-0">
-              {userInitials}
+        {/* ── BOTTOM: user info + sign out icon ── */}
+        <div className="border-t border-slate-100 dark:border-slate-700 px-2 py-3" onClick={(e) => e.stopPropagation()}>
+          {collapsed ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="sidebar-user-avatar w-8 h-8 text-xs">
+                {userInitials}
+              </div>
+              <button
+                type="button"
+                onClick={onSignOut}
+                title="Sign out"
+                className="flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <IconSignOut />
+              </button>
             </div>
-            {!collapsed && (
+          ) : (
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl">
+              <div className="sidebar-user-avatar w-8 h-8 text-xs shrink-0">
+                {userInitials}
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{displayName}</div>
                 <span className={roleBadgeClass}>{roleLabel}</span>
               </div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={onSignOut}
-            className={cn("sidebar-nav-item text-slate-400 hover:text-red-500 mt-1", collapsed && "justify-center")}
-            title={collapsed ? "Sign out" : undefined}
-          >
-            <IconSignOut />
-            {!collapsed && <span>Sign out</span>}
-          </button>
+              <button
+                type="button"
+                onClick={onSignOut}
+                title="Sign out"
+                className="shrink-0 flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <IconSignOut />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>
