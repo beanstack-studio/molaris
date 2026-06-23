@@ -133,7 +133,7 @@ export function SortArrow({ dir }: { dir: "asc" | "desc" | null }) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "hsl(var(--accent-hue) var(--accent-sat) 40% / 0.70)" }}>
       {children}
     </p>
   );
@@ -295,7 +295,7 @@ export function TableOptions({
 
           {/* ── FILTER ────────────────────────────────────────────── */}
           {filters && filters.length > 0 && (
-            <div className="border-t border-slate-200 pt-5">
+            <div className="border-t border-blue-100 pt-5">
               <div className="flex items-center justify-between mb-3">
                 <SectionLabel>Filter</SectionLabel>
                 <button
@@ -339,7 +339,7 @@ export function TableOptions({
           )}
 
           {/* ── COLUMNS ───────────────────────────────────────────── */}
-          <div className="border-t border-slate-200 pt-5">
+          <div className="border-t border-blue-100 pt-5">
             <div className="flex items-center justify-between mb-3">
               <SectionLabel>
                 Columns ({visibleCount}/{totalCount})
@@ -386,7 +386,7 @@ export function TableOptions({
           </div>
 
           {/* ── EXPORT ────────────────────────────────────────────── */}
-          <div className="border-t border-slate-200 pt-5">
+          <div className="border-t border-blue-100 pt-5">
             <SectionLabel>Export</SectionLabel>
             <div className="flex gap-2 flex-wrap">
               <button
@@ -431,7 +431,7 @@ export function TableOptions({
           </div>
 
           {/* ── DONE ──────────────────────────────────────────────── */}
-          <div className="modal-actions-right border-t border-slate-200 pt-4">
+          <div className="modal-actions-right border-t border-blue-100 pt-4">
             <button type="button" className="cancel-btn" onClick={handleClose}>
               Done
             </button>

@@ -469,24 +469,47 @@ export default function PatientsPage() {
     const bodyRows = filtered
       .map((p) => `<tr>${visCols.map((c) => `<td>${getVal(p, c.key)}</td>`).join("")}</tr>`)
       .join("");
-    const html = `<!DOCTYPE html><html><head><title>Patients</title><style>
-      body{font-family:sans-serif;font-size:12px;padding:20px}
-      h1{font-size:16px;margin-bottom:12px}
-      table{width:100%;border-collapse:collapse}
-      th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left}
-      th{background:#f8fafc;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-      tr:nth-child(even){background:#f8fafc}
-      @media print{body{padding:0}}
-    </style></head><body>
-      <h1>Patients (${filtered.length})</h1>
-      <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
-    </body></html>`;
-    const win = window.open("", "_blank", "width=960,height=700");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 350);
+    const tableHtml = `<h1 style="font-size:16px;margin:0 0 12px">Patients (${filtered.length})</h1><table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>`;
+
+    // Inject into current page — avoids popup blocker that blocks window.open()
+    const STYLE_ID = "molaris-pdf-style";
+    const CONTENT_ID = "molaris-pdf-content";
+
+    let styleEl = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = STYLE_ID;
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      @media print {
+        body > *:not(#${CONTENT_ID}) { display: none !important; }
+        #${CONTENT_ID} {
+          display: block !important;
+          font-family: sans-serif; font-size: 12px; padding: 20px; color: #0f172a;
+        }
+        #${CONTENT_ID} table { width: 100%; border-collapse: collapse; }
+        #${CONTENT_ID} th, #${CONTENT_ID} td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+        #${CONTENT_ID} th { background: #eff6ff; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #1d4ed8; }
+        #${CONTENT_ID} tr:nth-child(even) td { background: #f8faff; }
+      }
+    `;
+
+    const prev = document.getElementById(CONTENT_ID);
+    if (prev) document.body.removeChild(prev);
+
+    const contentEl = document.createElement("div");
+    contentEl.id = CONTENT_ID;
+    contentEl.style.display = "none";
+    contentEl.innerHTML = tableHtml;
+    document.body.appendChild(contentEl);
+
+    window.print();
+
+    setTimeout(() => {
+      const el = document.getElementById(CONTENT_ID);
+      if (el) document.body.removeChild(el);
+    }, 2000);
   }
 
   return (
