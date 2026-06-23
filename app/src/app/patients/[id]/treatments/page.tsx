@@ -191,11 +191,6 @@ export default function TreatmentsPage() {
                 <TableOptions
                   tableName="treatments"
                   columns={TREATMENT_COLUMNS}
-                  sorts={[
-                    { key: "treatment_date", label: "Date" },
-                    { key: "procedure",      label: "Procedure" },
-                    { key: "dentist_name",   label: "Dentist" },
-                  ]}
                   currentSort={sortConfig}
                   onSortChange={(key, direction) => setSortConfig({ key, direction })}
                   data={treatments}

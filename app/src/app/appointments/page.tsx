@@ -600,12 +600,6 @@ export default function AppointmentsPage() {
                   <TableOptions
                     tableName="appointments"
                     columns={APT_COLUMNS}
-                    sorts={[
-                      { key: "appointment_date", label: "Date" },
-                      { key: "patient_name",     label: "Patient name" },
-                      { key: "status",           label: "Status" },
-                      { key: "dentist_name",     label: "Dentist" },
-                    ]}
                     currentSort={aptSortConfig}
                     onSortChange={(key, direction) => setAptSortConfig({ key, direction })}
                     data={appointments}

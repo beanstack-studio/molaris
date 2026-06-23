@@ -959,11 +959,6 @@ function BillingPage() {
                     <TableOptions
                       tableName="billing_invoices"
                       columns={BILLING_COLUMNS}
-                      sorts={[
-                        { key: "invoice_date", label: "Date" },
-                        { key: "total",        label: "Total" },
-                        { key: "status",       label: "Status" },
-                      ]}
                       currentSort={billingSortConfig}
                       onSortChange={(k, d) => setBillingSortConfig({ key: k, direction: d })}
                       data={invoices}

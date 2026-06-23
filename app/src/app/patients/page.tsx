@@ -37,13 +37,6 @@ const PATIENT_COLUMNS: ColumnConfig[] = [
   { key: "balance",      label: "Balance" },
 ];
 
-const PATIENT_SORTS = [
-  { key: "last_name",       label: "Last name" },
-  { key: "first_name",      label: "First name" },
-  { key: "last_visit_date", label: "Last visit" },
-  { key: "balance",         label: "Balance" },
-];
-
 const PATIENT_FILTERS = [
   {
     key: "balance",
@@ -298,6 +291,20 @@ export default function PatientsPage() {
         const bVal = b.balance ?? 0;
         return dir * (aVal - bVal);
       }
+      if (key === "middle_name") {
+        return dir * cmpText((a.middle_name ?? "").trim(), (b.middle_name ?? "").trim());
+      }
+      if (key === "birth_date") {
+        const aVal = a.birth_date ?? "9999-99-99";
+        const bVal = b.birth_date ?? "9999-99-99";
+        return dir * cmpText(aVal, bVal);
+      }
+      if (key === "gender") {
+        return dir * cmpText((a.gender ?? "").trim(), (b.gender ?? "").trim());
+      }
+      if (key === "phone") {
+        return dir * cmpText((a.phone ?? "").trim(), (b.phone ?? "").trim());
+      }
       return 0;
     });
 
@@ -383,9 +390,14 @@ export default function PatientsPage() {
 
   // Column header sort indicator
   const SORTABLE_COLS: Record<string, string> = {
-    last_name:  "last_name",
-    balance:    "balance",
-    last_visit: "last_visit_date",
+    last_name:   "last_name",
+    first_name:  "first_name",
+    middle_name: "middle_name",
+    age:         "birth_date",
+    gender:      "gender",
+    phone:       "phone",
+    balance:     "balance",
+    last_visit:  "last_visit_date",
   };
 
   function handleColSort(col: string) {
@@ -438,16 +450,49 @@ export default function PatientsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function exportPatientsPdf() {
+    const visCols = PATIENT_COLUMNS.filter((c) => isVisible(c.key));
+    const getVal = (p: PatientRow, key: string): string => {
+      switch (key) {
+        case "last_name":   return p.last_name ?? "";
+        case "first_name":  return p.first_name ?? "";
+        case "middle_name": return p.middle_name ?? "";
+        case "age":         return String(calcAge(p.birth_date) ?? "");
+        case "gender":      return formatGenderShort(p.gender);
+        case "phone":       return p.phone ? formatPhoneLocal(p.phone) : "";
+        case "last_visit":  return p.last_visit_date ? formatDateStandard(p.last_visit_date) : "";
+        case "balance":     return p.balance != null ? formatMoney(p.balance) : "—";
+        default:            return "";
+      }
+    };
+    const headerRow = `<tr>${visCols.map((c) => `<th>${c.label}</th>`).join("")}</tr>`;
+    const bodyRows = filtered
+      .map((p) => `<tr>${visCols.map((c) => `<td>${getVal(p, c.key)}</td>`).join("")}</tr>`)
+      .join("");
+    const html = `<!DOCTYPE html><html><head><title>Patients</title><style>
+      body{font-family:sans-serif;font-size:12px;padding:20px}
+      h1{font-size:16px;margin-bottom:12px}
+      table{width:100%;border-collapse:collapse}
+      th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left}
+      th{background:#f8fafc;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+      tr:nth-child(even){background:#f8fafc}
+      @media print{body{padding:0}}
+    </style></head><body>
+      <h1>Patients (${filtered.length})</h1>
+      <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
+    </body></html>`;
+    const win = window.open("", "_blank", "width=960,height=700");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 350);
+  }
+
   return (
     <main className="app-section">
       <div className="app-section-header">
-        <div>
-          <div className="app-section-title">Patients</div>
-        </div>
-
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-          Add patient
-        </button>
+        <div className="app-section-title">Patients</div>
       </div>
 
       <div className="card">
@@ -467,7 +512,6 @@ export default function PatientsPage() {
             <TableOptions
               tableName="patients"
               columns={PATIENT_COLUMNS}
-              sorts={PATIENT_SORTS}
               filters={PATIENT_FILTERS}
               currentSort={sortConfig}
               onSortChange={(key, direction) => setSortConfig({ key, direction })}
@@ -475,6 +519,7 @@ export default function PatientsPage() {
               onFilterChange={(key, value) => setActiveFilters((prev) => ({ ...prev, [key]: value }))}
               data={patients}
               onDownloadCSV={exportPatientsCsv}
+              onDownloadPDF={exportPatientsPdf}
               visibleColumns={visibleColumns}
               onColsChange={onVisibilityChange}
             />
@@ -488,6 +533,9 @@ export default function PatientsPage() {
                 Filters active ×
               </button>
             )}
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+              Add patient
+            </button>
           </div>
         </div>
 
@@ -524,10 +572,11 @@ export default function PatientsPage() {
                 )}
                 {isVisible("first_name")  && (
                   <th
-                    className="data-table-head-cell relative"
+                    className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
                     style={{ width: getWidth("first_name") }}
+                    onClick={() => handleColSort("first_name")}
                   >
-                    First name
+                    First name{getSortIcon("first_name")}
                     <div
                       onMouseDown={(e) => startResize("first_name", e)}
                       className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
@@ -536,10 +585,11 @@ export default function PatientsPage() {
                 )}
                 {isVisible("middle_name") && (
                   <th
-                    className="data-table-head-cell relative"
+                    className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
                     style={{ width: getWidth("middle_name") }}
+                    onClick={() => handleColSort("middle_name")}
                   >
-                    Middle name
+                    Middle name{getSortIcon("middle_name")}
                     <div
                       onMouseDown={(e) => startResize("middle_name", e)}
                       className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
@@ -548,10 +598,11 @@ export default function PatientsPage() {
                 )}
                 {isVisible("age")         && (
                   <th
-                    className="data-table-head-cell relative"
+                    className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
                     style={{ width: getWidth("age") }}
+                    onClick={() => handleColSort("age")}
                   >
-                    Age
+                    Age{getSortIcon("age")}
                     <div
                       onMouseDown={(e) => startResize("age", e)}
                       className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
@@ -560,10 +611,11 @@ export default function PatientsPage() {
                 )}
                 {isVisible("gender")      && (
                   <th
-                    className="data-table-head-cell relative"
+                    className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
                     style={{ width: getWidth("gender") }}
+                    onClick={() => handleColSort("gender")}
                   >
-                    Gender
+                    Gender{getSortIcon("gender")}
                     <div
                       onMouseDown={(e) => startResize("gender", e)}
                       className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"
@@ -572,10 +624,11 @@ export default function PatientsPage() {
                 )}
                 {isVisible("phone")       && (
                   <th
-                    className="data-table-head-cell relative"
+                    className="data-table-head-cell relative cursor-pointer select-none hover:bg-slate-100"
                     style={{ width: getWidth("phone") }}
+                    onClick={() => handleColSort("phone")}
                   >
-                    Phone number
+                    Phone number{getSortIcon("phone")}
                     <div
                       onMouseDown={(e) => startResize("phone", e)}
                       className="absolute right-0 top-0 h-full w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-slate-300 dark:bg-slate-600"

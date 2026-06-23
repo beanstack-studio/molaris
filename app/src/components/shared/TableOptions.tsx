@@ -35,6 +35,7 @@ export type TableOptionsProps = {
   onFilterChange?: (key: string, value: string) => void;
   data: unknown[];
   onDownloadCSV: () => void;
+  onDownloadPDF?: () => void;
   /** Pass the page's visibleColumns state to sync visibility (fixes dual-hook bug) */
   visibleColumns?: string[];
   /** Pass the page's onVisibilityChange setter to sync visibility */
@@ -191,6 +192,7 @@ export function TableOptions({
   currentFilters,
   onFilterChange,
   onDownloadCSV,
+  onDownloadPDF,
   visibleColumns: externalVisible,
   onColsChange,
 }: TableOptionsProps) {
@@ -397,21 +399,34 @@ export function TableOptions({
               >
                 Download CSV
               </button>
-              <div className="relative group">
+              {onDownloadPDF ? (
                 <button
                   type="button"
-                  className="cancel-btn opacity-50 cursor-not-allowed"
-                  disabled
-                  aria-disabled="true"
+                  className="cancel-btn"
+                  onClick={() => {
+                    onDownloadPDF();
+                    handleClose();
+                  }}
                 >
-                  Download PDF (coming soon)
+                  Download PDF
                 </button>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
-                  <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap shadow-lg">
-                    Coming soon
+              ) : (
+                <div className="relative group">
+                  <button
+                    type="button"
+                    className="cancel-btn opacity-50 cursor-not-allowed"
+                    disabled
+                    aria-disabled="true"
+                  >
+                    Download PDF
+                  </button>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
+                    <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap shadow-lg">
+                      Coming soon
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
