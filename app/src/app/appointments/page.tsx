@@ -545,15 +545,7 @@ export default function AppointmentsPage() {
   return (
     <main className="app-section">
       <div className="app-section-header">
-        <div>
-          <div className="app-section-title">Appointments</div>
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowCreateModal(true)}
-        >
-          + New Appointment
-        </button>
+        <div className="app-section-title">Appointments</div>
       </div>
 
       <div className="card">
@@ -562,7 +554,7 @@ export default function AppointmentsPage() {
             <div className="error-msg">{error}</div>
           )}
 
-            {/* View mode toggle + dentist filter */}
+            {/* View mode toggle + dentist filter + new appointment */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="action-row">
                 <button
@@ -606,6 +598,12 @@ export default function AppointmentsPage() {
                     onDownloadCSV={exportAppointmentsCsv}
                   />
                 )}
+                <button
+                  className="save-btn"
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  + New Appointment
+                </button>
               </div>
             </div>
 
