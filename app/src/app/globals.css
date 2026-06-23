@@ -9,7 +9,7 @@
    ============================================================ */
 :root {
   /* page + card backgrounds */
-  --bg-page:        #f0f3f9;   /* clean blue-white — warm, cards pop against this */
+  --bg-page:        #f4f3ff;   /* soft lavender — premium, cards pop against this */
   --bg-card:        #ffffff;
   --bg-card-muted:  #f1f5f9;   /* zebra rows, nested sections */
   --bg-input:       #f8fafc;   /* inputs sit slightly off-white inside white cards */
@@ -17,7 +17,7 @@
   --border-card:    #dde3ec;
   --border-input:   #c8d0dc;
   /* shadows — slightly more visible on the richer bg */
-  --shadow-card:    0 1px 2px rgba(0,0,0,0.04), 0 4px 20px rgba(0,0,0,0.08), 0 1px 1px rgba(0,0,0,0.03);
+  --shadow-card:    0 2px 4px rgba(0,0,0,0.04), 0 8px 32px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-modal:   0 24px 80px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.10);
 }
 
@@ -343,19 +343,19 @@ html.dark .tab-item-active {
 
 .data-table-head {
   @apply font-medium;
-  background: #1e2a3b;
-  border-bottom: none;
+  background: var(--color-violet-100);
+  border-bottom: 2px solid var(--color-violet-200);
 }
 
 .data-table-head-cell {
   @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider;
-  color: rgba(148, 163, 184, 0.85);
+  color: var(--color-violet-700);
   border-bottom: none;
 }
 
 .data-table-head-cell-right {
   @apply px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider;
-  color: rgba(148, 163, 184, 0.85);
+  color: var(--color-violet-700);
   border-bottom: none;
 }
 
@@ -724,7 +724,7 @@ html.dark .delete-confirmation {
   @apply rounded-2xl px-5 pt-5 pb-6;
   background-color: var(--bg-card);
   border: none;
-  border-top: 3px solid var(--color-violet-400);
+  border-left: 4px solid var(--color-violet-400);
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
@@ -734,7 +734,7 @@ html.dark .delete-confirmation {
   @apply rounded-2xl p-6;
   background-color: var(--bg-card);
   border: none;
-  border-top: 3px solid var(--color-violet-400);
+  border-left: 4px solid var(--color-violet-400);
   box-shadow: var(--shadow-card);
 }
 
@@ -1391,21 +1391,31 @@ html.dark .delete-confirmation {
   min-height: 100vh;
 }
 
-/* Login page — full-screen deep navy gradient (matches dark sidebar) */
+/* Login page — soft violet gradient background */
 .login-page-bg {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1rem;
+  padding: 2rem 1rem;
   gap: 2rem;
-  background: linear-gradient(150deg, #0d1424 0%, #131e35 35%, #1a2d52 65%, #0f1c3a 100%);
+  background: linear-gradient(145deg, #ede9fe 0%, #f0f3ff 40%, #e0e7ff 100%);
 }
 
-/* Login split-screen brand panel (left side, desktop only) */
+/* Login card floats on the gradient */
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 60px rgba(139,92,246,0.12), 0 4px 16px rgba(0,0,0,0.06);
+  padding: 2rem;
+}
+
+/* Login brand panel — unused but kept for compat */
 .login-brand-panel {
-  background: linear-gradient(150deg, #0d1424 0%, #131e35 35%, #1a2d52 65%, #0f1c3a 100%);
+  background: linear-gradient(145deg, #ede9fe 0%, #f0f3ff 40%, #e0e7ff 100%);
 }
 
 /* ========================================
@@ -1803,21 +1813,21 @@ html.dark .delete-confirmation {
 
 .sidebar-wrapper {
   @apply fixed inset-y-0 left-0 z-40 flex flex-col;
-  background: linear-gradient(160deg, #0d1424 0%, #131e35 60%, #162240 100%);
-  border-right: none;
-  box-shadow: 4px 0 28px rgba(0,0,0,0.18);
+  background: #ffffff;
+  border-right: 1px solid var(--border-card);
+  box-shadow: 2px 0 16px rgba(0,0,0,0.06);
   transition: width 200ms ease;
 }
 
 .sidebar-nav-item {
   @apply flex items-center gap-3 rounded-xl text-sm font-medium transition-all;
-  color: rgba(148, 163, 184, 0.9);
+  color: #64748b;
   background: transparent;
   padding: 0.55rem 0.75rem;
 }
 .sidebar-nav-item:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(226, 232, 240, 1);
+  background: var(--color-violet-50);
+  color: var(--color-violet-700);
 }
 
 .sidebar-nav-item-active {
@@ -1844,7 +1854,7 @@ html.dark .delete-confirmation {
 
 .sidebar-clinic-name {
   @apply text-sm font-bold truncate;
-  color: rgba(241, 245, 249, 0.95);
+  color: #1e293b;
 }
 
 .sidebar-section-label {
@@ -1862,8 +1872,8 @@ html.dark .delete-confirmation {
 
 .sidebar-sub-item-active {
   font-weight: 600;
-  background: hsl(var(--accent-hue) 60% 32%);
-  color: hsl(var(--accent-hue) 80% 82%);
+  background: var(--color-violet-100);
+  color: var(--color-violet-700);
   border-radius: 0.5rem;
 }
 

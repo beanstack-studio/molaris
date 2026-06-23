@@ -175,50 +175,15 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex">
-
-      {/* ── LEFT: Brand panel — dark navy, desktop only ── */}
-      <div className="hidden lg:flex lg:w-5/12 xl:w-2/5 login-brand-panel flex-col justify-between p-10 xl:p-14 shrink-0">
-        {/* Top: Logo + clinic name */}
-        <div className="flex items-center gap-3">
-          {logoSrc ? (
-            <img src={logoSrc} alt="Clinic logo" className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/20" />
-          ) : (
-            <div className="w-10 h-10 rounded-xl bg-blue-500/80 flex items-center justify-center text-white font-bold text-lg select-none">
-              {clinicName.slice(0, 1).toUpperCase()}
-            </div>
-          )}
-          <span className="text-white font-bold text-base tracking-tight">{clinicName}</span>
-        </div>
-
-        {/* Middle: tagline */}
-        <div className="flex flex-col gap-4">
-          <h2 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight tracking-tight">
-            Clinic management,<br />simplified.
-          </h2>
-          <p className="text-blue-300 text-sm leading-relaxed">
-            Patients · Appointments · Treatments<br />
-            Billing · Documents — all in one place.
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center gap-2 text-xs text-white/30">
-          <span>Powered by</span>
-          <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-4 w-4 object-contain opacity-50" />
-          <span className="font-medium text-white/50">Beanstack Studio</span>
-        </div>
-      </div>
-
-      {/* ── RIGHT: Form panel — white, always visible ── */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 bg-white min-h-screen">
-
-        {/* Mobile only: logo + clinic name (hidden on desktop where left panel shows) */}
-        <div className="flex flex-col items-center gap-3 text-center mb-8 lg:hidden">
+    <div className="login-page-bg">
+      {/* Centered card */}
+      <div className="login-card">
+        {/* Logo + clinic name */}
+        <div className="flex flex-col items-center gap-3 text-center mb-6">
           {logoSrc ? (
             <img src={logoSrc} alt="Clinic logo" className="w-14 h-14 rounded-2xl object-cover shadow-md" />
           ) : (
-            <div className="w-14 h-14 rounded-2xl bg-blue-600 shadow-md flex items-center justify-center text-white font-bold text-2xl select-none">
+            <div className="w-14 h-14 rounded-2xl bg-violet-600 shadow-md flex items-center justify-center text-white font-bold text-2xl select-none">
               {clinicName.slice(0, 1).toUpperCase()}
             </div>
           )}
@@ -228,59 +193,169 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Form area */}
-        <div className="w-full max-w-sm">
+        {/* Tab strip — pill style */}
+        <div className="flex gap-1 mb-5 bg-slate-100 rounded-full p-1">
+          {(["signin", "signup"] as Tab[]).map((t) => {
+            const active = tab === t && !showForgot;
+            const label = t === "signin" ? "Sign In" : "Sign Up";
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => switchTab(t)}
+                className={[
+                  "flex-1 py-2 text-sm font-semibold transition-all rounded-full",
+                  active
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                ].join(" ")}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
 
-          {/* Heading — desktop only */}
-          <div className="hidden lg:block mb-7">
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              {tab === "signin" && !showForgot
-                ? "Welcome back"
-                : tab === "signup"
-                ? "Get started"
-                : "Reset password"}
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {tab === "signin" && !showForgot
-                ? "Sign in to your clinic account"
-                : tab === "signup"
-                ? "Create your clinic account"
-                : "Enter your email to receive a reset link"}
-            </p>
-          </div>
+        {/* ── Sign In ── */}
+        {tab === "signin" && !showForgot && (
+          <form onSubmit={onSignIn} className="flex flex-col gap-4">
+            <div>
+              <label className={loginLabel}>Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                required
+                className={loginInput}
+              />
+            </div>
 
-          {/* Tab strip — pill style */}
-          <div className="flex gap-1 mb-6 bg-slate-100 rounded-full p-1">
-            {(["signin", "signup"] as Tab[]).map((t) => {
-              const active = tab === t && !showForgot;
-              const label = t === "signin" ? "Sign In" : "Sign Up";
-              return (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className={loginLabel}>Password</span>
                 <button
-                  key={t}
                   type="button"
-                  onClick={() => switchTab(t)}
-                  className={[
-                    "flex-1 py-2 text-sm font-semibold transition-all rounded-full",
-                    active
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700",
-                  ].join(" ")}
+                  onClick={() => { setShowForgot(true); setResetEmail(email); setError(null); }}
+                  className="text-xs text-slate-400 hover:text-violet-600 transition-colors font-medium"
                 >
-                  {label}
+                  Forgot?
                 </button>
-              );
-            })}
-          </div>
+              </div>
+              <PasswordInput
+                value={password}
+                onChange={setPassword}
+                placeholder="••••••••"
+                show={showPassword}
+                onToggleShow={() => setShowPassword(!showPassword)}
+              />
+            </div>
 
-          {/* ── Sign In ── */}
-          {tab === "signin" && !showForgot && (
-            <form onSubmit={onSignIn} className="flex flex-col gap-4">
+            {error && (
+              <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-xs text-red-600 font-medium">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full h-11 rounded-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-sm font-semibold tracking-wide transition-all disabled:opacity-60 shadow-sm mt-1 hover:-translate-y-0.5"
+            >
+              {busy ? "Signing in…" : "Sign In"}
+            </button>
+          </form>
+        )}
+
+        {/* ── Forgot password ── */}
+        {tab === "signin" && showForgot && (
+          <form onSubmit={onSendReset} className="flex flex-col gap-4">
+            {resetSent ? (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 text-center font-medium">
+                Reset link sent! Check your email.
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Enter your email and we&apos;ll send you a password reset link.
+                </p>
+                <div>
+                  <label className={loginLabel}>Email</label>
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                    className={loginInput}
+                  />
+                </div>
+                {error && (
+                  <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-xs text-red-600 font-medium">
+                    {error}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="w-full h-11 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold tracking-wide transition-all disabled:opacity-60 shadow-sm"
+                >
+                  {busy ? "Sending…" : "Send reset link"}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => { setShowForgot(false); setResetSent(false); setError(null); }}
+              className="text-xs text-slate-400 hover:text-slate-700 transition-colors text-center font-medium"
+            >
+              ← Back to sign in
+            </button>
+          </form>
+        )}
+
+        {/* ── Sign Up ── */}
+        {tab === "signup" && (
+          signupSuccess ? (
+            <div className="flex flex-col items-center gap-4 py-2 text-center">
+              <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 w-full font-medium">
+                Account created! Check your email to confirm, then sign in.
+              </div>
+              <button
+                type="button"
+                onClick={() => switchTab("signin")}
+                className="text-sm text-violet-600 hover:text-violet-700 font-semibold transition-colors"
+              >
+                Go to sign in →
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={onSignUp} className="flex flex-col gap-4">
+              <p className="text-xs text-slate-400 leading-relaxed bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
+                For clinic owners only. Staff receive an email invite from their owner.
+              </p>
+
+              <div>
+                <label className={loginLabel}>Your Name</label>
+                <input
+                  type="text"
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  placeholder="Full name"
+                  autoComplete="name"
+                  required
+                  className={loginInput}
+                />
+              </div>
+
               <div>
                 <label className={loginLabel}>Email</label>
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
                   placeholder="you@example.com"
                   autoComplete="email"
                   required
@@ -289,22 +364,27 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={loginLabel}>Password</span>
-                  <button
-                    type="button"
-                    onClick={() => { setShowForgot(true); setResetEmail(email); setError(null); }}
-                    className="text-xs text-slate-400 hover:text-blue-600 transition-colors font-medium"
-                  >
-                    Forgot?
-                  </button>
-                </div>
+                <label className={loginLabel}>Password</label>
                 <PasswordInput
-                  value={password}
-                  onChange={setPassword}
-                  placeholder="••••••••"
-                  show={showPassword}
-                  onToggleShow={() => setShowPassword(!showPassword)}
+                  value={signupPassword}
+                  onChange={setSignupPassword}
+                  placeholder="8+ characters"
+                  show={showSignupPassword}
+                  onToggleShow={() => setShowSignupPassword(!showSignupPassword)}
+                  autoComplete="new-password"
+                />
+                <PasswordHints password={signupPassword} />
+              </div>
+
+              <div>
+                <label className={loginLabel}>Confirm Password</label>
+                <PasswordInput
+                  value={signupConfirm}
+                  onChange={setSignupConfirm}
+                  placeholder="Repeat password"
+                  show={showSignupConfirm}
+                  onToggleShow={() => setShowSignupConfirm(!showSignupConfirm)}
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -317,161 +397,21 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold tracking-wide transition-all disabled:opacity-60 shadow-sm shadow-blue-200 mt-1 hover:-translate-y-0.5"
+                className="w-full h-11 rounded-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-sm font-semibold tracking-wide transition-all disabled:opacity-60 shadow-sm mt-1 hover:-translate-y-0.5"
               >
-                {busy ? "Signing in…" : "Sign In"}
+                {busy ? "Creating account…" : "Create Account"}
               </button>
             </form>
-          )}
-
-          {/* ── Forgot password ── */}
-          {tab === "signin" && showForgot && (
-            <form onSubmit={onSendReset} className="flex flex-col gap-4">
-              {resetSent ? (
-                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 text-center font-medium">
-                  Reset link sent! Check your email.
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    Enter your email and we&apos;ll send you a password reset link.
-                  </p>
-                  <div>
-                    <label className={loginLabel}>Email</label>
-                    <input
-                      type="email"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                      required
-                      className={loginInput}
-                    />
-                  </div>
-                  {error && (
-                    <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-xs text-red-600 font-medium">
-                      {error}
-                    </p>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold tracking-wide transition-all disabled:opacity-60 shadow-sm shadow-blue-200"
-                  >
-                    {busy ? "Sending…" : "Send reset link"}
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => { setShowForgot(false); setResetSent(false); setError(null); }}
-                className="text-xs text-slate-400 hover:text-slate-700 transition-colors text-center font-medium"
-              >
-                ← Back to sign in
-              </button>
-            </form>
-          )}
-
-          {/* ── Sign Up ── */}
-          {tab === "signup" && (
-            signupSuccess ? (
-              <div className="flex flex-col items-center gap-4 py-2 text-center">
-                <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-4 text-sm text-emerald-700 w-full font-medium">
-                  Account created! Check your email to confirm, then sign in.
-                </div>
-                <button
-                  type="button"
-                  onClick={() => switchTab("signin")}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors"
-                >
-                  Go to sign in →
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={onSignUp} className="flex flex-col gap-4">
-                <p className="text-xs text-slate-400 leading-relaxed bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
-                  For clinic owners only. Staff receive an email invite from their owner.
-                </p>
-
-                <div>
-                  <label className={loginLabel}>Your Name</label>
-                  <input
-                    type="text"
-                    value={signupName}
-                    onChange={(e) => setSignupName(e.target.value)}
-                    placeholder="Full name"
-                    autoComplete="name"
-                    required
-                    className={loginInput}
-                  />
-                </div>
-
-                <div>
-                  <label className={loginLabel}>Email</label>
-                  <input
-                    type="email"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    required
-                    className={loginInput}
-                  />
-                </div>
-
-                <div>
-                  <label className={loginLabel}>Password</label>
-                  <PasswordInput
-                    value={signupPassword}
-                    onChange={setSignupPassword}
-                    placeholder="8+ characters"
-                    show={showSignupPassword}
-                    onToggleShow={() => setShowSignupPassword(!showSignupPassword)}
-                    autoComplete="new-password"
-                  />
-                  <PasswordHints password={signupPassword} />
-                </div>
-
-                <div>
-                  <label className={loginLabel}>Confirm Password</label>
-                  <PasswordInput
-                    value={signupConfirm}
-                    onChange={setSignupConfirm}
-                    placeholder="Repeat password"
-                    show={showSignupConfirm}
-                    onToggleShow={() => setShowSignupConfirm(!showSignupConfirm)}
-                    autoComplete="new-password"
-                  />
-                </div>
-
-                {error && (
-                  <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2.5 text-xs text-red-600 font-medium">
-                    {error}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold tracking-wide transition-all disabled:opacity-60 shadow-sm shadow-blue-200 mt-1 hover:-translate-y-0.5"
-                >
-                  {busy ? "Creating account…" : "Create Account"}
-                </button>
-              </form>
-            )
-          )}
-
-        </div>
-
-        {/* Mobile footer */}
-        <div className="flex items-center gap-2 text-xs text-slate-400 mt-10 lg:hidden">
-          <span>Powered by</span>
-          <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-4 w-4 object-contain opacity-60" />
-          <span className="font-medium text-slate-500">Beanstack Studio</span>
-        </div>
-
+          )
+        )}
       </div>
 
-    </main>
+      {/* Footer */}
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <span>Powered by</span>
+        <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-4 w-4 object-contain opacity-60" />
+        <span className="font-medium">Beanstack Studio</span>
+      </div>
+    </div>
   );
 }

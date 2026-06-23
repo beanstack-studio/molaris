@@ -50,7 +50,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     { label: "Profile",    href: "/settings/clinic-profile" },
     { label: "Team",       href: "/settings/team" },
     { label: "Services",   href: "/settings/services",          locked: !isAdmin },
-    { label: "Payments",   href: "/settings/payment-modes",     locked: !isAdmin },
     { label: "Documents",  href: "/settings/document-templates",locked: !isAdmin },
     // ACCOUNT
     { label: "Account",    href: "/settings/account" },

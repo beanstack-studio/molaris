@@ -1,7 +1,6 @@
 "use client";
 
 import { FeatureGate } from "@/components/shared/FeatureGate";
-
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
@@ -10,6 +9,9 @@ import { formatMoney } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
 import { Toggle } from "@/components/Toggle";
 import { cn } from "@/lib/cn";
+import type { PaymentMode } from "@/lib/types";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type ServicePriceRow = {
   id: string;
@@ -18,25 +20,27 @@ type ServicePriceRow = {
   item_type: "SERVICE" | "ADD_ON";
   is_active: boolean;
   duration_minutes?: number;
-  category?: "general" | "ortho"; // PART 1: Service categorization
+  category?: "general" | "ortho";
 };
 
 type ServiceSort = "NAME_ASC" | "NAME_DESC" | "TYPE_ASC" | "TYPE_DESC" | "DUR_ASC" | "DUR_DESC" | "FEE_ASC" | "FEE_DESC";
 
 const TogglePill = Toggle;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function sortRows(list: ServicePriceRow[], sort: ServiceSort) {
   const out = [...list];
   out.sort((a, b) => {
     switch (sort) {
       case "NAME_DESC": return b.service_name.localeCompare(a.service_name);
-      case "TYPE_ASC": return a.item_type.localeCompare(b.item_type);
+      case "TYPE_ASC":  return a.item_type.localeCompare(b.item_type);
       case "TYPE_DESC": return b.item_type.localeCompare(a.item_type);
-      case "DUR_ASC": return (a.duration_minutes ?? 0) - (b.duration_minutes ?? 0);
-      case "DUR_DESC": return (b.duration_minutes ?? 0) - (a.duration_minutes ?? 0);
-      case "FEE_ASC": return a.default_price - b.default_price;
-      case "FEE_DESC": return b.default_price - a.default_price;
-      default: return a.service_name.localeCompare(b.service_name);
+      case "DUR_ASC":   return (a.duration_minutes ?? 0) - (b.duration_minutes ?? 0);
+      case "DUR_DESC":  return (b.duration_minutes ?? 0) - (a.duration_minutes ?? 0);
+      case "FEE_ASC":   return a.default_price - b.default_price;
+      case "FEE_DESC":  return b.default_price - a.default_price;
+      default:          return a.service_name.localeCompare(b.service_name);
     }
   });
   return out;
@@ -58,23 +62,24 @@ function SortIndicator({ active, asc }: { active: boolean; asc: boolean }) {
   );
 }
 
+// ─── Combined page ─────────────────────────────────────────────────────────────
 
-function ServicesSettingsPage() {
+function CatalogSettingsPage() {
   const { clinicId, isLoading: clinicLoading } = useClinic();
+
+  // ── Services state ────────────────────────────────────────────────────────
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState<ServiceSort>("TYPE_DESC");
 
-  // Add modal state
   const [addOpen, setAddOpen] = useState(false);
   const [itemType, setItemType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState<string>("");
-  const [addCategory, setAddCategory] = useState<"general" | "ortho">("general"); // PART 1
+  const [addCategory, setAddCategory] = useState<"general" | "ortho">("general");
 
-  // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<ServicePriceRow | null>(null);
   const [editName, setEditName] = useState("");
@@ -84,33 +89,69 @@ function ServicesSettingsPage() {
   const [editItemType, setEditItemType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
   const [deleteText, setDeleteText] = useState("");
 
-  async function load() {
-    setLoading(true);
-    
+  // ── Payment modes state ────────────────────────────────────────────────────
+  const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
+  const [pmLoading, setPmLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pmError, setPmError] = useState<string | null>(null);
+  const [pmBusy, setPmBusy] = useState(false);
+  const [editData, setEditData] = useState<Partial<PaymentMode> | null>(null);
+
+  const [addPmOpen, setAddPmOpen] = useState(false);
+  const [pmName, setPmName] = useState("");
+  const [pmCode, setPmCode] = useState("");
+  const [pmRequiresProof, setPmRequiresProof] = useState(false);
+  const [pmRequiresReference, setPmRequiresReference] = useState(false);
+  const [pmRequiresReceivedBy, setPmRequiresReceivedBy] = useState(false);
+  const [pmAutoVerifies, setPmAutoVerifies] = useState(false);
+
+  // ── Services data loading ─────────────────────────────────────────────────
+
+  async function loadServices() {
+    setServicesLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // No session - user should be redirected to login, just return
-        setLoading(false);
-        return;
-      }
-      
+      if (!session) { setServicesLoading(false); return; }
       const r = await supabase
         .from("service_prices")
         .select("id, service_name, default_price, item_type, is_active, duration_minutes, category")
         .eq("clinic_id", clinicId)
         .order("service_name", { ascending: true });
-
       setRows((r.data ?? []) as ServicePriceRow[]);
     } finally {
-      setLoading(false);
+      setServicesLoading(false);
     }
   }
 
   useEffect(() => {
     if (clinicLoading || !clinicId) return;
-    load();
-  }, [clinicLoading, clinicId]);
+    loadServices();
+  }, [clinicLoading, clinicId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Payment modes data loading ─────────────────────────────────────────────
+
+  async function loadPaymentModes() {
+    setPmLoading(true);
+    setPmError(null);
+    const { data, error } = await supabase
+      .from("payment_modes")
+      .select("*")
+      .eq("clinic_id", clinicId)
+      .order("sort_order", { ascending: true });
+    setPmLoading(false);
+    if (error === null && data) {
+      setPaymentModes(data);
+    } else if (error) {
+      setPmError("Failed to load payment modes: " + error.message);
+    }
+  }
+
+  useEffect(() => {
+    if (clinicLoading || !clinicId) return;
+    loadPaymentModes();
+  }, [clinicLoading, clinicId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Services handlers ─────────────────────────────────────────────────────
 
   function toggleSort(col: "NAME" | "TYPE" | "DUR" | "FEE") {
     setSort((prev) => {
@@ -124,7 +165,6 @@ function ServicesSettingsPage() {
 
   async function addItem() {
     if (!name.trim()) return;
-
     setBusy(true);
     const { error } = await supabase.from("service_prices").insert({
       clinic_id: clinicId,
@@ -133,17 +173,14 @@ function ServicesSettingsPage() {
       item_type: itemType,
       is_active: true,
       duration_minutes: duration ? Number(duration) : null,
-      category: addCategory, // PART 1
+      category: addCategory,
     });
-
     if (error) {
-      console.error("Add item error:", error);
       setBusy(false);
       alert("Failed to add item: " + error.message);
       return;
     }
-
-    await load();
+    await loadServices();
     setBusy(false);
     closeAdd();
   }
@@ -193,9 +230,7 @@ function ServicesSettingsPage() {
   }
 
   async function saveEdit() {
-    if (!editRow) return;
-    if (!editName.trim()) return;
-
+    if (!editRow || !editName.trim()) return;
     setBusy(true);
     const { error } = await supabase
       .from("service_prices")
@@ -208,130 +243,422 @@ function ServicesSettingsPage() {
       })
       .eq("id", editRow.id)
       .eq("clinic_id", clinicId);
-
     if (error) {
-      console.error("Save error:", error);
       setBusy(false);
       alert("Failed to save: " + error.message);
       return;
     }
-
-    await load();
+    await loadServices();
     setBusy(false);
     closeEdit();
   }
 
   async function deleteItem() {
-    if (!editRow) return;
-    if (deleteText !== "DELETE") return;
-
+    if (!editRow || deleteText !== "DELETE") return;
     setBusy(true);
-    
-    const { error, data } = await supabase
+    const { error } = await supabase
       .from("service_prices")
       .delete()
       .eq("id", editRow.id)
       .eq("clinic_id", clinicId);
-    
-    
     if (error) {
-      console.error("Delete error:", error);
       setBusy(false);
       alert("Failed to delete: " + (error.message || JSON.stringify(error)));
       return;
     }
-
-    await load();
+    await loadServices();
     setBusy(false);
     closeEdit();
   }
 
-  if (loading)
-    return (
-      <PageLoader />
+  // ── Payment modes handlers ─────────────────────────────────────────────────
+
+  async function pmToggleActive(id: string, newValue: boolean) {
+    setPmBusy(true);
+    setPmError(null);
+    setPaymentModes((prev) =>
+      prev.map((mode) => (mode.id === id ? { ...mode, is_active: newValue } : mode))
     );
+    try {
+      const { data, error } = await supabase
+        .from("payment_modes")
+        .update({ is_active: newValue })
+        .eq("id", id)
+        .eq("clinic_id", clinicId)
+        .select();
+      if (error) {
+        setPmError(`Failed to update: ${error.message}`);
+        await loadPaymentModes();
+        return;
+      }
+      if (!data || data.length === 0) {
+        setPmError("Failed to update payment mode");
+        await loadPaymentModes();
+        return;
+      }
+    } catch (ex) {
+      setPmError("An error occurred while updating");
+      await loadPaymentModes();
+    } finally {
+      setPmBusy(false);
+    }
+  }
+
+  function startEdit(mode: PaymentMode) {
+    setEditingId(mode.id);
+    setEditData({ ...mode });
+  }
+
+  async function pmSaveEdit() {
+    if (!editingId || !editData) return;
+    setPmError(null);
+    setPmBusy(true);
+    const { error } = await supabase
+      .from("payment_modes")
+      .update({
+        requires_proof: editData.requires_proof,
+        requires_reference: editData.requires_reference,
+        requires_received_by: editData.requires_received_by,
+        auto_verifies: editData.auto_verifies,
+      })
+      .eq("id", editingId)
+      .eq("clinic_id", clinicId);
+    setPmBusy(false);
+    if (error) { setPmError(error.message); return; }
+    setEditingId(null);
+    setEditData(null);
+    await loadPaymentModes();
+  }
+
+  function pmCancelEdit() {
+    setEditingId(null);
+    setEditData(null);
+    setPmError(null);
+  }
+
+  function openAddPm() {
+    setPmName("");
+    setPmCode("");
+    setPmRequiresProof(false);
+    setPmRequiresReference(false);
+    setPmRequiresReceivedBy(false);
+    setPmAutoVerifies(false);
+    setAddPmOpen(true);
+  }
+
+  function closeAddPm() {
+    setAddPmOpen(false);
+  }
+
+  async function addPaymentMode() {
+    if (!pmName.trim()) return;
+    const maxOrder = paymentModes.reduce((max, m) => Math.max(max, m.sort_order ?? 0), 0);
+    setPmBusy(true);
+    const { error: addErr } = await supabase.from("payment_modes").insert({
+      clinic_id: clinicId,
+      name: pmName.trim(),
+      code: pmCode.trim() || pmName.trim().toUpperCase().replace(/\s+/g, "_"),
+      requires_proof: pmRequiresProof,
+      requires_reference: pmRequiresReference,
+      requires_received_by: pmRequiresReceivedBy,
+      auto_verifies: pmAutoVerifies,
+      is_active: true,
+      sort_order: maxOrder + 1,
+    });
+    setPmBusy(false);
+    if (addErr) { setPmError(addErr.message); return; }
+    closeAddPm();
+    await loadPaymentModes();
+  }
+
+  const sortedPaymentModes = useMemo(
+    () => [...paymentModes].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    [paymentModes]
+  );
+
+  // ── Loading states ─────────────────────────────────────────────────────────
+
+  if (servicesLoading || pmLoading) return <PageLoader />;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">Services &amp; Extras</div>
-          <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
-            Add
-          </button>
+      <div className="spacing-vertical-lg">
+
+        {/* ── Services card ── */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Services &amp; Extras</div>
+            <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
+              Add
+            </button>
+          </div>
+
+          <div className="table-wrapper">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-40" />
+                <col className="col-15" />
+                <col className="col-20" />
+                <col className="col-15" />
+                <col className="col-10" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("NAME")}>
+                    Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
+                  </th>
+                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("TYPE")}>
+                    Type <SortIndicator active={sort.startsWith("TYPE")} asc={sort === "TYPE_ASC"} />
+                  </th>
+                  <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
+                    Duration <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
+                  </th>
+                  <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
+                    Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
+                  </th>
+                  <th className="data-table-head-cell-right">Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {combinedRows.map((r, index) => (
+                  <tr
+                    key={r.id}
+                    className={cn(
+                      "data-table-row cursor-pointer",
+                      index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
+                    )}
+                    onClick={() => openEdit(r)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Edit ${r.service_name}`}
+                  >
+                    <td className="data-table-cell">{r.service_name}</td>
+                    <td className="data-table-cell">
+                      <span className={cn(
+                        "text-xs px-2 py-0.5 rounded-full font-semibold",
+                        r.item_type === "ADD_ON"
+                          ? "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300"
+                          : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
+                      )}>
+                        {r.item_type === "ADD_ON" ? "Extra" : "Service"}
+                      </span>
+                    </td>
+                    <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
+                    <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
+                    <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end">
+                        <TogglePill
+                          checked={r.is_active}
+                          disabled={busy}
+                          onChange={() => toggleActive(r.id, r.is_active)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {combinedRows.length === 0 && (
+                  <tr>
+                    <td className="data-table-empty" colSpan={5}>No services or extras yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className="table-wrapper">
-          <table className="data-table">
-            <colgroup>
-              <col className="col-40" />
-              <col className="col-15" />
-              <col className="col-20" />
-              <col className="col-15" />
-              <col className="col-10" />
-            </colgroup>
-            <thead className="data-table-head">
-              <tr>
-                <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("NAME")}>
-                  Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
-                </th>
-                <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("TYPE")}>
-                  Type <SortIndicator active={sort.startsWith("TYPE")} asc={sort === "TYPE_ASC"} />
-                </th>
-                <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
-                  Duration <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
-                </th>
-                <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
-                  Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
-                </th>
-                <th className="data-table-head-cell-right">Active</th>
-              </tr>
-            </thead>
-            <tbody>
-              {combinedRows.map((r, index) => (
-                <tr
-                  key={r.id}
-                  className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
-                  onClick={() => openEdit(r)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Edit ${r.service_name}`}
-                >
-                  <td className="data-table-cell">{r.service_name}</td>
-                  <td className="data-table-cell">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${r.item_type === "ADD_ON" ? "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300" : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"}`}>
-                      {r.item_type === "ADD_ON" ? "Extra" : "Service"}
-                    </span>
-                  </td>
-                  <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
-                  <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
-                  <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end">
-                      <TogglePill
-                        checked={r.is_active}
-                        disabled={busy}
-                        onChange={() => toggleActive(r.id, r.is_active)}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {combinedRows.length === 0 ? (
+        {/* ── Payment Modes card ── */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Payment Modes</div>
+            <button type="button" className="save-btn" onClick={openAddPm} disabled={pmBusy}>
+              Add
+            </button>
+          </div>
+
+          {pmError && <div className="error-banner">{pmError}</div>}
+
+          <div className="table-wrapper">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-25" />
+                <col className="col-15" />
+                <col className="col-15" />
+                <col className="col-15" />
+                <col className="col-15" />
+                <col className="col-15" />
+              </colgroup>
+              <thead className="data-table-head">
                 <tr>
-                  <td className="data-table-empty" colSpan={5}>No services or extras yet.</td>
+                  <th className="data-table-head-cell">Name</th>
+                  <th className="data-table-head-cell">
+                    <div className="centered-cell">Proof</div>
+                  </th>
+                  <th className="data-table-head-cell">
+                    <div className="centered-cell">Reference</div>
+                  </th>
+                  <th className="data-table-head-cell">
+                    <div className="centered-cell">Staff</div>
+                  </th>
+                  <th className="data-table-head-cell">
+                    <div className="centered-cell">Auto-Verify</div>
+                  </th>
+                  <th className="data-table-head-cell">
+                    <div className="centered-cell">Activate</div>
+                  </th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sortedPaymentModes.length === 0 ? (
+                  <tr className="data-table-row">
+                    <td className="data-table-empty" colSpan={6}>
+                      No payment modes configured.
+                    </td>
+                  </tr>
+                ) : (
+                  sortedPaymentModes.map((mode, i) => (
+                    <tr
+                      key={mode.id}
+                      className={cn(
+                        "data-table-row",
+                        editingId === mode.id ? "" : "cursor-pointer hover:bg-slate-50",
+                        i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
+                      )}
+                      onClick={() => { if (editingId !== mode.id) startEdit(mode); }}
+                      onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && editingId !== mode.id) { e.preventDefault(); startEdit(mode); } }}
+                      tabIndex={editingId === mode.id ? -1 : 0}
+                      role={editingId === mode.id ? undefined : "button"}
+                      aria-label={editingId === mode.id ? undefined : `Edit ${mode.name}`}
+                    >
+                      {editingId === mode.id && editData ? (
+                        <>
+                          <td className="data-table-cell font-semibold" onClick={(e) => e.stopPropagation()}>{mode.name}</td>
+                          <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
+                            <div className="centered-cell">
+                              <input
+                                type="checkbox"
+                                checked={editData.requires_proof || false}
+                                onChange={(e) => setEditData({ ...editData, requires_proof: e.target.checked })}
+                                disabled={pmBusy}
+                                className="h-4 w-4 rounded"
+                              />
+                            </div>
+                          </td>
+                          <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
+                            <div className="centered-cell">
+                              <input
+                                type="checkbox"
+                                checked={editData.requires_reference || false}
+                                onChange={(e) => setEditData({ ...editData, requires_reference: e.target.checked })}
+                                disabled={pmBusy}
+                                className="h-4 w-4 rounded"
+                              />
+                            </div>
+                          </td>
+                          <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
+                            <div className="centered-cell">
+                              <input
+                                type="checkbox"
+                                checked={editData.requires_received_by || false}
+                                onChange={(e) => setEditData({ ...editData, requires_received_by: e.target.checked })}
+                                disabled={pmBusy}
+                                className="h-4 w-4 rounded"
+                              />
+                            </div>
+                          </td>
+                          <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
+                            <div className="centered-cell">
+                              <input
+                                type="checkbox"
+                                checked={editData.auto_verifies || false}
+                                onChange={(e) => setEditData({ ...editData, auto_verifies: e.target.checked })}
+                                disabled={pmBusy}
+                                className="h-4 w-4 rounded"
+                              />
+                            </div>
+                          </td>
+                          <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
+                            <div className="centered-cell">
+                              <TogglePill
+                                checked={mode.is_active}
+                                onChange={(newValue) => pmToggleActive(mode.id, newValue)}
+                              />
+                            </div>
+                            <div className="flex gap-2 justify-center mt-2">
+                              <button className="save-btn" onClick={pmSaveEdit} disabled={pmBusy}>Save</button>
+                              <button className="cancel-btn" onClick={pmCancelEdit} disabled={pmBusy}>Cancel</button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="data-table-cell font-semibold">{mode.name}</td>
+                          <td className="data-table-cell">
+                            <div className="centered-cell">
+                              <span className={cn("inline-block w-4 h-4 rounded", mode.requires_proof ? "bg-blue-500" : "bg-slate-200")} />
+                            </div>
+                          </td>
+                          <td className="data-table-cell">
+                            <div className="centered-cell">
+                              <span className={cn("inline-block w-4 h-4 rounded", mode.requires_reference ? "bg-blue-500" : "bg-slate-200")} />
+                            </div>
+                          </td>
+                          <td className="data-table-cell">
+                            <div className="centered-cell">
+                              <span className={cn("inline-block w-4 h-4 rounded", mode.requires_received_by ? "bg-blue-500" : "bg-slate-200")} />
+                            </div>
+                          </td>
+                          <td className="data-table-cell">
+                            <div className="centered-cell">
+                              <span className={cn("inline-block w-4 h-4 rounded", mode.auto_verifies ? "bg-green-500" : "bg-slate-200")} />
+                            </div>
+                          </td>
+                          <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
+                            <div className="centered-cell">
+                              <TogglePill
+                                checked={mode.is_active}
+                                onChange={(newValue) => pmToggleActive(mode.id, newValue)}
+                              />
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Requirements legend */}
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+            <div className="legend-grid">
+              <div className="legend-item">
+                <span className="legend-indicator bg-blue-500" />
+                <span><strong>Proof</strong> - Requires proof upload</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-indicator bg-blue-500" />
+                <span><strong>Reference</strong> - Requires reference number</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-indicator bg-blue-500" />
+                <span><strong>Staff</strong> - Requires staff member</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-indicator bg-green-500" />
+                <span><strong>Auto-Verify</strong> - Verifies automatically</span>
+              </div>
+            </div>
+          </div>
         </div>
+
       </div>
 
-      <EditModal
-        open={addOpen}
-        title="Add Service / Extra"
-        onClose={closeAdd}
-      >
+      {/* ── Services modals ── */}
+      <EditModal open={addOpen} title="Add Service / Extra" onClose={closeAdd}>
         <div className="spacing-vertical-lg">
           <label className="field-label">
             <span className="field-label-text">Type</span>
@@ -367,17 +694,14 @@ function ServicesSettingsPage() {
                   placeholder="0.00"
                   value={price}
                   onChange={(e) => {
-                    let v = e.target.value.replace(/[^\d.]/g, '');
-                    const parts = v.split('.');
-                    if (parts.length > 2) {
-                      v = parts[0] + '.' + parts.slice(1).join('');
-                    }
+                    let v = e.target.value.replace(/[^\d.]/g, "");
+                    const parts = v.split(".");
+                    if (parts.length > 2) v = parts[0] + "." + parts.slice(1).join("");
                     setPrice(v);
                   }}
                   disabled={busy}
                   inputMode="decimal"
                 />
-                
               </div>
             </label>
 
@@ -421,20 +745,8 @@ function ServicesSettingsPage() {
 
           <div className="modal-actions">
             <div className="modal-actions-right">
-              <button
-                type="button"
-                className="cancel-btn"
-                onClick={closeAdd}
-                disabled={busy}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="save-btn"
-                onClick={addItem}
-                disabled={busy || !name.trim()}
-              >
+              <button type="button" className="cancel-btn" onClick={closeAdd} disabled={busy}>Cancel</button>
+              <button type="button" className="save-btn" onClick={addItem} disabled={busy || !name.trim()}>
                 {busy ? "Adding…" : "Add"}
               </button>
             </div>
@@ -447,7 +759,7 @@ function ServicesSettingsPage() {
         title={editRow ? `Edit ${editRow.item_type === "ADD_ON" ? "Extra" : "Service"}` : "Edit"}
         onClose={closeEdit}
       >
-        {!editRow ? null : (
+        {editRow && (
           <div className="spacing-vertical-lg">
             <label className="field-label">
               <span className="field-label-text">Type</span>
@@ -482,11 +794,9 @@ function ServicesSettingsPage() {
                     placeholder="0.00"
                     value={editPrice}
                     onChange={(e) => {
-                      let v = e.target.value.replace(/[^\d.]/g, '');
-                      const parts = v.split('.');
-                      if (parts.length > 2) {
-                        v = parts[0] + '.' + parts.slice(1).join('');
-                      }
+                      let v = e.target.value.replace(/[^\d.]/g, "");
+                      const parts = v.split(".");
+                      if (parts.length > 2) v = parts[0] + "." + parts.slice(1).join("");
                       setEditPrice(v);
                     }}
                     disabled={busy}
@@ -558,20 +868,8 @@ function ServicesSettingsPage() {
                 Delete
               </button>
               <div className="modal-actions-right">
-                <button
-                  type="button"
-                  className="cancel-btn"
-                  onClick={closeEdit}
-                  disabled={busy}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="save-btn"
-                  onClick={saveEdit}
-                  disabled={busy}
-                >
+                <button type="button" className="cancel-btn" onClick={closeEdit} disabled={busy}>Cancel</button>
+                <button type="button" className="save-btn" onClick={saveEdit} disabled={busy}>
                   {busy ? "Saving…" : "Save"}
                 </button>
               </div>
@@ -579,10 +877,62 @@ function ServicesSettingsPage() {
           </div>
         )}
       </EditModal>
+
+      {/* ── Payment mode add modal ── */}
+      <EditModal open={addPmOpen} title="Add Payment Mode" onClose={closeAddPm}>
+        <div className="spacing-vertical-lg">
+          <label className="field-label">
+            <span className="field-label-text">Name</span>
+            <input
+              className="field-input"
+              value={pmName}
+              onChange={(e) => setPmName(e.target.value)}
+              placeholder="e.g. GCash"
+              disabled={pmBusy}
+            />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Code <span className="text-slate-400 font-normal">(auto-generated if blank)</span></span>
+            <input
+              className="field-input"
+              value={pmCode}
+              onChange={(e) => setPmCode(e.target.value)}
+              placeholder={pmName ? pmName.toUpperCase().replace(/\s+/g, "_") : "e.g. GCASH"}
+              disabled={pmBusy}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={pmRequiresProof} onChange={(e) => setPmRequiresProof(e.target.checked)} className="h-4 w-4 rounded" disabled={pmBusy} />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Requires proof</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={pmRequiresReference} onChange={(e) => setPmRequiresReference(e.target.checked)} className="h-4 w-4 rounded" disabled={pmBusy} />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Requires reference</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={pmRequiresReceivedBy} onChange={(e) => setPmRequiresReceivedBy(e.target.checked)} className="h-4 w-4 rounded" disabled={pmBusy} />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Requires staff</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={pmAutoVerifies} onChange={(e) => setPmAutoVerifies(e.target.checked)} className="h-4 w-4 rounded" disabled={pmBusy} />
+              <span className="text-sm text-slate-700 dark:text-slate-300">Auto-verifies</span>
+            </label>
+          </div>
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button type="button" className="cancel-btn" onClick={closeAddPm} disabled={pmBusy}>Cancel</button>
+              <button type="button" className="save-btn" onClick={addPaymentMode} disabled={pmBusy || !pmName.trim()}>
+                {pmBusy ? "Adding…" : "Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
     </>
   );
 }
 
-export default function ServicesSettingsPageGated() {
-  return <FeatureGate feature="edit_catalog"><ServicesSettingsPage /></FeatureGate>;
+export default function CatalogSettingsPageGated() {
+  return <FeatureGate feature="edit_catalog"><CatalogSettingsPage /></FeatureGate>;
 }
