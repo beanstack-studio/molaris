@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
 import { FeatureGate } from "@/components/shared/FeatureGate";
 
@@ -76,7 +74,14 @@ function BillingContent() {
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
           {clinicName} is on the <strong>{isPro ? "Pro" : "Free"}</strong> plan.
-          {!isPro && " Upgrade to unlock the full Molaris experience."}
+          {!isPro && (
+            <>
+              {" "}Upgrade to Pro to unlock the full Molaris experience.{" "}
+              <a href="mailto:hello@beanstack.studio" className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                Contact hello@beanstack.studio to upgrade.
+              </a>
+            </>
+          )}
         </p>
       </div>
 
@@ -89,17 +94,17 @@ function BillingContent() {
             ? "border-slate-700 dark:border-slate-300 bg-white dark:bg-slate-900"
             : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40"
         }`}>
-          <div>
-            <div className="flex items-center justify-between mb-2">
+          <div className="-mx-5 -mt-5 px-5 pt-5 pb-4 rounded-t-xl bg-slate-100 dark:bg-slate-700/50 mb-1 flex items-end justify-between">
+            <div>
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Free</span>
-              {!isPro && <span className="badge badge-secondary text-xs">Your plan</span>}
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-3xl font-bold text-slate-700 dark:text-slate-200">₱0</span>
+                <span className="text-sm text-slate-400 dark:text-slate-500">/month</span>
+              </div>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-slate-800 dark:text-slate-100">₱0</span>
-              <span className="text-sm text-slate-400 dark:text-slate-500">/month</span>
-            </div>
+            {!isPro && <span className="badge badge-secondary text-xs mb-1">Your plan</span>}
           </div>
-          <div className="border-t border-slate-100 dark:border-slate-700 pt-4 flex flex-col gap-2.5 flex-1">
+          <div className="flex flex-col gap-2.5 flex-1">
             {FREE_FEATURES.map((f) => (
               <div key={f.label} className={`flex items-start gap-2 text-sm ${f.included ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-600"}`}>
                 {f.included ? <IconCheck /> : <IconXMark />}
@@ -123,17 +128,15 @@ function BillingContent() {
             {isPro && <span className="badge badge-info text-xs">Your plan</span>}
           </div>
 
-          <div>
-            <div className="mb-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">Pro</span>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-slate-800 dark:text-slate-100">₱499</span>
-              <span className="text-sm text-slate-400 dark:text-slate-500">/month</span>
+          <div className="-mx-5 -mt-5 px-5 pt-5 pb-4 rounded-t-xl bg-gradient-to-br from-blue-600 to-indigo-600 mb-1">
+            <span className="text-xs font-bold uppercase tracking-widest text-blue-200">Pro</span>
+            <div className="flex items-baseline gap-1 mt-1">
+              <span className="text-3xl font-bold text-white">₱499</span>
+              <span className="text-sm text-blue-200">/month</span>
             </div>
           </div>
 
-          <div className="border-t border-blue-100 dark:border-blue-900 pt-4 flex flex-col gap-2.5 flex-1">
+          <div className="flex flex-col gap-2.5 flex-1">
             {PRO_FEATURES.map((f) => (
               <div key={f.label} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
                 <IconCheck />
@@ -143,39 +146,17 @@ function BillingContent() {
           </div>
 
           {!isPro && (
-            <div className="relative group">
-              <button
-                type="button"
-                className="save-btn w-full opacity-70 cursor-not-allowed"
-                disabled
-                aria-disabled="true"
-              >
-                Upgrade to Pro
-              </button>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
-                <div className="bg-slate-800 dark:bg-slate-700 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap">
-                  Contact hello@beanstack.studio to upgrade
-                </div>
-              </div>
-            </div>
+            <a
+              href="mailto:hello@beanstack.studio"
+              className="mt-auto flex items-center justify-center gap-2 w-full rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30 px-4 py-3 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Contact hello@beanstack.studio to upgrade
+            </a>
           )}
         </div>
-      </div>
-
-      {/* Billing management placeholder */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Billing Management</h2>
-          <span className="badge badge-secondary">Coming soon</span>
-        </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-          Invoice history, payment methods, and subscription management will be available here.
-          For now, please contact{" "}
-          <a href="mailto:hello@beanstack.studio" className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
-            hello@beanstack.studio
-          </a>{" "}
-          for billing inquiries.
-        </p>
       </div>
 
     </div>
