@@ -8,7 +8,7 @@ import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { useDevOverride } from "@/contexts/DevOverrideContext";
 
-const SIDEBAR_KEY = "molaris_sidebar_collapsed";
+const SIDEBAR_KEY = "molaris_sidebar_v2";
 const INACTIVITY_MS = 10 * 60 * 1000; // 10 minutes
 
 function isInvalidRefreshTokenError(err: unknown): boolean {
