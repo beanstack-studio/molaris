@@ -30,7 +30,7 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [chartCollapse, setChartCollapse] = useState(false);
   const [busy, setBusy] = useState(false);
   const devCtx = useDevOverride();
@@ -39,10 +39,11 @@ export default function AppShell({ children }: AppShellProps) {
 
   const isLoginPage = pathname === "/login";
 
-  // Restore sidebar state from localStorage after mount (avoids hydration mismatch)
+  // Restore sidebar state from localStorage after mount (avoids hydration mismatch).
+  // Default is collapsed; only override if user explicitly expanded it.
   useEffect(() => {
     const stored = localStorage.getItem(SIDEBAR_KEY);
-    if (stored === "true") setCollapsed(true);
+    if (stored === "false") setCollapsed(false);
   }, []);
 
   // Listen for chart tab activation events to temporarily collapse sidebar
