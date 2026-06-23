@@ -9,16 +9,16 @@
    ============================================================ */
 :root {
   /* page + card backgrounds */
-  --bg-page:        #eef2fa;
-  --bg-card:        rgba(255, 255, 255, 0.80);   /* glass — semi-transparent white */
-  --bg-card-muted:  rgba(240, 244, 251, 0.65);   /* glass — nested/muted surface */
-  --bg-input:       #f7f9ff;
+  --bg-page:        #daeee8;   /* soft sage-green base */
+  --bg-card:        rgba(255, 255, 255, 0.75);   /* glass — 75% opacity */
+  --bg-card-muted:  rgba(224, 248, 240, 0.65);   /* glass — sage-mint nested surface */
+  --bg-input:       rgba(240, 252, 248, 0.90);
   /* borders */
-  --border-card:    rgba(37, 99, 235, 0.13);     /* faint blue — visible on glass surfaces */
-  --border-input:   #c4d0e8;
-  /* shadows — inset top-edge highlight gives glass the "lit" look */
-  --shadow-card:    0 2px 8px rgba(0,0,0,0.06), 0 8px 32px rgba(37,99,235,0.07), inset 0 1px 0 rgba(255,255,255,0.95);
-  --shadow-modal:   0 24px 80px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.90);
+  --border-card:    rgba(13, 148, 136, 0.16);    /* teal — visible on glass surfaces */
+  --border-input:   rgba(13, 148, 136, 0.22);
+  /* shadows — teal glow + inset highlight */
+  --shadow-card:    0 2px 8px rgba(0,0,0,0.05), 0 8px 32px rgba(13,148,136,0.08), inset 0 1px 0 rgba(255,255,255,0.95);
+  --shadow-modal:   0 24px 80px rgba(0,0,0,0.16), 0 8px 24px rgba(0,0,0,0.09), inset 0 1px 0 rgba(255,255,255,0.90);
 }
 
 html.dark {
@@ -27,7 +27,7 @@ html.dark {
   --bg-card-muted:  rgba(23, 35, 54, 0.60);      /* glass dark muted */
   --bg-input:       #152133;
   /* borders */
-  --border-card:    rgba(148, 163, 184, 0.22);
+  --border-card:    rgba(94, 196, 176, 0.20);    /* teal-muted for dark glass */
   --border-input:   rgba(148,163,184,0.28);
   --shadow-card:    0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
   --shadow-modal:   0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
@@ -36,8 +36,9 @@ html.dark {
 html {
   background-color: var(--bg-page);
   background-image:
-    radial-gradient(ellipse 70% 40% at 10% 0%, hsl(224 70% 80% / 0.20) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 30% at 90% 100%, hsl(250 60% 85% / 0.14) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 60% at 0% 0%,   hsl(162 42% 68% / 0.40) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 45% at 100% 100%, hsl(198 45% 72% / 0.35) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 35% at 55% 15%,  hsl(175 38% 74% / 0.20) 0%, transparent 55%);
 }
 
 body {
@@ -55,8 +56,8 @@ body {
   /* Defaults match the Ocean theme. applyTheme() overrides all of these at runtime.
      Lower sat = softer/muted (pink, green). Higher sat = vivid (blue, orange).
      Lightness values ensure WCAG AA contrast on white backgrounds. */
-  --accent-hue: 224;
-  --accent-sat: 62%;
+  --accent-hue: 172;
+  --accent-sat: 42%;
   --theme-bg-blur: 0px;
 
   --color-violet-50: hsl(var(--accent-hue) 100% 97%);
@@ -80,11 +81,11 @@ body {
 
   /* Body text rendered directly on the theme background (not on a card).
      Each theme sets this via applyTheme(). Ocean default = deep navy. */
-  --text-on-bg: #1e3a8a;
+  --text-on-bg: #134e4a;
 
   /* Theme background — overridden by applyTheme() */
   --theme-bg-image: url('/bg/bg-ocean.png');
-  --theme-bg-color: #bfdbfe;
+  --theme-bg-color: #d4ede8;
 }
 
 /* ============================================================
@@ -262,19 +263,50 @@ html.dark .tab-item-active {
 }
 
 .btn-primary {
-  @apply bg-violet-600 text-white hover:bg-violet-700;
+  @apply text-white disabled:opacity-50 transition-all tracking-wide;
+  background: linear-gradient(135deg, var(--color-violet-700) 0%, var(--color-violet-500) 100%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 3px 12px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.28);
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-violet-800) 0%, var(--color-violet-600) 100%);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14), 0 6px 20px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.35);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97) translateY(0);
+  transition-duration: 80ms;
 }
 
 .btn-secondary {
-  @apply border border-slate-200 bg-white text-slate-600 hover:bg-slate-50;
+  @apply text-slate-600 hover:text-slate-800 disabled:opacity-50 transition-all;
+  border: 1.5px solid rgba(13, 148, 136, 0.22);
+  background: rgba(255, 255, 255, 0.85);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(224, 248, 240, 0.90);
+  border-color: rgba(13, 148, 136, 0.38);
 }
 
 .btn-danger {
-  @apply bg-red-500 text-white hover:bg-red-600;
+  @apply text-white disabled:opacity-50 transition-all;
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  box-shadow: 0 1px 3px rgba(239,68,68,0.20), 0 3px 10px rgba(239,68,68,0.15);
+}
+.btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%);
+  box-shadow: 0 2px 8px rgba(239,68,68,0.35);
+  transform: translateY(-1px);
+}
+.btn-danger:active:not(:disabled) {
+  transform: scale(0.97) translateY(0);
+  transition-duration: 80ms;
 }
 
 .btn-ghost {
-  @apply hover:bg-slate-50 text-slate-600;
+  @apply text-slate-600 transition-colors;
+}
+.btn-ghost:hover {
+  background: rgba(224, 248, 240, 0.80);
 }
 
 /* =========================
@@ -366,12 +398,12 @@ html.dark .tab-item-active {
 
 .data-table-head {
   @apply font-medium;
-  background: linear-gradient(to bottom, rgba(235, 243, 255, 0.95) 0%, rgba(225, 236, 255, 0.85) 100%);
-  border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+  background: linear-gradient(to bottom, rgba(210, 245, 234, 0.95) 0%, rgba(196, 238, 224, 0.85) 100%);
+  border-bottom: 2px solid rgba(13, 148, 136, 0.20);
 }
 html.dark .data-table-head {
-  background: rgba(30, 41, 59, 0.90);
-  border-bottom: 2px solid rgba(148, 163, 184, 0.20);
+  background: rgba(20, 50, 44, 0.90);
+  border-bottom: 2px solid rgba(94, 196, 176, 0.20);
 }
 
 .data-table-head-cell {
@@ -394,24 +426,24 @@ html.dark .data-table-head-cell-right {
 
 .data-table-row {
   @apply transition-colors;
-  border-bottom: 1px solid rgba(37, 99, 235, 0.08);
+  border-bottom: 1px solid rgba(13, 148, 136, 0.08);
 }
 html.dark .data-table-row {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-bottom: 1px solid rgba(94, 196, 176, 0.10);
 }
 
 .data-table-row-even {
   background-color: rgba(255, 255, 255, 0.90);
 }
 html.dark .data-table-row-even {
-  background-color: rgba(30, 41, 59, 0.80);
+  background-color: rgba(20, 50, 44, 0.60);
 }
 
 .data-table-row-odd {
-  background: rgba(235, 242, 255, 0.60);
+  background: rgba(208, 246, 232, 0.50);
 }
 html.dark .data-table-row-odd {
-  background: rgba(23, 35, 54, 0.70);
+  background: rgba(14, 42, 36, 0.65);
 }
 
 tr.data-table-row:hover,
@@ -427,24 +459,24 @@ html.dark tr.data-table-row-odd:hover {
 
 .data-table-row-compact {
   @apply border-b transition-colors;
-  border-color: rgba(37, 99, 235, 0.08);
+  border-color: rgba(13, 148, 136, 0.08);
 }
 html.dark .data-table-row-compact {
-  border-color: rgba(148, 163, 184, 0.12);
+  border-color: rgba(94, 196, 176, 0.10);
 }
 
 .data-table-row-compact-even {
   background-color: rgba(255, 255, 255, 0.90);
 }
 html.dark .data-table-row-compact-even {
-  background-color: rgba(30, 41, 59, 0.80);
+  background-color: rgba(20, 50, 44, 0.60);
 }
 
 .data-table-row-compact-odd {
-  background: rgba(235, 242, 255, 0.60);
+  background: rgba(208, 246, 232, 0.50);
 }
 html.dark .data-table-row-compact-odd {
-  background: rgba(23, 35, 54, 0.70);
+  background: rgba(14, 42, 36, 0.65);
 }
 
 tr.data-table-row-compact:hover,
@@ -863,12 +895,12 @@ html.dark .delete-confirmation {
 
 .field-input-readonly {
   @apply w-full rounded-xl px-3 py-2 text-slate-700 dark:text-slate-300 text-sm font-medium;
-  background: rgba(248, 251, 255, 0.90);
-  border: 1.5px solid rgba(37, 99, 235, 0.15);
+  background: rgba(236, 252, 247, 0.90);
+  border: 1.5px solid rgba(13, 148, 136, 0.18);
 }
 html.dark .field-input-readonly {
-  background: rgba(23, 35, 54, 0.80);
-  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(14, 42, 36, 0.80);
+  border-color: rgba(94, 196, 176, 0.22);
 }
 
 .field-input-white {
@@ -1084,27 +1116,27 @@ html.dark .field-input-readonly {
   box-shadow: var(--shadow-modal);
 }
 
-/* Modal header — glass surface with visible separator */
+/* Modal header — sage-teal glass with visible separator */
 .modal-header {
   @apply px-6 py-4;
-  background: linear-gradient(to bottom, rgba(243, 248, 255, 0.95) 0%, rgba(235, 243, 255, 0.85) 100%);
-  border-bottom: 1.5px solid rgba(37, 99, 235, 0.14);
+  background: linear-gradient(to bottom, rgba(232, 252, 244, 0.96) 0%, rgba(218, 246, 234, 0.88) 100%);
+  border-bottom: 1.5px solid rgba(13, 148, 136, 0.16);
 }
 html.dark .modal-header {
-  background: rgba(30, 41, 59, 0.90);
-  border-bottom: 1.5px solid rgba(148, 163, 184, 0.18);
+  background: rgba(14, 42, 36, 0.90);
+  border-bottom: 1.5px solid rgba(94, 196, 176, 0.18);
 }
 
 .modal-sticky-header {
   @apply sticky top-0 px-6 py-4;
-  background: linear-gradient(to bottom, rgba(243, 248, 255, 0.97) 0%, rgba(235, 243, 255, 0.90) 100%);
-  border-bottom: 1.5px solid rgba(37, 99, 235, 0.14);
+  background: linear-gradient(to bottom, rgba(232, 252, 244, 0.98) 0%, rgba(218, 246, 234, 0.92) 100%);
+  border-bottom: 1.5px solid rgba(13, 148, 136, 0.16);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 html.dark .modal-sticky-header {
-  background: rgba(30, 41, 59, 0.92);
-  border-bottom: 1.5px solid rgba(148, 163, 184, 0.18);
+  background: rgba(14, 42, 36, 0.92);
+  border-bottom: 1.5px solid rgba(94, 196, 176, 0.18);
 }
 
 .form-field {
@@ -1430,12 +1462,12 @@ html.dark .modal-sticky-header {
 
 .readonly-input {
   @apply rounded-xl px-2 py-1 text-sm font-medium text-slate-700 dark:text-slate-300;
-  background: rgba(248, 251, 255, 0.90);
-  border: 1.5px solid rgba(37, 99, 235, 0.15);
+  background: rgba(236, 252, 247, 0.90);
+  border: 1.5px solid rgba(13, 148, 136, 0.18);
 }
 html.dark .readonly-input {
-  background: rgba(23, 35, 54, 0.80);
-  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(14, 42, 36, 0.80);
+  border-color: rgba(94, 196, 176, 0.22);
 }
 
 /* ========================================
@@ -1471,7 +1503,7 @@ html.dark .readonly-input {
   justify-content: center;
   padding: 2rem 1rem;
   gap: 2rem;
-  background: linear-gradient(145deg, #0f172a 0%, #172554 35%, #1e3a8a 65%, #2563eb 100%);
+  background: linear-gradient(145deg, #052e24 0%, #0d4038 35%, #0f5c4e 65%, #0d9488 100%);
 }
 
 /* Login card floats on the gradient */

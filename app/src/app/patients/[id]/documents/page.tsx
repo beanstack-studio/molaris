@@ -38,6 +38,7 @@ import { generateSOADocument } from "@/lib/soaGenerator";
 import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { openDocumentViewer } from "@/components/DocumentViewer";
 import { PageLoader } from "@/components/Spinner";
+import { SortArrow } from "@/components/shared/TableOptions";
 
 
 function DocumentsPage() {
@@ -51,8 +52,18 @@ function DocumentsPage() {
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [docSort, setDocSort] = useState<"DATE_DESC" | "DATE_ASC" | "TYPE_ASC">("DATE_DESC");
+  const [docSortKey, setDocSortKey] = useState<"date" | "type" | "doc_no">("date");
+  const [docSortDir, setDocSortDir] = useState<"asc" | "desc">("desc");
   const [dentists, setDentists] = useState<DentistRow[]>([]);
+
+  function handleDocSort(col: "date" | "type" | "doc_no") {
+    if (docSortKey === col) {
+      setDocSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setDocSortKey(col);
+      setDocSortDir("asc");
+    }
+  }
 
   // Generation modal state
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -113,21 +124,14 @@ function DocumentsPage() {
 
   const displayedDocuments = useMemo(() => {
     const copy = [...documents];
-    if (docSort === "TYPE_ASC") {
-      copy.sort(
-        (a, b) =>
-          (a.doc_type ?? "").localeCompare(b.doc_type ?? "") ||
-          (a.created_at < b.created_at ? 1 : -1)
-      );
-      return copy;
-    }
-    if (docSort === "DATE_ASC") {
-      copy.sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
-      return copy;
-    }
-    copy.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const dir = docSortDir === "asc" ? 1 : -1;
+    copy.sort((a, b) => {
+      if (docSortKey === "type") return dir * (a.doc_type ?? "").localeCompare(b.doc_type ?? "");
+      if (docSortKey === "doc_no") return dir * ((a.doc_no ?? "").localeCompare(b.doc_no ?? ""));
+      return dir * (a.created_at > b.created_at ? 1 : -1);
+    });
     return copy;
-  }, [documents, docSort]);
+  }, [documents, docSortKey, docSortDir]);
 
   const loadData = useCallback(async () => {
     if (clinicLoading || !id || !clinicId) return;
@@ -558,15 +562,6 @@ function DocumentsPage() {
           <div className="card-header">
             <div className="card-title">Documents</div>
             <div className="inline-row">
-              <select
-                className="form-select-standard"
-                value={docSort}
-                onChange={(e) => setDocSort(e.target.value as any)}
-              >
-                <option value="DATE_DESC">Newest</option>
-                <option value="DATE_ASC">Oldest</option>
-                <option value="TYPE_ASC">Type A–Z</option>
-              </select>
               {canWrite && (
                 <button
                   className="save-btn"
@@ -589,9 +584,15 @@ function DocumentsPage() {
               </colgroup>
               <thead className="data-table-head">
                 <tr>
-                  <th className="data-table-head-cell">Date</th>
-                  <th className="data-table-head-cell">Type</th>
-                  <th className="data-table-head-cell">Doc No.</th>
+                  <th className="data-table-head-cell cursor-pointer select-none hover:bg-teal-50/50" onClick={() => handleDocSort("date")}>
+                    Date<SortArrow dir={docSortKey === "date" ? docSortDir : null} />
+                  </th>
+                  <th className="data-table-head-cell cursor-pointer select-none hover:bg-teal-50/50" onClick={() => handleDocSort("type")}>
+                    Type<SortArrow dir={docSortKey === "type" ? docSortDir : null} />
+                  </th>
+                  <th className="data-table-head-cell cursor-pointer select-none hover:bg-teal-50/50" onClick={() => handleDocSort("doc_no")}>
+                    Doc No.<SortArrow dir={docSortKey === "doc_no" ? docSortDir : null} />
+                  </th>
                   <th className="data-table-head-cell-right">Actions</th>
                 </tr>
               </thead>

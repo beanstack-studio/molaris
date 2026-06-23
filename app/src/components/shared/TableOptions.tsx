@@ -295,7 +295,7 @@ export function TableOptions({
 
           {/* ── FILTER ────────────────────────────────────────────── */}
           {filters && filters.length > 0 && (
-            <div className="border-t border-blue-100 pt-5">
+            <div className="border-t border-teal-100 pt-5">
               <div className="flex items-center justify-between mb-3">
                 <SectionLabel>Filter</SectionLabel>
                 <button
@@ -339,7 +339,7 @@ export function TableOptions({
           )}
 
           {/* ── COLUMNS ───────────────────────────────────────────── */}
-          <div className="border-t border-blue-100 pt-5">
+          <div className="border-t border-teal-100 pt-5">
             <div className="flex items-center justify-between mb-3">
               <SectionLabel>
                 Columns ({visibleCount}/{totalCount})
@@ -386,7 +386,7 @@ export function TableOptions({
           </div>
 
           {/* ── EXPORT ────────────────────────────────────────────── */}
-          <div className="border-t border-blue-100 pt-5">
+          <div className="border-t border-teal-100 pt-5">
             <SectionLabel>Export</SectionLabel>
             <div className="flex gap-2 flex-wrap">
               <button
@@ -431,7 +431,7 @@ export function TableOptions({
           </div>
 
           {/* ── DONE ──────────────────────────────────────────────── */}
-          <div className="modal-actions-right border-t border-blue-100 pt-4">
+          <div className="modal-actions-right border-t border-teal-100 pt-4">
             <button type="button" className="cancel-btn" onClick={handleClose}>
               Done
             </button>

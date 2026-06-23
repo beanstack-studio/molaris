@@ -17,13 +17,13 @@ export const THEMES: Theme[] = [
   {
     id: "ocean",
     name: "Ocean",
-    hue: 210,
-    sat: 70,
+    hue: 172,
+    sat: 42,
     bgImage: "url('/bg/bg-ocean.png')",
-    bgColor: "#bfdbfe",
+    bgColor: "#d4ede8",
     bgBlur: "0px",
     previewBg: "url('/bg/bg-ocean.png')",
-    textOnBg: "#1e3a5f",  // deep navy — readable on blue water
+    textOnBg: "#134e4a",
   },
   {
     id: "spring",
