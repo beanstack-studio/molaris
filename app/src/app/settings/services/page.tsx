@@ -2,6 +2,7 @@
 
 import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
 import { EditModal } from "@/components/EditModal";
@@ -65,7 +66,8 @@ function SortIndicator({ active, asc }: { active: boolean; asc: boolean }) {
 // ─── Combined page ─────────────────────────────────────────────────────────────
 
 function CatalogSettingsPage() {
-  const { clinicId, isLoading: clinicLoading } = useClinic();
+  const { clinicId, isAdmin, isLoading: clinicLoading } = useClinic();
+  const router = useRouter();
 
   // ── Services state ────────────────────────────────────────────────────────
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
@@ -104,6 +106,13 @@ function CatalogSettingsPage() {
   const [pmRequiresReference, setPmRequiresReference] = useState(false);
   const [pmRequiresReceivedBy, setPmRequiresReceivedBy] = useState(false);
   const [pmAutoVerifies, setPmAutoVerifies] = useState(false);
+
+  // ── Admin redirect ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!clinicLoading && !isAdmin) {
+      router.replace("/settings/account");
+    }
+  }, [clinicLoading, isAdmin, router]);
 
   // ── Services data loading ─────────────────────────────────────────────────
 
@@ -162,6 +171,8 @@ function CatalogSettingsPage() {
   }
 
   const combinedRows = useMemo(() => sortRows([...rows], sort), [rows, sort]);
+
+  if (!isAdmin && !clinicLoading) return null;
 
   async function addItem() {
     if (!name.trim()) return;

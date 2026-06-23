@@ -9,15 +9,15 @@
    ============================================================ */
 :root {
   /* page + card backgrounds */
-  --bg-page:        #f8f7ff;   /* near-white with violet tint — cards pop dramatically */
+  --bg-page:        #eef2fa;   /* cool blue-gray — immediately different from before */
   --bg-card:        #ffffff;
-  --bg-card-muted:  #f1f5f9;   /* zebra rows, nested sections */
-  --bg-input:       #f8fafc;   /* inputs sit slightly off-white inside white cards */
+  --bg-card-muted:  #f0f4fb;
+  --bg-input:       #f7f9ff;
   /* borders */
-  --border-card:    #dde3ec;
-  --border-input:   #c8d0dc;
-  /* shadows — slightly more visible on the richer bg */
-  --shadow-card:    0 4px 6px rgba(0,0,0,0.04), 0 12px 40px rgba(109,40,217,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --border-card:    #dce4f0;
+  --border-input:   #c4d0e8;
+  /* shadows */
+  --shadow-card:    0 2px 4px rgba(0,0,0,0.04), 0 8px 32px rgba(37,99,235,0.06), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-modal:   0 24px 80px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.10);
 }
 
@@ -52,8 +52,8 @@ body {
   /* Defaults match the Ocean theme. applyTheme() overrides all of these at runtime.
      Lower sat = softer/muted (pink, green). Higher sat = vivid (blue, orange).
      Lightness values ensure WCAG AA contrast on white backgrounds. */
-  --accent-hue: 270;
-  --accent-sat: 72%;
+  --accent-hue: 224;
+  --accent-sat: 62%;
   --theme-bg-blur: 0px;
 
   --color-violet-50: hsl(var(--accent-hue) 100% 97%);
@@ -77,7 +77,7 @@ body {
 
   /* Body text rendered directly on the theme background (not on a card).
      Each theme sets this via applyTheme(). Ocean default = deep navy. */
-  --text-on-bg: #1e3a5f;
+  --text-on-bg: #1e3a8a;
 
   /* Theme background — overridden by applyTheme() */
   --theme-bg-image: url('/bg/bg-ocean.png');
@@ -1398,7 +1398,7 @@ html.dark .delete-confirmation {
   justify-content: center;
   padding: 2rem 1rem;
   gap: 2rem;
-  background: linear-gradient(145deg, #3b0764 0%, #4c1d95 35%, #5b21b6 65%, #6d28d9 100%);
+  background: linear-gradient(145deg, #0f172a 0%, #172554 35%, #1e3a8a 65%, #2563eb 100%);
 }
 
 /* Login card floats on the gradient */

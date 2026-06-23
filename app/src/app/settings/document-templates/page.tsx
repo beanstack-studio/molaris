@@ -3,6 +3,8 @@
 import { FeatureGate } from "@/components/shared/FeatureGate";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useClinic } from "@/contexts/ClinicContext";
 import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 import { generateCertificateHTML } from "@/lib/certificateGenerator";
@@ -13,14 +15,24 @@ const TABS = ["Prescription", "Certificate", "Referral", "Invoice", "Receipt"] a
 type Tab = typeof TABS[number];
 
 function DocumentTemplatesSettingsPage() {
+  const { isAdmin, isLoading: clinicLoading } = useClinic();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("Prescription");
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    generatePreview(activeTab);
+    if (!clinicLoading && !isAdmin) {
+      router.replace("/settings/account");
+    }
+  }, [clinicLoading, isAdmin, router]);
+
+  useEffect(() => {
+    if (isAdmin) generatePreview(activeTab);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, isAdmin]);
+
+  if (!isAdmin && !clinicLoading) return null;
 
   async function generatePreview(tab: Tab) {
     setLoading(true);

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, JetBrains_Mono } from "next/font/google";
+import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import AppShell from "@/components/layout/AppShell";
 import { ClinicProvider } from "@/contexts/ClinicContext";
 import { DevOverrideProvider } from "@/contexts/DevOverrideContext";
@@ -7,7 +7,7 @@ import { PWAUpdateBanner } from "@/components/shared/PWAUpdateBanner";
 import { DevViewToggle } from "@/components/dev/DevViewToggle";
 import "./globals.css";
 
-const outfit = Outfit({
+const dmSans = DM_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
@@ -40,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${outfit.variable} ${mono.variable} antialiased${isDev ? " pt-8" : ""}`}>
+      <body className={`${dmSans.variable} ${mono.variable} antialiased${isDev ? " pt-8" : ""}`}>
         <PWAUpdateBanner />
         {isDev ? (
           <DevOverrideProvider>

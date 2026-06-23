@@ -281,7 +281,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                     <div className="ml-3 mt-0.5 border-l border-white/15 pl-2 flex flex-col gap-0">
                       {settingsFlyoutSections.map((section, si) => {
                         const visibleItems = section.items.filter(
-                          (sub) => !(sub.adminOnly && !isAdmin)
+                          (sub) => !(sub.adminOnly && !isAdmin) && !(sub.adminLock && !isAdmin)
                         );
                         if (visibleItems.length === 0) return null;
                         return (

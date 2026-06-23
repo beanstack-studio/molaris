@@ -14,27 +14,17 @@ function IconBack() {
   );
 }
 
-function IconLock() {
-  return (
-    <svg className="w-3 h-3 inline-block ml-0.5 opacity-50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path strokeLinecap="round" d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
 
 interface MobileNavItem {
   label: string;
   href: string;
   /** If set, item is hidden when false. */
   show?: boolean;
-  /** If set, show lock icon. */
-  locked?: boolean;
 }
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isAdmin, isPro, isLoading } = useClinic();
+  const { isAdmin, isLoading } = useClinic();
 
   if (isLoading) {
     return (
@@ -49,8 +39,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     // CLINIC
     { label: "Profile",    href: "/settings/clinic-profile" },
     { label: "Team",       href: "/settings/team" },
-    { label: "Services",   href: "/settings/services",          locked: !isAdmin },
-    { label: "Documents",  href: "/settings/document-templates",locked: !isAdmin },
+    { label: "Services",   href: "/settings/services",           show: isAdmin },
+    { label: "Documents",  href: "/settings/document-templates", show: isAdmin },
     // ACCOUNT
     { label: "Account",    href: "/settings/account" },
     { label: "Billing",    href: "/settings/billing",           show: isAdmin },
@@ -80,7 +70,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   className={cn("tab-item", active && "tab-item-active")}
                 >
                   {item.label}
-                  {item.locked && <IconLock />}
                 </Link>
               );
             })}
