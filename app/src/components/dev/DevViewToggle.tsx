@@ -1,8 +1,8 @@
 "use client";
 
 // TODO: REMOVE BEFORE MULTI-TENANT LAUNCH
-// Dev-only overlay for simulating plan/role/viewport states. Only renders when
-// NEXT_PUBLIC_DEV_TOOLS=true. Do not ship to production.
+// Dev-only floating panel for simulating plan/role/viewport states.
+// Only renders when NEXT_PUBLIC_DEV_TOOLS=true and for the owner email.
 
 import { useEffect, useState } from "react";
 import { useDevOverride, type ViewMode } from "@/contexts/DevOverrideContext";
@@ -44,23 +44,24 @@ function IconPhone() {
 
 type Preset = "admin" | "dentist" | "staff" | "free";
 
-const PRESETS: { key: Preset; label: string }[] = [
-  { key: "admin",   label: "Admin" },
-  { key: "dentist", label: "Dentist" },
-  { key: "staff",   label: "Staff" },
-  { key: "free",    label: "Free" },
+const PRESETS: { key: Preset; label: string; color: string }[] = [
+  { key: "admin",   label: "Admin",   color: "bg-orange-500 text-white" },
+  { key: "dentist", label: "Dentist", color: "bg-blue-500 text-white" },
+  { key: "staff",   label: "Staff",   color: "bg-slate-500 text-white" },
+  { key: "free",    label: "Free",    color: "bg-amber-500 text-white" },
 ];
 
-const VIEWPORTS: { key: ViewMode; label: string; icon: React.ReactNode; sim: string }[] = [
-  { key: "desktop", label: "Desktop", icon: <IconMonitor />, sim: "1280px+" },
-  { key: "tablet",  label: "Tablet",  icon: <IconTablet />,  sim: "768px" },
-  { key: "mobile",  label: "Mobile",  icon: <IconPhone />,   sim: "390px" },
+const VIEWPORTS: { key: ViewMode; label: string; icon: React.ReactNode }[] = [
+  { key: "desktop", label: "Desktop", icon: <IconMonitor /> },
+  { key: "tablet",  label: "Tablet",  icon: <IconTablet /> },
+  { key: "mobile",  label: "Mobile",  icon: <IconPhone /> },
 ];
 
 export function DevViewToggle() {
   const ctx = useDevOverride();
   const { userEmail } = useClinic();
   const [width, setWidth] = useState(0);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const update = () => setWidth(window.innerWidth);
@@ -82,63 +83,90 @@ export function DevViewToggle() {
 
   const activeView = override.viewMode;
   const isSimulated = activeView !== "desktop";
-  const simWidth = VIEWPORTS.find((v) => v.key === activeView)?.sim ?? "";
+  const simInfo = isSimulated
+    ? `${VIEWPORTS.find((v) => v.key === activeView)?.label} sim`
+    : `${getBreakpoint(width)} · ${width > 0 ? `${width}px` : ""}`;
 
-  const breakpointInfo = isSimulated
-    ? `${simWidth} simulated`
-    : `${getBreakpoint(width)} · ${width > 0 ? `${width}px` : ""} · resets on refresh`;
+  const activePColor = PRESETS.find((p) => p.key === activePreset)?.color ?? "bg-orange-500 text-white";
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999] bg-yellow-50 border-b border-yellow-200 h-8 flex items-center gap-3 px-4 select-none text-xs">
-      <span className="font-bold text-orange-500 shrink-0 tracking-wide">DEV</span>
-      <span className="text-yellow-600 shrink-0">View as:</span>
+    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-2">
+      {/* Expanded panel */}
+      {open && (
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-xl p-4 w-64 select-none text-xs">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-bold text-orange-500 tracking-wide text-sm">DEV TOOLS</span>
+            <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold", activePColor)}>
+              {activePreset}
+            </span>
+          </div>
 
-      {/* Role presets */}
-      <div className="flex items-center gap-1">
-        {PRESETS.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setPreset(key)}
-            className={cn(
-              "px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors",
-              activePreset === key
-                ? "bg-orange-500 text-white"
-                : "border border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+          {/* Role presets */}
+          <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-1.5">View as</p>
+          <div className="flex gap-1 flex-wrap mb-3">
+            {PRESETS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setPreset(key)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                  activePreset === key
+                    ? "bg-orange-500 text-white"
+                    : "border border-slate-200 text-slate-500 hover:border-slate-400"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-      {/* Separator */}
-      <span className="text-yellow-300 shrink-0">|</span>
+          {/* Viewport presets */}
+          <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-1.5">Viewport</p>
+          <div className="flex gap-1 mb-3">
+            {VIEWPORTS.map(({ key, label, icon }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setViewMode(key)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors",
+                  activeView === key
+                    ? "bg-blue-500 text-white"
+                    : "border border-slate-200 text-slate-500 hover:border-slate-400"
+                )}
+              >
+                {icon}
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
 
-      {/* Viewport presets */}
-      <div className="flex items-center gap-1">
-        {VIEWPORTS.map(({ key, label, icon }) => (
-          <button
-            key={key}
-            type="button"
-            title={label}
-            onClick={() => setViewMode(key)}
-            className={cn(
-              "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors",
-              activeView === key
-                ? "bg-blue-500 text-white"
-                : "border border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
-            )}
-          >
-            {icon}
-            <span className="hidden sm:inline">{label}</span>
-          </button>
-        ))}
-      </div>
+          {/* Info */}
+          <p className={cn("text-[10px]", isSimulated ? "text-blue-500 font-medium" : "text-slate-400")}>
+            {simInfo} · resets on refresh
+          </p>
+        </div>
+      )}
 
-      <span className={cn("ml-auto italic shrink-0", isSimulated ? "text-blue-500 font-medium" : "text-yellow-600")}>
-        {breakpointInfo}
-      </span>
+      {/* FAB trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg text-xs font-bold tracking-wide transition-all",
+          open
+            ? "bg-orange-500 text-white"
+            : "bg-yellow-50 border border-yellow-300 text-orange-500 hover:bg-yellow-100"
+        )}
+        title="Dev tools"
+      >
+        <span>DEV</span>
+        <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold", activePColor)}>
+          {activePreset}
+        </span>
+      </button>
     </div>
   );
 }

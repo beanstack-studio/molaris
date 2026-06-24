@@ -48,7 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${dmSans.variable} ${mono.variable} antialiased${isDev ? " pt-8" : ""}`}>
+      <body className={`${dmSans.variable} ${mono.variable} antialiased`}>
         <PWAUpdateBanner />
         {isDev ? (
           <DevOverrideProvider>

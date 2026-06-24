@@ -1,17 +1,13 @@
 /*
  * SQL Migrations — run in Supabase SQL editor before using these features:
- * (See ClinicContext.tsx for full migration SQL including dentist_handlers table)
+ *   See supabase/migrations/20260623_team_updates.sql
  *
  * Quick reference:
- *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS nickname text;
- *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS can_access_clinical boolean DEFAULT false;
- *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS profile_id uuid REFERENCES profiles(id);
- *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS email text;
- *   ALTER TABLE staff_invites ADD COLUMN IF NOT EXISTS dentist_id uuid REFERENCES dentists(id);
  *   ALTER TABLE dentists ADD COLUMN IF NOT EXISTS photo_url text;
+ *   ALTER TABLE dentists ADD COLUMN IF NOT EXISTS specialty text;
  *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS photo_url text;
- *
- * dentist_handlers table — see ClinicContext.tsx for full CREATE TABLE statement.
+ *   ALTER TABLE dentist_blockouts ADD COLUMN IF NOT EXISTS clinic_id uuid REFERENCES clinics(id);
+ *   ALTER TABLE dentist_blockouts ADD COLUMN IF NOT EXISTS reason text;
  */
 
 "use client";
@@ -38,6 +34,18 @@ const DENTIST_COLORS = [
   { hex: "#65a30d", label: "Lime" },
   { hex: "#06b6d4", label: "Cyan" },
 ];
+
+const DENTIST_SPECIALTIES = [
+  "General Dentist",
+  "Associate Dentist",
+  "Orthodontist",
+  "Periodontist",
+  "Endodontist",
+  "Oral Surgeon",
+  "Pediatric Dentist",
+  "Prosthodontist",
+  "Dental Hygienist",
+] as const;
 
 const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 type DayKey = typeof DAY_KEYS[number];
@@ -83,7 +91,7 @@ type DentistRow = {
   id: string; full_name: string; nickname: string | null;
   prc_number: string | null; ptr_number: string | null;
   date_of_birth: string | null; is_active: boolean; color: string | null;
-  photo_url: string | null;
+  photo_url: string | null; specialty: string | null;
 };
 type StaffRow = {
   id: string; full_name: string; nickname: string | null; role: string;
@@ -95,6 +103,10 @@ type InviteRow = {
   id: string; email: string; role: string;
   status: "pending" | "accepted" | "expired";
   created_at: string; expires_at: string;
+};
+type BlockoutRow = {
+  id: string; clinic_id: string; dentist_id: string;
+  start_date: string; end_date: string; reason: string | null;
 };
 type DaySchedule = { is_working: boolean; start_time: number; end_time: number };
 type DentistSchedule = Record<DayKey, DaySchedule>;
@@ -133,6 +145,7 @@ export default function TeamSettingsPage() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [handlers, setHandlers] = useState<HandlerGroupRow[]>([]);
+  const [blockouts, setBlockouts] = useState<BlockoutRow[]>([]);
   const [staffAccessCount, setStaffAccessCount] = useState(0);
   const [clinicHours, setClinicHours] = useState<ClinicHoursEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,6 +167,7 @@ export default function TeamSettingsPage() {
   const [dentistPrc, setDentistPrc] = useState("");
   const [dentistPtr, setDentistPtr] = useState("");
   const [dentistColor, setDentistColor] = useState<string>(DENTIST_COLORS[0].hex);
+  const [dentistSpecialty, setDentistSpecialty] = useState("");
   const [dentistInviteEmail, setDentistInviteEmail] = useState("");
   const [dentistInviteSuccess, setDentistInviteSuccess] = useState<string | null>(null);
   const dentistDobRef = useRef<HTMLInputElement | null>(null);
@@ -169,6 +183,16 @@ export default function TeamSettingsPage() {
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
+  // Blockout modal state
+  const [showBlockoutModal, setShowBlockoutModal] = useState(false);
+  const [editingBlockout, setEditingBlockout] = useState<BlockoutRow | null>(null);
+  const [blockoutDentistId, setBlockoutDentistId] = useState("");
+  const [blockoutStart, setBlockoutStart] = useState("");
+  const [blockoutEnd, setBlockoutEnd] = useState("");
+  const [blockoutReason, setBlockoutReason] = useState("");
+  const blockoutStartRef = useRef<HTMLInputElement | null>(null);
+  const blockoutEndRef = useRef<HTMLInputElement | null>(null);
+
   // Dentist photo state
   const [dentistPhotoFile, setDentistPhotoFile] = useState<File | null>(null);
   const [dentistPhotoPreview, setDentistPhotoPreview] = useState<string | null>(null);
@@ -183,20 +207,24 @@ export default function TeamSettingsPage() {
     if (clinicLoading || !clinicId) return;
     setLoading(true); setError(null);
     try {
-      const [dentistRes, staffRes, inviteRes, profileRes] = await Promise.all([
+      const [dentistRes, staffRes, inviteRes, profileRes, blockoutRes] = await Promise.all([
         supabase.from("dentists").select("*").eq("clinic_id", clinicId).order("full_name"),
         supabase.from("staff").select("*").eq("clinic_id", clinicId).order("full_name"),
         supabase.from("staff_invites").select("id, email, role, status, created_at, expires_at")
           .eq("clinic_id", clinicId).eq("status", "pending").order("created_at", { ascending: false }),
         supabase.from("clinic_profile").select("clinic_hours").eq("clinic_id", clinicId).maybeSingle(),
+        supabase.from("dentist_blockouts")
+          .select("id, clinic_id, dentist_id, start_date, end_date, reason")
+          .eq("clinic_id", clinicId)
+          .order("start_date"),
       ]);
       if (dentistRes.error) throw dentistRes.error;
       const loadedDentists = (dentistRes.data ?? []) as DentistRow[];
       setDentists(loadedDentists);
       if (!staffRes.error) setStaff((staffRes.data ?? []) as StaffRow[]);
       if (!inviteRes.error) setInvites((inviteRes.data ?? []) as InviteRow[]);
+      if (!blockoutRes.error) setBlockouts((blockoutRes.data ?? []) as BlockoutRow[]);
 
-      // Count staff with app access (accepted invites) for free-plan invite limit
       const { count: accessCount } = await supabase
         .from("staff_invites")
         .select("id", { count: "exact", head: true })
@@ -209,16 +237,13 @@ export default function TeamSettingsPage() {
         setClinicHours(profileRes.data.clinic_hours as ClinicHoursEntry[]);
       }
 
-      // Load handler assignments (Pro + Admin view)
       const handlerRes = await supabase
         .from("dentist_handlers")
         .select("staff_id, dentist_id")
         .eq("clinic_id", clinicId);
       if (!handlerRes.error && handlerRes.data && staffRes.data && dentistRes.data) {
         const loadedStaff = (staffRes.data ?? []) as StaffRow[];
-        const loadedDentistMap = new Map<string, DentistRow>(
-          loadedDentists.map((d) => [d.id, d])
-        );
+        const loadedDentistMap = new Map<string, DentistRow>(loadedDentists.map((d) => [d.id, d]));
         const staffMap = new Map<string, StaffRow>(loadedStaff.map((s) => [s.id, s]));
         const groupMap = new Map<string, HandlerGroupRow>();
         for (const row of handlerRes.data as { staff_id: string; dentist_id: string }[]) {
@@ -242,7 +267,6 @@ export default function TeamSettingsPage() {
         setHandlers(Array.from(groupMap.values()));
       }
 
-      // Batch-load all dentist schedules
       if (loadedDentists.length > 0) {
         const schedRes = await supabase
           .from("dentist_schedules")
@@ -343,7 +367,7 @@ export default function TeamSettingsPage() {
   function openAddDentist() {
     setEditingDentist(null); setDentistName(""); setDentistNickname("");
     setDentistDob(""); setDentistPrc(""); setDentistPtr(""); setDentistColor(DENTIST_COLORS[0].hex);
-    setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistSpecialty(""); setDentistInviteEmail(""); setDentistInviteSuccess(null);
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
     setDentistPhotoPreview(null);
@@ -353,6 +377,7 @@ export default function TeamSettingsPage() {
     setEditingDentist(d); setDentistName(d.full_name); setDentistNickname(d.nickname ?? "");
     setDentistDob(d.date_of_birth ?? ""); setDentistPrc(d.prc_number ?? "");
     setDentistPtr(d.ptr_number ?? ""); setDentistColor(d.color ?? DENTIST_COLORS[0].hex);
+    setDentistSpecialty(d.specialty ?? "");
     setDentistInviteEmail(""); setDentistInviteSuccess(null);
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
@@ -364,7 +389,7 @@ export default function TeamSettingsPage() {
     setDentistPhotoFile(null); setDentistPhotoPreview(null);
     setShowAddDentistModal(false); setEditingDentist(null);
     setDentistName(""); setDentistNickname(""); setDentistDob(""); setDentistPrc(""); setDentistPtr("");
-    setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistSpecialty(""); setDentistInviteEmail(""); setDentistInviteSuccess(null);
   }
   async function saveDentist() {
     if (!dentistName.trim()) return;
@@ -374,7 +399,7 @@ export default function TeamSettingsPage() {
         clinic_id: clinicId, full_name: dentistName.trim(),
         nickname: dentistNickname.trim() || null, date_of_birth: dentistDob || null,
         prc_number: dentistPrc.trim() || null, ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
-        color: dentistColor,
+        color: dentistColor, specialty: dentistSpecialty || null,
       };
       let dentistId: string;
       if (editingDentist) {
@@ -419,32 +444,20 @@ export default function TeamSettingsPage() {
     try {
       const normalizedEmail = dentistInviteEmail.trim().toLowerCase();
       const payload: Record<string, unknown> = {
-        clinic_id: clinicId,
-        email: normalizedEmail,
-        role: "dentist",
-        invited_by: profileId,
+        clinic_id: clinicId, email: normalizedEmail, role: "dentist", invited_by: profileId,
       };
       if (editingDentist) payload.dentist_id = editingDentist.id;
       const { error: dbError } = await supabase.from("staff_invites").insert(payload);
       if (dbError) throw dbError;
-
-      // Send the actual Supabase auth invite email
       const res = await fetch("/api/invite-staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: normalizedEmail,
-          clinicId,
-          clinicName,
-          inviterName: userFullName ?? "",
-          role: "dentist",
-        }),
+        body: JSON.stringify({ email: normalizedEmail, clinicId, clinicName, inviterName: userFullName ?? "", role: "dentist" }),
       });
       if (!res.ok) {
         const json = await res.json() as { error?: string };
         throw new Error(json.error ?? "Failed to send invite email");
       }
-
       setDentistInviteSuccess(`Invite sent to ${normalizedEmail}`);
       setDentistInviteEmail("");
       await loadData();
@@ -468,7 +481,6 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(s.photo_url ?? null);
-    // Load existing handler dentist assignments
     const { data: hRows } = await supabase
       .from("dentist_handlers")
       .select("dentist_id")
@@ -494,7 +506,6 @@ export default function TeamSettingsPage() {
         role: staffRole.trim(), date_of_birth: staffDob || null,
         can_access_clinical: staffHandlerDentistIds.length > 0,
       };
-
       let staffId: string;
       if (editingStaff) {
         const { error } = await supabase.from("staff").update(payload).eq("id", editingStaff.id);
@@ -509,8 +520,6 @@ export default function TeamSettingsPage() {
         if (error) throw error;
         staffId = (data as { id: string }).id;
       }
-
-      // Sync dentist_handlers: get existing, diff, delete removed, add new
       const { data: existingHandlers } = await supabase
         .from("dentist_handlers")
         .select("dentist_id")
@@ -520,24 +529,17 @@ export default function TeamSettingsPage() {
       const toRemove = existingIds.filter((id) => !staffHandlerDentistIds.includes(id));
       const toAdd = staffHandlerDentistIds.filter((id) => !existingIds.includes(id));
       if (toRemove.length > 0) {
-        await supabase.from("dentist_handlers")
-          .delete()
-          .eq("staff_id", staffId)
-          .eq("clinic_id", clinicId)
-          .in("dentist_id", toRemove);
+        await supabase.from("dentist_handlers").delete()
+          .eq("staff_id", staffId).eq("clinic_id", clinicId).in("dentist_id", toRemove);
       }
       if (toAdd.length > 0) {
         await supabase.from("dentist_handlers").insert(
           toAdd.map((dentistId) => ({
-            clinic_id: clinicId,
-            staff_id: staffId,
-            dentist_id: dentistId,
-            can_record_treatments: true,
-            can_create_invoices: true,
+            clinic_id: clinicId, staff_id: staffId, dentist_id: dentistId,
+            can_record_treatments: true, can_create_invoices: true,
           }))
         );
       }
-
       if (staffPhotoFile) {
         const ext = staffPhotoFile.name.split(".").pop() ?? "jpg";
         const path = `staff-photos/${staffId}.${ext}`;
@@ -558,7 +560,6 @@ export default function TeamSettingsPage() {
   async function deleteStaff(id: string) {
     if (!confirm("Delete this staff member? This cannot be undone.")) return;
     setBusy(true);
-    // Remove handler assignments first
     await supabase.from("dentist_handlers").delete().eq("staff_id", id).eq("clinic_id", clinicId);
     const { error } = await supabase.from("staff").delete().eq("id", id);
     if (error) setError(error.message);
@@ -571,32 +572,70 @@ export default function TeamSettingsPage() {
     try {
       const normalizedEmail = inviteEmail.trim().toLowerCase();
       const { error: dbError } = await supabase.from("staff_invites").insert({
-        clinic_id: clinicId, email: normalizedEmail,
-        role: "staff", invited_by: profileId,
+        clinic_id: clinicId, email: normalizedEmail, role: "staff", invited_by: profileId,
       });
       if (dbError) throw dbError;
-
-      // Send the actual Supabase auth invite email
       const res = await fetch("/api/invite-staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: normalizedEmail,
-          clinicId,
-          clinicName,
-          inviterName: userFullName ?? "",
-          role: "staff",
-        }),
+        body: JSON.stringify({ email: normalizedEmail, clinicId, clinicName, inviterName: userFullName ?? "", role: "staff" }),
       });
       if (!res.ok) {
         const json = await res.json() as { error?: string };
         throw new Error(json.error ?? "Failed to send invite email");
       }
-
       setInviteSuccess(`Invite sent to ${normalizedEmail}`);
       setInviteEmail(""); await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to send invite"); }
     finally { setBusy(false); }
+  }
+
+  // ── Blockout CRUD ─────────────────────────────────────────────────────────────
+  function openAddBlockout() {
+    setEditingBlockout(null);
+    setBlockoutDentistId(dentists[0]?.id ?? "");
+    setBlockoutStart(""); setBlockoutEnd(""); setBlockoutReason("");
+    setShowBlockoutModal(true);
+  }
+  function openEditBlockout(b: BlockoutRow) {
+    setEditingBlockout(b);
+    setBlockoutDentistId(b.dentist_id);
+    setBlockoutStart(b.start_date); setBlockoutEnd(b.end_date); setBlockoutReason(b.reason ?? "");
+    setShowBlockoutModal(true);
+  }
+  function closeBlockoutModal() {
+    setShowBlockoutModal(false); setEditingBlockout(null);
+    setBlockoutDentistId(""); setBlockoutStart(""); setBlockoutEnd(""); setBlockoutReason("");
+  }
+  async function saveBlockout() {
+    if (!blockoutDentistId || !blockoutStart || !blockoutEnd) return;
+    setBusy(true); setError(null);
+    try {
+      const payload = {
+        clinic_id: clinicId, dentist_id: blockoutDentistId,
+        start_date: blockoutStart, end_date: blockoutEnd,
+        reason: blockoutReason.trim() || null,
+      };
+      if (editingBlockout) {
+        const { error } = await supabase.from("dentist_blockouts").update(payload).eq("id", editingBlockout.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("dentist_blockouts").insert(payload);
+        if (error) throw error;
+      }
+      closeBlockoutModal();
+      await loadData();
+      setSuccess("Blockout saved."); setTimeout(() => setSuccess(null), 3000);
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to save blockout"); }
+    finally { setBusy(false); }
+  }
+  async function deleteBlockout(id: string) {
+    if (!confirm("Remove this scheduled off day?")) return;
+    setBusy(true);
+    const { error } = await supabase.from("dentist_blockouts").delete().eq("id", id);
+    if (error) setError(error.message);
+    else { closeBlockoutModal(); await loadData(); }
+    setBusy(false);
   }
 
   const atStaffLimit = !isPro && staffAccessCount >= 1;
@@ -608,112 +647,112 @@ export default function TeamSettingsPage() {
       {error && <div className="error-banner mb-4">{error}</div>}
       {success && <div className="success-banner mb-4">{success}</div>}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Left column: Dentists + Staff */}
-        <div className="flex flex-col gap-4">
-          {/* ── DENTISTS ── */}
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Dentists</h2>
-              {isAdmin && (
-                <button className="save-btn" onClick={openAddDentist} disabled={busy}>
-                  Add Dentist
-                </button>
-              )}
-            </div>
+      <div className="flex flex-col gap-4">
 
-            <div className="table-wrapper">
-              <table className="data-table">
-                <colgroup>
-                  <col className="col-40" />
-                  <col className="col-30" />
-                  <col className="col-30" />
-                </colgroup>
-                <thead className="data-table-head">
-                  <tr>
-                    <th className="data-table-head-cell">Name</th>
-                    <th className="data-table-head-cell">PTR No.</th>
-                    <th className="data-table-head-cell">License No.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dentists.length === 0 ? (
-                    <tr><td className="data-table-empty" colSpan={3}>No dentists yet.</td></tr>
-                  ) : dentists.map((d, idx) => (
-                    <tr
-                      key={d.id}
-                      className={cn(
-                        "data-table-row",
-                        idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                        isAdmin && "cursor-pointer"
-                      )}
-                      onClick={isAdmin ? () => openEditDentist(d) : undefined}
-                      onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditDentist(d); } } : undefined}
-                      tabIndex={isAdmin ? 0 : undefined}
-                      role={isAdmin ? "button" : undefined}
-                      aria-label={isAdmin ? d.full_name : undefined}
-                    >
-                      <td className="data-table-cell">
-                        <div className="flex items-center gap-2">
-                          {d.photo_url ? (
-                            <img src={d.photo_url} alt={d.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <span
-                              className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
-                              style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                            >
-                              {d.full_name.slice(0, 1).toUpperCase()}
-                            </span>
-                          )}
-                          <span className="font-medium">{d.full_name}</span>
-                          {!d.is_active && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="data-table-cell text-slate-600">{d.ptr_number ?? "—"}</td>
-                      <td className="data-table-cell text-slate-600">{d.prc_number ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* ── ROW 1: DENTISTS ── */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Dentists</h2>
+            {isAdmin && (
+              <button className="save-btn" onClick={openAddDentist} disabled={busy}>
+                Add Dentist
+              </button>
+            )}
           </div>
-
-          {/* ── STAFF ── */}
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Staff Members</h2>
-              {isAdmin && (
-                <button className="save-btn" onClick={openAddStaff} disabled={busy}>
-                  Add Staff
-                </button>
-              )}
-            </div>
-
-            <div className="table-wrapper">
-              <table className="data-table">
-                <colgroup>
-                  <col className="col-35" />
-                  <col className="col-25" />
-                  <col className="col-40" />
-                </colgroup>
-                <thead className="data-table-head">
-                  <tr>
-                    <th className="data-table-head-cell">Name</th>
-                    <th className="data-table-head-cell">Role</th>
-                    <th className="data-table-head-cell">Handles for</th>
+          <div className="table-wrapper">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-40" />
+                <col className="col-20" />
+                <col className="col-20" />
+                <col className="col-20" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Name</th>
+                  <th className="data-table-head-cell">Specialty</th>
+                  <th className="data-table-head-cell">PTR No.</th>
+                  <th className="data-table-head-cell">License No.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dentists.length === 0 ? (
+                  <tr><td className="data-table-empty" colSpan={4}>No dentists yet.</td></tr>
+                ) : dentists.map((d, idx) => (
+                  <tr
+                    key={d.id}
+                    className={cn(
+                      "data-table-row",
+                      idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                      isAdmin && "cursor-pointer"
+                    )}
+                    onClick={isAdmin ? () => openEditDentist(d) : undefined}
+                    onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditDentist(d); } } : undefined}
+                    tabIndex={isAdmin ? 0 : undefined}
+                    role={isAdmin ? "button" : undefined}
+                    aria-label={isAdmin ? d.full_name : undefined}
+                  >
+                    <td className="data-table-cell">
+                      <div className="flex items-center gap-2">
+                        {d.photo_url ? (
+                          <img src={d.photo_url} alt={d.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <span
+                            className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
+                            style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                          >
+                            {d.full_name.slice(0, 1).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="font-medium">{d.full_name}</span>
+                        {!d.is_active && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">Inactive</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="data-table-cell text-slate-500 text-sm">{d.specialty ?? "—"}</td>
+                    <td className="data-table-cell text-slate-600">{d.ptr_number ?? "—"}</td>
+                    <td className="data-table-cell text-slate-600">{d.prc_number ?? "—"}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {staff.length === 0 ? (
-                    <tr><td className="data-table-empty" colSpan={3}>No staff members yet.</td></tr>
-                  ) : staff.map((s, idx) => {
-                    const handlerEntry = handlers.find((h) => h.staffId === s.id);
-                    const handlesFor = handlerEntry
-                      ? handlerEntry.dentists.map((d) => d.nickname || d.full_name).join(", ")
-                      : null;
-                    return (
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── ROW 2: STAFF ── */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Staff Members</h2>
+            {isAdmin && (
+              <button className="save-btn" onClick={openAddStaff} disabled={busy}>
+                Add Staff
+              </button>
+            )}
+          </div>
+          <div className="table-wrapper">
+            <table className="data-table">
+              <colgroup>
+                <col className="col-35" />
+                <col className="col-25" />
+                <col className="col-40" />
+              </colgroup>
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Name</th>
+                  <th className="data-table-head-cell">Role</th>
+                  <th className="data-table-head-cell">Handles for</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staff.length === 0 ? (
+                  <tr><td className="data-table-empty" colSpan={3}>No staff members yet.</td></tr>
+                ) : staff.map((s, idx) => {
+                  const handlerEntry = handlers.find((h) => h.staffId === s.id);
+                  const handlesFor = handlerEntry
+                    ? handlerEntry.dentists.map((d) => d.nickname || d.full_name).join(", ")
+                    : null;
+                  return (
                     <tr
                       key={s.id}
                       className={cn(
@@ -738,66 +777,63 @@ export default function TeamSettingsPage() {
                           )}
                           <span className="font-medium">{s.full_name}</span>
                           {!s.is_active && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">Inactive</span>
                           )}
                         </div>
                       </td>
                       <td className="data-table-cell text-slate-500">{s.role || "—"}</td>
                       <td className="data-table-cell text-slate-500 text-sm">
                         {handlesFor
-                          ? <span className="text-blue-600 dark:text-blue-400">{handlesFor}</span>
-                          : <span className="text-slate-300 dark:text-slate-600">—</span>
+                          ? <span className="text-blue-600">{handlesFor}</span>
+                          : <span className="text-slate-300">—</span>
                         }
                       </td>
                     </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pending invites */}
-            {invites.length > 0 && isAdmin && (
-              <div className="border-t border-slate-100 dark:border-slate-700 px-4 pt-4 pb-2">
-                <p className="field-label-text mb-2">Pending invites</p>
-                <div className="table-wrapper">
-                  <table className="data-table">
-                    <thead className="data-table-head">
-                      <tr>
-                        <th className="data-table-head-cell">Email</th>
-                        <th className="data-table-head-cell">Role</th>
-                        <th className="data-table-head-cell">Invited</th>
-                        <th className="data-table-head-cell">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invites.map((inv, idx) => (
-                        <tr key={inv.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
-                          <td className="data-table-cell">{inv.email}</td>
-                          <td className="data-table-cell capitalize">{inv.role}</td>
-                          <td className="data-table-cell">{formatDateStandard(inv.created_at.split("T")[0])}</td>
-                          <td className="data-table-cell"><span className="badge badge-secondary">Pending</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
+
+          {invites.length > 0 && isAdmin && (
+            <div className="border-t border-slate-100 px-4 pt-4 pb-2">
+              <p className="field-label-text mb-2">Pending invites</p>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead className="data-table-head">
+                    <tr>
+                      <th className="data-table-head-cell">Email</th>
+                      <th className="data-table-head-cell">Role</th>
+                      <th className="data-table-head-cell">Invited</th>
+                      <th className="data-table-head-cell">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invites.map((inv, idx) => (
+                      <tr key={inv.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                        <td className="data-table-cell">{inv.email}</td>
+                        <td className="data-table-cell capitalize">{inv.role}</td>
+                        <td className="data-table-cell">{formatDateStandard(inv.created_at.split("T")[0])}</td>
+                        <td className="data-table-cell"><span className="badge badge-secondary">Pending</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right column: Schedules */}
-        <div>
-          {/* ── SCHEDULES ── */}
+        {/* ── ROW 3: SCHEDULES + BLOCKOUTS ── */}
+        <div className="grid gap-4 lg:grid-cols-2">
+
+          {/* Weekly Schedule */}
           <div className="card">
             <div className="card-header">
-              <h2 className="card-title">Schedules</h2>
+              <h2 className="card-title">Weekly Schedule</h2>
             </div>
             {clinicHours.length > 0 && (
-              <p className="hint-text px-0 pb-2">
-                Times constrained to clinic operating hours.
-              </p>
+              <p className="hint-text px-0 pb-2">Times constrained to clinic operating hours.</p>
             )}
             {dentists.length === 0 ? (
               <div className="data-table-empty">Add dentists above to manage their schedules.</div>
@@ -810,7 +846,7 @@ export default function TeamSettingsPage() {
                       {dentists.map((d) => {
                         const isEditing = editingScheduleFor?.id === d.id;
                         return (
-                          <th key={d.id} className={cn("data-table-head-cell text-center p-2", isEditing && "bg-blue-50 dark:bg-blue-950/20")}>
+                          <th key={d.id} className={cn("data-table-head-cell text-center p-2", isEditing && "bg-blue-50")}>
                             {isAdmin ? (
                               <button
                                 type="button"
@@ -859,13 +895,13 @@ export default function TeamSettingsPage() {
                           const isWorking = ds?.is_working ?? false;
                           const isEditing = editingScheduleFor?.id === d.id;
                           return (
-                            <td key={d.id} className={cn("data-table-cell text-center", isEditing && "bg-blue-50 dark:bg-blue-950/20")}>
+                            <td key={d.id} className={cn("data-table-cell text-center", isEditing && "bg-blue-50")}>
                               {isWorking ? (
-                                <span className="text-blue-600 dark:text-blue-400 text-xs font-medium tabular-nums">
+                                <span className="text-blue-600 text-xs font-medium tabular-nums">
                                   {formatDayCell(ds)}
                                 </span>
                               ) : (
-                                <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                                <span className="text-slate-300 text-xs">—</span>
                               )}
                             </td>
                           );
@@ -877,6 +913,86 @@ export default function TeamSettingsPage() {
               </div>
             )}
           </div>
+
+          {/* Scheduled Off Days */}
+          <div className="card">
+            <div className="card-header">
+              <h2 className="card-title">Scheduled Off Days</h2>
+              {isAdmin && (
+                <button className="save-btn" onClick={openAddBlockout} disabled={busy || dentists.length === 0}>
+                  Add
+                </button>
+              )}
+            </div>
+            {blockouts.length === 0 ? (
+              <div className="data-table-empty">
+                {dentists.length === 0
+                  ? "Add dentists above to schedule off days."
+                  : "No scheduled off days yet."}
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <colgroup>
+                    <col className="col-30" />
+                    <col className="col-35" />
+                    <col className="col-35" />
+                  </colgroup>
+                  <thead className="data-table-head">
+                    <tr>
+                      <th className="data-table-head-cell">Dentist</th>
+                      <th className="data-table-head-cell">From</th>
+                      <th className="data-table-head-cell">To</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {blockouts.map((b, idx) => {
+                      const dentist = dentists.find((d) => d.id === b.dentist_id);
+                      return (
+                        <tr
+                          key={b.id}
+                          className={cn(
+                            "data-table-row",
+                            idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                            isAdmin && "cursor-pointer"
+                          )}
+                          onClick={isAdmin ? () => openEditBlockout(b) : undefined}
+                          onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditBlockout(b); } } : undefined}
+                          tabIndex={isAdmin ? 0 : undefined}
+                          role={isAdmin ? "button" : undefined}
+                          title={b.reason ?? undefined}
+                        >
+                          <td className="data-table-cell">
+                            <div className="flex items-center gap-1.5">
+                              {dentist?.photo_url ? (
+                                <img src={dentist.photo_url} alt={dentist.full_name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                              ) : (
+                                <span
+                                  className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
+                                  style={{ background: dentist?.color ?? DENTIST_COLORS[0].hex }}
+                                >
+                                  {(dentist?.nickname || dentist?.full_name || "?").slice(0, 1).toUpperCase()}
+                                </span>
+                              )}
+                              <span className="text-sm">{dentist?.nickname || dentist?.full_name || "—"}</span>
+                            </div>
+                          </td>
+                          <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(b.start_date)}</td>
+                          <td className="data-table-cell text-slate-600 text-sm">
+                            {b.end_date === b.start_date ? "—" : formatDateStandard(b.end_date)}
+                            {b.reason && (
+                              <span className="block text-xs text-slate-400 truncate max-w-[10ch]">{b.reason}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
@@ -887,7 +1003,7 @@ export default function TeamSettingsPage() {
         onClose={() => setEditingScheduleFor(null)}
       >
         <div className="spacing-vertical-lg">
-          <div className="divide-y divide-slate-100 dark:divide-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
             {DAY_KEYS.map((day) => {
               const ds = scheduleEdit[day];
               const ch = clinicHours.find((h) => h.id === DAY_KEY_TO_CLINIC_ID[day]);
@@ -897,9 +1013,9 @@ export default function TeamSettingsPage() {
                 <div key={day} className="p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-slate-800 dark:text-slate-100 w-24">{DAY_SHORT[day]}</span>
+                      <span className="font-semibold text-sm text-slate-800 w-24">{DAY_SHORT[day]}</span>
                       {isClinicClosed && (
-                        <span className="text-xs text-amber-600 dark:text-amber-400">Clinic closed</span>
+                        <span className="text-xs text-amber-600">Clinic closed</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -917,7 +1033,7 @@ export default function TeamSettingsPage() {
                         className={cn(
                           "relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors",
                           isClinicClosed ? "opacity-40 cursor-not-allowed" : "cursor-pointer",
-                          ds.is_working ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
+                          ds.is_working ? "bg-blue-500" : "bg-slate-300"
                         )}
                       >
                         <span className={cn("inline-block h-4 w-4 rounded-full bg-white shadow transition-transform", ds.is_working ? "translate-x-4" : "translate-x-0")} />
@@ -971,6 +1087,13 @@ export default function TeamSettingsPage() {
           <label className="field-label">
             <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional)</span></span>
             <input className="field-input" placeholder="e.g. Doc Daisy" value={dentistNickname} onChange={(e) => setDentistNickname(e.target.value)} disabled={busy} />
+          </label>
+          <label className="field-label">
+            <span className="field-label-text">Specialty / Role</span>
+            <select className="field-input" value={dentistSpecialty} onChange={(e) => setDentistSpecialty(e.target.value)} disabled={busy}>
+              <option value="">Select specialty</option>
+              {DENTIST_SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
           </label>
           <DatePickerField label="Date of Birth" value={dentistDob} onChange={setDentistDob} inputRef={dentistDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
           <label className="field-label">
@@ -1039,13 +1162,12 @@ export default function TeamSettingsPage() {
             </div>
           </div>
 
-          {/* Invite to Molaris */}
           {isAdmin && (
             <div className="section-divider">
               <p className="field-label-text mb-1">Invite to Molaris</p>
               <p className="hint-text mb-3">
                 Send a login invite so this dentist can access their own records and schedule.
-                {!isPro && <span className="text-amber-600 dark:text-amber-400"> Requires Pro plan.</span>}
+                {!isPro && <span className="text-amber-600"> Requires Pro plan.</span>}
               </p>
               {!editingDentist && isPro && (
                 <p className="hint-text mb-3 text-slate-500">Save this dentist first, then send an invite from the edit view.</p>
@@ -1139,7 +1261,6 @@ export default function TeamSettingsPage() {
           </label>
           <DatePickerField label="Date of Birth" value={staffDob} onChange={setStaffDob} inputRef={staffDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
 
-          {/* Clinical Access — Pro only, hidden for non-Pro */}
           {isPro && (
             <div className="section-divider">
               <p className="field-label-text mb-1">Clinical Access</p>
@@ -1156,7 +1277,7 @@ export default function TeamSettingsPage() {
                     return (
                       <label
                         key={d.id}
-                        className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-slate-50 transition-colors"
                       >
                         <input
                           type="checkbox"
@@ -1175,7 +1296,7 @@ export default function TeamSettingsPage() {
                           className="inline-block w-3 h-3 rounded-full shrink-0"
                           style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
                         />
-                        <span className="text-sm text-slate-700 dark:text-slate-300">
+                        <span className="text-sm text-slate-700">
                           {d.full_name}
                           {d.nickname && <span className="ml-1 text-slate-400">({d.nickname})</span>}
                         </span>
@@ -1187,14 +1308,13 @@ export default function TeamSettingsPage() {
             </div>
           )}
 
-          {/* Invite to Molaris */}
           {isAdmin && (
             <div className="section-divider">
               <p className="field-label-text mb-1">Invite to Molaris</p>
               <p className="hint-text mb-3">
                 Send a login invite so this person can access the app.
                 {atStaffLimit && (
-                  <span className="text-amber-600 dark:text-amber-400"> Free plan includes up to 1 staff account.</span>
+                  <span className="text-amber-600"> Free plan includes up to 1 staff account.</span>
                 )}
               </p>
               {inviteSuccess && <div className="success-banner mb-3">{inviteSuccess}</div>}
@@ -1227,6 +1347,71 @@ export default function TeamSettingsPage() {
               <button type="button" className="cancel-btn" onClick={closeStaffModal} disabled={busy}>Cancel</button>
               <button type="button" className="save-btn" onClick={saveStaff} disabled={busy || !staffName.trim() || !staffRole.trim()}>
                 {busy ? "Saving…" : editingStaff ? "Update" : "Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
+
+      {/* ── ADD/EDIT BLOCKOUT MODAL ── */}
+      <EditModal
+        open={showBlockoutModal}
+        title={editingBlockout ? "Edit Off Day" : "Add Off Day"}
+        onClose={closeBlockoutModal}
+      >
+        <div className="spacing-vertical-lg">
+          <label className="field-label">
+            <span className="field-label-text">Dentist <span className="text-red-400">*</span></span>
+            <select
+              className="field-input"
+              value={blockoutDentistId}
+              onChange={(e) => setBlockoutDentistId(e.target.value)}
+              disabled={busy}
+            >
+              <option value="">Select dentist</option>
+              {dentists.map((d) => (
+                <option key={d.id} value={d.id}>{d.nickname ? `${d.full_name} (${d.nickname})` : d.full_name}</option>
+              ))}
+            </select>
+          </label>
+          <DatePickerField
+            label="From (start date)"
+            value={blockoutStart}
+            onChange={setBlockoutStart}
+            inputRef={blockoutStartRef}
+            variant="case-modal"
+          />
+          <DatePickerField
+            label="To (end date)"
+            value={blockoutEnd}
+            onChange={setBlockoutEnd}
+            inputRef={blockoutEndRef}
+            variant="case-modal"
+            min={blockoutStart || undefined}
+          />
+          <label className="field-label">
+            <span className="field-label-text">Reason / Comment <span className="text-slate-400 font-normal">(optional)</span></span>
+            <input
+              className="field-input"
+              placeholder="e.g. Vacation, Conference, Medical leave"
+              value={blockoutReason}
+              onChange={(e) => setBlockoutReason(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <div className="modal-actions">
+            {editingBlockout && isAdmin && (
+              <button type="button" className="delete-btn" onClick={() => deleteBlockout(editingBlockout.id)} disabled={busy}>Delete</button>
+            )}
+            <div className="modal-actions-right">
+              <button type="button" className="cancel-btn" onClick={closeBlockoutModal} disabled={busy}>Cancel</button>
+              <button
+                type="button"
+                className="save-btn"
+                onClick={saveBlockout}
+                disabled={busy || !blockoutDentistId || !blockoutStart || !blockoutEnd}
+              >
+                {busy ? "Saving…" : editingBlockout ? "Update" : "Add"}
               </button>
             </div>
           </div>
