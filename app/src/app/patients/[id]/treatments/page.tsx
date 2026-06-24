@@ -10,7 +10,7 @@ import { todayLocalISO, splitFullName, formatDateStandard } from "@/lib/helpers"
 import { AddVisitModal } from "./AddVisitModal";
 import { EditVisitModal } from "./EditVisitModal";
 import { PageLoader } from "@/components/Spinner";
-import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
+import { TableOptions, SortArrow, type ColumnConfig } from "@/components/shared/TableOptions";
 
 
 export default function TreatmentsPage() {
@@ -33,10 +33,10 @@ export default function TreatmentsPage() {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "treatment_date", direction: "desc" });
 
   const TREATMENT_COLUMNS: ColumnConfig[] = [
-    { key: "date",     label: "Date",     required: true },
-    { key: "dentist",  label: "Dentist" },
+    { key: "date",       label: "Date",       required: true },
+    { key: "dentist",    label: "Dentist" },
+    { key: "tooth",      label: "Tooth" },
     { key: "treatments", label: "Treatments" },
-    { key: "status",   label: "Status" },
   ];
 
   const groupedTreatmentHistory = useMemo(() => {
@@ -74,6 +74,13 @@ export default function TreatmentsPage() {
         const aProc = (a[1][0]?.procedure ?? "").toLowerCase();
         const bProc = (b[1][0]?.procedure ?? "").toLowerCase();
         return dir * aProc.localeCompare(bProc);
+      });
+    }
+    if (key === "tooth_number") {
+      return list.sort((a, b) => {
+        const aT = a[1][0]?.tooth_number ?? 999;
+        const bT = b[1][0]?.tooth_number ?? 999;
+        return dir * (aT - bT);
       });
     }
     // default: date desc
@@ -208,17 +215,37 @@ export default function TreatmentsPage() {
             <div className="table-wrapper hidden md:block">
               <table className="data-table">
                 <colgroup>
-                  <col className="col-20" />
-                  <col className="col-25" />
-                  <col className="col-40" />
                   <col className="col-15" />
+                  <col className="col-20" />
+                  <col className="col-10" />
+                  <col className="col-55" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
-                    <th className="data-table-head-cell">Date</th>
-                    <th className="data-table-head-cell">Dentist</th>
-                    <th className="data-table-head-cell">Treatments</th>
-                    <th className="data-table-head-cell-right">Status</th>
+                    <th
+                      className="data-table-head-cell cursor-pointer select-none"
+                      onClick={() => setSortConfig({ key: "treatment_date", direction: sortConfig.key === "treatment_date" && sortConfig.direction === "asc" ? "desc" : "asc" })}
+                    >
+                      Date <SortArrow dir={sortConfig.key === "treatment_date" ? sortConfig.direction : null} />
+                    </th>
+                    <th
+                      className="data-table-head-cell cursor-pointer select-none"
+                      onClick={() => setSortConfig({ key: "dentist_name", direction: sortConfig.key === "dentist_name" && sortConfig.direction === "asc" ? "desc" : "asc" })}
+                    >
+                      Dentist <SortArrow dir={sortConfig.key === "dentist_name" ? sortConfig.direction : null} />
+                    </th>
+                    <th
+                      className="data-table-head-cell cursor-pointer select-none"
+                      onClick={() => setSortConfig({ key: "tooth_number", direction: sortConfig.key === "tooth_number" && sortConfig.direction === "asc" ? "desc" : "asc" })}
+                    >
+                      Tooth <SortArrow dir={sortConfig.key === "tooth_number" ? sortConfig.direction : null} />
+                    </th>
+                    <th
+                      className="data-table-head-cell cursor-pointer select-none"
+                      onClick={() => setSortConfig({ key: "procedure", direction: sortConfig.key === "procedure" && sortConfig.direction === "asc" ? "desc" : "asc" })}
+                    >
+                      Treatments <SortArrow dir={sortConfig.key === "procedure" ? sortConfig.direction : null} />
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -237,18 +264,21 @@ export default function TreatmentsPage() {
                       <td className="data-table-cell">
                         <div className="space-y-1">
                           {txs.map((t) => (
+                            <div key={t.id} className="text-sm text-slate-600">
+                              {t.tooth_number ?? "—"}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="data-table-cell">
+                        <div className="space-y-1">
+                          {txs.map((t) => (
                             <div key={t.id} className="text-sm">
-                              {t.tooth_number ? `Tooth ${t.tooth_number}: ` : ""}
                               {t.procedure}
                               {t.notes ? <div className="hint-text">{t.notes}</div> : null}
                             </div>
                           ))}
                         </div>
-                      </td>
-                      <td className="data-table-cell-right">
-                        {invoicedDates.has(date) ? (
-                          <div className="inline-block px-3 py-1 rounded-lg bg-amber-100 text-amber-800 text-sm font-semibold">Invoiced</div>
-                        ) : null}
                       </td>
                     </tr>
                   ))}

@@ -30,7 +30,7 @@ export default function AttachmentsPage() {
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [fileDisplayName, setFileDisplayName] = useState<string>("");
   const [attachmentNotes, setAttachmentNotes] = useState("");
-  const [attachmentSort, setAttachmentSort] = useState<"DATE_DESC" | "DATE_ASC" | "NAME_ASC" | "NAME_DESC">("DATE_DESC");
+  const [attachmentSort, setAttachmentSort] = useState<"DATE_DESC" | "DATE_ASC" | "NAME_ASC" | "NAME_DESC" | "TYPE_ASC" | "TYPE_DESC">("DATE_DESC");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAttachment, setEditingAttachment] = useState<Attachment | null>(null);
@@ -40,6 +40,14 @@ export default function AttachmentsPage() {
 
   const displayedAttachments = useMemo(() => {
     const copy = [...attachments];
+    if (attachmentSort === "TYPE_ASC" || attachmentSort === "TYPE_DESC") {
+      copy.sort((a, b) => {
+        const at = (a.type ?? "").toLowerCase();
+        const bt = (b.type ?? "").toLowerCase();
+        return attachmentSort === "TYPE_ASC" ? at.localeCompare(bt) : bt.localeCompare(at);
+      });
+      return copy;
+    }
     if (attachmentSort === "NAME_ASC" || attachmentSort === "NAME_DESC") {
       copy.sort((a, b) => {
         const an = (a.file_name ?? a.file_path.split("/").slice(-1)[0] ?? "").toLowerCase();
@@ -246,25 +254,13 @@ export default function AttachmentsPage() {
         <div className="card">
           <div className="card-header">
             <div className="card-title">Attachments</div>
-            <div className="inline-row">
-              <select
-                className="form-select-standard"
-                value={attachmentSort}
-                onChange={(e) => setAttachmentSort(e.target.value as "DATE_DESC" | "DATE_ASC" | "NAME_ASC" | "NAME_DESC")}
-              >
-                <option value="DATE_DESC">Newest</option>
-                <option value="DATE_ASC">Oldest</option>
-                <option value="NAME_ASC">Name A–Z</option>
-                <option value="NAME_DESC">Name Z–A</option>
-              </select>
-              <button
-                className="save-btn"
-                onClick={openUploadModal}
-                disabled={busy}
-              >
-                Add attachment
-              </button>
-            </div>
+            <button
+              className="save-btn"
+              onClick={openUploadModal}
+              disabled={busy}
+            >
+              Add attachment
+            </button>
           </div>
 
           {/* Desktop table */}
@@ -286,7 +282,13 @@ export default function AttachmentsPage() {
                     Date
                     <SortArrow dir={attachmentSort === "DATE_DESC" ? "desc" : attachmentSort === "DATE_ASC" ? "asc" : null} />
                   </th>
-                  <th className="data-table-head-cell">Type</th>
+                  <th
+                    className="data-table-head-cell cursor-pointer select-none"
+                    onClick={() => setAttachmentSort(attachmentSort === "TYPE_ASC" ? "TYPE_DESC" : "TYPE_ASC")}
+                  >
+                    Type
+                    <SortArrow dir={attachmentSort === "TYPE_ASC" ? "asc" : attachmentSort === "TYPE_DESC" ? "desc" : null} />
+                  </th>
                   <th
                     className="data-table-head-cell cursor-pointer select-none"
                     onClick={() => setAttachmentSort(attachmentSort === "NAME_ASC" ? "NAME_DESC" : "NAME_ASC")}

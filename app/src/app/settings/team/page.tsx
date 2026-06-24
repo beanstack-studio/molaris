@@ -708,51 +708,56 @@ export default function TeamSettingsPage() {
             {dentists.length === 0 ? (
               <div className="data-table-empty">Add dentists above to manage their schedules.</div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {dentists.map((d) => {
-                  const sched = schedules[d.id];
-                  const displayName = d.nickname || d.full_name;
-                  return (
-                    <div key={d.id} className="py-3 first:pt-0 last:pb-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                          />
-                          <span className="font-medium text-sm truncate">{displayName}</span>
-                        </div>
-                        {isAdmin && (
-                          <button
-                            type="button"
-                            className="data-table-btn shrink-0"
-                            onClick={() => openScheduleEdit(d.id)}
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </div>
-                      <div className="ml-4 space-y-0.5">
-                        {WEEK_ORDER.map(({ header, key }) => {
-                          const ds = sched?.[key];
+              <div className="table-wrapper overflow-x-auto">
+                <table className="data-table">
+                  <thead className="data-table-head">
+                    <tr>
+                      <th className="data-table-head-cell w-10 shrink-0">Day</th>
+                      {dentists.map((d) => (
+                        <th key={d.id} className="data-table-head-cell">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                            />
+                            <span className="truncate text-xs">{d.nickname || d.full_name}</span>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                className="data-table-btn shrink-0 ml-auto"
+                                onClick={() => openScheduleEdit(d.id)}
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {WEEK_ORDER.map(({ header, key }, rowIdx) => (
+                      <tr key={key} className={cn("data-table-row", rowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                        <td className="data-table-cell text-slate-400 font-medium text-xs">{header}</td>
+                        {dentists.map((d) => {
+                          const ds = schedules[d.id]?.[key];
                           const isWorking = ds?.is_working ?? false;
                           return (
-                            <div key={key} className="flex items-center gap-2 text-xs">
-                              <span className="w-7 text-slate-400 font-medium shrink-0">{header}</span>
+                            <td key={d.id} className="data-table-cell">
                               {isWorking ? (
-                                <span className="text-blue-600 dark:text-blue-400 font-medium tabular-nums">
+                                <span className="text-blue-600 dark:text-blue-400 text-xs font-medium tabular-nums">
                                   {formatDayCell(ds)}
                                 </span>
                               ) : (
-                                <span className="text-slate-300 dark:text-slate-600">—</span>
+                                <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
                               )}
-                            </div>
+                            </td>
                           );
                         })}
-                      </div>
-                    </div>
-                  );
-                })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

@@ -389,35 +389,21 @@ export default function ClinicProfileSettingsPage() {
           </div>
         </div>
 
-        {/* Read mode — compact horizontal day tiles */}
+        {/* Read mode — vertical day list */}
         {!editingClinicHours && (
-          <div className="mt-4 grid grid-cols-4 gap-2">
+          <div className="mt-3 space-y-1.5">
             {clinicHours.map((hour) => {
               const isOpen = hour.is_open !== false;
               const shortDay = hour.day.slice(0, 3);
               return (
-                <div
-                  key={hour.id}
-                  className={cn(
-                    "flex flex-col items-center gap-1 rounded-xl px-2 py-3 border text-center",
-                    isOpen
-                      ? "border-blue-100 bg-blue-50/60"
-                      : "border-slate-100 bg-slate-50/50"
-                  )}
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{shortDay}</span>
+                <div key={hour.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500 font-medium w-12 shrink-0">{shortDay}</span>
                   {isOpen ? (
-                    <>
-                      <span className="text-xs font-semibold text-slate-800 tabular-nums leading-tight">
-                        {formatTimeFromValue(hour.open_hour)}
-                      </span>
-                      <span className="text-[9px] text-slate-400">–</span>
-                      <span className="text-xs font-semibold text-slate-800 tabular-nums leading-tight">
-                        {formatTimeFromValue(hour.close_hour)}
-                      </span>
-                    </>
+                    <span className="text-slate-800 font-medium tabular-nums">
+                      {formatTimeFromValue(hour.open_hour)} – {formatTimeFromValue(hour.close_hour)}
+                    </span>
                   ) : (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 mt-1">Closed</span>
+                    <span className="text-slate-300 text-xs font-semibold uppercase tracking-wide">Closed</span>
                   )}
                 </div>
               );

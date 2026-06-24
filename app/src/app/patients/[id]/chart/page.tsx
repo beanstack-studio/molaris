@@ -9,6 +9,7 @@ import type { ChartEntry, ToothStatusRow, Patient } from "@/lib/types";
 import { formatDateStandard, formatDateTimePH, combineFullName, splitFullName } from "@/lib/helpers";
 import { useClinic } from "@/contexts/ClinicContext";
 import { PageLoader } from "@/components/Spinner";
+import { SortArrow } from "@/components/shared/TableOptions";
 
 
 export default function ChartPage() {
@@ -268,6 +269,29 @@ export default function ChartPage() {
     await loadData();
   }
 
+  function getChartDir(col: string): "asc" | "desc" | null {
+    if (sortKey === `${col}_asc`) return "asc";
+    if (sortKey === `${col}_desc`) return "desc";
+    return null;
+  }
+
+  function toggleChartSort(col: string) {
+    setSortKey(sortKey === `${col}_asc` ? `${col}_desc` : `${col}_asc`);
+  }
+
+  function sortChart(a: ChartEntry, b: ChartEntry): number {
+    if (sortKey === "tooth_asc") return Number(a.tooth_number) - Number(b.tooth_number);
+    if (sortKey === "tooth_desc") return Number(b.tooth_number) - Number(a.tooth_number);
+    if (sortKey === "finding_asc") return (a.finding_code ?? "").localeCompare(b.finding_code ?? "");
+    if (sortKey === "finding_desc") return (b.finding_code ?? "").localeCompare(a.finding_code ?? "");
+    if (sortKey === "surface_asc") return (a.surfaces ?? "").localeCompare(b.surfaces ?? "");
+    if (sortKey === "surface_desc") return (b.surfaces ?? "").localeCompare(a.surfaces ?? "");
+    if (sortKey === "detail_asc") return (a.finding_detail ?? "").localeCompare(b.finding_detail ?? "");
+    if (sortKey === "detail_desc") return (b.finding_detail ?? "").localeCompare(a.finding_detail ?? "");
+    if (sortKey === "date_asc") return (a.recorded_at ?? "").localeCompare(b.recorded_at ?? "");
+    return (b.recorded_at ?? "").localeCompare(a.recorded_at ?? "");
+  }
+
   if (loading) {
     return (
       <PageLoader />
@@ -297,18 +321,6 @@ export default function ChartPage() {
           <div className="card">
             <div className="card-header">
               <div className="card-title">Chart history</div>
-              <select
-                className="form-select-standard"
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value)}
-              >
-                <option value="date_desc">Date new→old</option>
-                <option value="date_asc">Date old→new</option>
-                <option value="tooth_asc">Tooth # low→high</option>
-                <option value="tooth_desc">Tooth # high→low</option>
-                <option value="finding_asc">Finding A→Z</option>
-                <option value="finding_desc">Finding Z→A</option>
-              </select>
             </div>
 
             {/* Desktop table */}
@@ -324,24 +336,27 @@ export default function ChartPage() {
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
-                    <th className="data-table-head-cell">Date</th>
-                    <th className="data-table-head-cell">Tooth</th>
-                    <th className="data-table-head-cell">Finding</th>
-                    <th className="data-table-head-cell">Surfaces</th>
-                    <th className="data-table-head-cell">Detail</th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleChartSort("date")}>
+                      Date <SortArrow dir={getChartDir("date")} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleChartSort("tooth")}>
+                      Tooth <SortArrow dir={getChartDir("tooth")} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleChartSort("finding")}>
+                      Finding <SortArrow dir={getChartDir("finding")} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleChartSort("surface")}>
+                      Surfaces <SortArrow dir={getChartDir("surface")} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleChartSort("detail")}>
+                      Detail <SortArrow dir={getChartDir("detail")} />
+                    </th>
                     <th className="data-table-head-cell-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[...chart]
-                    .sort((a, b) => {
-                      if (sortKey === "tooth_asc") return Number(a.tooth_number) - Number(b.tooth_number);
-                      if (sortKey === "tooth_desc") return Number(b.tooth_number) - Number(a.tooth_number);
-                      if (sortKey === "finding_asc") return (a.finding_code ?? "").localeCompare(b.finding_code ?? "");
-                      if (sortKey === "finding_desc") return (b.finding_code ?? "").localeCompare(a.finding_code ?? "");
-                      if (sortKey === "date_asc") return (a.recorded_at ?? "").localeCompare(b.recorded_at ?? "");
-                      return (b.recorded_at ?? "").localeCompare(a.recorded_at ?? "");
-                    })
+                    .sort(sortChart)
                     .map((entry, index) => (
                     <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
                       <td className="data-table-cell">{entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}</td>
@@ -367,14 +382,7 @@ export default function ChartPage() {
                 <div className="text-center py-8 text-slate-400 text-sm">No chart entries yet.</div>
               ) : (
                 [...chart]
-                  .sort((a, b) => {
-                    if (sortKey === "tooth_asc") return Number(a.tooth_number) - Number(b.tooth_number);
-                    if (sortKey === "tooth_desc") return Number(b.tooth_number) - Number(a.tooth_number);
-                    if (sortKey === "finding_asc") return (a.finding_code ?? "").localeCompare(b.finding_code ?? "");
-                    if (sortKey === "finding_desc") return (b.finding_code ?? "").localeCompare(a.finding_code ?? "");
-                    if (sortKey === "date_asc") return (a.recorded_at ?? "").localeCompare(b.recorded_at ?? "");
-                    return (b.recorded_at ?? "").localeCompare(a.recorded_at ?? "");
-                  })
+                  .sort(sortChart)
                   .map((entry) => (
                     <div key={entry.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
                       <div className="flex items-start justify-between gap-2">

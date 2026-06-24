@@ -32,7 +32,7 @@ import { VoidPaymentModal } from "./VoidPaymentModal";
 import { ViewInvoiceModal } from "./ViewInvoiceModal";
 import { PaymentReminderModal } from "./PaymentReminderModal";
 import { PageLoader, Spinner } from "@/components/Spinner";
-import { TableOptions, type ColumnConfig } from "@/components/shared/TableOptions";
+import { TableOptions, SortArrow, type ColumnConfig } from "@/components/shared/TableOptions";
 
 
 /* Helpers */
@@ -72,6 +72,7 @@ function BillingPage() {
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
 
   const [billingSortConfig, setBillingSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "invoice_date", direction: "desc" });
+  const [paymentSortConfig, setPaymentSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "payment_date", direction: "desc" });
   const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
   const [verifyingPaymentDetails, setVerifyingPaymentDetails] = useState<any | null>(null);
   const [verificationConfirmation, setVerificationConfirmation] = useState("");
@@ -887,17 +888,43 @@ function BillingPage() {
     { key: "actions", label: "Actions" },
   ];
 
+  const PAYMENT_COLUMNS: ColumnConfig[] = [
+    { key: "date",           label: "Date",           required: true },
+    { key: "transaction_id", label: "Transaction ID" },
+    { key: "amount",         label: "Amount" },
+    { key: "mode",           label: "Mode" },
+    { key: "status",         label: "Status" },
+  ];
+
   const sortedInvoices = [...invoices].sort((a, b) => {
     const { key, direction } = billingSortConfig;
     const dir = direction === "asc" ? 1 : -1;
     if (key === "invoice_date") {
       return dir * (a.invoice_date ?? "").localeCompare(b.invoice_date ?? "");
     }
+    if (key === "invoice_number") {
+      return dir * (a.invoice_number ?? "").localeCompare(b.invoice_number ?? "");
+    }
     if (key === "total") {
       return dir * ((a.total ?? 0) - (b.total ?? 0));
     }
     if (key === "status") {
       return dir * (a.status ?? "").localeCompare(b.status ?? "");
+    }
+    return 0;
+  });
+
+  const sortedPayments = [...payments].sort((a: any, b: any) => {
+    const { key, direction } = paymentSortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+    if (key === "payment_date") return dir * (a.payment_date ?? "").localeCompare(b.payment_date ?? "");
+    if (key === "transaction_id") return dir * (a.transaction_id ?? "").localeCompare(b.transaction_id ?? "");
+    if (key === "amount") return dir * (num(a.amount) - num(b.amount));
+    if (key === "mode") return dir * ((a.details?.payment_mode_name ?? "").localeCompare(b.details?.payment_mode_name ?? ""));
+    if (key === "status") {
+      const aS = a.voided_at ? "voided" : (a.status ?? "");
+      const bS = b.voided_at ? "voided" : (b.status ?? "");
+      return dir * aS.localeCompare(bS);
     }
     return 0;
   });
@@ -916,17 +943,6 @@ function BillingPage() {
             <div className="card">
               <div className="card-header">
                 <div className="card-title">Billing Overview</div>
-                {billingOverview.balance > 0 && (
-                  <button
-                    className="cancel-btn flex items-center gap-1.5"
-                    onClick={() => setShowPaymentReminder(true)}
-                  >
-                    <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.327 5.502 3.414 7.271V22l3.107-1.707A11.05 11.05 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2zm1.07 12.447l-2.545-2.713-4.963 2.713 5.461-5.797 2.607 2.713 4.9-2.713-5.46 5.797z"/>
-                    </svg>
-                    Send Reminder
-                  </button>
-                )}
               </div>
 
                 <div className="mt-3 grid gap-4 sm:grid-cols-3">
@@ -988,12 +1004,20 @@ function BillingPage() {
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
-                        <th className="data-table-head-cell">Date</th>
-                        <th className="data-table-head-cell">Invoice #</th>
-                        <th className="data-table-head-cell-right">Invoice Amount</th>
+                        <th className="data-table-head-cell cursor-pointer select-none" onClick={() => setBillingSortConfig({ key: "invoice_date", direction: billingSortConfig.key === "invoice_date" && billingSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Date <SortArrow dir={billingSortConfig.key === "invoice_date" ? billingSortConfig.direction : null} />
+                        </th>
+                        <th className="data-table-head-cell cursor-pointer select-none" onClick={() => setBillingSortConfig({ key: "invoice_number", direction: billingSortConfig.key === "invoice_number" && billingSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Invoice # <SortArrow dir={billingSortConfig.key === "invoice_number" ? billingSortConfig.direction : null} />
+                        </th>
+                        <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => setBillingSortConfig({ key: "total", direction: billingSortConfig.key === "total" && billingSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Invoice Amount <SortArrow dir={billingSortConfig.key === "total" ? billingSortConfig.direction : null} />
+                        </th>
                         <th className="data-table-head-cell-right">Paid</th>
                         <th className="data-table-head-cell-right">Balance</th>
-                        <th className="data-table-head-cell">Status</th>
+                        <th className="data-table-head-cell cursor-pointer select-none" onClick={() => setBillingSortConfig({ key: "status", direction: billingSortConfig.key === "status" && billingSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Status <SortArrow dir={billingSortConfig.key === "status" ? billingSortConfig.direction : null} />
+                        </th>
                         <th className="data-table-head-cell-right">Actions</th>
                       </tr>
                     </thead>
@@ -1124,9 +1148,19 @@ function BillingPage() {
               <div className="card">
                 <div className="card-header">
                   <div className="card-title">Payments</div>
-                  <button className="save-btn" onClick={() => setShowAddPayment(true)}>
-                    Add payment
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <TableOptions
+                      tableName="billing_payments"
+                      columns={PAYMENT_COLUMNS}
+                      currentSort={paymentSortConfig}
+                      onSortChange={(k, d) => setPaymentSortConfig({ key: k, direction: d })}
+                      data={payments}
+                      onDownloadCSV={() => {}}
+                    />
+                    <button className="save-btn" onClick={() => setShowAddPayment(true)}>
+                      Add payment
+                    </button>
+                  </div>
                 </div>
 
                 <div className="table-wrapper hidden md:block">
@@ -1141,16 +1175,26 @@ function BillingPage() {
                     </colgroup>
                     <thead className="data-table-head">
                       <tr>
-                        <th className="data-table-head-cell">Date</th>
-                        <th className="data-table-head-cell">Transaction ID</th>
-                        <th className="data-table-head-cell-right">Amount</th>
-                        <th className="data-table-head-cell">Mode</th>
-                        <th className="data-table-head-cell">Status</th>
+                        <th className="data-table-head-cell cursor-pointer select-none" onClick={() => setPaymentSortConfig({ key: "payment_date", direction: paymentSortConfig.key === "payment_date" && paymentSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Date <SortArrow dir={paymentSortConfig.key === "payment_date" ? paymentSortConfig.direction : null} />
+                        </th>
+                        <th className="data-table-head-cell cursor-pointer select-none" onClick={() => setPaymentSortConfig({ key: "transaction_id", direction: paymentSortConfig.key === "transaction_id" && paymentSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Transaction ID <SortArrow dir={paymentSortConfig.key === "transaction_id" ? paymentSortConfig.direction : null} />
+                        </th>
+                        <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => setPaymentSortConfig({ key: "amount", direction: paymentSortConfig.key === "amount" && paymentSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Amount <SortArrow dir={paymentSortConfig.key === "amount" ? paymentSortConfig.direction : null} />
+                        </th>
+                        <th className="data-table-head-cell cursor-pointer select-none" onClick={() => setPaymentSortConfig({ key: "mode", direction: paymentSortConfig.key === "mode" && paymentSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Mode <SortArrow dir={paymentSortConfig.key === "mode" ? paymentSortConfig.direction : null} />
+                        </th>
+                        <th className="data-table-head-cell cursor-pointer select-none" onClick={() => setPaymentSortConfig({ key: "status", direction: paymentSortConfig.key === "status" && paymentSortConfig.direction === "asc" ? "desc" : "asc" })}>
+                          Status <SortArrow dir={paymentSortConfig.key === "status" ? paymentSortConfig.direction : null} />
+                        </th>
                         <th className="data-table-head-cell-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {payments.map((pay: any, index: number) => {
+                      {sortedPayments.map((pay: any, index: number) => {
                         const modeData = paymentModes.find(m => m.code === pay.details?.payment_mode_code);
                         const statusBadgeColor = pay.status === 'verified' ? 'bg-green-100 text-green-800' 
                           : pay.status === 'pending' ? 'bg-yellow-100 text-yellow-800'
@@ -1242,7 +1286,7 @@ function BillingPage() {
                           </tr>
                         );
                       })}
-                      {payments.length === 0 ? (
+                      {sortedPayments.length === 0 ? (
                         <tr>
                           <td className="data-table-empty" colSpan={6}>
                             No payments yet.
@@ -1257,7 +1301,7 @@ function BillingPage() {
                 <div className="mt-3 grid gap-2 md:hidden">
                   {payments.length === 0 ? (
                     <div className="text-center py-8 text-slate-400 text-sm">No payments yet.</div>
-                  ) : payments.map((pay: any) => {
+                  ) : sortedPayments.map((pay: any) => {
                     const modeData = paymentModes.find((m: any) => m.code === pay.details?.payment_mode_code);
                     const isVoided = !!pay.voided_at;
                     const statusColor = pay.status === 'verified' ? 'bg-green-100 text-green-800' : pay.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800';
