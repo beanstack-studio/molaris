@@ -402,7 +402,7 @@ export function TableOptions({
               {onDownloadPDF ? (
                 <button
                   type="button"
-                  className="cancel-btn"
+                  className="save-btn"
                   onClick={() => {
                     onDownloadPDF();
                     handleClose();
@@ -414,7 +414,7 @@ export function TableOptions({
                 <div className="relative group">
                   <button
                     type="button"
-                    className="cancel-btn opacity-50 cursor-not-allowed"
+                    className="save-btn opacity-50 cursor-not-allowed"
                     disabled
                     aria-disabled="true"
                   >

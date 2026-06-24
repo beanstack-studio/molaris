@@ -128,11 +128,11 @@ function BillingContent() {
             {isPro && <span className="badge badge-info text-xs">Your plan</span>}
           </div>
 
-          <div className="-mx-5 -mt-5 px-5 pt-5 pb-4 rounded-t-xl bg-gradient-to-br from-blue-600 to-indigo-600 mb-1">
-            <span className="text-xs font-bold uppercase tracking-widest text-blue-200">Pro</span>
+          <div className="-mx-5 -mt-5 px-5 pt-5 pb-4 rounded-t-xl pro-plan-header mb-1">
+            <span className="text-xs font-bold uppercase tracking-widest text-white/70">Pro</span>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="text-3xl font-bold text-white">₱499</span>
-              <span className="text-sm text-blue-200">/month</span>
+              <span className="text-sm text-white/70">/month</span>
             </div>
           </div>
 

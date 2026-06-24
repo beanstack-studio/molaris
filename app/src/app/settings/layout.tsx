@@ -78,11 +78,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </div>
 
         {/* Content — desktop nav is in main Sidebar flyout */}
-        <div className="app-section-body">
-          <div className="w-full max-w-4xl">
-            {children}
-          </div>
-        </div>
+        {children}
 
       </main>
     </div>

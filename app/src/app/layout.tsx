@@ -25,6 +25,14 @@ export const metadata: Metadata = {
   title: "Molaris — Clinic Portal",
   description: "Clinic management portal by Molaris",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png" }],
+  },
 };
 
 export const viewport = {

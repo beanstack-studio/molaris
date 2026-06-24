@@ -955,6 +955,11 @@ html.dark .field-input-readonly {
   background: linear-gradient(135deg, var(--color-violet-700) 0%, var(--color-violet-500) 100%);
   box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 3px 12px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.3);
 }
+
+/* Pro plan card header — uses app accent gradient to match theme */
+.pro-plan-header {
+  background: linear-gradient(135deg, var(--color-violet-800) 0%, var(--color-violet-600) 100%);
+}
 .save-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--color-violet-800) 0%, var(--color-violet-600) 100%);
   box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 6px 20px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.4);
