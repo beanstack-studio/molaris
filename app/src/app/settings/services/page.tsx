@@ -550,15 +550,14 @@ function CatalogSettingsPage() {
                             <div className="centered-cell">
                               <select
                                 className="h-8 rounded-lg border border-slate-200 px-2 text-xs text-slate-700 focus:outline-none bg-white"
-                                value={editData.auto_verifies ? "auto" : editData.requires_received_by ? "staff" : "manual"}
+                                value={editData.auto_verifies ? "auto" : "manual"}
                                 onChange={(e) => {
                                   const v = e.target.value;
-                                  setEditData({ ...editData, auto_verifies: v === "auto", requires_received_by: v === "staff" });
+                                  setEditData({ ...editData, auto_verifies: v === "auto", requires_received_by: false });
                                 }}
                                 disabled={pmBusy}
                               >
                                 <option value="auto">Auto</option>
-                                <option value="staff">Staff</option>
                                 <option value="manual">Manual</option>
                               </select>
                             </div>
@@ -626,10 +625,7 @@ function CatalogSettingsPage() {
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Auto</span>
                 <span>auto-verified on record</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">Staff</span>
-                <span>staff receiver must be named</span>
-              </div>
+
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-500 border border-slate-200">Manual</span>
                 <span>requires manual verification</span>
@@ -893,10 +889,7 @@ function CatalogSettingsPage() {
               <input type="checkbox" checked={pmRequiresReference} onChange={(e) => setPmRequiresReference(e.target.checked)} className="h-4 w-4 rounded" disabled={pmBusy} />
               <span className="text-sm text-slate-700 dark:text-slate-300">Requires reference</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={pmRequiresReceivedBy} onChange={(e) => setPmRequiresReceivedBy(e.target.checked)} className="h-4 w-4 rounded" disabled={pmBusy} />
-              <span className="text-sm text-slate-700 dark:text-slate-300">Requires staff</span>
-            </label>
+
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={pmAutoVerifies} onChange={(e) => setPmAutoVerifies(e.target.checked)} className="h-4 w-4 rounded" disabled={pmBusy} />
               <span className="text-sm text-slate-700 dark:text-slate-300">Auto-verifies</span>

@@ -62,6 +62,7 @@ export default function AppointmentsPage() {
   const [phHolidayNames, setPhHolidayNames] = useState<Record<string, string>>({});
   const [holidayOverrides, setHolidayOverrides] = useState<Set<string>>(new Set());
   const [togglingOverride, setTogglingOverride] = useState(false);
+  const [prefillPatient, setPrefillPatient] = useState<{ id: string; name: string } | undefined>(undefined);
   const [aptSortConfig, setAptSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "appointment_date", direction: "asc" });
   const { isVisible: aptIsVisible } = useTableColumns("appointments", APT_COLUMNS);
   const { getWidth: aptGetWidth, startResize: aptStartResize } = useColumnResize("appointments");
@@ -95,8 +96,14 @@ export default function AppointmentsPage() {
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get("view");
     const dateParam = params.get("date");
+    const prefillId = params.get("prefillPatientId");
+    const prefillName = params.get("prefillPatientName");
     if (viewParam === "list") setViewMode("list");
     if (dateParam) { setSelectedDate(dateParam); setTargetDate(dateParam); }
+    if (prefillId && prefillName) {
+      setPrefillPatient({ id: prefillId, name: prefillName });
+      setShowCreateModal(true);
+    }
   }, []);
 
   // Scroll to target date in list view after data loads
@@ -845,13 +852,14 @@ export default function AppointmentsPage() {
 
       <CreateAppointmentModal
         open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => { setShowCreateModal(false); setPrefillPatient(undefined); }}
         onCreated={loadAppointments}
         dentists={dentists}
         patients={patients}
         selectedDate={selectedDate}
         clinicHours={clinicHours}
         holidayOverrides={holidayOverrides}
+        prefillPatient={prefillPatient}
       />
 
       <EditAppointmentModal

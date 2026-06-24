@@ -529,238 +529,233 @@ export default function TeamSettingsPage() {
       {error && <div className="error-banner mb-4">{error}</div>}
       {success && <div className="success-banner mb-4">{success}</div>}
 
-      <div className="spacing-vertical-lg">
-        {/* ── DENTISTS ── */}
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Dentists</h2>
-            {isAdmin && (
-              <button className="save-btn" onClick={openAddDentist} disabled={busy}>
-                Add Dentist
-              </button>
-            )}
-          </div>
-
-          <div className="table-wrapper">
-            <table className="data-table">
-              <colgroup>
-                <col className="col-40" />
-                <col className="col-30" />
-                <col className="col-30" />
-              </colgroup>
-              <thead className="data-table-head">
-                <tr>
-                  <th className="data-table-head-cell">Name</th>
-                  <th className="data-table-head-cell">PTR No.</th>
-                  <th className="data-table-head-cell">License No.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dentists.length === 0 ? (
-                  <tr><td className="data-table-empty" colSpan={3}>No dentists yet.</td></tr>
-                ) : dentists.map((d, idx) => (
-                  <tr
-                    key={d.id}
-                    className={cn(
-                      "data-table-row",
-                      idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                      isAdmin && "cursor-pointer"
-                    )}
-                    onClick={isAdmin ? () => openEditDentist(d) : undefined}
-                    onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditDentist(d); } } : undefined}
-                    tabIndex={isAdmin ? 0 : undefined}
-                    role={isAdmin ? "button" : undefined}
-                    aria-label={isAdmin ? d.full_name : undefined}
-                  >
-                    <td className="data-table-cell">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="inline-block w-3 h-3 rounded-full shrink-0"
-                          style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                        />
-                        <span className="font-medium">{d.full_name}</span>
-                        {!d.is_active && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="data-table-cell text-slate-600">{d.ptr_number ?? "—"}</td>
-                    <td className="data-table-cell text-slate-600">{d.prc_number ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* ── STAFF ── */}
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Staff Members</h2>
-            {isAdmin && (
-              <button className="save-btn" onClick={openAddStaff} disabled={busy}>
-                Add Staff
-              </button>
-            )}
-          </div>
-
-          <div className="table-wrapper">
-            <table className="data-table">
-              <colgroup>
-                <col className="col-35" />
-                <col className="col-25" />
-                <col className="col-40" />
-              </colgroup>
-              <thead className="data-table-head">
-                <tr>
-                  <th className="data-table-head-cell">Name</th>
-                  <th className="data-table-head-cell">Role</th>
-                  <th className="data-table-head-cell">Handles for</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staff.length === 0 ? (
-                  <tr><td className="data-table-empty" colSpan={3}>No staff members yet.</td></tr>
-                ) : staff.map((s, idx) => {
-                  const handlerEntry = handlers.find((h) => h.staffId === s.id);
-                  const handlesFor = handlerEntry
-                    ? handlerEntry.dentists.map((d) => d.nickname || d.full_name).join(", ")
-                    : null;
-                  return (
-                  <tr
-                    key={s.id}
-                    className={cn(
-                      "data-table-row",
-                      idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                      isAdmin && "cursor-pointer"
-                    )}
-                    onClick={isAdmin ? () => openEditStaff(s) : undefined}
-                    onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openEditStaff(s); } } : undefined}
-                    tabIndex={isAdmin ? 0 : undefined}
-                    role={isAdmin ? "button" : undefined}
-                    aria-label={isAdmin ? s.full_name : undefined}
-                  >
-                    <td className="data-table-cell">
-                      <span className="font-medium">{s.full_name}</span>
-                      {!s.is_active && (
-                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
-                      )}
-                    </td>
-                    <td className="data-table-cell text-slate-500">{s.role || "—"}</td>
-                    <td className="data-table-cell text-slate-500 text-sm">
-                      {handlesFor
-                        ? <span className="text-blue-600 dark:text-blue-400">{handlesFor}</span>
-                        : <span className="text-slate-300 dark:text-slate-600">—</span>
-                      }
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pending invites */}
-          {invites.length > 0 && isAdmin && (
-            <div className="border-t border-slate-100 dark:border-slate-700 px-4 pt-4 pb-2">
-              <p className="field-label-text mb-2">Pending invites</p>
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead className="data-table-head">
-                    <tr>
-                      <th className="data-table-head-cell">Email</th>
-                      <th className="data-table-head-cell">Role</th>
-                      <th className="data-table-head-cell">Invited</th>
-                      <th className="data-table-head-cell">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invites.map((inv, idx) => (
-                      <tr key={inv.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
-                        <td className="data-table-cell">{inv.email}</td>
-                        <td className="data-table-cell capitalize">{inv.role}</td>
-                        <td className="data-table-cell">{formatDateStandard(inv.created_at.split("T")[0])}</td>
-                        <td className="data-table-cell"><span className="badge badge-secondary">Pending</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+      <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+        {/* Left column: Dentists + Staff */}
+        <div className="flex flex-col gap-4 lg:flex-[7]">
+          {/* ── DENTISTS ── */}
+          <div className="card">
+            <div className="card-header">
+              <h2 className="card-title">Dentists</h2>
+              {isAdmin && (
+                <button className="save-btn" onClick={openAddDentist} disabled={busy}>
+                  Add Dentist
+                </button>
+              )}
             </div>
-          )}
-        </div>
 
-
-        {/* ── SCHEDULES ── */}
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Schedules</h2>
-          </div>
-          {clinicHours.length > 0 && (
-            <p className="hint-text px-0 pb-2">
-              Time options constrained to clinic operating hours set in Clinic Profile.
-            </p>
-          )}
-          {dentists.length === 0 ? (
-            <div className="data-table-empty">Add dentists above to manage their schedules.</div>
-          ) : (
             <div className="table-wrapper">
-              <table className="data-table min-w-[700px]">
+              <table className="data-table">
                 <colgroup>
-                  <col className="col-20" />
-                  <col className="col-10" />
-                  <col className="col-10" />
-                  <col className="col-10" />
-                  <col className="col-10" />
-                  <col className="col-10" />
-                  <col className="col-10" />
-                  <col className="col-10" />
-                  <col className="col-10" />
+                  <col className="col-40" />
+                  <col className="col-30" />
+                  <col className="col-30" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
-                    <th className="data-table-head-cell">Dentist</th>
-                    {WEEK_ORDER.map(({ header }) => (
-                      <th key={header} className="data-table-head-cell text-center">{header}</th>
-                    ))}
-                    <th className="data-table-head-cell-right">Actions</th>
+                    <th className="data-table-head-cell">Name</th>
+                    <th className="data-table-head-cell">PTR No.</th>
+                    <th className="data-table-head-cell">License No.</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dentists.map((d, idx) => {
-                    const sched = schedules[d.id];
-                    const displayName = d.nickname || d.full_name;
-                    return (
-                      <tr key={d.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
-                        <td className="data-table-cell">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color ?? DENTIST_COLORS[0].hex }} />
-                            <span className="font-medium truncate text-sm">{displayName}</span>
-                          </div>
-                        </td>
-                        {WEEK_ORDER.map(({ key }) => {
-                          const ds = sched?.[key];
-                          const isWorking = ds?.is_working ?? false;
-                          return (
-                            <td key={key} className={cn("data-table-cell text-center text-xs", isWorking ? "text-blue-600 dark:text-blue-400 font-medium" : "text-slate-300 dark:text-slate-600")}>
-                              {formatDayCell(ds)}
-                            </td>
-                          );
-                        })}
-                        <td className="data-table-cell-right">
-                          {isAdmin && (
-                            <button type="button" className="data-table-btn" onClick={() => openScheduleEdit(d.id)}>
-                              Edit
-                            </button>
+                  {dentists.length === 0 ? (
+                    <tr><td className="data-table-empty" colSpan={3}>No dentists yet.</td></tr>
+                  ) : dentists.map((d, idx) => (
+                    <tr
+                      key={d.id}
+                      className={cn(
+                        "data-table-row",
+                        idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                        isAdmin && "cursor-pointer"
+                      )}
+                      onClick={isAdmin ? () => openEditDentist(d) : undefined}
+                      onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditDentist(d); } } : undefined}
+                      tabIndex={isAdmin ? 0 : undefined}
+                      role={isAdmin ? "button" : undefined}
+                      aria-label={isAdmin ? d.full_name : undefined}
+                    >
+                      <td className="data-table-cell">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-block w-3 h-3 rounded-full shrink-0"
+                            style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                          />
+                          <span className="font-medium">{d.full_name}</span>
+                          {!d.is_active && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
                           )}
-                        </td>
-                      </tr>
+                        </div>
+                      </td>
+                      <td className="data-table-cell text-slate-600">{d.ptr_number ?? "—"}</td>
+                      <td className="data-table-cell text-slate-600">{d.prc_number ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ── STAFF ── */}
+          <div className="card">
+            <div className="card-header">
+              <h2 className="card-title">Staff Members</h2>
+              {isAdmin && (
+                <button className="save-btn" onClick={openAddStaff} disabled={busy}>
+                  Add Staff
+                </button>
+              )}
+            </div>
+
+            <div className="table-wrapper">
+              <table className="data-table">
+                <colgroup>
+                  <col className="col-35" />
+                  <col className="col-25" />
+                  <col className="col-40" />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Name</th>
+                    <th className="data-table-head-cell">Role</th>
+                    <th className="data-table-head-cell">Handles for</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staff.length === 0 ? (
+                    <tr><td className="data-table-empty" colSpan={3}>No staff members yet.</td></tr>
+                  ) : staff.map((s, idx) => {
+                    const handlerEntry = handlers.find((h) => h.staffId === s.id);
+                    const handlesFor = handlerEntry
+                      ? handlerEntry.dentists.map((d) => d.nickname || d.full_name).join(", ")
+                      : null;
+                    return (
+                    <tr
+                      key={s.id}
+                      className={cn(
+                        "data-table-row",
+                        idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                        isAdmin && "cursor-pointer"
+                      )}
+                      onClick={isAdmin ? () => openEditStaff(s) : undefined}
+                      onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openEditStaff(s); } } : undefined}
+                      tabIndex={isAdmin ? 0 : undefined}
+                      role={isAdmin ? "button" : undefined}
+                      aria-label={isAdmin ? s.full_name : undefined}
+                    >
+                      <td className="data-table-cell">
+                        <span className="font-medium">{s.full_name}</span>
+                        {!s.is_active && (
+                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
+                        )}
+                      </td>
+                      <td className="data-table-cell text-slate-500">{s.role || "—"}</td>
+                      <td className="data-table-cell text-slate-500 text-sm">
+                        {handlesFor
+                          ? <span className="text-blue-600 dark:text-blue-400">{handlesFor}</span>
+                          : <span className="text-slate-300 dark:text-slate-600">—</span>
+                        }
+                      </td>
+                    </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-          )}
+
+            {/* Pending invites */}
+            {invites.length > 0 && isAdmin && (
+              <div className="border-t border-slate-100 dark:border-slate-700 px-4 pt-4 pb-2">
+                <p className="field-label-text mb-2">Pending invites</p>
+                <div className="table-wrapper">
+                  <table className="data-table">
+                    <thead className="data-table-head">
+                      <tr>
+                        <th className="data-table-head-cell">Email</th>
+                        <th className="data-table-head-cell">Role</th>
+                        <th className="data-table-head-cell">Invited</th>
+                        <th className="data-table-head-cell">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invites.map((inv, idx) => (
+                        <tr key={inv.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                          <td className="data-table-cell">{inv.email}</td>
+                          <td className="data-table-cell capitalize">{inv.role}</td>
+                          <td className="data-table-cell">{formatDateStandard(inv.created_at.split("T")[0])}</td>
+                          <td className="data-table-cell"><span className="badge badge-secondary">Pending</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right column: Schedules */}
+        <div className="lg:flex-[3]">
+          {/* ── SCHEDULES ── */}
+          <div className="card">
+            <div className="card-header">
+              <h2 className="card-title">Schedules</h2>
+            </div>
+            {clinicHours.length > 0 && (
+              <p className="hint-text px-0 pb-2">
+                Times constrained to clinic operating hours.
+              </p>
+            )}
+            {dentists.length === 0 ? (
+              <div className="data-table-empty">Add dentists above to manage their schedules.</div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {dentists.map((d) => {
+                  const sched = schedules[d.id];
+                  const displayName = d.nickname || d.full_name;
+                  return (
+                    <div key={d.id} className="py-3 first:pt-0 last:pb-0">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                          />
+                          <span className="font-medium text-sm truncate">{displayName}</span>
+                        </div>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            className="data-table-btn shrink-0"
+                            onClick={() => openScheduleEdit(d.id)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                      <div className="ml-4 space-y-0.5">
+                        {WEEK_ORDER.map(({ header, key }) => {
+                          const ds = sched?.[key];
+                          const isWorking = ds?.is_working ?? false;
+                          return (
+                            <div key={key} className="flex items-center gap-2 text-xs">
+                              <span className="w-7 text-slate-400 font-medium shrink-0">{header}</span>
+                              {isWorking ? (
+                                <span className="text-blue-600 dark:text-blue-400 font-medium tabular-nums">
+                                  {formatDayCell(ds)}
+                                </span>
+                              ) : (
+                                <span className="text-slate-300 dark:text-slate-600">—</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

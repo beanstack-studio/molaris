@@ -9,6 +9,7 @@ import type { Attachment, Patient } from "@/lib/types";
 import { formatDateStandard, safeFileName, combineFullName, splitFullName } from "@/lib/helpers";
 import { useClinic } from "@/contexts/ClinicContext";
 import { PageLoader } from "@/components/Spinner";
+import { SortArrow } from "@/components/shared/TableOptions";
 
 
 const attachmentTypes = ["XRAY", "PHOTO", "FORM", "LAB", "OTHER"] as const;
@@ -29,7 +30,7 @@ export default function AttachmentsPage() {
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [fileDisplayName, setFileDisplayName] = useState<string>("");
   const [attachmentNotes, setAttachmentNotes] = useState("");
-  const [attachmentSort, setAttachmentSort] = useState<"DATE_DESC" | "DATE_ASC" | "NAME_ASC">("DATE_DESC");
+  const [attachmentSort, setAttachmentSort] = useState<"DATE_DESC" | "DATE_ASC" | "NAME_ASC" | "NAME_DESC">("DATE_DESC");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAttachment, setEditingAttachment] = useState<Attachment | null>(null);
@@ -39,11 +40,11 @@ export default function AttachmentsPage() {
 
   const displayedAttachments = useMemo(() => {
     const copy = [...attachments];
-    if (attachmentSort === "NAME_ASC") {
+    if (attachmentSort === "NAME_ASC" || attachmentSort === "NAME_DESC") {
       copy.sort((a, b) => {
         const an = (a.file_name ?? a.file_path.split("/").slice(-1)[0] ?? "").toLowerCase();
         const bn = (b.file_name ?? b.file_path.split("/").slice(-1)[0] ?? "").toLowerCase();
-        return an.localeCompare(bn);
+        return attachmentSort === "NAME_ASC" ? an.localeCompare(bn) : bn.localeCompare(an);
       });
       return copy;
     }
@@ -249,11 +250,12 @@ export default function AttachmentsPage() {
               <select
                 className="form-select-standard"
                 value={attachmentSort}
-                onChange={(e) => setAttachmentSort(e.target.value as any)}
+                onChange={(e) => setAttachmentSort(e.target.value as "DATE_DESC" | "DATE_ASC" | "NAME_ASC" | "NAME_DESC")}
               >
                 <option value="DATE_DESC">Newest</option>
                 <option value="DATE_ASC">Oldest</option>
                 <option value="NAME_ASC">Name A–Z</option>
+                <option value="NAME_DESC">Name Z–A</option>
               </select>
               <button
                 className="save-btn"
@@ -277,9 +279,21 @@ export default function AttachmentsPage() {
               </colgroup>
               <thead className="data-table-head">
                 <tr>
-                  <th className="data-table-head-cell">Date</th>
+                  <th
+                    className="data-table-head-cell cursor-pointer select-none"
+                    onClick={() => setAttachmentSort(attachmentSort === "DATE_DESC" ? "DATE_ASC" : "DATE_DESC")}
+                  >
+                    Date
+                    <SortArrow dir={attachmentSort === "DATE_DESC" ? "desc" : attachmentSort === "DATE_ASC" ? "asc" : null} />
+                  </th>
                   <th className="data-table-head-cell">Type</th>
-                  <th className="data-table-head-cell">File</th>
+                  <th
+                    className="data-table-head-cell cursor-pointer select-none"
+                    onClick={() => setAttachmentSort(attachmentSort === "NAME_ASC" ? "NAME_DESC" : "NAME_ASC")}
+                  >
+                    File
+                    <SortArrow dir={attachmentSort === "NAME_ASC" ? "asc" : attachmentSort === "NAME_DESC" ? "desc" : null} />
+                  </th>
                   <th className="data-table-head-cell">Notes</th>
                   <th className="data-table-head-cell-right">Actions</th>
                 </tr>

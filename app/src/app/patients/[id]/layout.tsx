@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import PatientTabs from "@/components/PatientTabs";
 import { formatPatientName } from "@/lib/helpers";
@@ -12,6 +12,7 @@ import type { Tab } from "@/lib/types";
 export default function Layout({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const pathname = usePathname();
+  const router = useRouter();
   const patientId = params?.id as string;
   const { clinicId } = useClinic();
   const [patientName, setPatientName] = useState<string>("");
@@ -111,10 +112,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="page-bg">
       <main className="app-section">
         {/* Compact patient header — one line */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <h1 className="app-section-title leading-none">{displayName}</h1>
-          {ageGenderSuffix && (
-            <span className="text-muted text-sm leading-none">{ageGenderSuffix}</span>
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="app-section-title leading-none">{displayName}</h1>
+            {ageGenderSuffix && (
+              <span className="text-muted text-sm leading-none">{ageGenderSuffix}</span>
+            )}
+          </div>
+          {!loading && patientName && (
+            <button
+              type="button"
+              className="save-btn shrink-0"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  prefillPatientId: patientId,
+                  prefillPatientName: patientName,
+                });
+                router.push(`/appointments?${params.toString()}`);
+              }}
+            >
+              Book appointment
+            </button>
           )}
         </div>
 

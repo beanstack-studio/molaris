@@ -328,7 +328,16 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={(e) => { e.stopPropagation(); if (collapsed || isActive) onToggle(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!collapsed && isActive) {
+                    e.preventDefault(); // already on this section — just collapse sidebar
+                    onToggle();
+                  } else if (collapsed) {
+                    onToggle(); // expand, then navigate naturally
+                  }
+                  // else: expanded + different route → navigate, no toggle
+                }}
                 className={itemClass}
                 title={collapsed ? item.label : undefined}
                 aria-current={isActive ? "page" : undefined}

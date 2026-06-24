@@ -27,9 +27,10 @@ interface Props {
   selectedDate: string | null;
   clinicHours: ClinicHoursEntry[];
   holidayOverrides?: Set<string>;
+  prefillPatient?: { id: string; name: string };
 }
 
-export function CreateAppointmentModal({ open, onClose, onCreated, dentists, patients, selectedDate, clinicHours, holidayOverrides }: Props) {
+export function CreateAppointmentModal({ open, onClose, onCreated, dentists, patients, selectedDate, clinicHours, holidayOverrides, prefillPatient }: Props) {
   const { clinicId } = useClinic();
   const [formData, setFormData] = useState({
     patientId: "",
@@ -66,18 +67,20 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
 
   useEffect(() => {
     if (open) {
-      setPatientSearchInput("");
+      setPatientSearchInput(prefillPatient?.name ?? "");
       setError(null);
       setIsOrthoPatient(false);
       setFormData({
-        patientId: "",
+        patientId: prefillPatient?.id ?? "",
         appointmentDate: selectedDate || new Date().toISOString().split("T")[0],
         appointmentTime: "08:00",
         dentistId: "",
         concernType: "",
       });
+      if (prefillPatient?.id) checkOrthoStatus(prefillPatient.id);
     }
-  }, [open, selectedDate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, selectedDate, prefillPatient?.id]);
 
   async function loadDentistSchedule(dentistId: string) {
     if (!dentistId) { setDentistSchedule([]); setDentistBlockouts([]); return; }

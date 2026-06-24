@@ -12,7 +12,7 @@
   --bg-page:        #bccfe8;   /* blue midpoint fallback (matches gradient) */
   --bg-card:        rgba(255, 255, 255, 0.68);   /* glass — cards/tables */
   --bg-modal:       rgba(255, 255, 255, 0.97);   /* near-opaque white for modals */
-  --bg-card-muted:  rgba(219, 234, 254, 0.65);   /* glass — blue-tinted nested surface */
+  --bg-card-muted:  rgba(255, 255, 255, 0.85);   /* white nested surface */
   --bg-input:       rgba(242, 252, 249, 0.92);
   /* borders */
   --border-card:    rgba(59, 130, 246, 0.18);    /* blue — visible on glass surfaces */
