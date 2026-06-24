@@ -139,10 +139,19 @@ const DEFAULT_SCHEDULE: DentistSchedule = {
   sunday: DEFAULT_DAY,
 };
 
+function parseTime(v: unknown, fallback: number): number {
+  if (v == null) return fallback;
+  const n = Number(v);
+  return isFinite(n) ? n : fallback;
+}
+
 function formatDayCell(ds: DaySchedule | undefined): string {
   if (!ds || !ds.is_working) return "—";
+  const st = isFinite(ds.start_time) ? ds.start_time : null;
+  const et = isFinite(ds.end_time) ? ds.end_time : null;
+  if (st === null || et === null) return "—";
   const fmt12 = (h: number) => (h > 12 ? h - 12 : h === 0 ? 12 : h);
-  return `${fmt12(Math.floor(ds.start_time))}–${fmt12(Math.floor(ds.end_time))}`;
+  return `${fmt12(Math.floor(st))}–${fmt12(Math.floor(et))}`;
 }
 
 function LoadingBlock() {
@@ -344,8 +353,8 @@ export default function TeamSettingsPage() {
               if (day && DAY_KEYS.includes(day)) {
                 sched[day] = {
                   is_working: row.is_working ?? false,
-                  start_time: row.start_time ?? 8,
-                  end_time: row.end_time ?? 17,
+                  start_time: parseTime(row.start_time, 8),
+                  end_time: parseTime(row.end_time, 17),
                 };
               }
             }
@@ -381,8 +390,8 @@ export default function TeamSettingsPage() {
               if (day && DAY_KEYS.includes(day)) {
                 sched[day] = {
                   is_working: row.is_working ?? false,
-                  start_time: row.start_time ?? 8,
-                  end_time: row.end_time ?? 17,
+                  start_time: parseTime(row.start_time, 8),
+                  end_time: parseTime(row.end_time, 17),
                 };
               }
             }
@@ -1446,7 +1455,19 @@ export default function TeamSettingsPage() {
             <input className="field-input" value={dentistName} onChange={(e) => setDentistName(e.target.value)} disabled={busy} />
           </label>
 
-          {/* 3. Phone */}
+          {/* 3. Specialty / Role */}
+          <label className="field-label">
+            <span className="field-label-text">Specialty / Role</span>
+            <select className="field-input" value={dentistSpecialty} onChange={(e) => setDentistSpecialty(e.target.value)} disabled={busy}>
+              <option value="">Select specialty</option>
+              {DENTIST_SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+
+          {/* 4. Date of Birth */}
+          <DatePickerField label="Date of Birth" value={dentistDob} onChange={setDentistDob} inputRef={dentistDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
+
+          {/* 5. Phone */}
           <label className="field-label">
             <span className="field-label-text">Phone</span>
             <input
@@ -1458,23 +1479,11 @@ export default function TeamSettingsPage() {
             />
           </label>
 
-          {/* 4. Nickname */}
+          {/* 6. Nickname */}
           <label className="field-label">
             <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional)</span></span>
             <input className="field-input" placeholder="e.g. Doc Daisy" value={dentistNickname} onChange={(e) => setDentistNickname(e.target.value)} disabled={busy} />
           </label>
-
-          {/* 5. Specialty / Role */}
-          <label className="field-label">
-            <span className="field-label-text">Specialty / Role</span>
-            <select className="field-input" value={dentistSpecialty} onChange={(e) => setDentistSpecialty(e.target.value)} disabled={busy}>
-              <option value="">Select specialty</option>
-              {DENTIST_SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </label>
-
-          {/* 6. Date of Birth */}
-          <DatePickerField label="Date of Birth" value={dentistDob} onChange={setDentistDob} inputRef={dentistDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
 
           {/* 7. PRC / License No. */}
           <label className="field-label">
@@ -1580,7 +1589,19 @@ export default function TeamSettingsPage() {
             <input className="field-input" value={staffName} onChange={(e) => setStaffName(e.target.value)} disabled={busy} />
           </label>
 
-          {/* 3. Phone */}
+          {/* 3. Role / Job title */}
+          <label className="field-label">
+            <span className="field-label-text">Role / Job title <span className="text-red-400">*</span></span>
+            <select className="field-input" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} disabled={busy}>
+              <option value="">Select role</option>
+              {STAFF_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+
+          {/* 4. Date of Birth */}
+          <DatePickerField label="Date of Birth" value={staffDob} onChange={setStaffDob} inputRef={staffDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
+
+          {/* 5. Phone */}
           <label className="field-label">
             <span className="field-label-text">Phone</span>
             <input
@@ -1591,18 +1612,6 @@ export default function TeamSettingsPage() {
               disabled={busy}
             />
           </label>
-
-          {/* 4. Role / Job title */}
-          <label className="field-label">
-            <span className="field-label-text">Role / Job title <span className="text-red-400">*</span></span>
-            <select className="field-input" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} disabled={busy}>
-              <option value="">Select role</option>
-              {STAFF_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </label>
-
-          {/* 5. Date of Birth */}
-          <DatePickerField label="Date of Birth" value={staffDob} onChange={setStaffDob} inputRef={staffDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
 
           {/* 6. Clinical Access (Pro only) */}
           {isPro && (

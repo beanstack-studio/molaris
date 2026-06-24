@@ -213,6 +213,7 @@ function CatalogSettingsPage() {
   }
 
   function openAdd() {
+    setItemType("SERVICE");
     setName("");
     setPrice("");
     setDuration("");
@@ -398,15 +399,15 @@ function CatalogSettingsPage() {
         <div className="card">
           <div className="card-header">
             <div className="card-title">Services &amp; Extras</div>
+            <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
+              Add
+            </button>
           </div>
 
           {/* Services sub-table */}
           <div className="mt-2">
-            <div className="flex items-center justify-between px-1 mb-1">
+            <div className="px-1 mb-1">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Services</h4>
-              <button type="button" className="save-btn" onClick={() => { setItemType("SERVICE"); openAdd(); }} disabled={busy}>
-                Add
-              </button>
             </div>
             <div className="table-wrapper">
               <table className="data-table">
@@ -446,7 +447,7 @@ function CatalogSettingsPage() {
                     >
                       <td className="data-table-cell">{r.service_name}</td>
                       <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
-                      <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
+                      <td className="data-table-cell-right whitespace-nowrap">{formatMoney(r.default_price)}</td>
                       <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end">
                           <TogglePill checked={r.is_active} disabled={busy} onChange={() => toggleActive(r.id, r.is_active)} />
@@ -464,11 +465,8 @@ function CatalogSettingsPage() {
 
           {/* Extras sub-table */}
           <div className="mt-4">
-            <div className="flex items-center justify-between px-1 mb-1">
+            <div className="px-1 mb-1">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Extras</h4>
-              <button type="button" className="save-btn" onClick={() => { setItemType("ADD_ON"); openAdd(); }} disabled={busy}>
-                Add
-              </button>
             </div>
             <div className="table-wrapper">
               <table className="data-table">
@@ -508,7 +506,7 @@ function CatalogSettingsPage() {
                     >
                       <td className="data-table-cell">{r.service_name}</td>
                       <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
-                      <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
+                      <td className="data-table-cell-right whitespace-nowrap">{formatMoney(r.default_price)}</td>
                       <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end">
                           <TogglePill checked={r.is_active} disabled={busy} onChange={() => toggleActive(r.id, r.is_active)} />
@@ -684,6 +682,37 @@ function CatalogSettingsPage() {
       {/* ── Services modals ── */}
       <EditModal open={addOpen} title={itemType === "ADD_ON" ? "Add Extra" : "Add Service"} onClose={closeAdd}>
         <div className="spacing-vertical-lg">
+          {/* Category radio — required */}
+          <div>
+            <span className="field-label-text block mb-2">Category <span className="text-red-400">*</span></span>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="add-item-type"
+                  value="SERVICE"
+                  checked={itemType === "SERVICE"}
+                  onChange={() => setItemType("SERVICE")}
+                  disabled={busy}
+                  className="h-4 w-4"
+                />
+                <span className="text-sm text-slate-700">Service</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="add-item-type"
+                  value="ADD_ON"
+                  checked={itemType === "ADD_ON"}
+                  onChange={() => setItemType("ADD_ON")}
+                  disabled={busy}
+                  className="h-4 w-4"
+                />
+                <span className="text-sm text-slate-700">Extra</span>
+              </label>
+            </div>
+          </div>
+
           <label className="field-label">
             <span className="field-label-text">Name</span>
             <input
