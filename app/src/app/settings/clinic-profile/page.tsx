@@ -370,37 +370,53 @@ export default function ClinicProfileSettingsPage() {
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">Clinic Hours</h3>
-          <div className="action-row">
-            {editingClinicHours ? (
-              <>
-                <button className="cancel-btn" onClick={() => setEditingClinicHours(false)}>Cancel</button>
-                <button className="save-btn" onClick={handleSaveClinicHours} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
-              </>
-            ) : (
-              <button className="save-btn" onClick={() => setEditingClinicHours(true)}>Edit</button>
-            )}
-          </div>
+          {editingClinicHours && (
+            <div className="action-row">
+              <button className="cancel-btn" onClick={() => setEditingClinicHours(false)}>Cancel</button>
+              <button className="save-btn" onClick={handleSaveClinicHours} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
+            </div>
+          )}
         </div>
 
-        {/* Read mode — vertical day list */}
+        {/* Read mode — table with clickable rows */}
         {!editingClinicHours && (
-          <div className="mt-3 space-y-1.5">
-            {clinicHours.map((hour) => {
-              const isOpen = hour.is_open !== false;
-              const shortDay = hour.day.slice(0, 3);
-              return (
-                <div key={hour.id} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500 font-medium w-12 shrink-0">{shortDay}</span>
-                  {isOpen ? (
-                    <span className="text-slate-800 font-medium tabular-nums">
-                      {formatTimeFromValue(hour.open_hour)} – {formatTimeFromValue(hour.close_hour)}
-                    </span>
-                  ) : (
-                    <span className="text-slate-300 text-xs font-semibold uppercase tracking-wide">Closed</span>
-                  )}
-                </div>
-              );
-            })}
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead className="data-table-head">
+                <tr>
+                  <th className="data-table-head-cell">Day</th>
+                  <th className="data-table-head-cell-right">Hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clinicHours.map((hour, idx) => {
+                  const isOpen = hour.is_open !== false;
+                  return (
+                    <tr
+                      key={hour.id}
+                      className={cn(
+                        "data-table-row cursor-pointer",
+                        idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
+                      )}
+                      onClick={() => setEditingClinicHours(true)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditingClinicHours(true); } }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Edit ${hour.day} hours`}
+                    >
+                      <td className="data-table-cell font-medium text-slate-700">{hour.day}</td>
+                      <td className="data-table-cell-right tabular-nums text-sm">
+                        {isOpen ? (
+                          <span className="text-slate-800">{formatTimeFromValue(hour.open_hour)} – {formatTimeFromValue(hour.close_hour)}</span>
+                        ) : (
+                          <span className="text-slate-300 text-xs font-semibold uppercase tracking-wide">Closed</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 

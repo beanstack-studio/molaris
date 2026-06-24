@@ -115,32 +115,37 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
 
   async function loadDentistAvailabilityForDate(dateStr: string) {
     if (!dentists.length || !clinicId) return;
-    const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
-    const dayName = DAY_NAMES[dayOfWeek];
-    const dentistIds = dentists.map((d) => d.id);
-    const [schedRes, blockRes] = await Promise.all([
-      supabase.from("dentist_schedules")
-        .select("dentist_id, is_working")
-        .in("dentist_id", dentistIds)
-        .eq("clinic_id", clinicId)
-        .eq("day_of_week", dayName),
-      supabase.from("dentist_blockouts")
-        .select("dentist_id")
-        .in("dentist_id", dentistIds)
-        .lte("start_date", dateStr)
-        .gte("end_date", dateStr),
-    ]);
-    const blockedIds = new Set((blockRes.data ?? []).map((b: { dentist_id: string }) => b.dentist_id));
-    const offIds = new Set(
-      (schedRes.data ?? [])
-        .filter((s: { dentist_id: string; is_working: boolean }) => !s.is_working)
-        .map((s: { dentist_id: string; is_working: boolean }) => s.dentist_id)
-    );
-    const avail: Record<string, boolean> = {};
-    for (const d of dentists) {
-      avail[d.id] = !blockedIds.has(d.id) && !offIds.has(d.id);
+    try {
+      const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
+      const dayName = DAY_NAMES[dayOfWeek];
+      const dentistIds = dentists.map((d) => d.id);
+      const [schedRes, blockRes] = await Promise.all([
+        supabase.from("dentist_schedules")
+          .select("dentist_id, is_working")
+          .in("dentist_id", dentistIds)
+          .eq("clinic_id", clinicId)
+          .eq("day_of_week", dayName),
+        supabase.from("dentist_blockouts")
+          .select("dentist_id")
+          .in("dentist_id", dentistIds)
+          .lte("start_date", dateStr)
+          .gte("end_date", dateStr),
+      ]);
+      const blockedIds = new Set((blockRes.data ?? []).map((b: { dentist_id: string }) => b.dentist_id));
+      const offIds = new Set(
+        (schedRes.data ?? [])
+          .filter((s: { dentist_id: string; is_working: boolean }) => !s.is_working)
+          .map((s: { dentist_id: string; is_working: boolean }) => s.dentist_id)
+      );
+      const avail: Record<string, boolean> = {};
+      for (const d of dentists) {
+        avail[d.id] = !blockedIds.has(d.id) && !offIds.has(d.id);
+      }
+      setDentistAvailability(avail);
+    } catch {
+      // Fail open — show all dentists if availability can't be determined
+      setDentistAvailability({});
     }
-    setDentistAvailability(avail);
   }
 
   async function checkOrthoStatus(patientId: string) {

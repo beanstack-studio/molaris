@@ -956,7 +956,7 @@ export default function TeamSettingsPage() {
               <div className="data-table-empty">Add dentists above to manage their schedules.</div>
             ) : (
               <div className="table-wrapper overflow-x-auto">
-                <table className="data-table">
+                <table className="data-table min-w-[540px]">
                   <thead className="data-table-head">
                     <tr>
                       <th className="data-table-head-cell w-32 shrink-0">Person</th>
@@ -966,46 +966,36 @@ export default function TeamSettingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Dentist rows */}
+                    {/* Dentist rows — entire row is clickable for admin */}
                     {dentists.map((d, rowIdx) => {
                       const isEditing = editingScheduleFor?.id === d.id;
                       return (
-                        <tr key={d.id} className={cn("data-table-row", rowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                        <tr
+                          key={d.id}
+                          className={cn(
+                            "data-table-row",
+                            rowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                            isAdmin && "cursor-pointer hover:bg-blue-50/40"
+                          )}
+                          onClick={isAdmin ? () => openScheduleEdit(d.id) : undefined}
+                          onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openScheduleEdit(d.id); } } : undefined}
+                          tabIndex={isAdmin ? 0 : undefined}
+                          role={isAdmin ? "button" : undefined}
+                        >
                           <td className={cn("data-table-cell", isEditing && "bg-blue-50")}>
-                            {isAdmin ? (
-                              <button
-                                type="button"
-                                onClick={() => openScheduleEdit(d.id)}
-                                className="flex items-center gap-2 hover:opacity-70 transition-opacity w-full text-left"
-                                title={`Edit ${d.nickname || d.full_name}'s schedule`}
-                              >
-                                {d.photo_url ? (
-                                  <img src={d.photo_url} alt={d.nickname || d.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                                ) : (
-                                  <span
-                                    className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
-                                    style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                                  >
-                                    {(d.nickname || d.full_name).slice(0, 1).toUpperCase()}
-                                  </span>
-                                )}
-                                <span className="text-xs truncate">{d.nickname || d.full_name}</span>
-                              </button>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                {d.photo_url ? (
-                                  <img src={d.photo_url} alt={d.nickname || d.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                                ) : (
-                                  <span
-                                    className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
-                                    style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                                  >
-                                    {(d.nickname || d.full_name).slice(0, 1).toUpperCase()}
-                                  </span>
-                                )}
-                                <span className="text-xs truncate">{d.nickname || d.full_name}</span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2 pointer-events-none">
+                              {d.photo_url ? (
+                                <img src={d.photo_url} alt={d.nickname || d.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                              ) : (
+                                <span
+                                  className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
+                                  style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                                >
+                                  {(d.nickname || d.full_name).slice(0, 1).toUpperCase()}
+                                </span>
+                              )}
+                              <span className="text-xs truncate">{d.nickname || d.full_name}</span>
+                            </div>
                           </td>
                           {WEEK_ORDER.map(({ key }) => {
                             const ds = schedules[d.id]?.[key];
@@ -1025,13 +1015,24 @@ export default function TeamSettingsPage() {
                         </tr>
                       );
                     })}
-                    {/* Staff rows — show with dash for all days */}
+                    {/* Staff rows — click to edit staff member */}
                     {staff.map((s, rowIdx) => {
                       const staffRowIdx = dentists.length + rowIdx;
                       return (
-                        <tr key={s.id} className={cn("data-table-row", staffRowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                        <tr
+                          key={s.id}
+                          className={cn(
+                            "data-table-row",
+                            staffRowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                            isAdmin && "cursor-pointer hover:bg-slate-50/60"
+                          )}
+                          onClick={isAdmin ? () => { void openEditStaff(s); } : undefined}
+                          onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openEditStaff(s); } } : undefined}
+                          tabIndex={isAdmin ? 0 : undefined}
+                          role={isAdmin ? "button" : undefined}
+                        >
                           <td className="data-table-cell">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 pointer-events-none">
                               {s.photo_url ? (
                                 <img src={s.photo_url} alt={s.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
                               ) : (
@@ -1073,8 +1074,8 @@ export default function TeamSettingsPage() {
                   : "No scheduled off days yet."}
               </div>
             ) : (
-              <div className="table-wrapper">
-                <table className="data-table">
+              <div className="table-wrapper overflow-x-auto">
+                <table className="data-table min-w-[420px]">
                   <colgroup>
                     <col className="col-25" />
                     <col className="col-20" />
@@ -1563,32 +1564,24 @@ export default function TeamSettingsPage() {
             </select>
           </label>
 
-          {/* Date range — native date inputs in horizontal layout */}
+          {/* Date range — styled date pickers */}
           <div>
             <span className="field-label-text block mb-2">Date Range <span className="text-red-400">*</span></span>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <label className="text-xs text-slate-500 mb-1 block">From</label>
-                <input
-                  type="date"
-                  className="field-input"
-                  value={blockoutStart}
-                  onChange={(e) => setBlockoutStart(e.target.value)}
-                  disabled={busy}
-                />
-              </div>
-              <span className="text-slate-400 shrink-0 mt-5 text-lg">→</span>
-              <div className="flex-1">
-                <label className="text-xs text-slate-500 mb-1 block">To</label>
-                <input
-                  type="date"
-                  className="field-input"
-                  value={blockoutEnd}
-                  min={blockoutStart || undefined}
-                  onChange={(e) => setBlockoutEnd(e.target.value)}
-                  disabled={busy}
-                />
-              </div>
+            <div className="flex items-start gap-2">
+              <DatePickerField
+                label="From"
+                value={blockoutStart}
+                onChange={setBlockoutStart}
+                wrapperClassName="grid gap-1 flex-1"
+              />
+              <span className="text-slate-400 shrink-0 mt-7 text-lg">→</span>
+              <DatePickerField
+                label="To"
+                value={blockoutEnd}
+                onChange={(v) => { if (!blockoutStart || v >= blockoutStart) setBlockoutEnd(v); }}
+                min={blockoutStart || undefined}
+                wrapperClassName="grid gap-1 flex-1"
+              />
             </div>
           </div>
 
