@@ -300,9 +300,9 @@ export default function ClinicProfileSettingsPage() {
       {error ? <div className="error-banner">{error}</div> : null}
       {success ? <div className="success-banner">Saved successfully</div> : null}
 
-      <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+      <div className="grid gap-4 lg:grid-cols-[7fr_3fr]">
       {/* Clinic Information Card */}
-      <div className="card lg:flex-[7]">
+      <div className="card">
         <div className="card-header">
           <h3 className="card-title">Clinic Information</h3>
           <button className="save-btn" onClick={openEditInfo}>Edit</button>
@@ -374,7 +374,7 @@ export default function ClinicProfileSettingsPage() {
       </div>
 
       {/* Clinic Hours Card */}
-      <div className="card lg:flex-[3]">
+      <div className="card">
         <div className="card-header">
           <h3 className="card-title">Clinic Hours</h3>
           <div className="action-row">

@@ -138,7 +138,7 @@ export default function TeamSettingsPage() {
 
   // Schedule editor state
   const [schedules, setSchedules] = useState<Record<string, DentistSchedule>>({});
-  const [editingScheduleFor, setEditingScheduleFor] = useState<{ id: string } | null>(null);
+  const [editingScheduleFor, setEditingScheduleFor] = useState<{ id: string; name: string } | null>(null);
   const [scheduleEdit, setScheduleEdit] = useState<DentistSchedule>(DEFAULT_SCHEDULE);
 
   // Dentist modal state
@@ -280,8 +280,10 @@ export default function TeamSettingsPage() {
   }
 
   function openScheduleEdit(id: string) {
+    const dentist = dentists.find((d) => d.id === id);
+    const name = dentist?.nickname || dentist?.full_name || "";
     setScheduleEdit({ ...(schedules[id] ?? DEFAULT_SCHEDULE) });
-    setEditingScheduleFor({ id });
+    setEditingScheduleFor({ id, name });
   }
 
   async function saveSchedule() {
@@ -529,9 +531,9 @@ export default function TeamSettingsPage() {
       {error && <div className="error-banner mb-4">{error}</div>}
       {success && <div className="success-banner mb-4">{success}</div>}
 
-      <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+      <div className="grid gap-4 lg:grid-cols-[7fr_3fr]">
         {/* Left column: Dentists + Staff */}
-        <div className="flex flex-col gap-4 lg:flex-[7]">
+        <div className="flex flex-col gap-4">
           {/* ── DENTISTS ── */}
           <div className="card">
             <div className="card-header">
@@ -694,7 +696,7 @@ export default function TeamSettingsPage() {
         </div>
 
         {/* Right column: Schedules */}
-        <div className="lg:flex-[3]">
+        <div>
           {/* ── SCHEDULES ── */}
           <div className="card">
             <div className="card-header">
@@ -767,7 +769,7 @@ export default function TeamSettingsPage() {
       {/* ── SCHEDULE EDITOR MODAL ── */}
       <EditModal
         open={editingScheduleFor !== null}
-        title="Edit Schedule"
+        title={editingScheduleFor?.name ? `Edit Schedule — ${editingScheduleFor.name}` : "Edit Schedule"}
         onClose={() => setEditingScheduleFor(null)}
       >
         <div className="spacing-vertical-lg">

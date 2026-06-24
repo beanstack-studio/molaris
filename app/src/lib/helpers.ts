@@ -226,6 +226,31 @@ export async function getNextReceiptNumber(supabaseClient: any): Promise<string>
   return `PMT${year}-${sequence}`;
 }
 
+export function printTableAsHTML(title: string, headers: string[], rows: string[][]): void {
+  const thCells = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
+  const trRows = rows.map((row) =>
+    `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`
+  ).join("");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+<style>
+  body{font-family:sans-serif;font-size:12px;margin:24px}
+  h2{margin:0 0 12px;font-size:15px}
+  table{border-collapse:collapse;width:100%}
+  th,td{border:1px solid #d1d5db;padding:6px 10px;text-align:left}
+  th{background:#f1f5f9;font-weight:600}
+  tr:nth-child(even){background:#f8fafc}
+  @media print{body{margin:0}}
+</style></head><body>
+<h2>${escapeHtml(title)}</h2>
+<table><thead><tr>${thCells}</tr></thead><tbody>${trRows}</tbody></table>
+</body></html>`;
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => win.print();
+}
+
 export function renderTemplate(template: string, data: Record<string, any>) {
   let html = template;
   for (const [key, value] of Object.entries(data)) {

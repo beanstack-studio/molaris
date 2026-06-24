@@ -82,7 +82,7 @@ export default function AccountPage() {
             />
           </label>
 
-          <label className="field-label">
+          <div className="field-label">
             <span className="field-label-text">Email</span>
             <input
               className="field-input"
@@ -90,7 +90,19 @@ export default function AccountPage() {
               readOnly
               tabIndex={-1}
             />
-          </label>
+            <div className="mt-2">
+              {resetMsg && <div className="success-banner mb-2">{resetMsg}</div>}
+              {resetError && <div className="error-banner mb-2">{resetError}</div>}
+              <button
+                type="button"
+                className="cancel-btn text-sm"
+                onClick={sendPasswordReset}
+                disabled={resetBusy || !userEmail}
+              >
+                {resetBusy ? "Sending…" : "Send password reset link"}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -101,31 +113,6 @@ export default function AccountPage() {
             disabled={nameBusy || !fullName.trim() || fullName.trim() === (userFullName ?? "")}
           >
             {nameBusy ? "Saving…" : "Save name"}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Security ──────────────────────────────────────────── */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Security</h2>
-        </div>
-
-        <div className="mt-4">
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-            We&rsquo;ll send a password reset link to <strong>{userEmail}</strong>.
-          </p>
-
-          {resetMsg && <div className="success-banner mb-3">{resetMsg}</div>}
-          {resetError && <div className="error-banner mb-3">{resetError}</div>}
-
-          <button
-            type="button"
-            className="save-btn"
-            onClick={sendPasswordReset}
-            disabled={resetBusy || !userEmail}
-          >
-            {resetBusy ? "Sending…" : "Send password reset link"}
           </button>
         </div>
       </div>

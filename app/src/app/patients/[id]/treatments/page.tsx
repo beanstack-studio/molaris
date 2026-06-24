@@ -6,7 +6,7 @@ import { useClinic } from "@/contexts/ClinicContext";
 import PatientTabs from "@/components/PatientTabs";
 import { supabase } from "@/lib/supabaseClient";
 import type { Treatment, DentistRow, ServicePriceRow, Patient } from "@/lib/types";
-import { todayLocalISO, splitFullName, formatDateStandard } from "@/lib/helpers";
+import { todayLocalISO, splitFullName, formatDateStandard, formatPatientNameFormal, printTableAsHTML } from "@/lib/helpers";
 import { AddVisitModal } from "./AddVisitModal";
 import { EditVisitModal } from "./EditVisitModal";
 import { PageLoader } from "@/components/Spinner";
@@ -182,6 +182,27 @@ export default function TreatmentsPage() {
   const canWrite = isAdmin || isDentist || isHandler;
   const filteredDentists = isAdmin || isDentist ? dentists : dentists.filter((d) => handlerFor.includes(d.id));
 
+  const patientLabel = patient
+    ? formatPatientNameFormal(patient.first_name ?? null, patient.middle_name ?? null, patient.last_name ?? null)
+    : "Patient";
+
+  function downloadTreatmentsPDF() {
+    const headers = ["Date", "Dentist", "Tooth", "Treatment", "Notes"];
+    const rows: string[][] = [];
+    for (const [date, txs] of groupedTreatmentHistory) {
+      for (const t of txs) {
+        rows.push([
+          formatDateStandard(date),
+          txs[0]?.dentist_name ?? "—",
+          t.tooth_number != null ? String(t.tooth_number) : "—",
+          t.procedure ?? "—",
+          t.notes ?? "",
+        ]);
+      }
+    }
+    printTableAsHTML(`Treatment History — ${patientLabel}`, headers, rows);
+  }
+
   if (loading) {
     return (
       <PageLoader />
@@ -202,6 +223,7 @@ export default function TreatmentsPage() {
                   onSortChange={(key, direction) => setSortConfig({ key, direction })}
                   data={treatments}
                   onDownloadCSV={() => {}}
+                  onDownloadPDF={downloadTreatmentsPDF}
                 />
                 {canWrite && (
                   <button className="save-btn" onClick={() => setShowAddVisitModal(true)}>

@@ -18,7 +18,7 @@ import type {
   OrthoEntryItem,
   OrthoCase,
 } from "@/lib/types";
-import { formatMoney, formatDateStandard, todayLocalISO, splitFullName, formatPatientNameFormal } from "@/lib/helpers";
+import { formatMoney, formatDateStandard, todayLocalISO, splitFullName, formatPatientNameFormal, printTableAsHTML } from "@/lib/helpers";
 import { useClinic } from "@/contexts/ClinicContext";
 import { getActivePaymentModes } from "@/lib/paymentModeHelpers";
 import { generateReceipt, voidPayment } from "@/lib/receiptHelpers";
@@ -929,6 +929,46 @@ function BillingPage() {
     return 0;
   });
 
+  const patientLabel = patient
+    ? formatPatientNameFormal(patient.first_name ?? null, patient.middle_name ?? null, patient.last_name ?? null)
+    : "Patient";
+
+  function downloadInvoicesPDF() {
+    const headers = ["Date", "Invoice #", "Amount", "Paid", "Balance", "Status"];
+    const rows = (sortedInvoices as (Invoice & { invoice_type?: string })[]).map((inv) => {
+      const invoiceAmount = inv.total ?? 0;
+      const paidAmount = payments
+        .filter((p: PaymentRowExtended) => p.invoice_id === inv.id && !p.voided_at)
+        .reduce((sum: number, p: PaymentRowExtended) => sum + (p.amount ?? 0), 0);
+      const balance = invoiceAmount - paidAmount;
+      return [
+        formatDateStandard(inv.invoice_date),
+        inv.invoice_number ?? "—",
+        formatMoney(invoiceAmount),
+        formatMoney(paidAmount),
+        formatMoney(Math.max(0, balance)),
+        balance === 0 ? "paid" : inv.status ?? "pending",
+      ];
+    });
+    printTableAsHTML(`Invoices — ${patientLabel}`, headers, rows);
+  }
+
+  function downloadPaymentsPDF() {
+    const headers = ["Date", "Transaction ID", "Amount", "Mode", "Status"];
+    const rows = sortedPayments.map((pay: PaymentRowExtended) => {
+      const modeData = paymentModes.find((m) => m.code === (pay.details?.["payment_mode_code"] as string | undefined));
+      const isVoided = !!pay.voided_at;
+      return [
+        formatDateStandard(pay.payment_date),
+        pay.transaction_id ?? "—",
+        formatMoney(pay.amount),
+        modeData?.name ?? (pay.details?.["payment_mode_name"] as string | undefined) ?? "—",
+        isVoided ? "voided" : pay.status ?? "pending",
+      ];
+    });
+    printTableAsHTML(`Payments — ${patientLabel}`, headers, rows);
+  }
+
   if (loading) {
     return (
       <PageLoader />
@@ -979,6 +1019,7 @@ function BillingPage() {
                       onSortChange={(k, d) => setBillingSortConfig({ key: k, direction: d })}
                       data={invoices}
                       onDownloadCSV={() => {}}
+                      onDownloadPDF={downloadInvoicesPDF}
                     />
                     {canCreateInvoice && (
                       <button
@@ -1156,6 +1197,7 @@ function BillingPage() {
                       onSortChange={(k, d) => setPaymentSortConfig({ key: k, direction: d })}
                       data={payments}
                       onDownloadCSV={() => {}}
+                      onDownloadPDF={downloadPaymentsPDF}
                     />
                     <button className="save-btn" onClick={() => setShowAddPayment(true)}>
                       Add payment
