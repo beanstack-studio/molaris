@@ -12,6 +12,7 @@ import { EditAppointmentModal } from "./EditAppointmentModal";
 import { PageLoader } from "@/components/Spinner";
 import { TableOptions, useTableColumns, SortArrow, type ColumnConfig } from "@/components/shared/TableOptions";
 import { useColumnResize } from "@/hooks/useColumnResize";
+import { EditModal } from "@/components/EditModal";
 
 interface AppointmentWithRelations extends Appointment {
   patients?: Patient;
@@ -63,6 +64,8 @@ export default function AppointmentsPage() {
   const [holidayOverrides, setHolidayOverrides] = useState<Set<string>>(new Set());
   const [togglingOverride, setTogglingOverride] = useState(false);
   const [prefillPatient, setPrefillPatient] = useState<{ id: string; name: string } | undefined>(undefined);
+  const [dayModalDate, setDayModalDate] = useState<string | null>(null);
+  const clickTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [aptSortConfig, setAptSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "appointment_date", direction: "asc" });
   const { isVisible: aptIsVisible } = useTableColumns("appointments", APT_COLUMNS);
   const { getWidth: aptGetWidth, startResize: aptStartResize } = useColumnResize("appointments");
@@ -219,7 +222,7 @@ export default function AppointmentsPage() {
     if (!dentistId) { setCalDentistBlockouts([]); setCalDentistSchedule([]); return; }
     const [schedRes, blockRes] = await Promise.all([
       supabase.from("dentist_schedules").select("day_of_week, is_working").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
-      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
+      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId),
     ]);
     setCalDentistSchedule(schedRes.data ?? []);
     setCalDentistBlockouts(blockRes.data ?? []);
@@ -279,6 +282,22 @@ export default function AppointmentsPage() {
       setPatients([]);
     }
   };
+
+  function handleCellInteraction(dateStr: string, isDouble: boolean) {
+    if (isDouble) {
+      if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
+      setSelectedDate(dateStr);
+      setDayModalDate(null);
+      setShowCreateModal(true);
+    } else {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
+        setSelectedDate(dateStr);
+        setDayModalDate(dateStr);
+      }, 250);
+    }
+  }
 
   const dentistColorMap: Record<string, string> = {};
   for (const d of dentists) dentistColorMap[d.id] = d.color || "#6366f1";
@@ -689,8 +708,9 @@ export default function AppointmentsPage() {
                 {/* Calendar Grid */}
                 <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-8">
                   {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => (
-                    <div key={day} className="text-center font-bold text-slate-700 dark:text-slate-200 py-2 md:py-3 bg-slate-100 dark:bg-slate-800 rounded text-xs md:text-sm">
-                      {day.slice(0, 3)}
+                    <div key={day} className="text-center font-bold text-slate-700 dark:text-slate-200 py-2 md:py-3 bg-slate-100 dark:bg-slate-800 rounded text-[10px] md:text-sm">
+                      <span className="hidden md:inline">{day.slice(0, 3)}</span>
+                      <span className="md:hidden">{day.slice(0, 2)}</span>
                     </div>
                   ))}
 
@@ -719,7 +739,8 @@ export default function AppointmentsPage() {
                     return (
                       <div
                         key={i}
-                        onClick={() => dateStr && !isPast && setSelectedDate(selectedDate === dateStr ? null : dateStr)}
+                        onClick={() => { if (dateStr && isCurrentMonth && !isPast) handleCellInteraction(dateStr, false); }}
+                        onDoubleClick={() => { if (dateStr && isCurrentMonth && !isPast) handleCellInteraction(dateStr, true); }}
                         className={`min-h-20 md:min-h-32 p-1 md:p-2 rounded border-2 transition text-xs md:text-sm ${
                           isCurrentMonth
                             ? isPast
@@ -811,44 +832,67 @@ export default function AppointmentsPage() {
                   </div>
                 )}
 
-                {/* Selected date details */}
-                {selectedDate && (
-                  <div className="mt-6">
-                    <div className="px-1 pb-2 flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-700">{formatDateHeading(selectedDate)}</span>
-                      {phHolidays.includes(selectedDate) && !holidayOverrides.has(selectedDate) && (
-                        <span className="badge badge-warning">🇵🇭 {phHolidayNames[selectedDate]}</span>
-                      )}
-                      {phHolidays.includes(selectedDate) && holidayOverrides.has(selectedDate) && (
-                        <span className="badge badge-success">🇵🇭 Working Holiday — {phHolidayNames[selectedDate]}</span>
-                      )}
-                      {phHolidays.includes(selectedDate) && (
-                        <button
-                          onClick={() => toggleHolidayOverride(selectedDate)}
-                          disabled={togglingOverride}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                            holidayOverrides.has(selectedDate)
-                              ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                          }`}
-                        >
-                          {holidayOverrides.has(selectedDate) ? "Mark as Closed" : "Mark as Open"}
-                        </button>
-                      )}
-                    </div>
-                    {appointmentsByDate[selectedDate]?.length > 0 ? (
-                      <AppointmentsTable rows={appointmentsByDate[selectedDate]} />
-                    ) : (
-                      <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
-                        <p className="text-slate-500 text-sm">No appointments for this date</p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
         </div>
       </div>
+
+      {/* Day view modal */}
+      {dayModalDate && (
+        <EditModal
+          open={!!dayModalDate}
+          title={formatDateHeading(dayModalDate)}
+          onClose={() => setDayModalDate(null)}
+        >
+          <div className="flex flex-col gap-4">
+            {/* Holiday/override badges */}
+            {phHolidays.includes(dayModalDate) && !holidayOverrides.has(dayModalDate) && (
+              <div className="flex items-center gap-2">
+                <span className="badge badge-warning">🇵🇭 {phHolidayNames[dayModalDate] || "Public Holiday"}</span>
+                <button
+                  onClick={() => toggleHolidayOverride(dayModalDate)}
+                  disabled={togglingOverride}
+                  className="text-xs text-emerald-700 hover:underline disabled:opacity-50"
+                >
+                  Mark as Open
+                </button>
+              </div>
+            )}
+            {phHolidays.includes(dayModalDate) && holidayOverrides.has(dayModalDate) && (
+              <div className="flex items-center gap-2">
+                <span className="badge badge-success">🇵🇭 Working Holiday — {phHolidayNames[dayModalDate]}</span>
+                <button
+                  onClick={() => toggleHolidayOverride(dayModalDate)}
+                  disabled={togglingOverride}
+                  className="text-xs text-slate-500 hover:underline disabled:opacity-50"
+                >
+                  Mark as Closed
+                </button>
+              </div>
+            )}
+
+            {/* New appointment button */}
+            <div className="flex justify-end">
+              <button
+                className="save-btn"
+                onClick={() => {
+                  setDayModalDate(null);
+                  setShowCreateModal(true);
+                }}
+              >
+                + New Appointment
+              </button>
+            </div>
+
+            {/* Appointments for this day */}
+            {(appointmentsByDate[dayModalDate] ?? []).length > 0 ? (
+              <AppointmentsTable rows={appointmentsByDate[dayModalDate]} />
+            ) : (
+              <div className="text-center py-8 text-slate-400 text-sm">No appointments for this date.</div>
+            )}
+          </div>
+        </EditModal>
+      )}
 
       <CreateAppointmentModal
         open={showCreateModal}

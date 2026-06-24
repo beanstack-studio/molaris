@@ -47,6 +47,8 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
   const [dentistSchedule, setDentistSchedule] = useState<{ day_of_week: number; start_time: string; end_time: string; is_working: boolean }[]>([]);
   const [dentistBlockouts, setDentistBlockouts] = useState<{ start_date: string; end_date: string; reason: string | null }[]>([]);
   const [phHolidays, setPhHolidays] = useState<string[]>([]);
+  const [dentistAvailability, setDentistAvailability] = useState<Record<string, boolean>>({});
+  const [phHolidayNames, setPhHolidayNames] = useState<Record<string, string>>({});
 
   // Fetch PH holidays for the current year (and next, if near year-end)
   useEffect(() => {
@@ -55,8 +57,9 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
       try {
         const res = await fetch(`/api/holidays?year=${y}`);
         if (res.ok) {
-          const { dates }: { dates: string[]; names: Record<string, string> } = await res.json();
+          const { dates, names }: { dates: string[]; names: Record<string, string> } = await res.json();
           setPhHolidays((prev) => [...new Set([...prev, ...dates])]);
+          setPhHolidayNames((prev) => ({ ...prev, ...names }));
         }
       } catch { /* fail open */ }
     };
@@ -82,14 +85,62 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedDate, prefillPatient?.id]);
 
+  useEffect(() => {
+    if (open && formData.appointmentDate && dentists.length > 0) {
+      void loadDentistAvailabilityForDate(formData.appointmentDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, formData.appointmentDate, dentists]);
+
+  useEffect(() => {
+    if (formData.dentistId && Object.keys(dentistAvailability).length > 0 && dentistAvailability[formData.dentistId] === false) {
+      setFormData((prev) => ({ ...prev, dentistId: "", appointmentTime: "08:00" }));
+      setDentistSchedule([]);
+      setDentistBlockouts([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dentistAvailability]);
+
   async function loadDentistSchedule(dentistId: string) {
     if (!dentistId) { setDentistSchedule([]); setDentistBlockouts([]); return; }
     const [sched, block] = await Promise.all([
       supabase.from("dentist_schedules").select("day_of_week, start_time, end_time, is_working").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
-      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId).eq("clinic_id", clinicId),
+      supabase.from("dentist_blockouts").select("start_date, end_date, reason").eq("dentist_id", dentistId),
     ]);
     setDentistSchedule(sched.data ?? []);
     setDentistBlockouts(block.data ?? []);
+  }
+
+  const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
+
+  async function loadDentistAvailabilityForDate(dateStr: string) {
+    if (!dentists.length || !clinicId) return;
+    const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
+    const dayName = DAY_NAMES[dayOfWeek];
+    const dentistIds = dentists.map((d) => d.id);
+    const [schedRes, blockRes] = await Promise.all([
+      supabase.from("dentist_schedules")
+        .select("dentist_id, is_working")
+        .in("dentist_id", dentistIds)
+        .eq("clinic_id", clinicId)
+        .eq("day_of_week", dayName),
+      supabase.from("dentist_blockouts")
+        .select("dentist_id")
+        .in("dentist_id", dentistIds)
+        .lte("start_date", dateStr)
+        .gte("end_date", dateStr),
+    ]);
+    const blockedIds = new Set((blockRes.data ?? []).map((b: { dentist_id: string }) => b.dentist_id));
+    const offIds = new Set(
+      (schedRes.data ?? [])
+        .filter((s: { dentist_id: string; is_working: boolean }) => !s.is_working)
+        .map((s: { dentist_id: string; is_working: boolean }) => s.dentist_id)
+    );
+    const avail: Record<string, boolean> = {};
+    for (const d of dentists) {
+      avail[d.id] = !blockedIds.has(d.id) && !offIds.has(d.id);
+    }
+    setDentistAvailability(avail);
   }
 
   async function checkOrthoStatus(patientId: string) {
@@ -156,6 +207,11 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
     const closeH = Math.floor(clinicHour.close_hour);
     return Array.from({ length: closeH - openH }, (_, i) => openH + i).filter((h) => h !== 13);
   }
+
+  const isHoliday = phHolidays.includes(formData.appointmentDate) && !(holidayOverrides?.has(formData.appointmentDate) ?? false);
+  const validHours = getValidHours(formData.appointmentDate);
+  const blocked = isBlockedOut(formData.appointmentDate);
+  const canConfirm = !!(formData.patientId && formData.dentistId && formData.appointmentDate && !blocked && validHours.length > 0);
 
   return (
     <EditModal open={open} title="Create appointment" onClose={onClose}>
@@ -228,9 +284,11 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
             className="input-standard"
           >
             <option value="">Select dentist</option>
-            {dentists.map((d) => (
-              <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
-            ))}
+            {dentists
+              .filter((d) => dentistAvailability[d.id] !== false)
+              .map((d) => (
+                <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
+              ))}
           </select>
         </label>
 
@@ -243,6 +301,18 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
           variant="case-modal"
           min={new Date().toISOString().split("T")[0]}
         />
+
+        {/* Warnings: holiday / clinic closed */}
+        {isHoliday && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700 font-medium">
+            ⚠️ {phHolidayNames[formData.appointmentDate] || "Public holiday"} — confirm the clinic will be open.
+          </div>
+        )}
+        {!isHoliday && validHours.length === 0 && !formData.dentistId && (
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500">
+            The clinic is closed on this day based on configured hours.
+          </div>
+        )}
 
         {/* Time */}
         <label className="grid gap-1 text-sm">
@@ -296,7 +366,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-1">
           <button onClick={onClose} className="cancel-btn">Cancel</button>
-          <button onClick={handleCreate} className="save-btn">Confirm</button>
+          <button onClick={handleCreate} className="save-btn" disabled={!canConfirm}>Confirm</button>
         </div>
       </div>
     </EditModal>
