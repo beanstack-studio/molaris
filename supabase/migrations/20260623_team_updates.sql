@@ -1,27 +1,41 @@
--- Team page updates: photo URLs, dentist specialty, blockouts clinic_id
--- Run in Supabase SQL editor
+-- Team page updates — run in Supabase SQL editor
+-- Order matters: column additions before backfills/policies
 
--- Photo upload columns
+-- ── Photo upload columns ──────────────────────────────────────────────────────
 ALTER TABLE dentists ADD COLUMN IF NOT EXISTS photo_url text;
-ALTER TABLE staff ADD COLUMN IF NOT EXISTS photo_url text;
+ALTER TABLE staff    ADD COLUMN IF NOT EXISTS photo_url text;
 
--- Dentist specialty / role
+-- ── Dentist fields ────────────────────────────────────────────────────────────
 ALTER TABLE dentists ADD COLUMN IF NOT EXISTS specialty text;
+ALTER TABLE dentists ADD COLUMN IF NOT EXISTS phone text;
 
--- Ensure dentist_blockouts has clinic_id for RLS isolation
+-- ── Staff fields ──────────────────────────────────────────────────────────────
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS phone text;
+
+-- ── dentist_blockouts: reason + clinic_id + staff support ─────────────────────
+ALTER TABLE dentist_blockouts ADD COLUMN IF NOT EXISTS reason text;
 ALTER TABLE dentist_blockouts ADD COLUMN IF NOT EXISTS clinic_id uuid REFERENCES clinics(id);
 
--- Backfill clinic_id on dentist_blockouts from the dentist row
+-- staff_id — allows staff members to have off-day blockouts too
+-- Must allow dentist_id to be null for staff-only rows
+ALTER TABLE dentist_blockouts ADD COLUMN IF NOT EXISTS staff_id uuid REFERENCES staff(id);
+ALTER TABLE dentist_blockouts ALTER COLUMN dentist_id DROP NOT NULL;
+
+-- Backfill clinic_id from the dentist row (for existing dentist blockouts)
 UPDATE dentist_blockouts db
 SET clinic_id = d.clinic_id
 FROM dentists d
 WHERE db.dentist_id = d.id
   AND db.clinic_id IS NULL;
 
--- Ensure reason column exists
-ALTER TABLE dentist_blockouts ADD COLUMN IF NOT EXISTS reason text;
+-- Backfill clinic_id for staff blockouts once staff_id is populated
+UPDATE dentist_blockouts db
+SET clinic_id = s.clinic_id
+FROM staff s
+WHERE db.staff_id = s.id
+  AND db.clinic_id IS NULL;
 
--- RLS policies for dentist_blockouts (create if not already present)
+-- ── RLS on dentist_blockouts ──────────────────────────────────────────────────
 ALTER TABLE dentist_blockouts ENABLE ROW LEVEL SECURITY;
 
 DO $$
