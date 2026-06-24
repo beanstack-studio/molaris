@@ -49,7 +49,7 @@ const DENTIST_SPECIALTIES = [
   "Dental Hygienist",
 ] as const;
 
-const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+const DAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 type DayKey = typeof DAY_KEYS[number];
 
 const DAY_SHORT: Record<DayKey, string> = {
@@ -139,10 +139,23 @@ const DEFAULT_SCHEDULE: DentistSchedule = {
   sunday: DEFAULT_DAY,
 };
 
+// dentist_schedules stores times as "HH:MM" strings; staff_schedules stores as numeric
 function parseTime(v: unknown, fallback: number): number {
   if (v == null) return fallback;
-  const n = Number(v);
-  return isFinite(n) ? n : fallback;
+  if (typeof v === "string") {
+    const m = v.match(/^(\d{1,2}):(\d{2})/);
+    if (m) return parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
+    const n = Number(v);
+    return isFinite(n) ? n : fallback;
+  }
+  if (typeof v === "number") return isFinite(v) ? v : fallback;
+  return fallback;
+}
+
+function decimalToTime(h: number): string {
+  const hours = Math.floor(h);
+  const mins = Math.round((h - hours) * 60);
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
 function formatDayCell(ds: DaySchedule | undefined): string {
@@ -425,13 +438,13 @@ export default function TeamSettingsPage() {
     if (!editingScheduleFor) return;
     setBusy(true); setError(null);
     try {
+      // dentist_schedules has no clinic_id column; times stored as "HH:MM" strings
       const rows = DAY_KEYS.map((day) => ({
-        clinic_id: clinicId,
         dentist_id: editingScheduleFor.id,
         day_of_week: DAY_KEY_TO_INT[day],
         is_working: scheduleEdit[day].is_working,
-        start_time: scheduleEdit[day].start_time,
-        end_time: scheduleEdit[day].end_time,
+        start_time: decimalToTime(scheduleEdit[day].start_time),
+        end_time: decimalToTime(scheduleEdit[day].end_time),
       }));
       const { error: upsertErr } = await supabase
         .from("dentist_schedules")
@@ -1467,7 +1480,25 @@ export default function TeamSettingsPage() {
           {/* 4. Date of Birth */}
           <DatePickerField label="Date of Birth" value={dentistDob} onChange={setDentistDob} inputRef={dentistDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
 
-          {/* 5. Phone */}
+          {/* 5. Nickname */}
+          <label className="field-label">
+            <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional)</span></span>
+            <input className="field-input" placeholder="e.g. Doc Daisy" value={dentistNickname} onChange={(e) => setDentistNickname(e.target.value)} disabled={busy} />
+          </label>
+
+          {/* 6. PRC / License No. */}
+          <label className="field-label">
+            <span className="field-label-text">PRC / License No.</span>
+            <input className="field-input" placeholder="Permanent registration number" value={dentistPrc} onChange={(e) => setDentistPrc(e.target.value)} disabled={busy} />
+          </label>
+
+          {/* 7. PTR No. */}
+          <label className="field-label">
+            <span className="field-label-text">PTR No.</span>
+            <input type="number" className="field-input" placeholder="Annual professional tax receipt" value={dentistPtr} onChange={(e) => setDentistPtr(e.target.value)} disabled={busy} />
+          </label>
+
+          {/* 8. Phone */}
           <label className="field-label">
             <span className="field-label-text">Phone</span>
             <input
@@ -1477,24 +1508,6 @@ export default function TeamSettingsPage() {
               onChange={(e) => setDentistPhone(e.target.value)}
               disabled={busy}
             />
-          </label>
-
-          {/* 6. Nickname */}
-          <label className="field-label">
-            <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional)</span></span>
-            <input className="field-input" placeholder="e.g. Doc Daisy" value={dentistNickname} onChange={(e) => setDentistNickname(e.target.value)} disabled={busy} />
-          </label>
-
-          {/* 7. PRC / License No. */}
-          <label className="field-label">
-            <span className="field-label-text">PRC / License No.</span>
-            <input className="field-input" placeholder="Permanent registration number" value={dentistPrc} onChange={(e) => setDentistPrc(e.target.value)} disabled={busy} />
-          </label>
-
-          {/* 8. PTR No. */}
-          <label className="field-label">
-            <span className="field-label-text">PTR No.</span>
-            <input type="number" className="field-input" placeholder="Annual professional tax receipt" value={dentistPtr} onChange={(e) => setDentistPtr(e.target.value)} disabled={busy} />
           </label>
 
           {/* 9. Invite email */}
@@ -1613,7 +1626,40 @@ export default function TeamSettingsPage() {
             />
           </label>
 
-          {/* 6. Clinical Access (Pro only) */}
+          {/* 6. Invite email */}
+          {isAdmin && (
+            <div>
+              <label className="field-label">
+                <span className="field-label-text">
+                  Invite email <span className="text-slate-400 font-normal text-xs">(optional)</span>
+                </span>
+              </label>
+              {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  className="field-input flex-1"
+                  placeholder="email@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  disabled={busy || atStaffLimit}
+                />
+                {editingStaff && (
+                  <button
+                    type="button"
+                    className="save-btn shrink-0"
+                    onClick={sendInvite}
+                    disabled={busy || !inviteEmail.trim() || atStaffLimit}
+                  >
+                    Send
+                  </button>
+                )}
+              </div>
+              {atStaffLimit && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
+            </div>
+          )}
+
+          {/* 7. Clinical Access (Pro only) — last before footer */}
           {isPro && (
             <div className="section-divider">
               <p className="field-label-text mb-1">Clinical Access</p>
@@ -1658,39 +1704,6 @@ export default function TeamSettingsPage() {
                   })}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* 7. Invite email */}
-          {isAdmin && (
-            <div>
-              <label className="field-label">
-                <span className="field-label-text">
-                  Invite email <span className="text-slate-400 font-normal text-xs">(optional)</span>
-                </span>
-              </label>
-              {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  className="field-input flex-1"
-                  placeholder="email@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  disabled={busy || atStaffLimit}
-                />
-                {editingStaff && (
-                  <button
-                    type="button"
-                    className="save-btn shrink-0"
-                    onClick={sendInvite}
-                    disabled={busy || !inviteEmail.trim() || atStaffLimit}
-                  >
-                    Send
-                  </button>
-                )}
-              </div>
-              {atStaffLimit && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
             </div>
           )}
 

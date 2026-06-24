@@ -393,7 +393,7 @@ function CatalogSettingsPage() {
 
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-[3fr_2fr] lg:items-start">
 
         {/* ── Services card ── */}
         <div className="card">
@@ -412,10 +412,10 @@ function CatalogSettingsPage() {
             <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
-                  <col className="col-45" />
+                  <col className="col-35" />
+                  <col className="col-20" />
                   <col className="col-25" />
                   <col className="col-20" />
-                  <col className="col-10" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -471,10 +471,10 @@ function CatalogSettingsPage() {
             <div className="table-wrapper">
               <table className="data-table">
                 <colgroup>
-                  <col className="col-45" />
+                  <col className="col-35" />
+                  <col className="col-20" />
                   <col className="col-25" />
                   <col className="col-20" />
-                  <col className="col-10" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -537,11 +537,11 @@ function CatalogSettingsPage() {
           <div className="table-wrapper">
             <table className="data-table">
               <colgroup>
-                <col className="col-30" />
-                <col className="col-15" />
-                <col className="col-15" />
-                <col className="col-20" />
-                <col className="col-20" />
+                <col className="col-25" />
+                <col className="col-13" />
+                <col className="col-13" />
+                <col className="col-25" />
+                <col className="col-25" />
               </colgroup>
               <thead className="data-table-head">
                 <tr>
