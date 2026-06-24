@@ -117,14 +117,13 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
     if (!dentists.length || !clinicId) return;
     try {
       const dayOfWeek = new Date(dateStr + "T00:00:00").getDay();
-      const dayName = DAY_NAMES[dayOfWeek];
       const dentistIds = dentists.map((d) => d.id);
       const [schedRes, blockRes] = await Promise.all([
         supabase.from("dentist_schedules")
           .select("dentist_id, is_working")
           .in("dentist_id", dentistIds)
           .eq("clinic_id", clinicId)
-          .eq("day_of_week", dayName),
+          .eq("day_of_week", dayOfWeek),
         supabase.from("dentist_blockouts")
           .select("dentist_id")
           .in("dentist_id", dentistIds)

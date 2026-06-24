@@ -293,7 +293,7 @@ export default function ClinicProfileSettingsPage() {
       {error ? <div className="error-banner">{error}</div> : null}
       {success ? <div className="success-banner">Saved successfully</div> : null}
 
-      <div className="grid gap-4 lg:grid-cols-[7fr_3fr]">
+      <div className="grid gap-4 lg:grid-cols-[7fr_3fr] lg:items-start">
       {/* Clinic Information Card */}
       <div className="card">
         <div className="card-header">

@@ -24,7 +24,7 @@ type ServicePriceRow = {
   category?: "general" | "ortho";
 };
 
-type ServiceSort = "NAME_ASC" | "NAME_DESC" | "TYPE_ASC" | "TYPE_DESC" | "DUR_ASC" | "DUR_DESC" | "FEE_ASC" | "FEE_DESC";
+type ServiceSort = "NAME_ASC" | "NAME_DESC" | "DUR_ASC" | "DUR_DESC" | "FEE_ASC" | "FEE_DESC";
 
 const TogglePill = Toggle;
 
@@ -35,8 +35,6 @@ function sortRows(list: ServicePriceRow[], sort: ServiceSort) {
   out.sort((a, b) => {
     switch (sort) {
       case "NAME_DESC": return b.service_name.localeCompare(a.service_name);
-      case "TYPE_ASC":  return a.item_type.localeCompare(b.item_type);
-      case "TYPE_DESC": return b.item_type.localeCompare(a.item_type);
       case "DUR_ASC":   return (a.duration_minutes ?? 0) - (b.duration_minutes ?? 0);
       case "DUR_DESC":  return (b.duration_minutes ?? 0) - (a.duration_minutes ?? 0);
       case "FEE_ASC":   return a.default_price - b.default_price;
@@ -73,7 +71,7 @@ function CatalogSettingsPage() {
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [sort, setSort] = useState<ServiceSort>("TYPE_DESC");
+  const [sort, setSort] = useState<ServiceSort>("NAME_ASC");
 
   const [addOpen, setAddOpen] = useState(false);
   const [itemType, setItemType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
@@ -162,7 +160,7 @@ function CatalogSettingsPage() {
 
   // ── Services handlers ─────────────────────────────────────────────────────
 
-  function toggleSort(col: "NAME" | "TYPE" | "DUR" | "FEE") {
+  function toggleSort(col: "NAME" | "DUR" | "FEE") {
     setSort((prev) => {
       const asc = `${col}_ASC` as ServiceSort;
       const desc = `${col}_DESC` as ServiceSort;
@@ -215,7 +213,6 @@ function CatalogSettingsPage() {
   }
 
   function openAdd() {
-    setItemType("SERVICE");
     setName("");
     setPrice("");
     setDuration("");
@@ -395,88 +392,136 @@ function CatalogSettingsPage() {
 
   return (
     <>
-      <div className="spacing-vertical-lg">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
 
         {/* ── Services card ── */}
         <div className="card">
           <div className="card-header">
             <div className="card-title">Services &amp; Extras</div>
-            <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
-              Add
-            </button>
           </div>
 
-          <div className="table-wrapper">
-            <table className="data-table">
-              <colgroup>
-                <col className="col-40" />
-                <col className="col-15" />
-                <col className="col-20" />
-                <col className="col-15" />
-                <col className="col-10" />
-              </colgroup>
-              <thead className="data-table-head">
-                <tr>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("NAME")}>
-                    Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
-                  </th>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("TYPE")}>
-                    Type <SortIndicator active={sort.startsWith("TYPE")} asc={sort === "TYPE_ASC"} />
-                  </th>
-                  <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
-                    Duration <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
-                  </th>
-                  <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
-                    Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
-                  </th>
-                  <th className="data-table-head-cell-right">Active</th>
-                </tr>
-              </thead>
-              <tbody>
-                {combinedRows.map((r, index) => (
-                  <tr
-                    key={r.id}
-                    className={cn(
-                      "data-table-row cursor-pointer",
-                      index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
-                    )}
-                    onClick={() => openEdit(r)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Edit ${r.service_name}`}
-                  >
-                    <td className="data-table-cell">{r.service_name}</td>
-                    <td className="data-table-cell">
-                      <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full font-semibold",
-                        r.item_type === "ADD_ON"
-                          ? "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300"
-                          : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
-                      )}>
-                        {r.item_type === "ADD_ON" ? "Extra" : "Service"}
-                      </span>
-                    </td>
-                    <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
-                    <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
-                    <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end">
-                        <TogglePill
-                          checked={r.is_active}
-                          disabled={busy}
-                          onChange={() => toggleActive(r.id, r.is_active)}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {combinedRows.length === 0 && (
+          {/* Services sub-table */}
+          <div className="mt-2">
+            <div className="flex items-center justify-between px-1 mb-1">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Services</h4>
+              <button type="button" className="save-btn" onClick={() => { setItemType("SERVICE"); openAdd(); }} disabled={busy}>
+                Add
+              </button>
+            </div>
+            <div className="table-wrapper">
+              <table className="data-table">
+                <colgroup>
+                  <col className="col-45" />
+                  <col className="col-25" />
+                  <col className="col-20" />
+                  <col className="col-10" />
+                </colgroup>
+                <thead className="data-table-head">
                   <tr>
-                    <td className="data-table-empty" colSpan={5}>No services or extras yet.</td>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("NAME")}>
+                      Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
+                    </th>
+                    <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
+                      Duration <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
+                    </th>
+                    <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
+                      Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
+                    </th>
+                    <th className="data-table-head-cell-right">Active</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {combinedRows.filter((r) => r.item_type === "SERVICE").map((r, index) => (
+                    <tr
+                      key={r.id}
+                      className={cn(
+                        "data-table-row cursor-pointer",
+                        index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
+                      )}
+                      onClick={() => openEdit(r)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Edit ${r.service_name}`}
+                    >
+                      <td className="data-table-cell">{r.service_name}</td>
+                      <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
+                      <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
+                      <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end">
+                          <TogglePill checked={r.is_active} disabled={busy} onChange={() => toggleActive(r.id, r.is_active)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {combinedRows.filter((r) => r.item_type === "SERVICE").length === 0 && (
+                    <tr><td className="data-table-empty" colSpan={4}>No services yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Extras sub-table */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between px-1 mb-1">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Extras</h4>
+              <button type="button" className="save-btn" onClick={() => { setItemType("ADD_ON"); openAdd(); }} disabled={busy}>
+                Add
+              </button>
+            </div>
+            <div className="table-wrapper">
+              <table className="data-table">
+                <colgroup>
+                  <col className="col-45" />
+                  <col className="col-25" />
+                  <col className="col-20" />
+                  <col className="col-10" />
+                </colgroup>
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("NAME")}>
+                      Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
+                    </th>
+                    <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
+                      Duration <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
+                    </th>
+                    <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
+                      Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
+                    </th>
+                    <th className="data-table-head-cell-right">Active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {combinedRows.filter((r) => r.item_type === "ADD_ON").map((r, index) => (
+                    <tr
+                      key={r.id}
+                      className={cn(
+                        "data-table-row cursor-pointer",
+                        index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
+                      )}
+                      onClick={() => openEdit(r)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Edit ${r.service_name}`}
+                    >
+                      <td className="data-table-cell">{r.service_name}</td>
+                      <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
+                      <td className="data-table-cell-right">{formatMoney(r.default_price)}</td>
+                      <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end">
+                          <TogglePill checked={r.is_active} disabled={busy} onChange={() => toggleActive(r.id, r.is_active)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {combinedRows.filter((r) => r.item_type === "ADD_ON").length === 0 && (
+                    <tr><td className="data-table-empty" colSpan={4}>No extras yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -637,21 +682,8 @@ function CatalogSettingsPage() {
       </div>
 
       {/* ── Services modals ── */}
-      <EditModal open={addOpen} title="Add Service / Extra" onClose={closeAdd}>
+      <EditModal open={addOpen} title={itemType === "ADD_ON" ? "Add Extra" : "Add Service"} onClose={closeAdd}>
         <div className="spacing-vertical-lg">
-          <label className="field-label">
-            <span className="field-label-text">Type</span>
-            <select
-              className="field-input"
-              value={itemType}
-              onChange={(e) => setItemType(e.target.value as "SERVICE" | "ADD_ON")}
-              disabled={busy}
-            >
-              <option value="SERVICE">Service</option>
-              <option value="ADD_ON">Extra</option>
-            </select>
-          </label>
-
           <label className="field-label">
             <span className="field-label-text">Name</span>
             <input
@@ -740,19 +772,6 @@ function CatalogSettingsPage() {
       >
         {editRow && (
           <div className="spacing-vertical-lg">
-            <label className="field-label">
-              <span className="field-label-text">Type</span>
-              <select
-                className="field-input"
-                value={editItemType}
-                onChange={(e) => setEditItemType(e.target.value as "SERVICE" | "ADD_ON")}
-                disabled={busy}
-              >
-                <option value="SERVICE">Service</option>
-                <option value="ADD_ON">Extra</option>
-              </select>
-            </label>
-
             <label className="field-label">
               <span className="field-label-text">Name</span>
               <input

@@ -62,6 +62,14 @@ const DAY_KEY_TO_CLINIC_ID: Record<DayKey, string> = {
   thursday: "thu", friday: "fri", saturday: "sat", sunday: "sun",
 };
 
+// DB stores day_of_week as smallint (JS day-of-week convention: 0=Sun, 6=Sat)
+const DAY_KEY_TO_INT: Record<DayKey, number> = {
+  sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+};
+const INT_TO_DAY_KEY: Partial<Record<number, DayKey>> = {
+  0: "sunday", 1: "monday", 2: "tuesday", 3: "wednesday", 4: "thursday", 5: "friday", 6: "saturday",
+};
+
 const WEEK_ORDER: { header: string; key: DayKey }[] = [
   { header: "Sun", key: "sunday" },
   { header: "Mon", key: "monday" },
@@ -159,6 +167,11 @@ export default function TeamSettingsPage() {
   const [schedules, setSchedules] = useState<Record<string, DentistSchedule>>({});
   const [editingScheduleFor, setEditingScheduleFor] = useState<{ id: string; name: string } | null>(null);
   const [scheduleEdit, setScheduleEdit] = useState<DentistSchedule>(DEFAULT_SCHEDULE);
+
+  // Staff schedule editor state
+  const [staffSchedules, setStaffSchedules] = useState<Record<string, DentistSchedule>>({});
+  const [editingStaffScheduleFor, setEditingStaffScheduleFor] = useState<{ id: string; name: string } | null>(null);
+  const [staffScheduleEdit, setStaffScheduleEdit] = useState<DentistSchedule>(DEFAULT_SCHEDULE);
 
   // Dentist modal state
   const [showAddDentistModal, setShowAddDentistModal] = useState(false);
@@ -327,8 +340,8 @@ export default function TeamSettingsPage() {
             };
             const rows = schedRes.data.filter((r) => r.dentist_id === d.id);
             for (const row of rows) {
-              const day = row.day_of_week as DayKey;
-              if (DAY_KEYS.includes(day)) {
+              const day = INT_TO_DAY_KEY[row.day_of_week as number];
+              if (day && DAY_KEYS.includes(day)) {
                 sched[day] = {
                   is_working: row.is_working ?? false,
                   start_time: row.start_time ?? 8,
@@ -339,6 +352,43 @@ export default function TeamSettingsPage() {
             newSchedules[d.id] = sched;
           }
           setSchedules(newSchedules);
+        }
+      }
+      // Load staff schedules
+      const staffArr = loadedStaff ?? [];
+      if (staffArr.length > 0) {
+        const staffSchedRes = await supabase
+          .from("staff_schedules")
+          .select("staff_id, day_of_week, is_working, start_time, end_time")
+          .eq("clinic_id", clinicId)
+          .in("staff_id", staffArr.map((s) => s.id));
+
+        if (!staffSchedRes.error && staffSchedRes.data) {
+          const newStaffSchedules: Record<string, DentistSchedule> = {};
+          for (const s of staffArr) {
+            const sched: DentistSchedule = {
+              monday: { ...DEFAULT_SCHEDULE.monday },
+              tuesday: { ...DEFAULT_SCHEDULE.tuesday },
+              wednesday: { ...DEFAULT_SCHEDULE.wednesday },
+              thursday: { ...DEFAULT_SCHEDULE.thursday },
+              friday: { ...DEFAULT_SCHEDULE.friday },
+              saturday: { ...DEFAULT_SCHEDULE.saturday },
+              sunday: { ...DEFAULT_SCHEDULE.sunday },
+            };
+            const rows = staffSchedRes.data.filter((r) => r.staff_id === s.id);
+            for (const row of rows) {
+              const day = INT_TO_DAY_KEY[row.day_of_week as number];
+              if (day && DAY_KEYS.includes(day)) {
+                sched[day] = {
+                  is_working: row.is_working ?? false,
+                  start_time: row.start_time ?? 8,
+                  end_time: row.end_time ?? 17,
+                };
+              }
+            }
+            newStaffSchedules[s.id] = sched;
+          }
+          setStaffSchedules(newStaffSchedules);
         }
       }
     } catch (err) {
@@ -369,7 +419,7 @@ export default function TeamSettingsPage() {
       const rows = DAY_KEYS.map((day) => ({
         clinic_id: clinicId,
         dentist_id: editingScheduleFor.id,
-        day_of_week: day,
+        day_of_week: DAY_KEY_TO_INT[day],
         is_working: scheduleEdit[day].is_working,
         start_time: scheduleEdit[day].start_time,
         end_time: scheduleEdit[day].end_time,
@@ -380,6 +430,37 @@ export default function TeamSettingsPage() {
       if (upsertErr) throw upsertErr;
       setSchedules((p) => ({ ...p, [editingScheduleFor.id]: { ...scheduleEdit } }));
       setEditingScheduleFor(null);
+      setSuccess("Schedule saved."); setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save schedule");
+    } finally { setBusy(false); }
+  }
+
+  function openStaffScheduleEdit(id: string) {
+    const s = staff.find((x) => x.id === id);
+    const name = s?.full_name || "";
+    setStaffScheduleEdit({ ...(staffSchedules[id] ?? DEFAULT_SCHEDULE) });
+    setEditingStaffScheduleFor({ id, name });
+  }
+
+  async function saveStaffSchedule() {
+    if (!editingStaffScheduleFor) return;
+    setBusy(true); setError(null);
+    try {
+      const rows = DAY_KEYS.map((day) => ({
+        clinic_id: clinicId,
+        staff_id: editingStaffScheduleFor.id,
+        day_of_week: DAY_KEY_TO_INT[day],
+        is_working: staffScheduleEdit[day].is_working,
+        start_time: staffScheduleEdit[day].start_time,
+        end_time: staffScheduleEdit[day].end_time,
+      }));
+      const { error: upsertErr } = await supabase
+        .from("staff_schedules")
+        .upsert(rows, { onConflict: "staff_id,day_of_week" });
+      if (upsertErr) throw upsertErr;
+      setStaffSchedules((p) => ({ ...p, [editingStaffScheduleFor.id]: { ...staffScheduleEdit } }));
+      setEditingStaffScheduleFor(null);
       setSuccess("Schedule saved."); setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save schedule");
@@ -1024,10 +1105,10 @@ export default function TeamSettingsPage() {
                           className={cn(
                             "data-table-row",
                             staffRowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                            isAdmin && "cursor-pointer hover:bg-slate-50/60"
+                            isAdmin && "cursor-pointer hover:bg-blue-50/40"
                           )}
-                          onClick={isAdmin ? () => { void openEditStaff(s); } : undefined}
-                          onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openEditStaff(s); } } : undefined}
+                          onClick={isAdmin ? () => openStaffScheduleEdit(s.id) : undefined}
+                          onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStaffScheduleEdit(s.id); } } : undefined}
                           tabIndex={isAdmin ? 0 : undefined}
                           role={isAdmin ? "button" : undefined}
                         >
@@ -1043,11 +1124,21 @@ export default function TeamSettingsPage() {
                               <span className="text-xs truncate text-slate-500">{s.full_name}</span>
                             </div>
                           </td>
-                          {WEEK_ORDER.map(({ key }) => (
-                            <td key={key} className="data-table-cell text-center">
-                              <span className="text-slate-300 text-xs">—</span>
-                            </td>
-                          ))}
+                          {WEEK_ORDER.map(({ key }) => {
+                            const ss = staffSchedules[s.id]?.[key];
+                            const isWorking = ss?.is_working ?? false;
+                            return (
+                              <td key={key} className="data-table-cell text-center">
+                                {isWorking ? (
+                                  <span className="text-slate-600 text-xs font-medium tabular-nums">
+                                    {formatDayCell(ss)}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 text-xs">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       );
                     })}
@@ -1226,6 +1317,87 @@ export default function TeamSettingsPage() {
         </div>
       </EditModal>
 
+      {/* ── STAFF SCHEDULE EDITOR MODAL ── */}
+      <EditModal
+        open={editingStaffScheduleFor !== null}
+        title={editingStaffScheduleFor?.name ? `Edit Schedule — ${editingStaffScheduleFor.name}` : "Edit Schedule"}
+        onClose={() => setEditingStaffScheduleFor(null)}
+      >
+        <div className="spacing-vertical-lg">
+          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+            {DAY_KEYS.map((day) => {
+              const ds = staffScheduleEdit[day];
+              const ch = clinicHours.find((h) => h.id === DAY_KEY_TO_CLINIC_ID[day]);
+              const isClinicClosed = !!ch && !ch.is_open;
+              const constrainedOptions = getConstrainedTimeOptions(day);
+              return (
+                <div key={day} className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-slate-800 w-24">{DAY_SHORT[day]}</span>
+                      {isClinicClosed && (
+                        <span className="text-xs text-amber-600">Clinic closed</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500">{ds.is_working ? "Working" : "Off"}</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={ds.is_working}
+                        disabled={isClinicClosed}
+                        onClick={() => {
+                          if (!isClinicClosed) {
+                            setStaffScheduleEdit((p) => ({ ...p, [day]: { ...p[day], is_working: !p[day].is_working } }));
+                          }
+                        }}
+                        className={cn(
+                          "relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors",
+                          isClinicClosed ? "opacity-40 cursor-not-allowed" : "cursor-pointer",
+                          ds.is_working ? "bg-blue-500" : "bg-slate-300"
+                        )}
+                      >
+                        <span className={cn("inline-block h-4 w-4 rounded-full bg-white shadow transition-transform", ds.is_working ? "translate-x-4" : "translate-x-0")} />
+                      </button>
+                    </div>
+                  </div>
+                  {ds.is_working && !isClinicClosed && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-slate-500 mb-1 block">Opens</label>
+                        <select
+                          className="input-standard w-full"
+                          value={ds.start_time}
+                          onChange={(e) => setStaffScheduleEdit((p) => ({ ...p, [day]: { ...p[day], start_time: Number(e.target.value) } }))}
+                        >
+                          {constrainedOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500 mb-1 block">Closes</label>
+                        <select
+                          className="input-standard w-full"
+                          value={ds.end_time}
+                          onChange={(e) => setStaffScheduleEdit((p) => ({ ...p, [day]: { ...p[day], end_time: Number(e.target.value) } }))}
+                        >
+                          {constrainedOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button className="cancel-btn" onClick={() => setEditingStaffScheduleFor(null)} disabled={busy}>Cancel</button>
+              <button className="save-btn" onClick={saveStaffSchedule} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
+
       {/* ── ADD/EDIT DENTIST MODAL ── */}
       <EditModal open={showAddDentistModal} title={editingDentist ? "Edit Dentist" : "Add Dentist"} onClose={closeDentistModal}>
         <div className="spacing-vertical-lg">
@@ -1316,38 +1488,36 @@ export default function TeamSettingsPage() {
             <input type="number" className="field-input" placeholder="Annual professional tax receipt" value={dentistPtr} onChange={(e) => setDentistPtr(e.target.value)} disabled={busy} />
           </label>
 
-          {/* 9. Invite to Molaris */}
+          {/* 9. Invite email */}
           {isAdmin && (
-            <div className="section-divider">
-              <p className="field-label-text mb-1">Invite to Molaris</p>
-              <p className="hint-text mb-3">
-                Send a login invite so this dentist can access their own records and schedule.
-                {!isPro && <span className="text-amber-600"> Requires Pro plan.</span>}
-              </p>
-              {!editingDentist && isPro && (
-                <p className="hint-text mb-3 text-slate-500">Save this dentist first, then send an invite from the edit view.</p>
-              )}
-              {dentistInviteSuccess && <div className="success-banner mb-3">{dentistInviteSuccess}</div>}
-              {editingDentist && (
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    className="field-input flex-1"
-                    placeholder="email@example.com"
-                    value={dentistInviteEmail}
-                    onChange={(e) => setDentistInviteEmail(e.target.value)}
-                    disabled={busy || !isPro}
-                  />
+            <div>
+              <label className="field-label">
+                <span className="field-label-text">
+                  Invite email <span className="text-slate-400 font-normal text-xs">(optional)</span>
+                </span>
+              </label>
+              {dentistInviteSuccess && <div className="success-banner mb-2">{dentistInviteSuccess}</div>}
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  className="field-input flex-1"
+                  placeholder="email@example.com"
+                  value={dentistInviteEmail}
+                  onChange={(e) => setDentistInviteEmail(e.target.value)}
+                  disabled={busy || !isPro}
+                />
+                {editingDentist && (
                   <button
                     type="button"
                     className="save-btn shrink-0"
                     onClick={sendDentistInvite}
                     disabled={busy || !dentistInviteEmail.trim() || !isPro}
                   >
-                    Send invite
+                    Send
                   </button>
-                </div>
-              )}
+                )}
+              </div>
+              {!isPro && <p className="hint-text mt-1">Requires Pro plan.</p>}
             </div>
           )}
 
@@ -1482,17 +1652,15 @@ export default function TeamSettingsPage() {
             </div>
           )}
 
-          {/* 7. Invite to Molaris */}
+          {/* 7. Invite email */}
           {isAdmin && (
-            <div className="section-divider">
-              <p className="field-label-text mb-1">Invite to Molaris</p>
-              <p className="hint-text mb-3">
-                Send a login invite so this person can access the app.
-                {atStaffLimit && (
-                  <span className="text-amber-600"> Free plan includes up to 1 staff account.</span>
-                )}
-              </p>
-              {inviteSuccess && <div className="success-banner mb-3">{inviteSuccess}</div>}
+            <div>
+              <label className="field-label">
+                <span className="field-label-text">
+                  Invite email <span className="text-slate-400 font-normal text-xs">(optional)</span>
+                </span>
+              </label>
+              {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
               <div className="flex gap-2">
                 <input
                   type="email"
@@ -1502,15 +1670,18 @@ export default function TeamSettingsPage() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   disabled={busy || atStaffLimit}
                 />
-                <button
-                  type="button"
-                  className="save-btn shrink-0"
-                  onClick={sendInvite}
-                  disabled={busy || !inviteEmail.trim() || atStaffLimit}
-                >
-                  Send invite
-                </button>
+                {editingStaff && (
+                  <button
+                    type="button"
+                    className="save-btn shrink-0"
+                    onClick={sendInvite}
+                    disabled={busy || !inviteEmail.trim() || atStaffLimit}
+                  >
+                    Send
+                  </button>
+                )}
               </div>
+              {atStaffLimit && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
             </div>
           )}
 
