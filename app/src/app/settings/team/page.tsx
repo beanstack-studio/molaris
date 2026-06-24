@@ -8,6 +8,8 @@
  *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS profile_id uuid REFERENCES profiles(id);
  *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS email text;
  *   ALTER TABLE staff_invites ADD COLUMN IF NOT EXISTS dentist_id uuid REFERENCES dentists(id);
+ *   ALTER TABLE dentists ADD COLUMN IF NOT EXISTS photo_url text;
+ *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS photo_url text;
  *
  * dentist_handlers table — see ClinicContext.tsx for full CREATE TABLE statement.
  */
@@ -81,11 +83,13 @@ type DentistRow = {
   id: string; full_name: string; nickname: string | null;
   prc_number: string | null; ptr_number: string | null;
   date_of_birth: string | null; is_active: boolean; color: string | null;
+  photo_url: string | null;
 };
 type StaffRow = {
   id: string; full_name: string; nickname: string | null; role: string;
   date_of_birth: string | null; is_active: boolean;
   can_access_clinical: boolean | null;
+  photo_url: string | null;
 };
 type InviteRow = {
   id: string; email: string; role: string;
@@ -165,6 +169,15 @@ export default function TeamSettingsPage() {
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
+  // Dentist photo state
+  const [dentistPhotoFile, setDentistPhotoFile] = useState<File | null>(null);
+  const [dentistPhotoPreview, setDentistPhotoPreview] = useState<string | null>(null);
+  const dentistPhotoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Staff photo state
+  const [staffPhotoFile, setStaffPhotoFile] = useState<File | null>(null);
+  const [staffPhotoPreview, setStaffPhotoPreview] = useState<string | null>(null);
+  const staffPhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(async () => {
     if (clinicLoading || !clinicId) return;
@@ -310,11 +323,30 @@ export default function TeamSettingsPage() {
     } finally { setBusy(false); }
   }
 
+  // ── Photo handlers ────────────────────────────────────────────────────────────
+  function handleDentistPhotoSelect(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Photo must be JPG, PNG, or WebP."); return; }
+    if (file.size > 2 * 1024 * 1024) { setError("Photo must be under 2 MB."); return; }
+    if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
+    setDentistPhotoFile(file);
+    setDentistPhotoPreview(URL.createObjectURL(file));
+  }
+  function handleStaffPhotoSelect(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Photo must be JPG, PNG, or WebP."); return; }
+    if (file.size > 2 * 1024 * 1024) { setError("Photo must be under 2 MB."); return; }
+    if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
+    setStaffPhotoFile(file);
+    setStaffPhotoPreview(URL.createObjectURL(file));
+  }
+
   // ── Dentist CRUD ──────────────────────────────────────────────────────────────
   function openAddDentist() {
     setEditingDentist(null); setDentistName(""); setDentistNickname("");
     setDentistDob(""); setDentistPrc(""); setDentistPtr(""); setDentistColor(DENTIST_COLORS[0].hex);
     setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistPhotoFile(null);
+    if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
+    setDentistPhotoPreview(null);
     setShowAddDentistModal(true);
   }
   function openEditDentist(d: DentistRow) {
@@ -322,9 +354,14 @@ export default function TeamSettingsPage() {
     setDentistDob(d.date_of_birth ?? ""); setDentistPrc(d.prc_number ?? "");
     setDentistPtr(d.ptr_number ?? ""); setDentistColor(d.color ?? DENTIST_COLORS[0].hex);
     setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistPhotoFile(null);
+    if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
+    setDentistPhotoPreview(d.photo_url ?? null);
     setShowAddDentistModal(true);
   }
   function closeDentistModal() {
+    if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
+    setDentistPhotoFile(null); setDentistPhotoPreview(null);
     setShowAddDentistModal(false); setEditingDentist(null);
     setDentistName(""); setDentistNickname(""); setDentistDob(""); setDentistPrc(""); setDentistPtr("");
     setDentistInviteEmail(""); setDentistInviteSuccess(null);
@@ -339,10 +376,30 @@ export default function TeamSettingsPage() {
         prc_number: dentistPrc.trim() || null, ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
         color: dentistColor,
       };
-      const { error } = editingDentist
-        ? await supabase.from("dentists").update(payload).eq("id", editingDentist.id)
-        : await supabase.from("dentists").insert({ ...payload, is_active: true });
-      if (error) throw error;
+      let dentistId: string;
+      if (editingDentist) {
+        const { error } = await supabase.from("dentists").update(payload).eq("id", editingDentist.id);
+        if (error) throw error;
+        dentistId = editingDentist.id;
+      } else {
+        const { data, error } = await supabase.from("dentists")
+          .insert({ ...payload, is_active: true })
+          .select("id").single();
+        if (error) throw error;
+        dentistId = (data as { id: string }).id;
+      }
+      if (dentistPhotoFile) {
+        const ext = dentistPhotoFile.name.split(".").pop() ?? "jpg";
+        const path = `dentist-photos/${dentistId}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("clinic-assets")
+          .upload(path, dentistPhotoFile, { upsert: true, contentType: dentistPhotoFile.type });
+        if (!uploadError) {
+          const baseUrl = supabase.storage.from("clinic-assets").getPublicUrl(path).data.publicUrl;
+          await supabase.from("dentists").update({ photo_url: `${baseUrl}?v=${Date.now()}` }).eq("id", dentistId);
+        }
+      }
+      if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
       closeDentistModal();
       await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to save dentist"); }
@@ -399,12 +456,18 @@ export default function TeamSettingsPage() {
   function openAddStaff() {
     setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob("");
     setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
+    setStaffPhotoFile(null);
+    if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
+    setStaffPhotoPreview(null);
     setShowAddStaffModal(true);
   }
   async function openEditStaff(s: StaffRow) {
     setEditingStaff(s); setStaffName(s.full_name);
     setStaffRole(s.role); setStaffDob(s.date_of_birth ?? "");
     setInviteEmail(""); setInviteSuccess(null);
+    setStaffPhotoFile(null);
+    if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
+    setStaffPhotoPreview(s.photo_url ?? null);
     // Load existing handler dentist assignments
     const { data: hRows } = await supabase
       .from("dentist_handlers")
@@ -415,6 +478,8 @@ export default function TeamSettingsPage() {
     setShowAddStaffModal(true);
   }
   function closeStaffModal() {
+    if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
+    setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffRole(""); setStaffDob("");
     setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
@@ -473,6 +538,18 @@ export default function TeamSettingsPage() {
         );
       }
 
+      if (staffPhotoFile) {
+        const ext = staffPhotoFile.name.split(".").pop() ?? "jpg";
+        const path = `staff-photos/${staffId}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("clinic-assets")
+          .upload(path, staffPhotoFile, { upsert: true, contentType: staffPhotoFile.type });
+        if (!uploadError) {
+          const baseUrl = supabase.storage.from("clinic-assets").getPublicUrl(path).data.publicUrl;
+          await supabase.from("staff").update({ photo_url: `${baseUrl}?v=${Date.now()}` }).eq("id", staffId);
+        }
+      }
+      if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
       closeStaffModal();
       await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to save staff"); }
@@ -531,7 +608,7 @@ export default function TeamSettingsPage() {
       {error && <div className="error-banner mb-4">{error}</div>}
       {success && <div className="success-banner mb-4">{success}</div>}
 
-      <div className="grid gap-4 lg:grid-cols-[7fr_3fr]">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Left column: Dentists + Staff */}
         <div className="flex flex-col gap-4">
           {/* ── DENTISTS ── */}
@@ -578,10 +655,16 @@ export default function TeamSettingsPage() {
                     >
                       <td className="data-table-cell">
                         <div className="flex items-center gap-2">
-                          <span
-                            className="inline-block w-3 h-3 rounded-full shrink-0"
-                            style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                          />
+                          {d.photo_url ? (
+                            <img src={d.photo_url} alt={d.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <span
+                              className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
+                              style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                            >
+                              {d.full_name.slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
                           <span className="font-medium">{d.full_name}</span>
                           {!d.is_active && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
@@ -645,10 +728,19 @@ export default function TeamSettingsPage() {
                       aria-label={isAdmin ? s.full_name : undefined}
                     >
                       <td className="data-table-cell">
-                        <span className="font-medium">{s.full_name}</span>
-                        {!s.is_active && (
-                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {s.photo_url ? (
+                            <img src={s.photo_url} alt={s.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <span className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">
+                              {s.full_name.slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
+                          <span className="font-medium">{s.full_name}</span>
+                          {!s.is_active && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-700">Inactive</span>
+                          )}
+                        </div>
                       </td>
                       <td className="data-table-cell text-slate-500">{s.role || "—"}</td>
                       <td className="data-table-cell text-slate-500 text-sm">
@@ -715,26 +807,47 @@ export default function TeamSettingsPage() {
                   <thead className="data-table-head">
                     <tr>
                       <th className="data-table-head-cell w-10 shrink-0">Day</th>
-                      {dentists.map((d) => (
-                        <th key={d.id} className="data-table-head-cell">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                            />
-                            <span className="truncate text-xs">{d.nickname || d.full_name}</span>
-                            {isAdmin && (
+                      {dentists.map((d) => {
+                        const isEditing = editingScheduleFor?.id === d.id;
+                        return (
+                          <th key={d.id} className={cn("data-table-head-cell text-center p-2", isEditing && "bg-blue-50 dark:bg-blue-950/20")}>
+                            {isAdmin ? (
                               <button
                                 type="button"
-                                className="data-table-btn shrink-0 ml-auto"
                                 onClick={() => openScheduleEdit(d.id)}
+                                className="flex flex-col items-center gap-1 w-full hover:opacity-70 transition-opacity"
+                                title={`Edit ${d.nickname || d.full_name}'s schedule`}
                               >
-                                Edit
+                                {d.photo_url ? (
+                                  <img src={d.photo_url} alt={d.nickname || d.full_name} className="w-8 h-8 rounded-full object-cover mx-auto" />
+                                ) : (
+                                  <span
+                                    className="inline-flex w-8 h-8 rounded-full items-center justify-center text-white text-xs font-bold mx-auto"
+                                    style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                                  >
+                                    {(d.nickname || d.full_name).slice(0, 1).toUpperCase()}
+                                  </span>
+                                )}
+                                <span className="text-xs text-center leading-tight">{d.nickname || d.full_name}</span>
                               </button>
+                            ) : (
+                              <div className="flex flex-col items-center gap-1">
+                                {d.photo_url ? (
+                                  <img src={d.photo_url} alt={d.nickname || d.full_name} className="w-8 h-8 rounded-full object-cover mx-auto" />
+                                ) : (
+                                  <span
+                                    className="inline-flex w-8 h-8 rounded-full items-center justify-center text-white text-xs font-bold mx-auto"
+                                    style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                                  >
+                                    {(d.nickname || d.full_name).slice(0, 1).toUpperCase()}
+                                  </span>
+                                )}
+                                <span className="text-xs text-center leading-tight">{d.nickname || d.full_name}</span>
+                              </div>
                             )}
-                          </div>
-                        </th>
-                      ))}
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -744,8 +857,9 @@ export default function TeamSettingsPage() {
                         {dentists.map((d) => {
                           const ds = schedules[d.id]?.[key];
                           const isWorking = ds?.is_working ?? false;
+                          const isEditing = editingScheduleFor?.id === d.id;
                           return (
-                            <td key={d.id} className="data-table-cell">
+                            <td key={d.id} className={cn("data-table-cell text-center", isEditing && "bg-blue-50 dark:bg-blue-950/20")}>
                               {isWorking ? (
                                 <span className="text-blue-600 dark:text-blue-400 text-xs font-medium tabular-nums">
                                   {formatDayCell(ds)}
@@ -867,6 +981,44 @@ export default function TeamSettingsPage() {
             <span className="field-label-text">PTR No.</span>
             <input type="number" className="field-input" placeholder="Annual professional tax receipt" value={dentistPtr} onChange={(e) => setDentistPtr(e.target.value)} disabled={busy} />
           </label>
+          {/* Profile photo upload */}
+          <div>
+            <span className="field-label-text block mb-2">Profile Photo <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
+            <div className="flex items-center gap-3">
+              {(dentistPhotoPreview ?? editingDentist?.photo_url) ? (
+                <img
+                  src={dentistPhotoPreview ?? editingDentist?.photo_url ?? ""}
+                  alt=""
+                  className="w-14 h-14 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <span
+                  className="inline-flex w-14 h-14 rounded-full shrink-0 items-center justify-center text-white font-bold text-xl"
+                  style={{ background: dentistColor }}
+                >
+                  {dentistName.slice(0, 1).toUpperCase() || "?"}
+                </span>
+              )}
+              <div>
+                <p className="text-xs text-slate-400 mb-1.5">JPG, PNG, or WebP · Max 2 MB</p>
+                <button
+                  type="button"
+                  className="cancel-btn text-sm"
+                  onClick={() => dentistPhotoInputRef.current?.click()}
+                  disabled={busy}
+                >
+                  Upload photo
+                </button>
+              </div>
+              <input
+                ref={dentistPhotoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDentistPhotoSelect(f); e.target.value = ""; }}
+              />
+            </div>
+          </div>
           <div>
             <span className="field-label-text block mb-2">Color</span>
             <div className="flex gap-2 flex-wrap">
@@ -943,6 +1095,41 @@ export default function TeamSettingsPage() {
             <span className="field-label-text">Full name <span className="text-red-400">*</span></span>
             <input className="field-input" value={staffName} onChange={(e) => setStaffName(e.target.value)} disabled={busy} />
           </label>
+          {/* Profile photo upload */}
+          <div>
+            <span className="field-label-text block mb-2">Profile Photo <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
+            <div className="flex items-center gap-3">
+              {(staffPhotoPreview ?? editingStaff?.photo_url) ? (
+                <img
+                  src={staffPhotoPreview ?? editingStaff?.photo_url ?? ""}
+                  alt=""
+                  className="w-14 h-14 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <span className="inline-flex w-14 h-14 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white font-bold text-xl">
+                  {staffName.slice(0, 1).toUpperCase() || "?"}
+                </span>
+              )}
+              <div>
+                <p className="text-xs text-slate-400 mb-1.5">JPG, PNG, or WebP · Max 2 MB</p>
+                <button
+                  type="button"
+                  className="cancel-btn text-sm"
+                  onClick={() => staffPhotoInputRef.current?.click()}
+                  disabled={busy}
+                >
+                  Upload photo
+                </button>
+              </div>
+              <input
+                ref={staffPhotoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleStaffPhotoSelect(f); e.target.value = ""; }}
+              />
+            </div>
+          </div>
           <label className="field-label">
             <span className="field-label-text">Role / Job title <span className="text-red-400">*</span></span>
             <select className="field-input" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} disabled={busy}>

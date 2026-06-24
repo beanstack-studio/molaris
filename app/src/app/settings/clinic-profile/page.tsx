@@ -219,13 +219,6 @@ export default function ClinicProfileSettingsPage() {
         window.dispatchEvent(new CustomEvent("clinicProfileUpdated", {
           detail: { logoUrl: updatedProfile.logo_url, clinicName: updatedProfile.clinic_name },
         }));
-        // Update favicon immediately
-        const faviconUrl = updatedProfile.logo_url;
-        if (faviconUrl) {
-          let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
-          if (!link) { link = document.createElement("link"); link.rel = "icon"; document.head.appendChild(link); }
-          link.href = faviconUrl;
-        }
         // Revoke blob preview URL now that we're done with it
         if (logoPreviewModal?.startsWith("blob:")) URL.revokeObjectURL(logoPreviewModal);
         setSuccess(true); setLogoFile(null); setLogoPreviewModal(null); setEditInfoOpen(false);

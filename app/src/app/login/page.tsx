@@ -87,7 +87,6 @@ const loginInput = "w-full h-11 rounded-xl border border-slate-200 bg-slate-50 p
 const loginLabel = "block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5";
 
 export default function LoginPage() {
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState("Molaris");
 
   const [tab, setTab] = useState<Tab>("signin");
@@ -112,12 +111,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const cached = localStorage.getItem("clinic-logo-url");
-    if (cached) setLogoSrc(cached);
     fetch("/api/clinic-info")
       .then((r) => r.json())
-      .then((data: { logo_url?: string; clinic_name?: string }) => {
-        if (data.logo_url) setLogoSrc(data.logo_url);
+      .then((data: { clinic_name?: string }) => {
         if (data.clinic_name) setClinicName(data.clinic_name);
       })
       .catch(() => {});
@@ -180,13 +176,7 @@ export default function LoginPage() {
       <div className="login-card">
         {/* Logo + clinic name */}
         <div className="flex flex-col items-center gap-3 text-center mb-6">
-          {logoSrc ? (
-            <img src={logoSrc} alt="Clinic logo" className="w-14 h-14 rounded-2xl object-cover shadow-md" />
-          ) : (
-            <div className="w-14 h-14 rounded-2xl bg-violet-600 shadow-md flex items-center justify-center text-white font-bold text-2xl select-none">
-              {clinicName.slice(0, 1).toUpperCase()}
-            </div>
-          )}
+          <img src="/icons/apple-touch-icon.png" alt="Molaris" className="w-14 h-14 rounded-2xl object-cover shadow-md" />
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{clinicName}</h1>
             <p className="text-sm text-slate-500">Clinic Management Portal</p>
