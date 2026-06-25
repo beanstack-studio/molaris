@@ -393,7 +393,7 @@ function CatalogSettingsPage() {
 
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-[3fr_2fr] lg:items-start">
 
         {/* ── Services card ── */}
         <div className="card">
@@ -409,8 +409,8 @@ function CatalogSettingsPage() {
             <div className="px-1 mb-1">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Services</h4>
             </div>
-            <div className="table-wrapper">
-              <table className="data-table">
+            <div className="table-wrapper overflow-x-auto">
+              <table className="data-table min-w-[380px]">
                 <colgroup>
                   <col className="col-35" />
                   <col className="col-20" />
@@ -468,8 +468,8 @@ function CatalogSettingsPage() {
             <div className="px-1 mb-1">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Extras</h4>
             </div>
-            <div className="table-wrapper">
-              <table className="data-table">
+            <div className="table-wrapper overflow-x-auto">
+              <table className="data-table min-w-[380px]">
                 <colgroup>
                   <col className="col-35" />
                   <col className="col-20" />
@@ -534,8 +534,8 @@ function CatalogSettingsPage() {
 
           {pmError && <div className="error-banner">{pmError}</div>}
 
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[360px]">
               <colgroup>
                 <col className="col-25" />
                 <col className="col-13" />

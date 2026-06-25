@@ -15,13 +15,14 @@ type OperatingExpense = {
   id: string;
   clinic_id: string;
   expense_date: string;
-  category: "Supplies" | "Gasoline" | "Maintenance" | "Other";
+  category: string;
   description: string | null;
   amount: number;
   payment_mode: string | null;
   status: "paid" | "unpaid";
   date_paid: string | null;
   remarks: string | null;
+  receipt_url: string | null;
   created_at: string;
 };
 
@@ -30,10 +31,11 @@ type PaymentMode = {
   name: string;
 };
 
-const CATEGORIES = ["Supplies", "Gasoline", "Maintenance", "Other"] as const;
+const CATEGORIES = ["Supplies", "Gasoline", "Other"] as const;
 type Category = (typeof CATEGORIES)[number];
 
-const CATEGORY_COLORS: Record<Category, string> = {
+// "Maintenance" entries still exist in DB (auto-created by Maintenance Log) — keep color for display
+const CATEGORY_COLORS: Record<string, string> = {
   Supplies:    "badge badge-secondary",
   Gasoline:    "badge bg-amber-100 text-amber-700 border border-amber-200",
   Maintenance: "badge bg-orange-100 text-orange-700 border border-orange-200",
@@ -74,6 +76,7 @@ export default function OperatingPage() {
   // Add modal
   const [showAdd, setShowAdd]         = useState(false);
   const [form, setForm]               = useState<FormState>(blankForm());
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [saving, setSaving]           = useState(false);
   const [formError, setFormError]     = useState<string | null>(null);
 
@@ -85,14 +88,16 @@ export default function OperatingPage() {
   const [payError, setPayError]       = useState<string | null>(null);
 
   // Edit modal (admin only)
-  const [editTarget, setEditTarget]   = useState<OperatingExpense | null>(null);
-  const [editForm, setEditForm]       = useState<FormState>(blankForm());
-  const [editSaving, setEditSaving]   = useState(false);
-  const [editError, setEditError]     = useState<string | null>(null);
+  const [editTarget, setEditTarget]     = useState<OperatingExpense | null>(null);
+  const [editForm, setEditForm]         = useState<FormState>(blankForm());
+  const [editReceiptFile, setEditReceiptFile] = useState<File | null>(null);
+  const [editSaving, setEditSaving]     = useState(false);
+  const [editError, setEditError]       = useState<string | null>(null);
 
   // ─── Load data ─────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
+    if (!clinicId) return;
     setIsLoading(true);
     setError(null);
 
@@ -136,6 +141,7 @@ export default function OperatingPage() {
 
   function openAdd() {
     setForm(blankForm());
+    setReceiptFile(null);
     setFormError(null);
     setShowAdd(true);
   }
@@ -149,6 +155,15 @@ export default function OperatingPage() {
     setSaving(true);
     setFormError(null);
 
+    let receiptUrl: string | null = null;
+    if (receiptFile) {
+      const path = `expenses/${clinicId}/${crypto.randomUUID()}-${receiptFile.name}`;
+      const up = await supabase.storage.from("clinic-files").upload(path, receiptFile);
+      if (up.error) { setSaving(false); setFormError(up.error.message); return; }
+      const { data: pub } = supabase.storage.from("clinic-files").getPublicUrl(path);
+      receiptUrl = pub.publicUrl;
+    }
+
     const isPaid = Boolean(form.payment_mode);
     const { error: err } = await supabase.from("clinic_operating_expenses").insert({
       clinic_id:    clinicId,
@@ -160,6 +175,7 @@ export default function OperatingPage() {
       status:       isPaid ? "paid" : "unpaid",
       date_paid:    isPaid ? form.expense_date : null,
       remarks:      form.remarks || null,
+      receipt_url:  receiptUrl,
     });
 
     setSaving(false);
@@ -204,12 +220,13 @@ export default function OperatingPage() {
     setEditTarget(exp);
     setEditForm({
       expense_date: exp.expense_date,
-      category:     exp.category,
+      category:     (CATEGORIES.includes(exp.category as Category) ? exp.category : "Other") as Category,
       description:  exp.description ?? "",
       amount:       String(exp.amount),
       payment_mode: exp.payment_mode ?? "",
       remarks:      exp.remarks ?? "",
     });
+    setEditReceiptFile(null);
     setEditError(null);
   }
 
@@ -221,6 +238,15 @@ export default function OperatingPage() {
     }
     setEditSaving(true);
     setEditError(null);
+
+    let receiptUrl: string | null = editTarget.receipt_url ?? null;
+    if (editReceiptFile) {
+      const path = `expenses/${clinicId}/${crypto.randomUUID()}-${editReceiptFile.name}`;
+      const up = await supabase.storage.from("clinic-files").upload(path, editReceiptFile);
+      if (up.error) { setEditSaving(false); setEditError(up.error.message); return; }
+      const { data: pub } = supabase.storage.from("clinic-files").getPublicUrl(path);
+      receiptUrl = pub.publicUrl;
+    }
 
     const isPaid = Boolean(editForm.payment_mode);
     const { error: err } = await supabase
@@ -234,6 +260,7 @@ export default function OperatingPage() {
         status:       isPaid ? "paid" : "unpaid",
         date_paid:    isPaid ? (editTarget.date_paid ?? editForm.expense_date) : null,
         remarks:      editForm.remarks || null,
+        receipt_url:  receiptUrl,
       })
       .eq("id", editTarget.id)
       .eq("clinic_id", clinicId);
@@ -266,7 +293,7 @@ export default function OperatingPage() {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Operating Expenses</h2>
+          <h2 className="card-title">General Expenses</h2>
           <button type="button" className="save-btn" onClick={openAdd}>
             + Add Expense
           </button>
@@ -276,7 +303,7 @@ export default function OperatingPage() {
           <div className="flex justify-center py-10"><Spinner /></div>
         ) : expenses.length === 0 ? (
           <div className="data-table-empty">
-            No operating expenses recorded yet. Click &quot;Add Expense&quot; to get started.
+            No general expenses recorded yet. Click &quot;Add Expense&quot; to get started.
           </div>
         ) : (
           <div className="table-wrapper overflow-x-auto">
@@ -340,7 +367,7 @@ export default function OperatingPage() {
       </div>
 
       {/* ── Add Expense Modal ── */}
-      <EditModal open={showAdd} title="Add Operating Expense" onClose={() => setShowAdd(false)}>
+      <EditModal open={showAdd} title="Add General Expense" onClose={() => setShowAdd(false)}>
         <div className="flex flex-col gap-4">
           {formError && <div className="error-banner">{formError}</div>}
 
@@ -415,6 +442,18 @@ export default function OperatingPage() {
               onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
               disabled={saving}
             />
+          </label>
+
+          <label className="field-label">
+            <span className="field-label-text">Receipt <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="field-input text-sm py-1.5"
+              onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+              disabled={saving}
+            />
+            {receiptFile && <span className="text-xs text-slate-500">{receiptFile.name}</span>}
           </label>
 
           <div className="modal-footer-buttons">
@@ -537,6 +576,23 @@ export default function OperatingPage() {
               onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
               disabled={editSaving}
             />
+          </label>
+
+          <label className="field-label">
+            <span className="field-label-text">Receipt <span className="text-slate-400 font-normal text-xs">(optional — replaces existing)</span></span>
+            {editTarget?.receipt_url && !editReceiptFile && (
+              <a href={editTarget.receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mb-1">
+                View current receipt
+              </a>
+            )}
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="field-input text-sm py-1.5"
+              onChange={(e) => setEditReceiptFile(e.target.files?.[0] ?? null)}
+              disabled={editSaving}
+            />
+            {editReceiptFile && <span className="text-xs text-slate-500">{editReceiptFile.name}</span>}
           </label>
 
           <div className="modal-footer-buttons">

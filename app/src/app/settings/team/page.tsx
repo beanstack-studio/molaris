@@ -1071,12 +1071,12 @@ export default function TeamSettingsPage() {
               <div className="data-table-empty">Add dentists above to manage their schedules.</div>
             ) : (
               <div className="table-wrapper overflow-x-auto">
-                <table className="data-table min-w-[540px]">
+                <table className="data-table min-w-[620px]">
                   <thead className="data-table-head">
                     <tr>
                       <th className="data-table-head-cell w-44 shrink-0">Person</th>
                       {WEEK_ORDER.map(({ header, key }) => (
-                        <th key={key} className="data-table-head-cell text-center text-xs">{header}</th>
+                        <th key={key} className="data-table-head-cell text-center text-xs w-16">{header}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1118,7 +1118,7 @@ export default function TeamSettingsPage() {
                             return (
                               <td key={key} className={cn("data-table-cell text-center", isEditing && "bg-blue-50")}>
                                 {isWorking ? (
-                                  <span className="text-blue-600 text-xs font-medium tabular-nums">
+                                  <span className="text-blue-600 text-xs font-medium tabular-nums whitespace-nowrap">
                                     {formatDayCell(ds)}
                                   </span>
                                 ) : (
@@ -1164,7 +1164,7 @@ export default function TeamSettingsPage() {
                             return (
                               <td key={key} className="data-table-cell text-center">
                                 {isWorking ? (
-                                  <span className="text-slate-600 text-xs font-medium tabular-nums">
+                                  <span className="text-slate-600 text-xs font-medium tabular-nums whitespace-nowrap">
                                     {formatDayCell(ss)}
                                   </span>
                                 ) : (

@@ -123,10 +123,11 @@ const settingsFlyoutSections: { title: string; items: SettingsNavItem[] }[] = [
   {
     title: "Clinic",
     items: [
-      { label: "Clinic Profile",  href: "/settings/clinic-profile" },
-      { label: "Team",            href: "/settings/team" },
-      { label: "Services & Payments", href: "/settings/services",       adminLock: true },
-      { label: "Documents",       href: "/settings/document-templates", adminLock: true },
+      { label: "Clinic Profile",      href: "/settings/clinic-profile" },
+      { label: "Team",                href: "/settings/team" },
+      { label: "Services & Payments", href: "/settings/services",          adminLock: true },
+      { label: "Maintenance Log",     href: "/settings/maintenance",       adminLock: true },
+      { label: "Documents",           href: "/settings/document-templates", adminLock: true },
     ],
   },
   {

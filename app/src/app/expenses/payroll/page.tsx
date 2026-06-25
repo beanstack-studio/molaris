@@ -81,6 +81,7 @@ export default function PayrollPage() {
   // ─── Load data ─────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
+    if (!clinicId) return;
     setIsLoading(true);
     setError(null);
 
@@ -133,7 +134,15 @@ export default function PayrollPage() {
   // ─── Open Run Payroll modal ──────────────────────────────────────────────────
 
   function openRunPayroll() {
-    setPeriodStart("");
+    // Auto-fill period_start as the day after the most recent run's period_end
+    const lastRun = runs[0]; // already sorted desc by payment_date
+    let defaultStart = "";
+    if (lastRun?.period_end) {
+      const d = new Date(lastRun.period_end);
+      d.setDate(d.getDate() + 1);
+      defaultStart = d.toISOString().slice(0, 10);
+    }
+    setPeriodStart(defaultStart);
     setPeriodEnd("");
     setPaymentDate(new Date().toISOString().slice(0, 10));
     setPaymentMode("");

@@ -20,6 +20,7 @@ type ClinicBill = {
   amount: number;
   payment_mode: string | null;
   remarks: string | null;
+  receipt_url: string | null;
   created_at: string;
 };
 
@@ -71,19 +72,22 @@ export default function BillsPage() {
   const [error, setError]             = useState<string | null>(null);
   const [successMsg, setSuccessMsg]   = useState<string | null>(null);
 
-  const [showAdd, setShowAdd]         = useState(false);
-  const [form, setForm]               = useState<FormState>(blankForm());
-  const [saving, setSaving]           = useState(false);
-  const [formError, setFormError]     = useState<string | null>(null);
+  const [showAdd, setShowAdd]           = useState(false);
+  const [form, setForm]                 = useState<FormState>(blankForm());
+  const [receiptFile, setReceiptFile]   = useState<File | null>(null);
+  const [saving, setSaving]             = useState(false);
+  const [formError, setFormError]       = useState<string | null>(null);
 
-  const [editTarget, setEditTarget]   = useState<ClinicBill | null>(null);
-  const [editForm, setEditForm]       = useState<FormState>(blankForm());
-  const [editSaving, setEditSaving]   = useState(false);
-  const [editError, setEditError]     = useState<string | null>(null);
+  const [editTarget, setEditTarget]           = useState<ClinicBill | null>(null);
+  const [editForm, setEditForm]               = useState<FormState>(blankForm());
+  const [editReceiptFile, setEditReceiptFile] = useState<File | null>(null);
+  const [editSaving, setEditSaving]           = useState(false);
+  const [editError, setEditError]             = useState<string | null>(null);
 
   // ─── Load data ─────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
+    if (!clinicId) return;
     setIsLoading(true);
     setError(null);
 
@@ -126,6 +130,7 @@ export default function BillsPage() {
 
   function openAdd() {
     setForm(blankForm());
+    setReceiptFile(null);
     setFormError(null);
     setShowAdd(true);
   }
@@ -138,6 +143,15 @@ export default function BillsPage() {
     setSaving(true);
     setFormError(null);
 
+    let receiptUrl: string | null = null;
+    if (receiptFile) {
+      const path = `bills/${clinicId}/${crypto.randomUUID()}-${receiptFile.name}`;
+      const up = await supabase.storage.from("clinic-files").upload(path, receiptFile);
+      if (up.error) { setSaving(false); setFormError(up.error.message); return; }
+      const { data: pub } = supabase.storage.from("clinic-files").getPublicUrl(path);
+      receiptUrl = pub.publicUrl;
+    }
+
     const { error: err } = await supabase.from("clinic_bills").insert({
       clinic_id:    clinicId,
       category:     form.category,
@@ -146,6 +160,7 @@ export default function BillsPage() {
       amount:       Number(form.amount),
       payment_mode: form.payment_mode || null,
       remarks:      form.remarks || null,
+      receipt_url:  receiptUrl,
     });
 
     setSaving(false);
@@ -167,6 +182,7 @@ export default function BillsPage() {
       payment_mode: bill.payment_mode ?? "",
       remarks:      bill.remarks ?? "",
     });
+    setEditReceiptFile(null);
     setEditError(null);
   }
 
@@ -179,6 +195,15 @@ export default function BillsPage() {
     setEditSaving(true);
     setEditError(null);
 
+    let receiptUrl: string | null = editTarget.receipt_url ?? null;
+    if (editReceiptFile) {
+      const path = `bills/${clinicId}/${crypto.randomUUID()}-${editReceiptFile.name}`;
+      const up = await supabase.storage.from("clinic-files").upload(path, editReceiptFile);
+      if (up.error) { setEditSaving(false); setEditError(up.error.message); return; }
+      const { data: pub } = supabase.storage.from("clinic-files").getPublicUrl(path);
+      receiptUrl = pub.publicUrl;
+    }
+
     const { error: err } = await supabase
       .from("clinic_bills")
       .update({
@@ -188,6 +213,7 @@ export default function BillsPage() {
         amount:       Number(editForm.amount),
         payment_mode: editForm.payment_mode || null,
         remarks:      editForm.remarks || null,
+        receipt_url:  receiptUrl,
       })
       .eq("id", editTarget.id)
       .eq("clinic_id", clinicId);
@@ -363,6 +389,18 @@ export default function BillsPage() {
             />
           </label>
 
+          <label className="field-label">
+            <span className="field-label-text">Receipt <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="field-input text-sm py-1.5"
+              onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+              disabled={saving}
+            />
+            {receiptFile && <span className="text-xs text-slate-500">{receiptFile.name}</span>}
+          </label>
+
           <div className="modal-footer-buttons">
             <button type="button" className="cancel-btn" onClick={() => setShowAdd(false)} disabled={saving}>Cancel</button>
             <button type="button" className="save-btn" onClick={handleAdd} disabled={saving}>
@@ -440,6 +478,23 @@ export default function BillsPage() {
               onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
               disabled={editSaving}
             />
+          </label>
+
+          <label className="field-label">
+            <span className="field-label-text">Receipt <span className="text-slate-400 font-normal text-xs">(optional — replaces existing)</span></span>
+            {editTarget?.receipt_url && !editReceiptFile && (
+              <a href={editTarget.receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mb-1">
+                View current receipt
+              </a>
+            )}
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="field-input text-sm py-1.5"
+              onChange={(e) => setEditReceiptFile(e.target.files?.[0] ?? null)}
+              disabled={editSaving}
+            />
+            {editReceiptFile && <span className="text-xs text-slate-500">{editReceiptFile.name}</span>}
           </label>
 
           <div className="modal-footer-buttons">

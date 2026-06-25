@@ -12,7 +12,7 @@ export default function ExpensesLayout({ children }: { children: React.ReactNode
   const { isAdmin } = useClinic();
 
   const tabs = [
-    { label: "Operating", href: "/expenses/operating" },
+    { label: "General", href: "/expenses/operating" },
     { label: "Bills",     href: "/expenses/bills" },
     ...(isAdmin ? [{ label: "Payroll", href: "/expenses/payroll" }] : []),
   ];
