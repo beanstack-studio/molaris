@@ -79,15 +79,15 @@ function TreatmentAnalyticsReportPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="card">
           <div className="text-muted">Unique Services</div>
-          <div className="text-2xl font-bold text-slate-900 mt-2">{summary.uniqueServices}</div>
+          <div className="text-xl md:text-2xl font-bold text-slate-900 mt-2">{summary.uniqueServices}</div>
         </div>
         <div className="card">
           <div className="text-muted">Total Procedures</div>
-          <div className="text-2xl font-bold text-slate-900 mt-2">{summary.totalServices}</div>
+          <div className="text-xl md:text-2xl font-bold text-slate-900 mt-2">{summary.totalServices}</div>
         </div>
         <div className="card">
           <div className="text-muted">Total Revenue</div>
-          <div className="text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.totalRevenue)}</div>
+          <div className="text-xl md:text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.totalRevenue)}</div>
         </div>
       </div>
 

@@ -102,15 +102,15 @@ function PatientRevenueReportPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="card">
           <div className="text-muted">Total Invoiced</div>
-          <div className="text-2xl font-bold text-slate-900 mt-2">{formatMoney(summary.invoiced)}</div>
+          <div className="text-xl md:text-2xl font-bold text-slate-900 mt-2">{formatMoney(summary.invoiced)}</div>
         </div>
         <div className="card">
           <div className="text-muted">Total Collected</div>
-          <div className="text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.paid)}</div>
+          <div className="text-xl md:text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.paid)}</div>
         </div>
         <div className="card">
           <div className="text-muted">Total Outstanding</div>
-          <div className="text-2xl font-bold text-orange-700 mt-2">{formatMoney(summary.outstanding)}</div>
+          <div className="text-xl md:text-2xl font-bold text-orange-700 mt-2">{formatMoney(summary.outstanding)}</div>
         </div>
       </div>
 

@@ -129,11 +129,11 @@ function ClinicPerformanceReportPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="card">
               <div className="text-muted">Total Revenue (All Time)</div>
-              <div className="text-2xl font-bold text-green-700 mt-2">{formatMoney(kpi.totalRevenue)}</div>
+              <div className="text-xl md:text-2xl font-bold text-green-700 mt-2">{formatMoney(kpi.totalRevenue)}</div>
             </div>
             <div className="card">
               <div className="text-muted">Revenue This Month</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2">{formatMoney(kpi.revenueThisMonth)}</div>
+              <div className="text-xl md:text-2xl font-bold text-slate-900 mt-2">{formatMoney(kpi.revenueThisMonth)}</div>
               {momChange !== null && (
                 <div className={`text-xs mt-1 font-medium ${momChange >= 0 ? "text-green-600" : "text-red-600"}`}>
                   {momChange >= 0 ? "▲" : "▼"} {Math.abs(momChange)}% vs last month
@@ -142,22 +142,22 @@ function ClinicPerformanceReportPage() {
             </div>
             <div className="card">
               <div className="text-muted">Revenue Last Month</div>
-              <div className="text-2xl font-bold text-slate-500 mt-2">{formatMoney(kpi.revenueLastMonth)}</div>
+              <div className="text-xl md:text-2xl font-bold text-slate-500 mt-2">{formatMoney(kpi.revenueLastMonth)}</div>
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="card">
               <div className="text-muted">Total Patients</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2">{kpi.totalPatients}</div>
+              <div className="text-xl md:text-2xl font-bold text-slate-900 mt-2">{kpi.totalPatients}</div>
             </div>
             <div className="card">
               <div className="text-muted">Appointments This Month</div>
-              <div className="text-2xl font-bold text-slate-900 mt-2">{kpi.appointmentsThisMonth}</div>
+              <div className="text-xl md:text-2xl font-bold text-slate-900 mt-2">{kpi.appointmentsThisMonth}</div>
             </div>
             <div className="card">
               <div className="text-muted">Collection Rate</div>
-              <div className="text-2xl font-bold text-blue-700 mt-2">{kpi.collectionRate}%</div>
+              <div className="text-xl md:text-2xl font-bold text-blue-700 mt-2">{kpi.collectionRate}%</div>
               <div className="text-xs text-slate-400 mt-1">Payments ÷ Total Invoiced</div>
             </div>
           </div>

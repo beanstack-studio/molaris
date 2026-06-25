@@ -115,17 +115,16 @@ function DocumentTemplatesSettingsPage() {
         {/* TODO: add ability to edit docs */}
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-4 border-b border-slate-200">
+        <div className="flex flex-wrap gap-1 mb-4 border-b border-slate-200">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab
-                  ? "border-current text-slate-900"
+                  ? "border-[hsl(var(--accent-hue)_var(--accent-sat)_45%)] text-[hsl(var(--accent-hue)_var(--accent-sat)_35%)]"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
-              style={activeTab === tab ? { borderColor: "hsl(var(--accent-hue) var(--accent-sat) 45%)", color: "hsl(var(--accent-hue) var(--accent-sat) 35%)" } : {}}
             >
               {tab}
             </button>

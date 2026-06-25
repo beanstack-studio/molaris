@@ -102,19 +102,19 @@ function AppointmentsReportPage() {
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="card">
           <div className="text-muted">Total</div>
-          <div className="text-2xl font-bold text-slate-900 mt-2">{summary.total}</div>
+          <div className="text-xl md:text-2xl font-bold text-slate-900 mt-2">{summary.total}</div>
         </div>
         <div className="card">
           <div className="text-muted">Confirmed</div>
-          <div className="text-2xl font-bold text-green-700 mt-2">{summary.confirmed}</div>
+          <div className="text-xl md:text-2xl font-bold text-green-700 mt-2">{summary.confirmed}</div>
         </div>
         <div className="card">
           <div className="text-muted">Cancelled</div>
-          <div className="text-2xl font-bold text-red-600 mt-2">{summary.cancelled}</div>
+          <div className="text-xl md:text-2xl font-bold text-red-600 mt-2">{summary.cancelled}</div>
         </div>
         <div className="card">
           <div className="text-muted">Pending / Other</div>
-          <div className="text-2xl font-bold text-yellow-600 mt-2">{summary.pending}</div>
+          <div className="text-xl md:text-2xl font-bold text-yellow-600 mt-2">{summary.pending}</div>
         </div>
       </div>
 

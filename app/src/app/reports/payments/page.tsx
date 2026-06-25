@@ -148,19 +148,19 @@ function PaymentReportsPage() {
         <div className="grid gap-4 sm:grid-cols-4">
           <div className="card">
             <div className="text-muted">Total Invoiced</div>
-            <div className="text-2xl font-bold text-slate-900 mt-2">{formatMoney(summary.totalInvoiced)}</div>
+            <div className="text-xl md:text-2xl font-bold text-slate-900 mt-2">{formatMoney(summary.totalInvoiced)}</div>
           </div>
           <div className="card">
             <div className="text-muted">Total Paid</div>
-            <div className="text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.totalPaid)}</div>
+            <div className="text-xl md:text-2xl font-bold text-green-700 mt-2">{formatMoney(summary.totalPaid)}</div>
           </div>
           <div className="card">
             <div className="text-muted">Outstanding</div>
-            <div className="text-2xl font-bold text-orange-700 mt-2">{formatMoney(summary.totalOutstanding)}</div>
+            <div className="text-xl md:text-2xl font-bold text-orange-700 mt-2">{formatMoney(summary.totalOutstanding)}</div>
           </div>
           <div className="card">
             <div className="text-muted">Collection Rate</div>
-            <div className="text-2xl font-bold text-blue-700 mt-2">{summary.collectionRate}%</div>
+            <div className="text-xl md:text-2xl font-bold text-blue-700 mt-2">{summary.collectionRate}%</div>
           </div>
         </div>
       )}
