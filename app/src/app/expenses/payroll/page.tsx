@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
-import { formatMoney, formatDateStandard } from "@/lib/helpers";
+import { formatMoney, formatMoneyCompact, formatDateStandard } from "@/lib/helpers";
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/Spinner";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -70,6 +70,7 @@ export default function PayrollPage() {
   const [error, setError]             = useState<string | null>(null);
   const [successMsg, setSuccessMsg]   = useState<string | null>(null);
 
+  // Run payroll modal
   const [showRun, setShowRun]         = useState(false);
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd]     = useState("");
@@ -78,6 +79,11 @@ export default function PayrollPage() {
   const [entries, setEntries]         = useState<PayrollEntry[]>([]);
   const [runSaving, setRunSaving]     = useState(false);
   const [runError, setRunError]       = useState<string | null>(null);
+
+  // View/delete run modal
+  const [viewRun, setViewRun]           = useState<PayrollRun | null>(null);
+  const [runDeleteText, setRunDeleteText] = useState("");
+  const [runDeleting, setRunDeleting]   = useState(false);
 
   // ─── Load data ─────────────────────────────────────────────────────────────
 
@@ -135,8 +141,7 @@ export default function PayrollPage() {
   // ─── Open Run Payroll modal ──────────────────────────────────────────────────
 
   function openRunPayroll() {
-    // Auto-fill period_start as the day after the most recent run's period_end
-    const lastRun = runs[0]; // already sorted desc by payment_date
+    const lastRun = runs[0];
     let defaultStart = "";
     if (lastRun?.period_end) {
       const d = new Date(lastRun.period_end);
@@ -156,7 +161,7 @@ export default function PayrollPage() {
         person_name: d.nickname ?? d.full_name,
         salary_rate: d.salary_rate,
         daily_rate:  computeDailyRate(d.salary_rate),
-        days_worked: "22",
+        days_worked: "",
         included:    true,
       })),
       ...staff.map((s) => ({
@@ -165,7 +170,7 @@ export default function PayrollPage() {
         person_name: s.full_name,
         salary_rate: s.salary_rate,
         daily_rate:  computeDailyRate(s.salary_rate),
-        days_worked: "22",
+        days_worked: "",
         included:    true,
       })),
     ];
@@ -255,16 +260,24 @@ export default function PayrollPage() {
     await loadData();
   }
 
-  // ─── Delete run ───────────────────────────────────────────────────────────────
+  // ─── View/delete run ──────────────────────────────────────────────────────────
 
-  async function handleDeleteRun(id: string) {
-    if (!window.confirm("Delete this payroll run? This cannot be undone.")) return;
+  function openViewRun(run: PayrollRun) {
+    setViewRun(run);
+    setRunDeleteText("");
+  }
+
+  async function handleDeleteRun() {
+    if (!viewRun || runDeleteText !== "DELETE") return;
+    setRunDeleting(true);
     const { error: err } = await supabase
       .from("payroll_runs")
       .delete()
-      .eq("id", id)
+      .eq("id", viewRun.id)
       .eq("clinic_id", clinicId);
+    setRunDeleting(false);
     if (err) { setError(err.message); return; }
+    setViewRun(null);
     setSuccessMsg("Payroll run deleted.");
     await loadData();
   }
@@ -316,21 +329,21 @@ export default function PayrollPage() {
           </div>
         ) : (
           <div className="table-wrapper overflow-x-auto">
-            <table className="data-table min-w-[560px]">
+            <table className="data-table min-w-[480px]">
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell">Period</th>
                   <th className="data-table-head-cell">Payment Date</th>
                   <th className="data-table-head-cell">Via</th>
                   <th className="data-table-head-cell-right">Total</th>
-                  <th className="data-table-head-cell"></th>
                 </tr>
               </thead>
               <tbody>
                 {runs.map((run, idx) => (
                   <tr
                     key={run.id}
-                    className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
+                    className={cn("data-table-row cursor-pointer", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
+                    onClick={() => openViewRun(run)}
                   >
                     <td className="data-table-cell text-sm">
                       {run.period_start === run.period_end
@@ -340,18 +353,6 @@ export default function PayrollPage() {
                     <td className="data-table-cell text-sm">{formatDateStandard(run.payment_date)}</td>
                     <td className="data-table-cell text-sm text-slate-600">{run.payment_mode ?? "—"}</td>
                     <td className="data-table-cell-right text-sm font-semibold tabular-nums">{formatMoney(run.total_amount)}</td>
-                    <td className="data-table-cell">
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          className="data-table-btn-danger"
-                          title="Delete"
-                          onClick={() => handleDeleteRun(run.id)}
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -359,6 +360,64 @@ export default function PayrollPage() {
           </div>
         )}
       </div>
+
+      {/* ── View Run Modal ── */}
+      <EditModal open={Boolean(viewRun)} title="Payroll Run" onClose={() => setViewRun(null)}>
+        {viewRun && (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="field-label-text mb-0.5">Period</div>
+                <div className="text-slate-700">
+                  {viewRun.period_start === viewRun.period_end
+                    ? formatDateStandard(viewRun.period_start)
+                    : `${formatDateStandard(viewRun.period_start)} – ${formatDateStandard(viewRun.period_end)}`}
+                </div>
+              </div>
+              <div>
+                <div className="field-label-text mb-0.5">Payment Date</div>
+                <div className="text-slate-700">{formatDateStandard(viewRun.payment_date)}</div>
+              </div>
+              <div>
+                <div className="field-label-text mb-0.5">Via</div>
+                <div className="text-slate-700">{viewRun.payment_mode ?? "—"}</div>
+              </div>
+              <div>
+                <div className="field-label-text mb-0.5">Total Amount</div>
+                <div className="font-semibold text-slate-800">{formatMoney(viewRun.total_amount)}</div>
+              </div>
+            </div>
+
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title">Delete payroll run?</div>
+              <div className="delete-confirmation-hint">Type <span className="delete-confirmation-code">DELETE</span> to confirm</div>
+              <input
+                className="delete-confirmation-input"
+                value={runDeleteText}
+                onChange={(e) => setRunDeleteText(e.target.value)}
+                placeholder="DELETE"
+                disabled={runDeleting}
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="delete-btn"
+                onClick={handleDeleteRun}
+                disabled={runDeleting || runDeleteText !== "DELETE"}
+              >
+                Delete
+              </button>
+              <div className="modal-actions-right">
+                <button type="button" className="cancel-btn" onClick={() => setViewRun(null)} disabled={runDeleting}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </EditModal>
 
       {/* ── Run Payroll Modal ── */}
       <EditModal open={showRun} title="Run Payroll" onClose={() => setShowRun(false)} wide>
@@ -395,7 +454,7 @@ export default function PayrollPage() {
                 <table className="data-table min-w-[480px]">
                   <colgroup>
                     <col className="w-8" />
-                    <col />
+                    <col className="w-36" />
                     <col className="w-28" />
                     <col className="w-24" />
                     <col className="w-28" />
@@ -434,14 +493,14 @@ export default function PayrollPage() {
                           <td className="data-table-cell text-sm">
                             <span>{e.person_name}</span>
                             <span className="ml-1 text-xs text-slate-400">
-                              {e.person_type === "dentist" ? "(Dentist)" : "(Staff)"}
+                              {e.person_type === "dentist" ? "(Dr)" : "(Staff)"}
                             </span>
                             {!e.salary_rate && (
                               <div className="text-xs text-rose-400">No daily rate set</div>
                             )}
                           </td>
                           <td className="data-table-cell-right text-sm tabular-nums">
-                            {e.daily_rate > 0 ? formatMoney(e.daily_rate) : "—"}
+                            {e.daily_rate > 0 ? formatMoneyCompact(e.daily_rate) : "—"}
                           </td>
                           <td className="data-table-cell text-center px-2">
                             <input
@@ -456,7 +515,7 @@ export default function PayrollPage() {
                             />
                           </td>
                           <td className="data-table-cell-right text-sm font-medium tabular-nums">
-                            {e.included && e.daily_rate > 0 ? formatMoney(rowTotal) : "—"}
+                            {e.included && e.daily_rate > 0 && days > 0 ? formatMoneyCompact(rowTotal) : "—"}
                           </td>
                         </tr>
                       );
@@ -466,7 +525,7 @@ export default function PayrollPage() {
                     <tr className="border-t border-slate-200 bg-slate-50">
                       <td colSpan={4} className="data-table-cell text-sm font-semibold text-slate-700">Grand Total</td>
                       <td className="data-table-cell-right text-sm font-bold tabular-nums text-slate-800">
-                        {formatMoney(grandTotal)}
+                        {formatMoneyCompact(grandTotal)}
                       </td>
                     </tr>
                   </tfoot>

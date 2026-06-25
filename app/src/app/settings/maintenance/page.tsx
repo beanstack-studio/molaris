@@ -71,6 +71,7 @@ export default function MaintenancePage() {
   const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
   const [editSaving, setEditSaving]       = useState(false);
   const [editError, setEditError]         = useState<string | null>(null);
+  const [editDeleteText, setEditDeleteText] = useState("");
 
   // ─── Load data ─────────────────────────────────────────────────────────────
 
@@ -209,6 +210,7 @@ export default function MaintenancePage() {
     });
     setEditPhotoFile(null);
     setEditError(null);
+    setEditDeleteText("");
   }
 
   async function handleEdit() {
@@ -245,14 +247,18 @@ export default function MaintenancePage() {
     await loadData();
   }
 
-  async function handleDelete(id: string) {
-    if (!window.confirm("Delete this maintenance log? This cannot be undone.")) return;
+  async function handleDelete() {
+    if (!editTarget || editDeleteText !== "DELETE") return;
+    const id = editTarget.id;
+    setEditSaving(true);
     const { error: err } = await supabase
       .from("maintenance_logs")
       .delete()
       .eq("id", id)
       .eq("clinic_id", clinicId);
-    if (err) { setError(err.message); return; }
+    setEditSaving(false);
+    if (err) { setEditError(err.message); return; }
+    setEditTarget(null);
     setSuccessMsg("Log deleted.");
     await loadData();
   }
@@ -312,8 +318,8 @@ export default function MaintenancePage() {
                       </td>
                       <td className="data-table-cell text-sm text-slate-600">{log.technician ?? "—"}</td>
                       <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-1 justify-end">
-                          {log.photo_url && (
+                        {log.photo_url && (
+                          <div className="flex items-center justify-end">
                             <a
                               href={log.photo_url}
                               target="_blank"
@@ -323,13 +329,8 @@ export default function MaintenancePage() {
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                             </a>
-                          )}
-                          {isAdmin && (
-                            <button type="button" className="data-table-btn-danger" title="Delete" onClick={() => handleDelete(log.id)}>
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -506,16 +507,28 @@ export default function MaintenancePage() {
               {editPhotoFile && <span className="text-xs text-slate-500">{editPhotoFile.name}</span>}
             </label>
 
-            <div className="modal-footer-buttons">
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title">Delete log?</div>
+              <div className="delete-confirmation-hint">Type <span className="delete-confirmation-code">DELETE</span> to confirm</div>
+              <input
+                className="delete-confirmation-input"
+                value={editDeleteText}
+                onChange={(e) => setEditDeleteText(e.target.value)}
+                placeholder="DELETE"
+                disabled={editSaving}
+              />
+            </div>
+
+            <div className="modal-actions">
               <button
                 type="button"
                 className="delete-btn"
-                onClick={() => { const id = editTarget!.id; setEditTarget(null); handleDelete(id); }}
-                disabled={editSaving}
+                onClick={handleDelete}
+                disabled={editSaving || editDeleteText !== "DELETE"}
               >
                 Delete
               </button>
-              <div className="flex gap-2">
+              <div className="modal-actions-right">
                 <button type="button" className="cancel-btn" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
                 <button type="button" className="save-btn" onClick={handleEdit} disabled={editSaving}>
                   {editSaving ? "Saving…" : "Save Changes"}

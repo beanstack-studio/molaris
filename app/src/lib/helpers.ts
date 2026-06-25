@@ -178,6 +178,15 @@ export function formatMoney(amount: number) {
   });
 }
 
+export function formatMoneyCompact(amount: number | null | undefined): string {
+  if (amount == null) return '—';
+  const isWhole = amount % 1 === 0;
+  return '₱' + amount.toLocaleString('en-PH', {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 /**
  * Get next sequential invoice number from database: I26-0001, I26-0002, etc.
  * Queries the invoices table to get count and generates next number

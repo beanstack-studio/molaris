@@ -423,7 +423,7 @@ function CatalogSettingsPage() {
                       Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
                     </th>
                     <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
-                      Dur. <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
+                      Time <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
                     </th>
                     <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
                       Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
@@ -482,7 +482,7 @@ function CatalogSettingsPage() {
                       Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
                     </th>
                     <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
-                      Dur. <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
+                      Time <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
                     </th>
                     <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
                       Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
@@ -548,7 +548,7 @@ function CatalogSettingsPage() {
                   <th className="data-table-head-cell">Name</th>
                   <th className="data-table-head-cell"><div className="centered-cell">Proof</div></th>
                   <th className="data-table-head-cell"><div className="centered-cell">Ref</div></th>
-                  <th className="data-table-head-cell"><div className="centered-cell">Verification</div></th>
+                  <th className="data-table-head-cell"><div className="centered-cell">Verify</div></th>
                   <th className="data-table-head-cell"><div className="centered-cell">Active</div></th>
                 </tr>
               </thead>

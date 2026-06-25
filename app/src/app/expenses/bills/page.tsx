@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
 import { formatMoney, formatDateStandard } from "@/lib/helpers";
@@ -41,6 +41,8 @@ const CATEGORY_COLORS: Record<BillCategory, string> = {
   Other:       "badge badge-secondary",
 };
 
+type SortKey = "category" | "due_date" | "date_paid" | "payment_mode" | "amount";
+
 type FormState = {
   category: BillCategory;
   due_date: string;
@@ -61,6 +63,22 @@ function blankForm(): FormState {
   };
 }
 
+function SortArrow({ active, asc }: { active: boolean; asc: boolean }) {
+  const path = !active
+    ? "M8 9l4-4 4 4M16 15l-4 4-4-4"
+    : asc
+    ? "M5 15l7-7 7 7"
+    : "M19 9l-7 7-7-7";
+  return (
+    <svg
+      className={cn("inline-block w-3 h-3 ml-1 shrink-0", active ? "text-blue-600" : "text-slate-300")}
+      fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d={path} />
+    </svg>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BillsPage() {
@@ -71,6 +89,10 @@ export default function BillsPage() {
   const [isLoading, setIsLoading]     = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [successMsg, setSuccessMsg]   = useState<string | null>(null);
+
+  // Sort
+  const [sortKey, setSortKey]         = useState<SortKey>("due_date");
+  const [sortDir, setSortDir]         = useState<"asc" | "desc">("desc");
 
   const [showAdd, setShowAdd]           = useState(false);
   const [form, setForm]                 = useState<FormState>(blankForm());
@@ -83,6 +105,7 @@ export default function BillsPage() {
   const [editReceiptFile, setEditReceiptFile] = useState<File | null>(null);
   const [editSaving, setEditSaving]           = useState(false);
   const [editError, setEditError]             = useState<string | null>(null);
+  const [editDeleteText, setEditDeleteText]   = useState("");
 
   // ─── Load data ─────────────────────────────────────────────────────────────
 
@@ -125,6 +148,26 @@ export default function BillsPage() {
     const t = setTimeout(() => setSuccessMsg(null), 3000);
     return () => clearTimeout(t);
   }, [successMsg]);
+
+  // ─── Sort ─────────────────────────────────────────────────────────────────
+
+  function toggleSort(key: SortKey) {
+    setSortDir((prev) => sortKey === key ? (prev === "asc" ? "desc" : "asc") : "desc");
+    setSortKey(key);
+  }
+
+  const sortedBills = useMemo(() => {
+    return [...bills].sort((a, b) => {
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      if (typeof av === "number" && typeof bv === "number") {
+        return sortDir === "asc" ? av - bv : bv - av;
+      }
+      return sortDir === "asc"
+        ? String(av).localeCompare(String(bv))
+        : String(bv).localeCompare(String(av));
+    });
+  }, [bills, sortKey, sortDir]);
 
   // ─── Add bill ─────────────────────────────────────────────────────────────
 
@@ -184,6 +227,7 @@ export default function BillsPage() {
     });
     setEditReceiptFile(null);
     setEditError(null);
+    setEditDeleteText("");
   }
 
   async function handleEdit() {
@@ -225,14 +269,18 @@ export default function BillsPage() {
     await loadData();
   }
 
-  async function handleDelete(id: string) {
-    if (!window.confirm("Delete this bill? This cannot be undone.")) return;
+  async function handleDelete() {
+    if (!editTarget || editDeleteText !== "DELETE") return;
+    const id = editTarget.id;
+    setEditSaving(true);
     const { error: err } = await supabase
       .from("clinic_bills")
       .delete()
       .eq("id", id)
       .eq("clinic_id", clinicId);
-    if (err) { setError(err.message); return; }
+    setEditSaving(false);
+    if (err) { setEditError(err.message); return; }
+    setEditTarget(null);
     setSuccessMsg("Bill deleted.");
     await loadData();
   }
@@ -263,17 +311,26 @@ export default function BillsPage() {
             <table className="data-table min-w-[640px]">
               <thead className="data-table-head">
                 <tr>
-                  <th className="data-table-head-cell">Type</th>
-                  <th className="data-table-head-cell">Due Date</th>
+                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("category")}>
+                    Type <SortArrow active={sortKey === "category"} asc={sortDir === "asc"} />
+                  </th>
+                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("due_date")}>
+                    Due Date <SortArrow active={sortKey === "due_date"} asc={sortDir === "asc"} />
+                  </th>
                   <th className="data-table-head-cell">Status</th>
-                  <th className="data-table-head-cell">Date Paid</th>
-                  <th className="data-table-head-cell">Via</th>
-                  <th className="data-table-head-cell-right">Amount</th>
-                  <th className="data-table-head-cell"></th>
+                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("date_paid")}>
+                    Date Paid <SortArrow active={sortKey === "date_paid"} asc={sortDir === "asc"} />
+                  </th>
+                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("payment_mode")}>
+                    Via <SortArrow active={sortKey === "payment_mode"} asc={sortDir === "asc"} />
+                  </th>
+                  <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
+                    Amount <SortArrow active={sortKey === "amount"} asc={sortDir === "asc"} />
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {bills.map((bill, idx) => {
+                {sortedBills.map((bill, idx) => {
                   const isPaid = Boolean(bill.date_paid);
                   return (
                     <tr
@@ -297,15 +354,6 @@ export default function BillsPage() {
                       <td className="data-table-cell text-sm">{formatDateStandard(bill.date_paid)}</td>
                       <td className="data-table-cell text-sm text-slate-600">{bill.payment_mode ?? "—"}</td>
                       <td className="data-table-cell-right text-sm font-medium tabular-nums">{formatMoney(bill.amount)}</td>
-                      <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
-                        {isAdmin && (
-                          <div className="flex items-center gap-1 justify-end">
-                            <button type="button" className="data-table-btn-danger" title="Delete" onClick={() => handleDelete(bill.id)}>
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                          </div>
-                        )}
-                      </td>
                     </tr>
                   );
                 })}
@@ -399,11 +447,13 @@ export default function BillsPage() {
             />
           </label>
 
-          <div className="modal-footer-buttons">
-            <button type="button" className="cancel-btn" onClick={() => setShowAdd(false)} disabled={saving}>Cancel</button>
-            <button type="button" className="save-btn" onClick={handleAdd} disabled={saving}>
-              {saving ? "Saving…" : "Save Bill"}
-            </button>
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button type="button" className="cancel-btn" onClick={() => setShowAdd(false)} disabled={saving}>Cancel</button>
+              <button type="button" className="save-btn" onClick={handleAdd} disabled={saving}>
+                {saving ? "Saving…" : "Save Bill"}
+              </button>
+            </div>
           </div>
         </div>
       </EditModal>
@@ -495,16 +545,28 @@ export default function BillsPage() {
             />
           </label>
 
-          <div className="modal-footer-buttons">
+          <div className="delete-confirmation">
+            <div className="delete-confirmation-title">Delete bill?</div>
+            <div className="delete-confirmation-hint">Type <span className="delete-confirmation-code">DELETE</span> to confirm</div>
+            <input
+              className="delete-confirmation-input"
+              value={editDeleteText}
+              onChange={(e) => setEditDeleteText(e.target.value)}
+              placeholder="DELETE"
+              disabled={editSaving}
+            />
+          </div>
+
+          <div className="modal-actions">
             <button
               type="button"
               className="delete-btn"
-              onClick={() => { const id = editTarget!.id; setEditTarget(null); handleDelete(id); }}
-              disabled={editSaving}
+              onClick={handleDelete}
+              disabled={editSaving || editDeleteText !== "DELETE"}
             >
               Delete
             </button>
-            <div className="flex gap-2">
+            <div className="modal-actions-right">
               <button type="button" className="cancel-btn" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
               <button type="button" className="save-btn" onClick={handleEdit} disabled={editSaving}>
                 {editSaving ? "Saving…" : "Save Changes"}
