@@ -273,7 +273,7 @@ export default function MaintenancePage() {
             </button>
           </div>
           <p className="hint-text mt-0 pb-2">
-            Record equipment maintenance and repairs. Logs with a cost automatically create an unpaid expense under General → Maintenance.
+            Track equipment servicing and repairs. Adding a cost auto-creates an unpaid expense under General → Maintenance.
           </p>
 
           {isLoading ? (

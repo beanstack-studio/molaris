@@ -333,7 +333,7 @@ export default function Page() {
         </div>
 
         {/* Last Visit + Next Appointment — side by side */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="card">
             <div className="card-header">
               <div className="card-title">Last visit</div>
@@ -357,6 +357,19 @@ export default function Page() {
           <div className="card">
             <div className="card-header">
               <div className="card-title">Next appointment</div>
+              <button
+                type="button"
+                className="save-btn shrink-0"
+                onClick={() => {
+                  const searchParams = new URLSearchParams({
+                    prefillPatientId: id,
+                    prefillPatientName: displayFullName,
+                  });
+                  router.push(`/appointments?${searchParams.toString()}`);
+                }}
+              >
+                Book appointment
+              </button>
             </div>
             {nextApptDate ? (
               <div className="grid-gap-4-cols-3">

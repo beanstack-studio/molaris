@@ -534,7 +534,7 @@ function BulkPaymentsPage() {
             <div className="space-y-4">
               <div className="card-title">Import Results</div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 lg:grid-cols-2">
                 <div className="card">
                   <p className="text-muted">Successful</p>
                   <p className="text-2xl font-bold text-green-700 mt-2">

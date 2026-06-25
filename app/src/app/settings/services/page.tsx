@@ -535,13 +535,13 @@ function CatalogSettingsPage() {
           {pmError && <div className="error-banner">{pmError}</div>}
 
           <div className="table-wrapper overflow-x-auto">
-            <table className="data-table min-w-[360px]">
+            <table className="data-table min-w-[480px]">
               <colgroup>
-                <col className="col-25" />
-                <col className="col-13" />
-                <col className="col-13" />
-                <col className="col-25" />
-                <col className="col-25" />
+                <col className="col-20" />
+                <col className="col-17" />
+                <col className="col-17" />
+                <col className="col-23" />
+                <col className="col-23" />
               </colgroup>
               <thead className="data-table-head">
                 <tr>

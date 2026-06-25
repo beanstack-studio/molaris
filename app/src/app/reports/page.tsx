@@ -10,7 +10,7 @@ export default function ReportsOverviewPage() {
           Select a report type from the tabs above to analyze clinic performance and financial metrics.
         </p>
         
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
             <h3 className="font-semibold text-blue-900">💳 Payment Reports</h3>
             <p className="text-sm text-blue-700 mt-2">Daily, monthly, and reconciliation reports</p>

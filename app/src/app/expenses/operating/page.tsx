@@ -31,7 +31,7 @@ type PaymentMode = {
   name: string;
 };
 
-const CATEGORIES = ["Supplies", "Gasoline", "Other"] as const;
+const CATEGORIES = ["Supplies", "Lab Fees", "Repairs", "Gasoline", "Other"] as const;
 type Category = (typeof CATEGORIES)[number];
 
 // "Maintenance" entries still exist in DB (auto-created by Maintenance Log) — keep color for display
@@ -433,18 +433,6 @@ export default function OperatingPage() {
           </div>
 
           <label className="field-label">
-            <span className="field-label-text">Remarks</span>
-            <textarea
-              className="field-textarea"
-              rows={2}
-              placeholder="Optional notes"
-              value={form.remarks}
-              onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
-              disabled={saving}
-            />
-          </label>
-
-          <label className="field-label">
             <span className="field-label-text">Receipt <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
             <input
               type="file"
@@ -454,6 +442,18 @@ export default function OperatingPage() {
               disabled={saving}
             />
             {receiptFile && <span className="text-xs text-slate-500">{receiptFile.name}</span>}
+          </label>
+
+          <label className="field-label">
+            <span className="field-label-text">Remarks</span>
+            <textarea
+              className="field-textarea"
+              rows={2}
+              placeholder="Optional notes"
+              value={form.remarks}
+              onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
+              disabled={saving}
+            />
           </label>
 
           <div className="modal-footer-buttons">
@@ -568,17 +568,6 @@ export default function OperatingPage() {
           </div>
 
           <label className="field-label">
-            <span className="field-label-text">Remarks</span>
-            <textarea
-              className="field-textarea"
-              rows={2}
-              value={editForm.remarks}
-              onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
-              disabled={editSaving}
-            />
-          </label>
-
-          <label className="field-label">
             <span className="field-label-text">Receipt <span className="text-slate-400 font-normal text-xs">(optional — replaces existing)</span></span>
             {editTarget?.receipt_url && !editReceiptFile && (
               <a href={editTarget.receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mb-1">
@@ -593,6 +582,17 @@ export default function OperatingPage() {
               disabled={editSaving}
             />
             {editReceiptFile && <span className="text-xs text-slate-500">{editReceiptFile.name}</span>}
+          </label>
+
+          <label className="field-label">
+            <span className="field-label-text">Remarks</span>
+            <textarea
+              className="field-textarea"
+              rows={2}
+              value={editForm.remarks}
+              onChange={(e) => setEditForm((f) => ({ ...f, remarks: e.target.value }))}
+              disabled={editSaving}
+            />
           </label>
 
           <div className="modal-footer-buttons">

@@ -47,6 +47,7 @@ type PayrollEntry = {
   salary_rate: number | null;
   daily_rate: number;
   days_worked: string;
+  included: boolean;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -156,6 +157,7 @@ export default function PayrollPage() {
         salary_rate: d.salary_rate,
         daily_rate:  computeDailyRate(d.salary_rate),
         days_worked: "22",
+        included:    true,
       })),
       ...staff.map((s) => ({
         person_type: "staff" as const,
@@ -164,6 +166,7 @@ export default function PayrollPage() {
         salary_rate: s.salary_rate,
         daily_rate:  computeDailyRate(s.salary_rate),
         days_worked: "22",
+        included:    true,
       })),
     ];
 
@@ -177,12 +180,19 @@ export default function PayrollPage() {
     );
   }
 
+  function toggleIncluded(idx: number) {
+    setEntries((prev) =>
+      prev.map((e, i) => i === idx ? { ...e, included: !e.included } : e)
+    );
+  }
+
   // ─── Submit payroll run ────────────────────────────────────────────────────────
 
   async function handleRunPayroll() {
     if (!paymentDate) { setRunError("Payment date is required."); return; }
 
     const validEntries = entries.filter((e) => {
+      if (!e.included) return false;
       const days = Number(e.days_worked);
       return !isNaN(days) && days > 0 && e.daily_rate > 0;
     });
@@ -262,6 +272,7 @@ export default function PayrollPage() {
   // ─── Grand total ──────────────────────────────────────────────────────────────
 
   const grandTotal = entries.reduce((sum, e) => {
+    if (!e.included) return sum;
     const days = Number(e.days_worked);
     if (isNaN(days) || days <= 0) return sum;
     return sum + e.daily_rate * days;
@@ -380,9 +391,10 @@ export default function PayrollPage() {
             <div>
               <p className="field-label-text mb-2">Days Worked</p>
               <div className="table-wrapper overflow-x-auto rounded-xl border border-slate-100">
-                <table className="data-table min-w-[380px]">
+                <table className="data-table min-w-[440px]">
                   <thead className="data-table-head">
                     <tr>
+                      <th className="data-table-head-cell w-8 text-center">✓</th>
                       <th className="data-table-head-cell">Name</th>
                       <th className="data-table-head-cell-right">₱/day</th>
                       <th className="data-table-head-cell text-center w-20">Days</th>
@@ -396,8 +408,21 @@ export default function PayrollPage() {
                       return (
                         <tr
                           key={e.person_id}
-                          className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
+                          className={cn(
+                            "data-table-row",
+                            idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                            !e.included && "opacity-40"
+                          )}
                         >
+                          <td className="data-table-cell text-center">
+                            <input
+                              type="checkbox"
+                              checked={e.included}
+                              onChange={() => toggleIncluded(idx)}
+                              className="h-4 w-4 rounded"
+                              disabled={runSaving}
+                            />
+                          </td>
                           <td className="data-table-cell text-sm">
                             <div>
                               <span>{e.person_name}</span>
@@ -423,11 +448,11 @@ export default function PayrollPage() {
                               className="field-input input-xs text-center w-16 mx-auto"
                               value={e.days_worked}
                               onChange={(ev) => updateDaysWorked(idx, ev.target.value)}
-                              disabled={runSaving || e.daily_rate === 0}
+                              disabled={runSaving || e.daily_rate === 0 || !e.included}
                             />
                           </td>
                           <td className="data-table-cell-right text-sm font-medium tabular-nums">
-                            {e.daily_rate > 0 ? formatMoney(rowTotal) : "—"}
+                            {e.included && e.daily_rate > 0 ? formatMoney(rowTotal) : "—"}
                           </td>
                         </tr>
                       );
@@ -435,7 +460,7 @@ export default function PayrollPage() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-slate-200 bg-slate-50">
-                      <td colSpan={3} className="data-table-cell text-sm font-semibold text-slate-700">Grand Total</td>
+                      <td colSpan={4} className="data-table-cell text-sm font-semibold text-slate-700">Grand Total</td>
                       <td className="data-table-cell-right text-sm font-bold tabular-nums text-slate-800">
                         {formatMoney(grandTotal)}
                       </td>
