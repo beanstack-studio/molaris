@@ -5,22 +5,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { SlidingTabBar } from "@/components/shared/SlidingTabBar";
-
-const EXPENSE_TABS = [
-  { label: "Payroll",   href: "/expenses/payroll" },
-  { label: "Bills",     href: "/expenses/bills" },
-  { label: "Operating", href: "/expenses/operating" },
-];
+import { useClinic } from "@/contexts/ClinicContext";
 
 export default function ExpensesLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { isAdmin } = useClinic();
+
+  const tabs = [
+    { label: "Operating", href: "/expenses/operating" },
+    { label: "Bills",     href: "/expenses/bills" },
+    ...(isAdmin ? [{ label: "Payroll", href: "/expenses/payroll" }] : []),
+  ];
 
   return (
     <div className="page-bg">
       <main className="app-section">
         <div className="mb-4">
           <SlidingTabBar>
-            {EXPENSE_TABS.map((tab) => {
+            {tabs.map((tab) => {
               const active = pathname === tab.href;
               return (
                 <Link

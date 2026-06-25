@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ExpensesPage() {
-  redirect("/expenses/payroll");
+  redirect("/expenses/operating");
 }

@@ -101,8 +101,8 @@ const navItems: NavItem[] = [
   { href: "/dashboard",        label: "Dashboard",    icon: <IconDashboard />, matchPrefix: "/dashboard" },
   { href: "/appointments",     label: "Appointments", icon: <IconCalendar />,  matchPrefix: "/appointments" },
   { href: "/patients",         label: "Patients",     icon: <IconPatients />,  matchPrefix: "/patients" },
+  { href: "/expenses/operating", label: "Expenses",   icon: <IconExpenses />,  matchPrefix: "/expenses" },
   { href: "/reports/payments", label: "Reports",      icon: <IconReports />,   matchPrefix: "/reports" },
-  { href: "/expenses/payroll", label: "Expenses",     icon: <IconExpenses />,  matchPrefix: "/expenses" },
   { href: "/settings/clinic-profile", label: "Settings", icon: <IconSettings />, matchPrefix: "/settings", isSettings: true },
 ];
 

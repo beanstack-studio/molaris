@@ -1074,7 +1074,7 @@ export default function TeamSettingsPage() {
                 <table className="data-table min-w-[540px]">
                   <thead className="data-table-head">
                     <tr>
-                      <th className="data-table-head-cell w-32 shrink-0">Person</th>
+                      <th className="data-table-head-cell w-44 shrink-0">Person</th>
                       {WEEK_ORDER.map(({ header, key }) => (
                         <th key={key} className="data-table-head-cell text-center text-xs">{header}</th>
                       ))}
@@ -1109,7 +1109,7 @@ export default function TeamSettingsPage() {
                                   {(d.nickname || d.full_name).slice(0, 1).toUpperCase()}
                                 </span>
                               )}
-                              <span className="text-xs truncate">{d.nickname || d.full_name}</span>
+                              <span className="text-xs">{d.nickname || d.full_name}</span>
                             </div>
                           </td>
                           {WEEK_ORDER.map(({ key }) => {
@@ -1155,7 +1155,7 @@ export default function TeamSettingsPage() {
                                   {s.full_name.slice(0, 1).toUpperCase()}
                                 </span>
                               )}
-                              <span className="text-xs truncate text-slate-500">{s.full_name}</span>
+                              <span className="text-xs text-slate-500">{s.full_name}</span>
                             </div>
                           </td>
                           {WEEK_ORDER.map(({ key }) => {
