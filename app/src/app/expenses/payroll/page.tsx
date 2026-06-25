@@ -315,7 +315,6 @@ export default function PayrollPage() {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Payroll Runs</h2>
           <button type="button" className="save-btn" onClick={openRunPayroll}>
             + Run Payroll
           </button>

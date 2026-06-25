@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 import { formatDateStandard } from "@/lib/helpers";
@@ -230,6 +230,10 @@ export default function TeamSettingsPage() {
   const [blockoutStart, setBlockoutStart] = useState("");
   const [blockoutEnd, setBlockoutEnd] = useState("");
   const [blockoutReason, setBlockoutReason] = useState("");
+
+  const [dentistDeleteText, setDentistDeleteText] = useState("");
+  const [staffDeleteText, setStaffDeleteText] = useState("");
+  const [blockoutDeleteText, setBlockoutDeleteText] = useState("");
 
   // Salary rate state
   const [dentistSalaryRate, setDentistSalaryRate] = useState<string>("");
@@ -533,9 +537,11 @@ export default function TeamSettingsPage() {
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
     setDentistPhotoPreview(d.photo_url ?? null);
+    setDentistDeleteText("");
     setShowAddDentistModal(true);
   }
   function closeDentistModal() {
+    setDentistDeleteText("");
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
     setDentistPhotoFile(null); setDentistPhotoPreview(null);
     setShowAddDentistModal(false); setEditingDentist(null);
@@ -589,7 +595,7 @@ export default function TeamSettingsPage() {
     finally { setBusy(false); }
   }
   async function deleteDentist(id: string) {
-    if (!confirm("Delete this dentist? This cannot be undone.")) return;
+    if (dentistDeleteText !== "DELETE") return;
     setBusy(true);
     const { error } = await supabase.from("dentists").delete().eq("id", id);
     if (error) setError(error.message);
@@ -646,9 +652,11 @@ export default function TeamSettingsPage() {
       .eq("staff_id", s.id)
       .eq("clinic_id", clinicId);
     setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
+    setStaffDeleteText("");
     setShowAddStaffModal(true);
   }
   function closeStaffModal() {
+    setStaffDeleteText("");
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
@@ -719,7 +727,7 @@ export default function TeamSettingsPage() {
     finally { setBusy(false); }
   }
   async function deleteStaff(id: string) {
-    if (!confirm("Delete this staff member? This cannot be undone.")) return;
+    if (staffDeleteText !== "DELETE") return;
     setBusy(true);
     await supabase.from("dentist_handlers").delete().eq("staff_id", id).eq("clinic_id", clinicId);
     const { error } = await supabase.from("staff").delete().eq("id", id);
@@ -769,9 +777,11 @@ export default function TeamSettingsPage() {
       setBlockoutPerson("");
     }
     setBlockoutStart(b.start_date); setBlockoutEnd(b.end_date); setBlockoutReason(b.reason ?? "");
+    setBlockoutDeleteText("");
     setShowBlockoutModal(true);
   }
   function closeBlockoutModal() {
+    setBlockoutDeleteText("");
     setShowBlockoutModal(false); setEditingBlockout(null);
     setBlockoutPerson(""); setBlockoutStart(""); setBlockoutEnd(""); setBlockoutReason("");
   }
@@ -821,7 +831,7 @@ export default function TeamSettingsPage() {
     finally { setBusy(false); }
   }
   async function deleteBlockout(id: string) {
-    if (!confirm("Remove this scheduled off day?")) return;
+    if (blockoutDeleteText !== "DELETE") return;
     setBusy(true);
     const { error } = await supabase.from("dentist_blockouts").delete().eq("id", id);
     if (error) setError(error.message);
@@ -865,6 +875,16 @@ export default function TeamSettingsPage() {
 
   const atStaffLimit = !isPro && staffAccessCount >= 1;
   const hasPeople = dentists.length > 0 || staff.length > 0;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const sortedBlockouts = useMemo(() => {
+    return [...blockouts].sort((a, b) => {
+      const aIsPast = a.end_date < today;
+      const bIsPast = b.end_date < today;
+      if (aIsPast !== bIsPast) return aIsPast ? 1 : -1;
+      return a.start_date.localeCompare(b.start_date);
+    });
+  }, [blockouts, today]);
 
   if (loading) return <LoadingBlock />;
 
@@ -1185,7 +1205,7 @@ export default function TeamSettingsPage() {
           {/* Scheduled Off Days */}
           <div className="card">
             <div className="card-header">
-              <h2 className="card-title">Scheduled Off Days</h2>
+              <h2 className="card-title">Leave Schedule</h2>
               {isAdmin && (
                 <button className="save-btn" onClick={openAddBlockout} disabled={busy || !hasPeople}>
                   Add
@@ -1216,7 +1236,7 @@ export default function TeamSettingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {blockouts.map((b, idx) => {
+                    {sortedBlockouts.map((b, idx) => {
                       const avatar = getBlockoutPersonAvatar(b);
                       const personName = getBlockoutPersonName(b);
                       return (
@@ -1570,9 +1590,16 @@ export default function TeamSettingsPage() {
             </div>
           )}
 
+          {editingDentist && (
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title">Delete dentist?</div>
+              <div className="delete-confirmation-hint">Type <span className="delete-confirmation-code">DELETE</span> to confirm</div>
+              <input className="delete-confirmation-input" value={dentistDeleteText} onChange={(e) => setDentistDeleteText(e.target.value)} placeholder="DELETE" disabled={busy} />
+            </div>
+          )}
           <div className="modal-actions">
             {editingDentist && (
-              <button type="button" className="delete-btn" onClick={() => deleteDentist(editingDentist.id)} disabled={busy}>Delete</button>
+              <button type="button" className="delete-btn" onClick={() => deleteDentist(editingDentist.id)} disabled={busy || dentistDeleteText !== "DELETE"}>Delete</button>
             )}
             <div className="modal-actions-right">
               <button type="button" className="cancel-btn" onClick={closeDentistModal} disabled={busy}>Cancel</button>
@@ -1749,9 +1776,16 @@ export default function TeamSettingsPage() {
             </div>
           )}
 
+          {editingStaff && (
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title">Delete staff member?</div>
+              <div className="delete-confirmation-hint">Type <span className="delete-confirmation-code">DELETE</span> to confirm</div>
+              <input className="delete-confirmation-input" value={staffDeleteText} onChange={(e) => setStaffDeleteText(e.target.value)} placeholder="DELETE" disabled={busy} />
+            </div>
+          )}
           <div className="modal-actions">
             {editingStaff && isAdmin && (
-              <button type="button" className="delete-btn" onClick={() => deleteStaff(editingStaff.id)} disabled={busy}>Delete</button>
+              <button type="button" className="delete-btn" onClick={() => deleteStaff(editingStaff.id)} disabled={busy || staffDeleteText !== "DELETE"}>Delete</button>
             )}
             <div className="modal-actions-right">
               <button type="button" className="cancel-btn" onClick={closeStaffModal} disabled={busy}>Cancel</button>
@@ -1766,7 +1800,7 @@ export default function TeamSettingsPage() {
       {/* ── ADD/EDIT BLOCKOUT MODAL ── */}
       <EditModal
         open={showBlockoutModal}
-        title={editingBlockout ? "Edit Off Day" : "Add Off Day"}
+        title={editingBlockout ? "Edit Leave Schedule" : "Add Leave Schedule"}
         onClose={closeBlockoutModal}
       >
         <div className="spacing-vertical-lg">
@@ -1832,9 +1866,16 @@ export default function TeamSettingsPage() {
             />
           </label>
 
+          {editingBlockout && (
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title">Delete leave entry?</div>
+              <div className="delete-confirmation-hint">Type <span className="delete-confirmation-code">DELETE</span> to confirm</div>
+              <input className="delete-confirmation-input" value={blockoutDeleteText} onChange={(e) => setBlockoutDeleteText(e.target.value)} placeholder="DELETE" disabled={busy} />
+            </div>
+          )}
           <div className="modal-actions">
             {editingBlockout && isAdmin && (
-              <button type="button" className="delete-btn" onClick={() => deleteBlockout(editingBlockout.id)} disabled={busy}>Delete</button>
+              <button type="button" className="delete-btn" onClick={() => deleteBlockout(editingBlockout.id)} disabled={busy || blockoutDeleteText !== "DELETE"}>Delete</button>
             )}
             <div className="modal-actions-right">
               <button type="button" className="cancel-btn" onClick={closeBlockoutModal} disabled={busy}>Cancel</button>

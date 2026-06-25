@@ -74,18 +74,18 @@ function CatalogSettingsPage() {
   const [sort, setSort] = useState<ServiceSort>("NAME_ASC");
 
   const [addOpen, setAddOpen] = useState(false);
-  const [itemType, setItemType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
+  const [itemType, setItemType] = useState<"SERVICE" | "ADD_ON" | "">("");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState<string>("");
-  const [addCategory, setAddCategory] = useState<"general" | "ortho">("general");
+  const [addIsOrtho, setAddIsOrtho] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<ServicePriceRow | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editDuration, setEditDuration] = useState<string>("");
-  const [editCategory, setEditCategory] = useState<"general" | "ortho">("general");
+  const [editIsOrtho, setEditIsOrtho] = useState(false);
   const [editItemType, setEditItemType] = useState<"SERVICE" | "ADD_ON">("SERVICE");
   const [deleteText, setDeleteText] = useState("");
 
@@ -173,7 +173,7 @@ function CatalogSettingsPage() {
   if (!isAdmin && !clinicLoading) return null;
 
   async function addItem() {
-    if (!name.trim()) return;
+    if (!name.trim() || !itemType) return;
     setBusy(true);
     const { error } = await supabase.from("service_prices").insert({
       clinic_id: clinicId,
@@ -182,7 +182,7 @@ function CatalogSettingsPage() {
       item_type: itemType,
       is_active: true,
       duration_minutes: duration ? Number(duration) : null,
-      category: addCategory,
+      category: addIsOrtho ? "ortho" : "general",
     });
     if (error) {
       setBusy(false);
@@ -199,7 +199,7 @@ function CatalogSettingsPage() {
     setEditName(r.service_name ?? "");
     setEditPrice(String(r.default_price ?? 0));
     setEditDuration(String(r.duration_minutes ?? ""));
-    setEditCategory(r.category ?? "general");
+    setEditIsOrtho((r.category ?? "general") === "ortho");
     setEditItemType(r.item_type);
     setDeleteText("");
     setEditOpen(true);
@@ -210,24 +210,25 @@ function CatalogSettingsPage() {
     setEditRow(null);
     setDeleteText("");
     setEditItemType("SERVICE");
+    setEditIsOrtho(false);
   }
 
   function openAdd() {
-    setItemType("SERVICE");
+    setItemType("");
     setName("");
     setPrice("");
     setDuration("");
-    setAddCategory("general");
+    setAddIsOrtho(false);
     setAddOpen(true);
   }
 
   function closeAdd() {
     setAddOpen(false);
-    setItemType("SERVICE");
+    setItemType("");
     setName("");
     setPrice("");
     setDuration("");
-    setAddCategory("general");
+    setAddIsOrtho(false);
   }
 
   async function toggleActive(id: string, current: boolean) {
@@ -247,7 +248,7 @@ function CatalogSettingsPage() {
         service_name: editName.trim(),
         default_price: Number(editPrice) || 0,
         duration_minutes: editDuration ? Number(editDuration) : null,
-        category: editCategory,
+        category: editIsOrtho ? "ortho" : "general",
         item_type: editItemType,
       })
       .eq("id", editRow.id)
@@ -680,41 +681,32 @@ function CatalogSettingsPage() {
       </div>
 
       {/* ── Services modals ── */}
-      <EditModal open={addOpen} title={itemType === "ADD_ON" ? "Add Extra" : "Add Service"} onClose={closeAdd}>
+      <EditModal open={addOpen} title="Add Service / Extra" onClose={closeAdd}>
         <div className="spacing-vertical-lg">
-          {/* Category radio — required */}
-          <div>
-            <span className="field-label-text block mb-2">Category <span className="text-red-400">*</span></span>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="add-item-type"
-                  value="SERVICE"
-                  checked={itemType === "SERVICE"}
-                  onChange={() => setItemType("SERVICE")}
-                  disabled={busy}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm text-slate-700">Service</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="add-item-type"
-                  value="ADD_ON"
-                  checked={itemType === "ADD_ON"}
-                  onChange={() => setItemType("ADD_ON")}
-                  disabled={busy}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm text-slate-700">Extra</span>
-              </label>
-            </div>
+          {/* Row 1: Type + Ortho toggle */}
+          <div className="flex items-end gap-3">
+            <label className="field-label flex-1">
+              <span className="field-label-text">Type <span className="text-red-400">*</span></span>
+              <select
+                className="field-input"
+                value={itemType}
+                onChange={(e) => setItemType(e.target.value as "SERVICE" | "ADD_ON" | "")}
+                disabled={busy}
+              >
+                <option value="">— Select —</option>
+                <option value="SERVICE">Service</option>
+                <option value="ADD_ON">Extra</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer pb-2 shrink-0">
+              <TogglePill checked={addIsOrtho} onChange={setAddIsOrtho} disabled={busy} />
+              <span className="text-sm text-slate-700 font-medium">Ortho</span>
+            </label>
           </div>
 
+          {/* Row 2: Name */}
           <label className="field-label">
-            <span className="field-label-text">Name</span>
+            <span className="field-label-text">Name <span className="text-red-400">*</span></span>
             <input
               className="field-input"
               placeholder={itemType === "ADD_ON" ? "Extra name" : "Service name"}
@@ -724,6 +716,7 @@ function CatalogSettingsPage() {
             />
           </label>
 
+          {/* Row 3: Fee + Duration */}
           <div className="grid grid-cols-2 gap-3">
             <label className="field-label">
               <span className="field-label-text">Fee</span>
@@ -770,23 +763,10 @@ function CatalogSettingsPage() {
             </label>
           </div>
 
-          <label className="field-label">
-            <span className="field-label-text">Category</span>
-            <select
-              className="field-input"
-              value={addCategory}
-              onChange={(e) => setAddCategory(e.target.value as "general" | "ortho")}
-              disabled={busy}
-            >
-              <option value="general">General</option>
-              <option value="ortho">Ortho</option>
-            </select>
-          </label>
-
           <div className="modal-actions">
             <div className="modal-actions-right">
               <button type="button" className="cancel-btn" onClick={closeAdd} disabled={busy}>Cancel</button>
-              <button type="button" className="save-btn" onClick={addItem} disabled={busy || !name.trim()}>
+              <button type="button" className="save-btn" onClick={addItem} disabled={busy || !name.trim() || !itemType}>
                 {busy ? "Adding…" : "Add"}
               </button>
             </div>
@@ -801,6 +781,27 @@ function CatalogSettingsPage() {
       >
         {editRow && (
           <div className="spacing-vertical-lg">
+            {/* Row 1: Type + Ortho toggle */}
+            <div className="flex items-end gap-3">
+              <label className="field-label flex-1">
+                <span className="field-label-text">Type</span>
+                <select
+                  className="field-input"
+                  value={editItemType}
+                  onChange={(e) => setEditItemType(e.target.value as "SERVICE" | "ADD_ON")}
+                  disabled={busy}
+                >
+                  <option value="SERVICE">Service</option>
+                  <option value="ADD_ON">Extra</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer pb-2 shrink-0">
+                <TogglePill checked={editIsOrtho} onChange={setEditIsOrtho} disabled={busy} />
+                <span className="text-sm text-slate-700 font-medium">Ortho</span>
+              </label>
+            </div>
+
+            {/* Row 2: Name */}
             <label className="field-label">
               <span className="field-label-text">Name</span>
               <input
@@ -811,6 +812,7 @@ function CatalogSettingsPage() {
               />
             </label>
 
+            {/* Row 3: Fee + Duration */}
             <div className="grid grid-cols-2 gap-3">
               <label className="field-label">
                 <span className="field-label-text">Fee</span>
@@ -829,7 +831,6 @@ function CatalogSettingsPage() {
                     disabled={busy}
                     inputMode="decimal"
                   />
-                  <span className="px-2 text-slate-400 text-sm">.00</span>
                 </div>
               </label>
 
@@ -857,19 +858,6 @@ function CatalogSettingsPage() {
                 </select>
               </label>
             </div>
-
-            <label className="field-label">
-              <span className="field-label-text">Category</span>
-              <select
-                className="field-input"
-                value={editCategory}
-                onChange={(e) => setEditCategory(e.target.value as "general" | "ortho")}
-                disabled={busy}
-              >
-                <option value="general">General</option>
-                <option value="ortho">Ortho</option>
-              </select>
-            </label>
 
             <div className="delete-confirmation">
               <div className="delete-confirmation-title">Delete service?</div>

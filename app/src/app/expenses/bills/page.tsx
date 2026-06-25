@@ -294,7 +294,6 @@ export default function BillsPage() {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Bills</h2>
           <button type="button" className="save-btn" onClick={openAdd}>
             + Add Bill
           </button>

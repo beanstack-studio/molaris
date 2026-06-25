@@ -349,7 +349,6 @@ export default function OperatingPage() {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">General Expenses</h2>
           <button type="button" className="save-btn" onClick={openAdd}>
             + Add Expense
           </button>
@@ -596,8 +595,7 @@ export default function OperatingPage() {
                 <select className="field-input" value="Maintenance" disabled>
                   <option value="Maintenance">Maintenance</option>
                 </select>
-                <span className="hint-text">Auto-created from Maintenance Log — cannot be changed.</span>
-              </label>
+                </label>
             ) : (
               <label className="field-label">
                 <span className="field-label-text">Category</span>
