@@ -5,32 +5,50 @@ import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AccountPage() {
-  const { role, isAdmin, isDentist, userFullName, userEmail } = useClinic();
+  const { isAdmin, isDentist, profileId, userFullName, userEmail } = useClinic();
 
-  // ── Personal info ──────────────────────────────────────────────────────────
+  // ── Edit mode ──────────────────────────────────────────────────────────────
+  const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState(userFullName ?? "");
-  const [nameBusy, setNameBusy] = useState(false);
-  const [nameSuccess, setNameSuccess] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  useEffect(() => { setFullName(userFullName ?? ""); }, [userFullName]);
+  useEffect(() => {
+    setFullName(userFullName ?? "");
+  }, [userFullName]);
+
+  function openEdit() {
+    setFullName(userFullName ?? "");
+    setSaveError(null);
+    setSaveSuccess(false);
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setFullName(userFullName ?? "");
+    setSaveError(null);
+    setEditing(false);
+  }
 
   async function saveName() {
     if (!fullName.trim()) return;
-    setNameBusy(true); setNameError(null); setNameSuccess(false);
+    setSaveBusy(true);
+    setSaveError(null);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
       const { error } = await supabase
         .from("profiles")
         .update({ full_name: fullName.trim() })
-        .eq("id", user.id);
+        .eq("id", profileId);
       if (error) throw error;
-      setNameSuccess(true);
-      setTimeout(() => setNameSuccess(false), 3000);
+      setSaveSuccess(true);
+      setEditing(false);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      setNameError(err instanceof Error ? err.message : "Failed to save");
-    } finally { setNameBusy(false); }
+      setSaveError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaveBusy(false);
+    }
   }
 
   // ── Password reset ─────────────────────────────────────────────────────────
@@ -40,106 +58,103 @@ export default function AccountPage() {
 
   async function sendPasswordReset() {
     if (!userEmail) return;
-    setResetBusy(true); setResetMsg(null); setResetError(null);
+    setResetBusy(true);
+    setResetMsg(null);
+    setResetError(null);
     const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
-    if (error) { setResetError(error.message); }
-    else { setResetMsg(`Password reset email sent to ${userEmail}`); }
+    if (error) {
+      setResetError(error.message);
+    } else {
+      setResetMsg(`Password reset email sent to ${userEmail}. Check your inbox.`);
+    }
     setResetBusy(false);
   }
 
   const roleBadgeClass = isAdmin
-    ? "text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700"
+    ? "text-xs px-2.5 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700"
     : isDentist
-    ? "text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700"
-    : "text-xs px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500";
-
+    ? "text-xs px-2.5 py-0.5 rounded-full font-semibold bg-green-50 text-green-700"
+    : "text-xs px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-500";
   const roleLabel = isAdmin ? "Admin" : isDentist ? "Dentist" : "Staff";
 
   return (
     <div className="spacing-vertical-lg">
-
-      {/* ── Personal Info ──────────────────────────────────────── */}
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">My Account</h2>
-          <span className={roleBadgeClass}>{roleLabel}</span>
+          {editing ? (
+            <div className="action-row">
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={cancelEdit}
+                disabled={saveBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="save-btn"
+                onClick={saveName}
+                disabled={saveBusy || !fullName.trim()}
+              >
+                {saveBusy ? "Saving…" : "Save"}
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="save-btn" onClick={openEdit}>
+              Edit
+            </button>
+          )}
         </div>
 
-        {nameError && <div className="error-banner mt-3">{nameError}</div>}
-        {nameSuccess && <div className="success-banner mt-3">Name updated.</div>}
+        {saveError && <div className="error-banner">{saveError}</div>}
+        {saveSuccess && <div className="success-banner">Name updated.</div>}
 
-        <div className="grid gap-4 mt-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <label className="field-label">
-            <span className="field-label-text">Full name</span>
-            <input
-              className="field-input"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              disabled={nameBusy}
-              placeholder="Your full name"
-            />
+            <span className="field-label-text">Full Name</span>
+            {editing ? (
+              <input
+                className="field-input"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={saveBusy}
+                placeholder="Your full name"
+              />
+            ) : (
+              <div className="field-input-readonly">{userFullName || "—"}</div>
+            )}
           </label>
 
           <div className="field-label">
             <span className="field-label-text">Email</span>
-            <input
-              className="field-input"
-              value={userEmail ?? ""}
-              readOnly
-              tabIndex={-1}
-            />
-            <div className="mt-2">
-              {resetMsg && <div className="success-banner mb-2">{resetMsg}</div>}
-              {resetError && <div className="error-banner mb-2">{resetError}</div>}
-              <button
-                type="button"
-                className="cancel-btn text-sm"
-                onClick={sendPasswordReset}
-                disabled={resetBusy || !userEmail}
-              >
-                {resetBusy ? "Sending…" : "Send password reset link"}
-              </button>
+            <div className="field-input-readonly">{userEmail || "—"}</div>
+          </div>
+
+          <div className="field-label">
+            <span className="field-label-text">Role</span>
+            <div className="flex items-center h-[42px]">
+              <span className={roleBadgeClass}>{roleLabel}</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-4">
-          <button
-            type="button"
-            className="save-btn"
-            onClick={saveName}
-            disabled={nameBusy || !fullName.trim() || fullName.trim() === (userFullName ?? "")}
-          >
-            {nameBusy ? "Saving…" : "Save name"}
-          </button>
-        </div>
-      </div>
+        <hr className="my-5 border-t border-slate-200" />
 
-      {/* ── Calendar Sync ─────────────────────────────────────── */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Google Calendar Sync</h2>
-          <span className="badge badge-secondary">Coming soon</span>
-        </div>
-        <p className="text-sm text-slate-600 mt-2">
-          Connect your clinic&apos;s Google Calendar to automatically sync appointments.
-          Confirmed appointments will appear in your calendar, and cancellations will
-          be removed automatically.
-        </p>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-4 p-4 rounded-xl border border-slate-100 bg-slate-50">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-slate-700 mb-0.5">Google Calendar</div>
-            <div className="text-xs text-slate-500">Not connected</div>
-          </div>
-          <button type="button" className="save-btn opacity-50 cursor-not-allowed" disabled aria-disabled="true">
-            Connect Google Calendar
-          </button>
-        </div>
-        <p className="hint-text mt-3">Google Calendar integration is coming in a future update.</p>
+        {resetMsg && <div className="success-banner">{resetMsg}</div>}
+        {resetError && <div className="error-banner">{resetError}</div>}
+        <button
+          type="button"
+          className="cancel-btn"
+          onClick={sendPasswordReset}
+          disabled={resetBusy || !userEmail}
+        >
+          {resetBusy ? "Sending…" : "Change Password"}
+        </button>
       </div>
-
     </div>
   );
 }
