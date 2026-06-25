@@ -412,10 +412,10 @@ function CatalogSettingsPage() {
             <div className="table-wrapper overflow-x-auto">
               <table className="data-table min-w-[380px]">
                 <colgroup>
-                  <col className="col-35" />
-                  <col className="col-20" />
-                  <col className="col-25" />
-                  <col className="col-20" />
+                  <col className="col-45" />
+                  <col className="col-15" />
+                  <col className="col-22" />
+                  <col className="col-18" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -423,12 +423,12 @@ function CatalogSettingsPage() {
                       Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
                     </th>
                     <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
-                      Duration <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
+                      Dur. <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
                     </th>
                     <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
                       Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
                     </th>
-                    <th className="data-table-head-cell-right">Active</th>
+                    <th className="data-table-head-cell-right">On</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -471,10 +471,10 @@ function CatalogSettingsPage() {
             <div className="table-wrapper overflow-x-auto">
               <table className="data-table min-w-[380px]">
                 <colgroup>
-                  <col className="col-35" />
-                  <col className="col-20" />
-                  <col className="col-25" />
-                  <col className="col-20" />
+                  <col className="col-45" />
+                  <col className="col-15" />
+                  <col className="col-22" />
+                  <col className="col-18" />
                 </colgroup>
                 <thead className="data-table-head">
                   <tr>
@@ -482,12 +482,12 @@ function CatalogSettingsPage() {
                       Name <SortIndicator active={sort.startsWith("NAME")} asc={sort === "NAME_ASC"} />
                     </th>
                     <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("DUR")}>
-                      Duration <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
+                      Dur. <SortIndicator active={sort.startsWith("DUR")} asc={sort === "DUR_ASC"} />
                     </th>
                     <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("FEE")}>
                       Fee <SortIndicator active={sort.startsWith("FEE")} asc={sort === "FEE_ASC"} />
                     </th>
-                    <th className="data-table-head-cell-right">Active</th>
+                    <th className="data-table-head-cell-right">On</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -535,19 +535,19 @@ function CatalogSettingsPage() {
           {pmError && <div className="error-banner">{pmError}</div>}
 
           <div className="table-wrapper overflow-x-auto">
-            <table className="data-table min-w-[480px]">
+            <table className="data-table min-w-[360px]">
               <colgroup>
+                <col className="col-25" />
+                <col className="col-15" />
+                <col className="col-15" />
+                <col className="col-25" />
                 <col className="col-20" />
-                <col className="col-17" />
-                <col className="col-17" />
-                <col className="col-23" />
-                <col className="col-23" />
               </colgroup>
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell">Name</th>
                   <th className="data-table-head-cell"><div className="centered-cell">Proof</div></th>
-                  <th className="data-table-head-cell"><div className="centered-cell">Reference</div></th>
+                  <th className="data-table-head-cell"><div className="centered-cell">Ref</div></th>
                   <th className="data-table-head-cell"><div className="centered-cell">Verification</div></th>
                   <th className="data-table-head-cell"><div className="centered-cell">Active</div></th>
                 </tr>
@@ -662,7 +662,7 @@ function CatalogSettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-block w-3 h-3 rounded bg-blue-500" />
-                <span><strong>Reference</strong> — requires ref number</span>
+                <span><strong>Ref</strong> — requires ref number</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Auto</span>

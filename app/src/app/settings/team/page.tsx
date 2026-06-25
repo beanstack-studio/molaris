@@ -1512,7 +1512,7 @@ export default function TeamSettingsPage() {
 
           {/* Salary Rate */}
           <label className="field-label">
-            <span className="field-label-text">Salary Rate <span className="text-slate-400 font-normal text-xs">(₱/month, optional)</span></span>
+            <span className="field-label-text">Daily Rate <span className="text-slate-400 font-normal text-xs">(₱/day, optional)</span></span>
             <input
               type="number"
               min="0"
@@ -1643,7 +1643,7 @@ export default function TeamSettingsPage() {
 
           {/* Salary Rate */}
           <label className="field-label">
-            <span className="field-label-text">Salary Rate <span className="text-slate-400 font-normal text-xs">(₱/month, optional)</span></span>
+            <span className="field-label-text">Daily Rate <span className="text-slate-400 font-normal text-xs">(₱/day, optional)</span></span>
             <input
               type="number"
               min="0"

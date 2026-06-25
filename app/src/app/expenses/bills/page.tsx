@@ -278,7 +278,8 @@ export default function BillsPage() {
                   return (
                     <tr
                       key={bill.id}
-                      className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
+                      className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd", isAdmin && "cursor-pointer")}
+                      onClick={() => isAdmin && openEdit(bill)}
                     >
                       <td className="data-table-cell">
                         <span className={CATEGORY_COLORS[bill.category as BillCategory] ?? "badge badge-secondary"}>
@@ -296,14 +297,11 @@ export default function BillsPage() {
                       <td className="data-table-cell text-sm">{formatDateStandard(bill.date_paid)}</td>
                       <td className="data-table-cell text-sm text-slate-600">{bill.payment_mode ?? "—"}</td>
                       <td className="data-table-cell-right text-sm font-medium tabular-nums">{formatMoney(bill.amount)}</td>
-                      <td className="data-table-cell">
+                      <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                         {isAdmin && (
                           <div className="flex items-center gap-1 justify-end">
-                            <button type="button" className="data-table-btn" onClick={() => openEdit(bill)}>
-                              Edit
-                            </button>
-                            <button type="button" className="data-table-btn-danger" onClick={() => handleDelete(bill.id)}>
-                              Delete
+                            <button type="button" className="data-table-btn-danger" title="Delete" onClick={() => handleDelete(bill.id)}>
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
                         )}

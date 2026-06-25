@@ -54,7 +54,7 @@ type PayrollEntry = {
 
 function computeDailyRate(salaryRate: number | null): number {
   if (!salaryRate || salaryRate <= 0) return 0;
-  return salaryRate / 22;
+  return salaryRate; // salary_rate is stored as daily rate
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -345,9 +345,10 @@ export default function PayrollPage() {
                         <button
                           type="button"
                           className="data-table-btn-danger"
+                          title="Delete"
                           onClick={() => handleDeleteRun(run.id)}
                         >
-                          Delete
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>
                     </td>
@@ -391,13 +392,20 @@ export default function PayrollPage() {
             <div>
               <p className="field-label-text mb-2">Days Worked</p>
               <div className="table-wrapper overflow-x-auto rounded-xl border border-slate-100">
-                <table className="data-table min-w-[440px]">
+                <table className="data-table min-w-[480px]">
+                  <colgroup>
+                    <col className="w-8" />
+                    <col />
+                    <col className="w-28" />
+                    <col className="w-24" />
+                    <col className="w-28" />
+                  </colgroup>
                   <thead className="data-table-head">
                     <tr>
-                      <th className="data-table-head-cell w-8 text-center">✓</th>
+                      <th className="data-table-head-cell text-center">✓</th>
                       <th className="data-table-head-cell">Name</th>
                       <th className="data-table-head-cell-right">₱/day</th>
-                      <th className="data-table-head-cell text-center w-20">Days</th>
+                      <th className="data-table-head-cell text-center">Days</th>
                       <th className="data-table-head-cell-right">Total</th>
                     </tr>
                   </thead>
@@ -424,16 +432,12 @@ export default function PayrollPage() {
                             />
                           </td>
                           <td className="data-table-cell text-sm">
-                            <div>
-                              <span>{e.person_name}</span>
-                              <span className="ml-1 text-xs text-slate-400">
-                                {e.person_type === "dentist" ? "(Dentist)" : "(Staff)"}
-                              </span>
-                            </div>
-                            {e.salary_rate ? (
-                              <div className="text-xs text-slate-400">{formatMoney(e.salary_rate)}/mo</div>
-                            ) : (
-                              <div className="text-xs text-rose-400">No salary rate set</div>
+                            <span>{e.person_name}</span>
+                            <span className="ml-1 text-xs text-slate-400">
+                              {e.person_type === "dentist" ? "(Dentist)" : "(Staff)"}
+                            </span>
+                            {!e.salary_rate && (
+                              <div className="text-xs text-rose-400">No daily rate set</div>
                             )}
                           </td>
                           <td className="data-table-cell-right text-sm tabular-nums">
@@ -475,18 +479,20 @@ export default function PayrollPage() {
             </div>
           )}
 
-          <div className="modal-footer-buttons">
-            <button type="button" className="cancel-btn" onClick={() => setShowRun(false)} disabled={runSaving}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="save-btn"
-              onClick={handleRunPayroll}
-              disabled={runSaving || entries.length === 0}
-            >
-              {runSaving ? "Saving…" : "Confirm Payroll Run"}
-            </button>
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button type="button" className="cancel-btn" onClick={() => setShowRun(false)} disabled={runSaving}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="save-btn"
+                onClick={handleRunPayroll}
+                disabled={runSaving || entries.length === 0}
+              >
+                {runSaving ? "Saving…" : "Confirm Payroll Run"}
+              </button>
+            </div>
           </div>
         </div>
       </EditModal>
