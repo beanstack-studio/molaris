@@ -53,6 +53,15 @@ function IconReports() {
   );
 }
 
+function IconExpenses() {
+  return (
+    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path strokeLinecap="round" d="M2 10h20M6 15h2M10 15h4" />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -93,6 +102,7 @@ const navItems: NavItem[] = [
   { href: "/appointments",     label: "Appointments", icon: <IconCalendar />,  matchPrefix: "/appointments" },
   { href: "/patients",         label: "Patients",     icon: <IconPatients />,  matchPrefix: "/patients" },
   { href: "/reports/payments", label: "Reports",      icon: <IconReports />,   matchPrefix: "/reports" },
+  { href: "/expenses/payroll", label: "Expenses",     icon: <IconExpenses />,  matchPrefix: "/expenses" },
   { href: "/settings/clinic-profile", label: "Settings", icon: <IconSettings />, matchPrefix: "/settings", isSettings: true },
 ];
 
@@ -161,6 +171,8 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     window.addEventListener("clinicProfileUpdated", handle);
     return () => window.removeEventListener("clinicProfileUpdated", handle);
   }, []);
+
+  // Future: load photo_url from dentists/staff table once profile_id linking is in place
 
   useEffect(() => {
     if (!logoSrc) return;

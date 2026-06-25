@@ -102,12 +102,14 @@ type DentistRow = {
   prc_number: string | null; ptr_number: string | null;
   date_of_birth: string | null; is_active: boolean; color: string | null;
   photo_url: string | null; specialty: string | null; phone: string | null;
+  salary_rate: number | null;
 };
 type StaffRow = {
   id: string; full_name: string; nickname: string | null; role: string;
   date_of_birth: string | null; is_active: boolean;
   can_access_clinical: boolean | null;
   photo_url: string | null; phone: string | null;
+  salary_rate: number | null;
 };
 type InviteRow = {
   id: string; email: string; role: string;
@@ -229,12 +231,14 @@ export default function TeamSettingsPage() {
   const [blockoutEnd, setBlockoutEnd] = useState("");
   const [blockoutReason, setBlockoutReason] = useState("");
 
-  // Dentist photo state
+  // Salary rate state
+  const [dentistSalaryRate, setDentistSalaryRate] = useState<string>("");
+  const [staffSalaryRate, setStaffSalaryRate] = useState<string>("");
+
+  // Photo state — admin uploads team member photos
   const [dentistPhotoFile, setDentistPhotoFile] = useState<File | null>(null);
   const [dentistPhotoPreview, setDentistPhotoPreview] = useState<string | null>(null);
   const dentistPhotoInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Staff photo state
   const [staffPhotoFile, setStaffPhotoFile] = useState<File | null>(null);
   const [staffPhotoPreview, setStaffPhotoPreview] = useState<string | null>(null);
   const staffPhotoInputRef = useRef<HTMLInputElement | null>(null);
@@ -312,33 +316,37 @@ export default function TeamSettingsPage() {
         setClinicHours(profileRes.data.clinic_hours as ClinicHoursEntry[]);
       }
 
-      const handlerRes = await supabase
-        .from("dentist_handlers")
-        .select("staff_id, dentist_id")
-        .eq("clinic_id", clinicId);
-      if (!handlerRes.error && handlerRes.data && staffRes.data && dentistRes.data) {
-        const loadedDentistMap = new Map<string, DentistRow>(loadedDentists.map((d) => [d.id, d]));
-        const staffMap = new Map<string, StaffRow>(loadedStaff.map((s) => [s.id, s]));
-        const groupMap = new Map<string, HandlerGroupRow>();
-        for (const row of handlerRes.data as { staff_id: string; dentist_id: string }[]) {
-          const staffMember = staffMap.get(row.staff_id);
-          const dentist = loadedDentistMap.get(row.dentist_id);
-          if (!staffMember || !dentist) continue;
-          if (!groupMap.has(row.staff_id)) {
-            groupMap.set(row.staff_id, {
-              staffId: row.staff_id,
-              staffName: staffMember.full_name,
-              staffNickname: staffMember.nickname ?? null,
-              dentists: [],
+      try {
+        const handlerRes = await supabase
+          .from("dentist_handlers")
+          .select("staff_id, dentist_id")
+          .eq("clinic_id", clinicId);
+        if (!handlerRes.error && handlerRes.data && staffRes.data && dentistRes.data) {
+          const loadedDentistMap = new Map<string, DentistRow>(loadedDentists.map((d) => [d.id, d]));
+          const staffMap = new Map<string, StaffRow>(loadedStaff.map((s) => [s.id, s]));
+          const groupMap = new Map<string, HandlerGroupRow>();
+          for (const row of handlerRes.data as { staff_id: string; dentist_id: string }[]) {
+            const staffMember = staffMap.get(row.staff_id);
+            const dentist = loadedDentistMap.get(row.dentist_id);
+            if (!staffMember || !dentist) continue;
+            if (!groupMap.has(row.staff_id)) {
+              groupMap.set(row.staff_id, {
+                staffId: row.staff_id,
+                staffName: staffMember.full_name,
+                staffNickname: staffMember.nickname ?? null,
+                dentists: [],
+              });
+            }
+            groupMap.get(row.staff_id)!.dentists.push({
+              id: dentist.id,
+              full_name: dentist.full_name,
+              nickname: dentist.nickname ?? null,
             });
           }
-          groupMap.get(row.staff_id)!.dentists.push({
-            id: dentist.id,
-            full_name: dentist.full_name,
-            nickname: dentist.nickname ?? null,
-          });
+          setHandlers(Array.from(groupMap.values()));
         }
-        setHandlers(Array.from(groupMap.values()));
+      } catch {
+        // dentist_handlers columns not yet migrated — silently ignore
       }
 
       if (loadedDentists.length > 0) {
@@ -489,7 +497,7 @@ export default function TeamSettingsPage() {
     } finally { setBusy(false); }
   }
 
-  // ── Photo handlers ────────────────────────────────────────────────────────────
+  // ── Photo handlers (admin uploads team member photos) ─────────────────────────
   function handleDentistPhotoSelect(file: File) {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Photo must be JPG, PNG, or WebP."); return; }
     if (file.size > 2 * 1024 * 1024) { setError("Photo must be under 2 MB."); return; }
@@ -509,7 +517,7 @@ export default function TeamSettingsPage() {
   function openAddDentist() {
     setEditingDentist(null); setDentistName(""); setDentistNickname("");
     setDentistDob(""); setDentistPrc(""); setDentistPtr("");
-    setDentistSpecialty(""); setDentistPhone(""); setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null);
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
     setDentistPhotoPreview(null);
@@ -520,6 +528,7 @@ export default function TeamSettingsPage() {
     setDentistDob(d.date_of_birth ?? ""); setDentistPrc(d.prc_number ?? "");
     setDentistPtr(d.ptr_number ?? "");
     setDentistSpecialty(d.specialty ?? ""); setDentistPhone(d.phone ?? "");
+    setDentistSalaryRate(d.salary_rate != null ? String(d.salary_rate) : "");
     setDentistInviteEmail(""); setDentistInviteSuccess(null);
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
@@ -531,7 +540,7 @@ export default function TeamSettingsPage() {
     setDentistPhotoFile(null); setDentistPhotoPreview(null);
     setShowAddDentistModal(false); setEditingDentist(null);
     setDentistName(""); setDentistNickname(""); setDentistDob(""); setDentistPrc(""); setDentistPtr("");
-    setDentistSpecialty(""); setDentistPhone(""); setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null);
   }
   async function saveDentist() {
     if (!dentistName.trim()) return;
@@ -548,6 +557,7 @@ export default function TeamSettingsPage() {
         prc_number: dentistPrc.trim() || null, ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
         color: assignedColor, specialty: dentistSpecialty || null,
         phone: dentistPhone.trim() || null,
+        salary_rate: dentistSalaryRate ? Number(dentistSalaryRate) : null,
       };
       let dentistId: string;
       if (editingDentist) {
@@ -568,8 +578,8 @@ export default function TeamSettingsPage() {
           .from("clinic-assets")
           .upload(path, dentistPhotoFile, { upsert: true, contentType: dentistPhotoFile.type });
         if (!uploadError) {
-          const baseUrl = supabase.storage.from("clinic-assets").getPublicUrl(path).data.publicUrl;
-          await supabase.from("dentists").update({ photo_url: `${baseUrl}?v=${Date.now()}` }).eq("id", dentistId);
+          const { data: urlData } = supabase.storage.from("clinic-assets").getPublicUrl(path);
+          await supabase.from("dentists").update({ photo_url: `${urlData.publicUrl}?v=${Date.now()}` }).eq("id", dentistId);
         }
       }
       if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
@@ -616,7 +626,7 @@ export default function TeamSettingsPage() {
   // ── Staff CRUD ────────────────────────────────────────────────────────────────
   function openAddStaff() {
     setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(null);
@@ -625,6 +635,7 @@ export default function TeamSettingsPage() {
   async function openEditStaff(s: StaffRow) {
     setEditingStaff(s); setStaffName(s.full_name);
     setStaffRole(s.role); setStaffDob(s.date_of_birth ?? ""); setStaffPhone(s.phone ?? "");
+    setStaffSalaryRate(s.salary_rate != null ? String(s.salary_rate) : "");
     setInviteEmail(""); setInviteSuccess(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
@@ -642,7 +653,7 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -654,6 +665,7 @@ export default function TeamSettingsPage() {
         role: staffRole.trim(), date_of_birth: staffDob || null,
         can_access_clinical: staffHandlerDentistIds.length > 0,
         phone: staffPhone.trim() || null,
+        salary_rate: staffSalaryRate ? Number(staffSalaryRate) : null,
       };
       let staffId: string;
       if (editingStaff) {
@@ -696,8 +708,8 @@ export default function TeamSettingsPage() {
           .from("clinic-assets")
           .upload(path, staffPhotoFile, { upsert: true, contentType: staffPhotoFile.type });
         if (!uploadError) {
-          const baseUrl = supabase.storage.from("clinic-assets").getPublicUrl(path).data.publicUrl;
-          await supabase.from("staff").update({ photo_url: `${baseUrl}?v=${Date.now()}` }).eq("id", staffId);
+          const { data: urlData } = supabase.storage.from("clinic-assets").getPublicUrl(path);
+          await supabase.from("staff").update({ photo_url: `${urlData.publicUrl}?v=${Date.now()}` }).eq("id", staffId);
         }
       }
       if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
@@ -1423,7 +1435,7 @@ export default function TeamSettingsPage() {
       {/* ── ADD/EDIT DENTIST MODAL ── */}
       <EditModal open={showAddDentistModal} title={editingDentist ? "Edit Dentist" : "Add Dentist"} onClose={closeDentistModal}>
         <div className="spacing-vertical-lg">
-          {/* 1. Profile Photo */}
+          {/* Profile Photo — admin uploads for this dentist */}
           <div>
             <span className="field-label-text block mb-2">Profile Photo <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
             <div className="flex items-center gap-3">
@@ -1462,13 +1474,13 @@ export default function TeamSettingsPage() {
             </div>
           </div>
 
-          {/* 2. Full name */}
+          {/* Full name */}
           <label className="field-label">
             <span className="field-label-text">Full name <span className="text-red-400">*</span></span>
             <input className="field-input" value={dentistName} onChange={(e) => setDentistName(e.target.value)} disabled={busy} />
           </label>
 
-          {/* 3. Specialty / Role */}
+          {/* Specialty / Role */}
           <label className="field-label">
             <span className="field-label-text">Specialty / Role</span>
             <select className="field-input" value={dentistSpecialty} onChange={(e) => setDentistSpecialty(e.target.value)} disabled={busy}>
@@ -1477,28 +1489,43 @@ export default function TeamSettingsPage() {
             </select>
           </label>
 
-          {/* 4. Date of Birth */}
+          {/* Date of Birth */}
           <DatePickerField label="Date of Birth" value={dentistDob} onChange={setDentistDob} inputRef={dentistDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
 
-          {/* 5. Nickname */}
+          {/* Nickname */}
           <label className="field-label">
             <span className="field-label-text">Nickname <span className="text-slate-400 font-normal">(optional)</span></span>
             <input className="field-input" placeholder="e.g. Doc Daisy" value={dentistNickname} onChange={(e) => setDentistNickname(e.target.value)} disabled={busy} />
           </label>
 
-          {/* 6. PRC / License No. */}
+          {/* PRC / License No. */}
           <label className="field-label">
             <span className="field-label-text">PRC / License No.</span>
             <input className="field-input" placeholder="Permanent registration number" value={dentistPrc} onChange={(e) => setDentistPrc(e.target.value)} disabled={busy} />
           </label>
 
-          {/* 7. PTR No. */}
+          {/* PTR No. */}
           <label className="field-label">
             <span className="field-label-text">PTR No.</span>
             <input type="number" className="field-input" placeholder="Annual professional tax receipt" value={dentistPtr} onChange={(e) => setDentistPtr(e.target.value)} disabled={busy} />
           </label>
 
-          {/* 8. Phone */}
+          {/* Salary Rate */}
+          <label className="field-label">
+            <span className="field-label-text">Salary Rate <span className="text-slate-400 font-normal text-xs">(₱/month, optional)</span></span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="field-input"
+              placeholder="e.g. 30000"
+              value={dentistSalaryRate}
+              onChange={(e) => setDentistSalaryRate(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+
+          {/* Phone */}
           <label className="field-label">
             <span className="field-label-text">Phone</span>
             <input
@@ -1560,7 +1587,7 @@ export default function TeamSettingsPage() {
       {/* ── ADD/EDIT STAFF MODAL ── */}
       <EditModal open={showAddStaffModal} title={editingStaff ? "Edit Staff Member" : "Add Staff Member"} onClose={closeStaffModal}>
         <div className="spacing-vertical-lg">
-          {/* 1. Profile Photo */}
+          {/* Profile Photo — admin uploads for this staff member */}
           <div>
             <span className="field-label-text block mb-2">Profile Photo <span className="text-slate-400 font-normal text-xs">(optional)</span></span>
             <div className="flex items-center gap-3">
@@ -1596,13 +1623,13 @@ export default function TeamSettingsPage() {
             </div>
           </div>
 
-          {/* 2. Full name */}
+          {/* Full name */}
           <label className="field-label">
             <span className="field-label-text">Full name <span className="text-red-400">*</span></span>
             <input className="field-input" value={staffName} onChange={(e) => setStaffName(e.target.value)} disabled={busy} />
           </label>
 
-          {/* 3. Role / Job title */}
+          {/* Role / Job title */}
           <label className="field-label">
             <span className="field-label-text">Role / Job title <span className="text-red-400">*</span></span>
             <select className="field-input" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} disabled={busy}>
@@ -1611,10 +1638,25 @@ export default function TeamSettingsPage() {
             </select>
           </label>
 
-          {/* 4. Date of Birth */}
+          {/* Date of Birth */}
           <DatePickerField label="Date of Birth" value={staffDob} onChange={setStaffDob} inputRef={staffDobRef} variant="case-modal" max={new Date().toISOString().split("T")[0]} />
 
-          {/* 5. Phone */}
+          {/* Salary Rate */}
+          <label className="field-label">
+            <span className="field-label-text">Salary Rate <span className="text-slate-400 font-normal text-xs">(₱/month, optional)</span></span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="field-input"
+              placeholder="e.g. 18000"
+              value={staffSalaryRate}
+              onChange={(e) => setStaffSalaryRate(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+
+          {/* Phone */}
           <label className="field-label">
             <span className="field-label-text">Phone</span>
             <input

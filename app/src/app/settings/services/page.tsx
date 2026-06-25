@@ -393,7 +393,7 @@ function CatalogSettingsPage() {
 
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-[3fr_2fr] lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
 
         {/* ── Services card ── */}
         <div className="card">
