@@ -349,7 +349,7 @@ export default function OperatingPage() {
 
       <div className="card">
         <div className="card-header">
-          <button type="button" className="save-btn" onClick={openAdd}>
+          <button type="button" className="save-btn ml-auto" onClick={openAdd}>
             + Add Expense
           </button>
         </div>
@@ -495,7 +495,7 @@ export default function OperatingPage() {
             </label>
 
             <label className="field-label">
-              <span className="field-label-text">Payment Method <span className="text-slate-400 font-normal text-xs">(blank = Unpaid)</span></span>
+              <span className="field-label-text">Payment Method</span>
               <select
                 className="field-input"
                 value={form.payment_mode}
@@ -655,7 +655,7 @@ export default function OperatingPage() {
             </label>
 
             <label className="field-label">
-              <span className="field-label-text">Payment Method <span className="text-slate-400 font-normal text-xs">(blank = Unpaid)</span></span>
+              <span className="field-label-text">Payment Method</span>
               <select
                 className="field-input"
                 value={editForm.payment_mode}

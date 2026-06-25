@@ -315,7 +315,7 @@ export default function PayrollPage() {
 
       <div className="card">
         <div className="card-header">
-          <button type="button" className="save-btn" onClick={openRunPayroll}>
+          <button type="button" className="save-btn ml-auto" onClick={openRunPayroll}>
             + Run Payroll
           </button>
         </div>

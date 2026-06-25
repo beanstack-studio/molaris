@@ -29,18 +29,22 @@ CREATE TABLE IF NOT EXISTS maintenance_logs (
 
 ALTER TABLE maintenance_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "maintenance_logs_select" ON maintenance_logs;
 CREATE POLICY "maintenance_logs_select"
   ON maintenance_logs FOR SELECT
   USING (clinic_id IN (SELECT clinic_id FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "maintenance_logs_insert" ON maintenance_logs;
 CREATE POLICY "maintenance_logs_insert"
   ON maintenance_logs FOR INSERT
   WITH CHECK (clinic_id IN (SELECT clinic_id FROM profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "maintenance_logs_update" ON maintenance_logs;
 CREATE POLICY "maintenance_logs_update"
   ON maintenance_logs FOR UPDATE
   USING (clinic_id IN (SELECT clinic_id FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
+DROP POLICY IF EXISTS "maintenance_logs_delete" ON maintenance_logs;
 CREATE POLICY "maintenance_logs_delete"
   ON maintenance_logs FOR DELETE
   USING (clinic_id IN (SELECT clinic_id FROM profiles WHERE id = auth.uid() AND role = 'admin'));
