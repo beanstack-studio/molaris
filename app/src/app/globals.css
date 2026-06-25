@@ -678,7 +678,7 @@ html.dark .delete-confirmation {
 
 /* Modal button layout */
 .modal-actions {
-  @apply flex items-center justify-between gap-3 mt-5;
+  @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5;
 }
 
 .modal-actions-left {
@@ -686,7 +686,7 @@ html.dark .delete-confirmation {
 }
 
 .modal-actions-right {
-  @apply flex gap-2 ml-auto;
+  @apply flex flex-col-reverse sm:flex-row gap-2 sm:ml-auto;
 }
 
 .button-group {
@@ -926,15 +926,15 @@ html.dark .field-input-readonly {
 
 /* Modal footer */
 .modal-footer-spread {
-  @apply flex items-center justify-between gap-2 pt-4;
+  @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-4;
 }
 
 .modal-footer-buttons {
-  @apply flex gap-2;
+  @apply flex flex-col-reverse sm:flex-row gap-2;
 }
 
 .modal-footer-single {
-  @apply flex gap-2;
+  @apply flex flex-col sm:flex-row gap-2;
 }
 
 /* Gender selector */

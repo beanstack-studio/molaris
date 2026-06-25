@@ -175,8 +175,8 @@ function ClinicPerformanceReportPage() {
                     <div className="w-20 text-xs text-slate-500 flex-shrink-0 text-right">{fmtMonth(m.month)}</div>
                     <div className="flex-1 bg-slate-100 rounded-full h-6 relative overflow-hidden">
                       <div
-                        className="h-6 rounded-full"
-                        style={{ width: `${Math.max(4, Math.round((m.revenue / maxRevenue) * 100))}%`, background: "hsl(var(--accent-hue) var(--accent-sat) 48%)" }}
+                        className="h-6 rounded-full bg-[hsl(var(--accent-hue)_var(--accent-sat)_48%)]"
+                        style={{ width: `${Math.max(4, Math.round((m.revenue / maxRevenue) * 100))}%` }}
                       />
                     </div>
                     <div className="w-28 text-xs font-semibold text-slate-700 text-right">{formatMoney(m.revenue)}</div>

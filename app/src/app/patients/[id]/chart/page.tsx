@@ -10,6 +10,7 @@ import { formatDateStandard, formatDateTimePH, combineFullName, splitFullName } 
 import { useClinic } from "@/contexts/ClinicContext";
 import { PageLoader } from "@/components/Spinner";
 import { SortArrow } from "@/components/shared/TableOptions";
+import { cn } from "@/lib/cn";
 
 
 export default function ChartPage() {
@@ -358,7 +359,7 @@ export default function ChartPage() {
                   {[...chart]
                     .sort(sortChart)
                     .map((entry, index) => (
-                    <tr key={entry.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                    <tr key={entry.id} className={cn("data-table-row", index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
                       <td className="data-table-cell">{entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}</td>
                       <td className="data-table-cell">{entry.tooth_number}</td>
                       <td className="data-table-cell">{entry.finding_code}</td>
@@ -457,7 +458,7 @@ export default function ChartPage() {
                           key={status}
                           type="button"
                           onClick={() => setPendingStatus(status)}
-                          className={["rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200", isSelected ? selectedClass : primaryClass].join(" ")}
+                          className={cn("rounded-lg border px-3 py-2 text-xs font-semibold transition-all duration-200", isSelected ? selectedClass : primaryClass)}
                         >
                           {status.replace("_", " ")}
                         </button>
@@ -475,7 +476,7 @@ export default function ChartPage() {
                           key={surf}
                           type="button"
                           onClick={() => setSurfaceSel((prev) => prev.includes(surf) ? prev.filter((x) => x !== surf) : [...prev, surf])}
-                          className={["h-7 w-7 rounded border text-xs font-semibold transition-colors", surfaceSel.includes(surf) ? "bg-slate-900 text-white border-slate-900" : "bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400"].join(" ")}
+                          className={cn("h-7 w-7 rounded border text-xs font-semibold transition-colors", surfaceSel.includes(surf) ? "bg-slate-900 text-white border-slate-900" : "bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400")}
                         >
                           {surf}
                         </button>

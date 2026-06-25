@@ -3,6 +3,7 @@
 import { FeatureGate } from "@/components/shared/FeatureGate";
 
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/cn";
 import { useRouter } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
 import { loadClinicMeta } from "@/lib/clinicMetaLoader";
@@ -120,11 +121,12 @@ function DocumentTemplatesSettingsPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={cn(
+                "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
                 activeTab === tab
                   ? "border-[hsl(var(--accent-hue)_var(--accent-sat)_45%)] text-[hsl(var(--accent-hue)_var(--accent-sat)_35%)]"
                   : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
+              )}
             >
               {tab}
             </button>
