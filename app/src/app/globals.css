@@ -1538,6 +1538,13 @@ html.dark .readonly-input {
   background: linear-gradient(145deg, #ede9fe 0%, #f0f3ff 40%, #e0e7ff 100%);
 }
 
+/* Auth pages — shared button for /login, /join, /reset-password */
+.auth-btn {
+  @apply w-full bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold
+         py-3.5 px-10 rounded-lg tracking-wide transition-colors disabled:opacity-60
+         disabled:cursor-not-allowed;
+}
+
 /* ========================================
    TABLE UTILITIES
    ======================================== */

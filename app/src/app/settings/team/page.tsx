@@ -607,22 +607,25 @@ export default function TeamSettingsPage() {
     setBusy(true); setDentistInviteSuccess(null);
     try {
       const normalizedEmail = dentistInviteEmail.trim().toLowerCase();
-      const payload: Record<string, unknown> = {
-        clinic_id: clinicId, email: normalizedEmail, role: "dentist", invited_by: profileId,
-      };
-      if (editingDentist) payload.dentist_id = editingDentist.id;
-      const { error: dbError } = await supabase.from("staff_invites").insert(payload);
-      if (dbError) throw dbError;
-      const res = await fetch("/api/invite-staff", {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: normalizedEmail, clinicId, clinicName, inviterName: userFullName ?? "", role: "dentist" }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          clinicId,
+          clinicName,
+          inviterName: userFullName ?? "",
+          role: "dentist",
+          dentistId: editingDentist?.id ?? undefined,
+        }),
       });
-      if (!res.ok) {
-        const json = await res.json() as { error?: string };
-        throw new Error(json.error ?? "Failed to send invite email");
-      }
-      setDentistInviteSuccess(`Invite sent to ${normalizedEmail}`);
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Failed to send invite email");
+      setDentistInviteSuccess(`✅ Invite sent to ${normalizedEmail}. They'll receive an email with a link to set up their account.`);
       setDentistInviteEmail("");
       await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to send invite"); }
@@ -740,23 +743,66 @@ export default function TeamSettingsPage() {
     setBusy(true); setInviteSuccess(null);
     try {
       const normalizedEmail = inviteEmail.trim().toLowerCase();
-      const { error: dbError } = await supabase.from("staff_invites").insert({
-        clinic_id: clinicId, email: normalizedEmail, role: "staff", invited_by: profileId,
-      });
-      if (dbError) throw dbError;
-      const res = await fetch("/api/invite-staff", {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: normalizedEmail, clinicId, clinicName, inviterName: userFullName ?? "", role: "staff" }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          clinicId,
+          clinicName,
+          inviterName: userFullName ?? "",
+          role: "staff",
+        }),
       });
-      if (!res.ok) {
-        const json = await res.json() as { error?: string };
-        throw new Error(json.error ?? "Failed to send invite email");
-      }
-      setInviteSuccess(`Invite sent to ${normalizedEmail}`);
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Failed to send invite email");
+      setInviteSuccess(`✅ Invite sent to ${normalizedEmail}. They'll receive an email with a link to set up their account.`);
       setInviteEmail(""); await loadData();
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to send invite"); }
     finally { setBusy(false); }
+  }
+
+  // ── Invite actions (resend / cancel) ─────────────────────────────────────────
+  async function resendInvite(inv: InviteRow) {
+    setBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({
+          email: inv.email,
+          clinicId,
+          clinicName,
+          inviterName: userFullName ?? "",
+          role: inv.role,
+        }),
+      });
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Failed to resend");
+      setSuccess(`Resent ✓ to ${inv.email}`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to resend"); }
+    finally { setBusy(false); }
+  }
+
+  async function cancelInvite(invId: string) {
+    setBusy(true);
+    const { error } = await supabase
+      .from("staff_invites")
+      .update({ status: "expired" })
+      .eq("id", invId)
+      .eq("clinic_id", clinicId);
+    setBusy(false);
+    if (error) { setError(error.message); return; }
+    await loadData();
   }
 
   // ── Blockout CRUD ─────────────────────────────────────────────────────────────
@@ -1049,24 +1095,55 @@ export default function TeamSettingsPage() {
 
           {invites.length > 0 && isAdmin && (
             <div className="border-t border-slate-100 px-4 pt-4 pb-2">
-              <p className="field-label-text mb-2">Pending invites</p>
-              <div className="table-wrapper">
+              <p className="field-label-text mb-2">Pending Invitations</p>
+              <div className="table-wrapper overflow-x-auto">
                 <table className="data-table">
                   <thead className="data-table-head">
                     <tr>
                       <th className="data-table-head-cell">Email</th>
                       <th className="data-table-head-cell">Role</th>
-                      <th className="data-table-head-cell">Invited</th>
                       <th className="data-table-head-cell">Status</th>
+                      <th className="data-table-head-cell">Expires</th>
+                      <th className="data-table-head-cell-right"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {invites.map((inv, idx) => (
                       <tr key={inv.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
-                        <td className="data-table-cell">{inv.email}</td>
-                        <td className="data-table-cell capitalize">{inv.role}</td>
-                        <td className="data-table-cell">{formatDateStandard(inv.created_at.split("T")[0])}</td>
-                        <td className="data-table-cell"><span className="badge badge-secondary">Pending</span></td>
+                        <td className="data-table-cell text-sm">{inv.email}</td>
+                        <td className="data-table-cell">
+                          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 border border-blue-100 capitalize">
+                            {inv.role}
+                          </span>
+                        </td>
+                        <td className="data-table-cell">
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-100">
+                            Pending
+                          </span>
+                        </td>
+                        <td className="data-table-cell text-xs text-slate-400">
+                          {formatDateStandard(inv.expires_at.split("T")[0])}
+                        </td>
+                        <td className="data-table-cell-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              className="data-table-btn"
+                              disabled={busy}
+                              onClick={() => void resendInvite(inv)}
+                            >
+                              Resend
+                            </button>
+                            <button
+                              type="button"
+                              className="data-table-btn-danger"
+                              disabled={busy}
+                              onClick={() => void cancelInvite(inv.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -3,12 +3,10 @@
  *
  * Go to: https://supabase.com/dashboard/project/gigjvywfqguqpipovfyd/auth/templates
  * Select: "Reset Password" template
- * Update the redirect URL to: https://molaris-app-opal.vercel.app/reset-password
+ * Paste the HTML from EMAIL_SETUP.md (Template 3)
  *
  * Also go to: Authentication → URL Configuration
  * Add to "Redirect URLs": https://molaris-app-opal.vercel.app/reset-password
- *
- * TODO: Customize the email template branding to say "Molaris" instead of the default.
  */
 
 "use client";
@@ -16,9 +14,20 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { AuthCard } from "@/components/auth/AuthCard";
+import { AuthSuccess } from "@/components/auth/AuthSuccess";
+import { PasswordInput } from "@/components/auth/PasswordInput";
+import { PasswordRequirements } from "@/components/auth/PasswordRequirements";
+
+function validatePassword(pwd: string): string | null {
+  if (pwd.length < 8) return "Password must be at least 8 characters.";
+  if (!/\d/.test(pwd)) return "Password must contain at least one number.";
+  return null;
+}
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+
   const [ready, setReady] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [password, setPassword] = useState("");
@@ -28,19 +37,15 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Supabase puts the recovery token in the URL fragment.
-    // onAuthStateChange fires with PASSWORD_RECOVERY when the token is valid.
+    // Supabase fires PASSWORD_RECOVERY when the recovery token in the URL hash is valid.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setReady(true);
       }
     });
 
-    // If no PASSWORD_RECOVERY event fires within 8 seconds the link is invalid
-    // or already used — redirect to login.
-    const timeout = setTimeout(() => {
-      setTimedOut(true);
-    }, 8000);
+    // If no PASSWORD_RECOVERY event within 5 seconds the link is invalid or already used.
+    const timeout = setTimeout(() => setTimedOut(true), 5000);
 
     return () => {
       subscription.unsubscribe();
@@ -56,70 +61,72 @@ export default function ResetPasswordPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password !== confirm) {
-      setError("Passwords don't match.");
-      return;
-    }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
+
+    const validationError = validatePassword(password);
+    if (validationError) { setError(validationError); return; }
+    if (password !== confirm) { setError("Passwords don\u2019t match."); return; }
+
     setBusy(true);
     setError(null);
+
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setBusy(false);
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
+
+    if (updateError) { setError(updateError.message); return; }
+
     setDone(true);
-    setTimeout(() => router.replace("/dashboard"), 2000);
+    setTimeout(() => router.replace("/dashboard"), 2500);
+  }
+
+  if (done) {
+    return (
+      <AuthSuccess
+        message="Password updated!"
+        subMessage="Taking you to the dashboard\u2026"
+      />
+    );
+  }
+
+  if (!ready) {
+    return (
+      <AuthCard title="Reset your password" subtitle="Verifying your reset link\u2026">
+        <div className="flex justify-center py-4">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+        </div>
+      </AuthCard>
+    );
   }
 
   return (
-    <main className="page-bg min-h-screen flex items-center justify-center p-6">
-      <div className="card w-full max-w-md">
-        <div className="mb-6">
-          <h1 className="card-title text-xl">Set new password</h1>
-          <p className="hint-text mt-1">Choose a strong password for your account.</p>
+    <AuthCard
+      title="Reset your password"
+      subtitle="Enter a new password for your account"
+    >
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <PasswordInput
+          value={password}
+          onChange={setPassword}
+          placeholder="8+ characters"
+          label="New password"
+          autoComplete="new-password"
+        />
+        <div>
+          <PasswordInput
+            value={confirm}
+            onChange={setConfirm}
+            placeholder="Repeat password"
+            label="Confirm password"
+            autoComplete="new-password"
+          />
+          <PasswordRequirements password={password} />
         </div>
 
-        {done ? (
-          <div className="success-banner text-center">
-            Password updated successfully. Redirecting…
-          </div>
-        ) : !ready ? (
-          <p className="loading-text">Verifying reset link…</p>
-        ) : (
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <label className="field-label">
-              <span className="field-label-text">New Password</span>
-              <input
-                className="field-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={8}
-                required
-              />
-            </label>
-            <label className="field-label">
-              <span className="field-label-text">Confirm Password</span>
-              <input
-                className="field-input"
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-              />
-            </label>
-            {error && <div className="error-banner">{error}</div>}
-            <button className="save-btn w-full" disabled={busy} type="submit">
-              {busy ? "Saving…" : "Set new password"}
-            </button>
-          </form>
-        )}
-      </div>
-    </main>
+        {error && <p className="error-banner">{error}</p>}
+
+        <button type="submit" disabled={busy} className="auth-btn mt-2">
+          {busy ? "Updating\u2026" : "Update Password"}
+        </button>
+      </form>
+    </AuthCard>
   );
 }
