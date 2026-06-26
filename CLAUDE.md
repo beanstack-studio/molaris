@@ -770,3 +770,5 @@ When changing schema: update types.ts first, then grep for every usage of that c
 - [ ] **Google Calendar sync** — UI placeholder built inside My Account page.
   Implement when ready: OAuth flow, token storage in `calendar_tokens` table,
   bidirectional appointment sync via Edge Function. Pro only, per-user.
+- [ ] **Invite 401 debug** — after deploying, check Vercel function logs → Functions tab → /api/invite → view logs. Confirm auth header is present and token resolves to a user email. Remove debug console.log lines once confirmed working.
+- [ ] **Beanstack Studio logo** — add beanstack-logo.png to public/ folder for use in email footer and login page footer.

@@ -90,17 +90,17 @@ export default function LoginPage() {
 
       {/* Tab strip — hidden during forgot-password flow */}
       {!showForgot && (
-        <div className="flex gap-1 mb-6 bg-gray-100 rounded-full p-1">
+        <div className="bg-gray-100 p-1 rounded-full flex mb-6">
           {(["signin", "signup"] as Tab[]).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => switchTab(t)}
               className={cn(
-                "flex-1 py-2 text-sm font-semibold transition-all rounded-full",
+                "flex-1 px-6 py-2 text-sm rounded-full transition-all",
                 tab === t
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white shadow-sm text-gray-900 font-semibold"
+                  : "text-gray-400 hover:text-gray-500"
               )}
             >
               {t === "signin" ? "Sign In" : "Sign Up"}

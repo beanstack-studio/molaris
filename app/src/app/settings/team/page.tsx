@@ -224,7 +224,6 @@ export default function TeamSettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [staffExistingInvite, setStaffExistingInvite] = useState<InviteRow | null>(null);
-  const [handlerNote, setHandlerNote] = useState<string | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   // Blockout modal state — blockoutPerson format: "dentist:{id}" or "staff:{id}"
@@ -629,13 +628,20 @@ export default function TeamSettingsPage() {
     setBusy(true); setDentistInviteSuccess(null);
     try {
       const normalizedEmail = dentistInviteEmail.trim().toLowerCase();
+      let token: string | null = null;
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setError("Not authenticated"); setBusy(false); return; }
+      if (session?.access_token) {
+        token = session.access_token;
+      } else {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        token = refreshed.session?.access_token ?? null;
+      }
+      if (!token) { setError("Session expired. Please sign in again."); return; }
       const res = await fetch("/api/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           email: normalizedEmail,
@@ -659,7 +665,6 @@ export default function TeamSettingsPage() {
   function openAddStaff() {
     setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
     setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
-    setHandlerNote(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(null);
@@ -680,10 +685,8 @@ export default function TeamSettingsPage() {
         .eq("profile_id", s.profile_id)
         .eq("clinic_id", clinicId);
       setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
-      setHandlerNote(null);
     } else {
       setStaffHandlerDentistIds([]);
-      setHandlerNote("Handler assignments will be available after this staff member accepts their invite.");
     }
     // Check for existing pending invite for staff role at this clinic
     const { data: existingInvite } = await supabase
@@ -708,7 +711,7 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setHandlerNote(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -738,10 +741,7 @@ export default function TeamSettingsPage() {
       }
       // dentist_handlers uses profile_id (auth UUID), not staff.id
       const staffProfileId = editingStaff?.profile_id ?? null;
-      if (!staffProfileId) {
-        setHandlerNote("Handler assignments will be available after this staff member accepts their invite.");
-      } else {
-        setHandlerNote(null);
+      if (staffProfileId) {
         // Read current DB state before mutating, so we can compute removals accurately
         const { data: existingHandlers } = await supabase
           .from("dentist_handlers")
@@ -830,13 +830,20 @@ export default function TeamSettingsPage() {
     setBusy(true); setInviteSuccess(null);
     try {
       const normalizedEmail = inviteEmail.trim().toLowerCase();
+      let token: string | null = null;
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setError("Not authenticated"); setBusy(false); return; }
+      if (session?.access_token) {
+        token = session.access_token;
+      } else {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        token = refreshed.session?.access_token ?? null;
+      }
+      if (!token) { setError("Session expired. Please sign in again."); return; }
       const res = await fetch("/api/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           email: normalizedEmail,
@@ -858,13 +865,20 @@ export default function TeamSettingsPage() {
   async function resendInvite(inv: InviteRow) {
     setBusy(true);
     try {
+      let token: string | null = null;
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setError("Not authenticated"); setBusy(false); return; }
+      if (session?.access_token) {
+        token = session.access_token;
+      } else {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        token = refreshed.session?.access_token ?? null;
+      }
+      if (!token) { setError("Session expired. Please sign in again."); return; }
       const res = await fetch("/api/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           email: inv.email,
@@ -1959,19 +1973,13 @@ export default function TeamSettingsPage() {
           )}
 
           {/* 7. Clinical Access (Pro only) — last before footer */}
-          {isPro && (
+          {isPro && editingStaff?.profile_id && (
             <div className="section-divider">
               <p className="field-label-text mb-1">Clinical Access</p>
               <p className="hint-text mb-3">
                 Assign this staff member to act on behalf of a dentist. They can record treatments,
                 create invoices, manage ortho, and generate documents on behalf of assigned dentists.
               </p>
-              {handlerNote && (
-                <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 mb-3">
-                  <span className="text-blue-500 shrink-0 mt-0.5">ℹ️</span>
-                  <p className="text-xs text-blue-700">{handlerNote}</p>
-                </div>
-              )}
               {dentists.length === 0 ? (
                 <p className="hint-text text-slate-400">Add dentists first to assign handlers.</p>
               ) : (

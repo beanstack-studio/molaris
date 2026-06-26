@@ -1540,9 +1540,14 @@ html.dark .readonly-input {
 
 /* Auth pages — shared button for /login, /join, /reset-password */
 .auth-btn {
-  @apply w-full bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold
-         py-3.5 px-10 rounded-full tracking-wide transition-colors disabled:opacity-60
-         disabled:cursor-not-allowed;
+  @apply w-full py-3.5 px-6 rounded-full text-sm font-semibold text-white disabled:opacity-50 transition-all tracking-wide;
+  background: linear-gradient(135deg, var(--color-violet-700) 0%, var(--color-violet-500) 100%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 3px 12px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.3);
+}
+.auth-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-violet-800) 0%, var(--color-violet-600) 100%);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 6px 20px hsl(var(--accent-hue) var(--accent-sat) 44% / 0.4);
+  transform: translateY(-1px);
 }
 
 /* ========================================

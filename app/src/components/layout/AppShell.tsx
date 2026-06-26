@@ -32,7 +32,6 @@ export default function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(true);
   const [chartCollapse, setChartCollapse] = useState(false);
-  const [busy, setBusy] = useState(false);
   const devCtx = useDevOverride();
   const devViewMode = devCtx?.override.viewMode ?? "desktop";
   const isDevMode = devCtx !== null;
@@ -145,17 +144,13 @@ export default function AppShell({ children }: AppShellProps) {
   }, [isLoginPage]);
 
   async function signOut() {
-    setBusy(true);
-    if (typeof window !== "undefined") window.name = "";
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Sign out timeout")), 2000)
-      );
-      await Promise.race([supabase.auth.signOut(), timeout]);
-    } catch (err) {
-      console.error("Sign out error (continuing anyway):", err);
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("Sign out error:", e);
+    } finally {
+      window.location.href = "/login";
     }
-    window.location.href = "/login";
   }
 
   // On the login page: no shell, just children
@@ -198,12 +193,6 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Bottom nav — mobile only (CSS) or forced by dev viewport mode */}
       {showBottomNav && <BottomNav />}
 
-      {/* Invisible overlay during sign-out */}
-      {busy && (
-        <div className="fixed inset-0 z-50 bg-white/60 backdrop-blur-sm flex items-center justify-center">
-          <div className="loading-text text-sm">Signing out…</div>
-        </div>
-      )}
     </>
   );
 }

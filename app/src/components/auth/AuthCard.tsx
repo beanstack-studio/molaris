@@ -35,8 +35,10 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
         {children}
 
         {/* Footer */}
-        <div className="text-[11px] text-gray-400 text-center pt-5 mt-5 border-t border-gray-100">
-          Powered by Beanstack Studio · Molaris Clinic Management
+        <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 pt-5 mt-5 border-t border-gray-100">
+          Powered by
+          <img src="/icons/beanstack-logo.png" alt="Beanstack Studio" className="h-3.5 inline-block" />
+          Beanstack Studio
         </div>
       </div>
     </div>

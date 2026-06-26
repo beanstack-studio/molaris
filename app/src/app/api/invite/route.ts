@@ -26,6 +26,7 @@ interface InviteBody {
 export async function POST(req: NextRequest) {
   // 1. Verify calling user via Authorization header token only
   const authHeader = req.headers.get("Authorization");
+  console.log("Auth header:", authHeader ? `present (${authHeader.length} chars)` : "MISSING");
   const token = authHeader?.replace("Bearer ", "").trim();
 
   if (!token) {
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  console.log("User lookup:", user?.email ?? `failed: ${authError?.message}`);
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
