@@ -851,6 +851,7 @@ export default function TeamSettingsPage() {
           clinicName,
           inviterName: userFullName ?? "",
           role: "staff",
+          full_name: editingStaff?.full_name ?? staffName.trim() ?? null,
         }),
       });
       const json = await res.json() as { success?: boolean; error?: string };
@@ -1910,70 +1911,79 @@ export default function TeamSettingsPage() {
             />
           </label>
 
-          {/* 6. Invite email */}
+          {/* 6. Account status / Invite email */}
           {isAdmin && (
-            <div>
-              <label className="field-label">
-                <span className="field-label-text">
-                  Invite email <span className="text-slate-400 font-normal text-xs">(optional)</span>
+            editingStaff?.profile_id ? (
+              <div>
+                <p className="field-label-text mb-1.5">Account Status</p>
+                <span className="inline-flex items-center gap-1.5 text-sm text-green-600 font-medium">
+                  ✓ Active — has Molaris account
                 </span>
-              </label>
-              {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  className="field-input flex-1"
-                  placeholder="email@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  disabled={busy || atStaffLimit}
-                />
-                {editingStaff && !staffExistingInvite && (
-                  <button
-                    type="button"
-                    className="save-btn shrink-0"
-                    onClick={sendInvite}
-                    disabled={busy || !inviteEmail.trim() || atStaffLimit}
-                  >
-                    Send
-                  </button>
-                )}
               </div>
-              {staffExistingInvite && (
-                <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
-                  <span className="text-xs text-amber-700">
-                    ⏳ Invite pending — expires {formatDateStandard(staffExistingInvite.expires_at.split("T")[0])}
+            ) : (
+              <div>
+                <label className="field-label">
+                  <span className="field-label-text">
+                    Invite email <span className="text-slate-400 font-normal text-xs">(optional)</span>
                   </span>
-                  <div className="flex gap-2">
+                </label>
+                {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    className="field-input flex-1"
+                    placeholder="email@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    disabled={busy || atStaffLimit}
+                  />
+                  {editingStaff && !staffExistingInvite && (
                     <button
                       type="button"
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                      onClick={() => void resendInvite(staffExistingInvite)}
-                      disabled={busy}
+                      className="save-btn shrink-0"
+                      onClick={sendInvite}
+                      disabled={busy || !inviteEmail.trim() || atStaffLimit}
                     >
-                      Resend
+                      Send
                     </button>
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-red-500 hover:text-red-700"
-                      onClick={() => {
-                        void cancelInvite(staffExistingInvite.id);
-                        setStaffExistingInvite(null);
-                        setInviteEmail("");
-                      }}
-                      disabled={busy}
-                    >
-                      Cancel invite
-                    </button>
-                  </div>
+                  )}
                 </div>
-              )}
-              {atStaffLimit && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
-            </div>
+                {staffExistingInvite && (
+                  <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                    <span className="text-xs text-amber-700">
+                      ⏳ Invite pending — expires {formatDateStandard(staffExistingInvite.expires_at.split("T")[0])}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                        onClick={() => void resendInvite(staffExistingInvite)}
+                        disabled={busy}
+                      >
+                        Resend
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-red-500 hover:text-red-700"
+                        onClick={() => {
+                          void cancelInvite(staffExistingInvite.id);
+                          setStaffExistingInvite(null);
+                          setInviteEmail("");
+                        }}
+                        disabled={busy}
+                      >
+                        Cancel invite
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {atStaffLimit && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
+              </div>
+            )
           )}
 
-          {/* 7. Clinical Access (Pro only) — last before footer */}
-          {isPro && editingStaff?.profile_id && (
+          {/* 7. Clinical Access — visible once staff has joined */}
+          {editingStaff?.profile_id && (
             <div className="section-divider">
               <p className="field-label-text mb-1">Clinical Access</p>
               <p className="hint-text mb-3">

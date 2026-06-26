@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   // Look up the pending invite by email — no auth token needed
   const { data: invite, error: inviteError } = await supabaseAdmin
     .from("staff_invites")
-    .select("clinic_id, role, dentist_id, email")
+    .select("clinic_id, role, dentist_id, email, full_name")
     .eq("email", normalizedEmail)
     .eq("status", "pending")
     .order("created_at", { ascending: false })
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         clinic_id: invite.clinic_id,
         role: invite.role,
         email: invite.email,
-        full_name: null,
+        full_name: (invite as { full_name?: string | null }).full_name ?? null,
       },
       { onConflict: "id" },
     );

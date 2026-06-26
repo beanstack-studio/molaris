@@ -1,15 +1,24 @@
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/cn";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
-import { useDevOverride } from "@/contexts/DevOverrideContext";
 
 const SIDEBAR_KEY = "molaris_sidebar_v2";
 const INACTIVITY_MS = 10 * 60 * 1000; // 10 minutes
+
+async function doSignOut() {
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch (e) {
+    console.error("Sign out error:", e);
+  } finally {
+    window.location.replace("/login");
+  }
+}
 
 function isInvalidRefreshTokenError(err: unknown): boolean {
   if (!err) return false;
@@ -29,17 +38,12 @@ interface AppShellProps {
 
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState(true);
   const [chartCollapse, setChartCollapse] = useState(false);
-  const devCtx = useDevOverride();
-  const devViewMode = devCtx?.override.viewMode ?? "desktop";
-  const isDevMode = devCtx !== null;
 
   const isLoginPage = pathname === "/login";
 
   // Restore sidebar state from localStorage after mount (avoids hydration mismatch).
-  // Default is collapsed; only override if user explicitly expanded it.
   useEffect(() => {
     const stored = localStorage.getItem(SIDEBAR_KEY);
     if (stored === "false") setCollapsed(false);
@@ -74,18 +78,12 @@ export default function AppShell({ children }: AppShellProps) {
       if (pathname?.startsWith("/login")) return;
       if (event === "SIGNED_OUT" || (event as string) === "TOKEN_EXPIRED") {
         if (!session) {
-          try {
-            await supabase.auth.signOut();
-          } catch {
-            /* ignore */
-          }
-          router.push("/login");
-          router.refresh();
+          await doSignOut();
         }
       }
     });
     return () => subscription.unsubscribe();
-  }, [router, pathname]);
+  }, [pathname]);
 
   // Auth gate on every navigation
   useEffect(() => {
@@ -96,28 +94,21 @@ export default function AppShell({ children }: AppShellProps) {
         const { data, error } = await supabase.auth.getSession();
         if (cancelled) return;
         if (error && isInvalidRefreshTokenError(error)) {
-          window.name = "";
-          await supabase.auth.signOut();
-          router.push("/login");
-          router.refresh();
+          await doSignOut();
           return;
         }
         if (!data.session) {
-          window.name = "";
-          router.push("/login");
-          router.refresh();
+          await doSignOut();
         }
       } catch {
         if (cancelled) return;
-        window.name = "";
-        router.push("/login");
-        router.refresh();
+        await doSignOut();
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [router, pathname, isLoginPage]);
+  }, [pathname, isLoginPage]);
 
   // Inactivity auto-logout after 10 minutes
   useEffect(() => {
@@ -126,11 +117,7 @@ export default function AppShell({ children }: AppShellProps) {
 
     const reset = () => {
       clearTimeout(timer);
-      timer = setTimeout(async () => {
-        window.name = "";
-        await supabase.auth.signOut();
-        window.location.href = "/login";
-      }, INACTIVITY_MS);
+      timer = setTimeout(() => { void doSignOut(); }, INACTIVITY_MS);
     };
 
     const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
@@ -143,16 +130,6 @@ export default function AppShell({ children }: AppShellProps) {
     };
   }, [isLoginPage]);
 
-  async function signOut() {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error("Sign out error:", e);
-    } finally {
-      window.location.href = "/login";
-    }
-  }
-
   // On the login page: no shell, just children
   if (isLoginPage) {
     return <>{children}</>;
@@ -160,39 +137,23 @@ export default function AppShell({ children }: AppShellProps) {
 
   const effectivelyCollapsed = collapsed || chartCollapse;
 
-  // Dev viewport simulation: in dev mode, control sidebar/bottomnav via React instead of CSS breakpoints
-  const showSidebar = !isDevMode || devViewMode === "desktop";
-  const showBottomNav = !isDevMode || devViewMode !== "desktop";
-
   const contentClass = cn(
     "sidebar-content-offset",
-    !isDevMode || devViewMode === "desktop"
-      ? cn(effectivelyCollapsed ? "lg:ml-14" : "lg:ml-[220px]", "pb-16 lg:pb-0")
-      : cn(
-          devViewMode === "tablet" ? "max-w-[768px]" : "max-w-[390px]",
-          "mx-auto pb-16"
-        )
+    effectivelyCollapsed ? "lg:ml-14" : "lg:ml-[220px]",
+    "pb-16 lg:pb-0",
   );
 
   return (
     <>
-      {/* Sidebar — desktop only (hidden on mobile via CSS; or hidden by dev viewport mode) */}
-      {showSidebar && (
-        <Sidebar
-          collapsed={effectivelyCollapsed}
-          onToggle={handleToggle}
-          onSignOut={signOut}
-        />
-      )}
-
-      {/* Main content — offset by sidebar width on lg+ */}
+      <Sidebar
+        collapsed={effectivelyCollapsed}
+        onToggle={handleToggle}
+        onSignOut={doSignOut}
+      />
       <div className={contentClass}>
         {children}
       </div>
-
-      {/* Bottom nav — mobile only (CSS) or forced by dev viewport mode */}
-      {showBottomNav && <BottomNav />}
-
+      <BottomNav />
     </>
   );
 }

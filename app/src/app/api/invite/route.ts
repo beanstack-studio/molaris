@@ -21,6 +21,7 @@ interface InviteBody {
   clinicName?: string;
   inviterName?: string;
   dentistId?: string;
+  full_name?: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   // 2. Parse and validate body
   const body = await req.json() as InviteBody;
-  const { email, role, clinicId, clinicName, inviterName, dentistId } = body;
+  const { email, role, clinicId, clinicName, inviterName, dentistId, full_name } = body;
 
   if (!email || !role || !clinicId) {
     return NextResponse.json({ error: "email, role, and clinicId are required." }, { status: 400 });
@@ -93,11 +94,14 @@ export async function POST(req: NextRequest) {
   }
 
   // 6. Record invite in staff_invites
+  // Note: staff_invites.full_name column required — run migration:
+  // ALTER TABLE public.staff_invites ADD COLUMN IF NOT EXISTS full_name text;
   const { error: dbError } = await supabaseAdmin.from("staff_invites").insert({
     clinic_id: clinicId,
     email: normalizedEmail,
     role,
     dentist_id: dentistId ?? null,
+    full_name: full_name ?? null,
     invited_by: user.id,
     token: crypto.randomUUID(),
     status: "pending",

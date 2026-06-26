@@ -56,8 +56,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import type { Clinic, UserProfile } from '@/lib/types'
-import { useDevOverride } from '@/contexts/DevOverrideContext'
+
 
 interface ClinicContextValue {
   clinicId: string
@@ -192,25 +191,6 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 export function useClinic(): ClinicContextValue {
   const ctx = useContext(ClinicContext)
   if (!ctx) throw new Error('useClinic must be used within ClinicProvider')
-  const devOverride = useDevOverride()
-  if (devOverride && !ctx.isLoading) {
-    const { plan, role } = devOverride.override
-    const isAdminOvr = role === 'admin'
-    const isDentistOvr = role === 'dentist'
-    const isStaffOvr = role === 'staff'
-    const canActForOvr = buildCanActFor(role, ctx.handlerFor)
-    return {
-      ...ctx,
-      plan,
-      role,
-      isAdmin: isAdminOvr,
-      isDentist: isDentistOvr,
-      isStaff: isStaffOvr,
-      isPro: plan === 'pro',
-      isHandler: isStaffOvr ? ctx.handlerFor.length > 0 : false,
-      canActFor: canActForOvr,
-    }
-  }
   return ctx
 }
 

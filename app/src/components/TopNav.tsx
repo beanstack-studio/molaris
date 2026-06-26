@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
@@ -18,7 +18,6 @@ function isInvalidRefreshTokenError(err: unknown): boolean {
 }
 
 export default function TopNav() {
-  const router = useRouter();
   const pathname = usePathname();
   const { clinicName } = useClinic();
 
@@ -70,16 +69,13 @@ export default function TopNav() {
 
   async function signOut() {
     setBusy(true);
-    if (typeof window !== "undefined") window.name = "";
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Sign out timeout")), 2000)
-      );
-      await Promise.race([supabase.auth.signOut(), timeout]);
-    } catch (err) {
-      console.error("Sign out error (continuing anyway):", err);
+      await supabase.auth.signOut({ scope: "local" });
+    } catch (e) {
+      console.error("Sign out error:", e);
+    } finally {
+      window.location.replace("/login");
     }
-    window.location.href = "/login";
   }
 
   // Redirect on auth state change (sign-out / token expiry)
@@ -88,14 +84,13 @@ export default function TopNav() {
       if (pathname?.startsWith("/login")) return;
       if (event === "SIGNED_OUT" || (event as string) === "TOKEN_EXPIRED") {
         if (!session) {
-          try { await supabase.auth.signOut(); } catch { /* ignore */ }
-          router.push("/login");
-          router.refresh();
+          try { await supabase.auth.signOut({ scope: "local" }); } catch { /* ignore */ }
+          window.location.replace("/login");
         }
       }
     });
     return () => subscription.unsubscribe();
-  }, [router, pathname]);
+  }, [pathname]);
 
   // Auth gate on every navigation
   useEffect(() => {
@@ -106,29 +101,22 @@ export default function TopNav() {
         if (cancelled) return;
         if (error && isInvalidRefreshTokenError(error)) {
           window.name = "";
-          await supabase.auth.signOut();
-          if (!pathname?.startsWith("/login")) {
-            router.push("/login");
-            router.refresh();
-          }
+          await supabase.auth.signOut({ scope: "local" });
+          window.location.replace("/login");
           return;
         }
         if (!data.session && !pathname?.startsWith("/login")) {
-          window.name = "";
-          router.push("/login");
-          router.refresh();
+          window.location.replace("/login");
         }
       } catch {
         if (cancelled) return;
         if (!pathname?.startsWith("/login")) {
-          window.name = "";
-          router.push("/login");
-          router.refresh();
+          window.location.replace("/login");
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [router, pathname]);
+  }, [pathname]);
 
   // Inactivity auto-logout after 10 minutes
   useEffect(() => {
@@ -139,9 +127,8 @@ export default function TopNav() {
     const reset = () => {
       clearTimeout(timer);
       timer = setTimeout(async () => {
-        window.name = "";
-        await supabase.auth.signOut();
-        window.location.href = "/login";
+        try { await supabase.auth.signOut({ scope: "local" }); } catch { /* ignore */ }
+        window.location.replace("/login");
       }, TIMEOUT_MS);
     };
 

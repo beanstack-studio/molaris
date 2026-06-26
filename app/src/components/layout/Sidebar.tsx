@@ -184,13 +184,14 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   }, [logoSrc]);
 
   // ─── Derived values ──────────────────────────────────────────────────────────
-  const userInitials = (userFullName ?? userEmail ?? "U")
+  const emailHandle = userEmail?.split("@")[0] ?? "User";
+  const userInitials = (userFullName ?? emailHandle)
     .split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
   const clinicInitials = clinicName
     .split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "C";
 
-  const displayName = userFullName ?? userEmail ?? "User";
+  const displayName = userFullName ?? emailHandle;
   const { role } = useClinic();
   const roleLabel = role === "admin" ? "Admin" : role === "dentist" ? "Dentist" : "Staff";
   const planLabel = plan === "pro" ? "Pro" : "Free";
