@@ -224,6 +224,7 @@ export default function TeamSettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [staffExistingInvite, setStaffExistingInvite] = useState<InviteRow | null>(null);
+  const [handlerNote, setHandlerNote] = useState<string | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   // Blockout modal state — blockoutPerson format: "dentist:{id}" or "staff:{id}"
@@ -629,11 +630,12 @@ export default function TeamSettingsPage() {
     try {
       const normalizedEmail = dentistInviteEmail.trim().toLowerCase();
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setError("Not authenticated"); setBusy(false); return; }
       const res = await fetch("/api/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           email: normalizedEmail,
@@ -657,6 +659,7 @@ export default function TeamSettingsPage() {
   function openAddStaff() {
     setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
     setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
+    setHandlerNote(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(null);
@@ -677,8 +680,10 @@ export default function TeamSettingsPage() {
         .eq("profile_id", s.profile_id)
         .eq("clinic_id", clinicId);
       setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
+      setHandlerNote(null);
     } else {
       setStaffHandlerDentistIds([]);
+      setHandlerNote("Handler assignments will be available after this staff member accepts their invite.");
     }
     // Check for existing pending invite for staff role at this clinic
     const { data: existingInvite } = await supabase
@@ -703,7 +708,7 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setHandlerNote(null);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -731,13 +736,24 @@ export default function TeamSettingsPage() {
         if (error) throw error;
         staffId = (data as { id: string }).id;
       }
-      // dentist_handlers uses profile_id (the auth UUID), not staff.id
-      // Handler assignment only possible for staff who have accepted their invite
+      // dentist_handlers uses profile_id (auth UUID), not staff.id
       const staffProfileId = editingStaff?.profile_id ?? null;
-      if (staffProfileId) {
+      if (!staffProfileId) {
+        setHandlerNote("Handler assignments will be available after this staff member accepts their invite.");
+      } else {
+        setHandlerNote(null);
+        // Read current DB state before mutating, so we can compute removals accurately
+        const { data: existingHandlers } = await supabase
+          .from("dentist_handlers")
+          .select("dentist_id")
+          .eq("profile_id", staffProfileId)
+          .eq("clinic_id", clinicId);
+        const existingIds = (existingHandlers ?? []).map((h: { dentist_id: string }) => h.dentist_id);
+        const toRemove = existingIds.filter((id) => !staffHandlerDentistIds.includes(id));
+
         // Upsert checked dentists
         if (staffHandlerDentistIds.length > 0) {
-          await supabase
+          const { error: upsertError } = await supabase
             .from("dentist_handlers")
             .upsert(
               staffHandlerDentistIds.map((dentistId) => ({
@@ -749,21 +765,34 @@ export default function TeamSettingsPage() {
               })),
               { onConflict: "clinic_id,dentist_id,profile_id" }
             );
+          if (upsertError) {
+            console.error("Handler save error:", upsertError);
+            setError(`Failed to save handler assignments: ${upsertError.message}`);
+            setBusy(false);
+            return;
+          }
         }
-        // Remove unchecked dentists
-        const { data: existingHandlers } = await supabase
+
+        // Delete unchecked dentists
+        if (toRemove.length > 0) {
+          const { error: deleteError } = await supabase
+            .from("dentist_handlers")
+            .delete()
+            .eq("profile_id", staffProfileId)
+            .eq("clinic_id", clinicId)
+            .in("dentist_id", toRemove);
+          if (deleteError) {
+            console.error("Handler delete error:", deleteError);
+          }
+        }
+
+        // Re-fetch to confirm persistence
+        const { data: refreshedHandlers } = await supabase
           .from("dentist_handlers")
           .select("dentist_id")
           .eq("profile_id", staffProfileId)
           .eq("clinic_id", clinicId);
-        const existingIds = (existingHandlers ?? []).map((h: { dentist_id: string }) => h.dentist_id);
-        const toRemove = existingIds.filter((id) => !staffHandlerDentistIds.includes(id));
-        if (toRemove.length > 0) {
-          await supabase.from("dentist_handlers").delete()
-            .eq("profile_id", staffProfileId)
-            .eq("clinic_id", clinicId)
-            .in("dentist_id", toRemove);
-        }
+        setStaffHandlerDentistIds(refreshedHandlers?.map((h: { dentist_id: string }) => h.dentist_id) ?? []);
       }
       if (staffPhotoFile) {
         const ext = staffPhotoFile.name.split(".").pop() ?? "jpg";
@@ -802,11 +831,12 @@ export default function TeamSettingsPage() {
     try {
       const normalizedEmail = inviteEmail.trim().toLowerCase();
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setError("Not authenticated"); setBusy(false); return; }
       const res = await fetch("/api/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           email: normalizedEmail,
@@ -829,11 +859,12 @@ export default function TeamSettingsPage() {
     setBusy(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setError("Not authenticated"); setBusy(false); return; }
       const res = await fetch("/api/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           email: inv.email,
@@ -1935,6 +1966,12 @@ export default function TeamSettingsPage() {
                 Assign this staff member to act on behalf of a dentist. They can record treatments,
                 create invoices, manage ortho, and generate documents on behalf of assigned dentists.
               </p>
+              {handlerNote && (
+                <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 mb-3">
+                  <span className="text-blue-500 shrink-0 mt-0.5">ℹ️</span>
+                  <p className="text-xs text-blue-700">{handlerNote}</p>
+                </div>
+              )}
               {dentists.length === 0 ? (
                 <p className="hint-text text-slate-400">Add dentists first to assign handlers.</p>
               ) : (

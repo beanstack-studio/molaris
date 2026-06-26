@@ -758,3 +758,15 @@ SUPABASE_SERVICE_ROLE_KEY=
 - `app/src/app/globals.css` — all shared CSS classes
 
 When changing schema: update types.ts first, then grep for every usage of that column, then update all pages. Never update a page in isolation.
+
+---
+
+## TODO / Roadmap
+
+- [x] My Account page — fixed
+- [x] Reset password page — redesigned with branded auth card
+- [x] Feature gate audit — completed
+- [x] Staff invite flow — /join page, invite API, email templates
+- [ ] **Google Calendar sync** — UI placeholder built inside My Account page.
+  Implement when ready: OAuth flow, token storage in `calendar_tokens` table,
+  bidirectional appointment sync via Edge Function. Pro only, per-user.

@@ -42,7 +42,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     { label: "Team",                         href: "/settings/team" },
     { label: isAdmin ? "Services" : "Services 🔒", href: "/settings/services" },
     { label: isAdmin ? "Documents" : "Documents 🔒", href: "/settings/document-templates" },
-    { label: isPro ? "Calendar Sync" : "Calendar Sync 🔒", href: "/settings/calendar-sync" },
     // ACCOUNT
     { label: "Account",    href: "/settings/account" },
     { label: "Billing",    href: "/settings/billing",           show: isAdmin },

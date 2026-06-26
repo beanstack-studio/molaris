@@ -12,8 +12,6 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 interface InviteBody {
@@ -26,38 +24,17 @@ interface InviteBody {
 }
 
 export async function POST(req: NextRequest) {
-  // 1. Verify calling user — cookie first, Authorization header fallback
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
+  // 1. Verify calling user via Authorization header token only
+  const authHeader = req.headers.get("Authorization");
+  const token = authHeader?.replace("Bearer ", "").trim();
 
-  const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser();
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  let callingUser = cookieUser;
-  if (cookieError || !cookieUser) {
-    // Fallback: verify via Authorization header token
-    const authHeader = req.headers.get("Authorization");
-    const token = authHeader?.replace("Bearer ", "").trim();
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const { data: { user: headerUser }, error: headerError } = await supabaseAdmin.auth.getUser(token);
-    if (headerError || !headerUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    callingUser = headerUser;
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // 2. Parse and validate body
@@ -72,7 +49,7 @@ export async function POST(req: NextRequest) {
   const { data: callerProfile } = await supabaseAdmin
     .from("profiles")
     .select("role, clinic_id")
-    .eq("id", callingUser!.id)
+    .eq("id", user.id)
     .maybeSingle();
 
   if (!callerProfile || callerProfile.clinic_id !== clinicId || callerProfile.role !== "admin") {
@@ -119,14 +96,13 @@ export async function POST(req: NextRequest) {
     email: normalizedEmail,
     role,
     dentist_id: dentistId ?? null,
-    invited_by: callingUser!.id,
+    invited_by: user.id,
     token: crypto.randomUUID(),
     status: "pending",
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   });
 
   if (dbError) {
-    // Invite email was sent but DB record failed — log but don't fail the request
     console.error("staff_invites insert failed:", dbError.message);
   }
 

@@ -128,7 +128,6 @@ const settingsFlyoutSections: { title: string; items: SettingsNavItem[] }[] = [
       { label: "Services & Payments", href: "/settings/services",           adminLock: true },
       { label: "Maintenance Log",     href: "/settings/maintenance",        adminLock: true },
       { label: "Documents",           href: "/settings/document-templates", adminLock: true },
-      { label: "Calendar Sync",       href: "/settings/calendar-sync",      proLock: true },
     ],
   },
   {
