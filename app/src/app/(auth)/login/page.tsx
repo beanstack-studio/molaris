@@ -188,7 +188,7 @@ export default function LoginPage() {
             onClick={() => { setShowForgot(false); setResetSent(false); setError(null); }}
             className="text-xs text-gray-500 hover:text-gray-700 transition-colors text-center font-medium"
           >
-            \u2190 Back to sign in
+            ← Back to sign in
           </button>
         </form>
       )}
