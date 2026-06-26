@@ -30,39 +30,71 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "clinicId and role are required." }, { status: 400 });
   }
 
-  // 1. Insert profile (upsert in case of retry)
-  const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .upsert(
-      {
-        id: user.id,
-        clinic_id: clinicId,
-        role,
-        email: user.email ?? null,
-        full_name: null,
-      },
-      { onConflict: "id" }
-    );
+  const userId = user.id;
+  const userEmail = user.email ?? null;
 
-  if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
+  // 1. Verify clinic exists — never create a new one here
+  const { data: clinic, error: clinicError } = await supabaseAdmin
+    .from("clinics")
+    .select("id, name")
+    .eq("id", clinicId)
+    .single();
+
+  if (clinicError || !clinic) {
+    return NextResponse.json({ error: "Clinic not found" }, { status: 400 });
   }
 
-  // 2. Link dentist profile if dentistId provided
+  // 2. Check if profile already exists
+  const { data: existingProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (existingProfile) {
+    // Profile already exists — update clinic_id and role to match the invite
+    const { error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({ clinic_id: clinicId, role })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("Profile update error:", updateError);
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+  } else {
+    // Insert new profile linked to the EXISTING clinic
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .insert({
+        id: userId,
+        clinic_id: clinicId,
+        role,
+        email: userEmail,
+        full_name: null,
+      });
+
+    if (profileError) {
+      console.error("Profile insert error:", profileError);
+      return NextResponse.json({ error: profileError.message }, { status: 500 });
+    }
+  }
+
+  // 3. Link dentist profile_id if dentistId provided
   if (dentistId) {
     await supabaseAdmin
       .from("dentists")
-      .update({ profile_id: user.id })
+      .update({ profile_id: userId })
       .eq("id", dentistId)
       .eq("clinic_id", clinicId);
   }
 
-  // 3. Mark invite as accepted
-  if (user.email) {
+  // 4. Mark invite as accepted
+  if (userEmail) {
     await supabaseAdmin
       .from("staff_invites")
       .update({ status: "accepted" })
-      .eq("email", user.email.toLowerCase())
+      .eq("email", userEmail.toLowerCase())
       .eq("clinic_id", clinicId)
       .eq("status", "pending");
   }

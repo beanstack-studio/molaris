@@ -49,7 +49,7 @@ These are too light for button text. For email CTA buttons, darkened equivalents
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding-bottom:24px;">
-                    <img src="{{ .SiteURL }}/web-app-manifest-192x192.png" width="64" height="64"
+                    <img src="https://molaris-app-opal.vercel.app/web-app-manifest-192x192.png" width="64" height="64"
                          alt="Molaris"
                          style="border-radius:14px;display:block;margin:0 auto 12px;object-fit:cover;" />
                     <span style="display:block;font-size:20px;font-weight:700;color:#111827;letter-spacing:-0.3px;">Molaris</span>
@@ -70,7 +70,7 @@ These are too light for button text. For email CTA buttons, darkened equivalents
                 <tr>
                   <td align="center" style="padding-bottom:24px;">
                     <a href="{{ .ConfirmationURL }}"
-                       style="display:inline-block;background:linear-gradient(135deg,#0d9488,#2d8b55);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:8px;letter-spacing:0.2px;">
+                       style="display:inline-block;background:linear-gradient(135deg,#1e3a5f,#0d6e6e);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:50px;letter-spacing:0.2px;">
                       Confirm Email Address →
                     </a>
                   </td>
@@ -128,7 +128,7 @@ These are too light for button text. For email CTA buttons, darkened equivalents
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding-bottom:24px;">
-                    <img src="{{ .SiteURL }}/web-app-manifest-192x192.png" width="64" height="64"
+                    <img src="https://molaris-app-opal.vercel.app/web-app-manifest-192x192.png" width="64" height="64"
                          alt="Molaris"
                          style="border-radius:14px;display:block;margin:0 auto 12px;object-fit:cover;" />
                     <span style="display:block;font-size:20px;font-weight:700;color:#111827;letter-spacing:-0.3px;">Molaris</span>
@@ -149,7 +149,7 @@ These are too light for button text. For email CTA buttons, darkened equivalents
                 <tr>
                   <td align="center" style="padding-bottom:24px;">
                     <a href="{{ .ConfirmationURL }}"
-                       style="display:inline-block;background:linear-gradient(135deg,#0d9488,#2d8b55);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:8px;letter-spacing:0.2px;">
+                       style="display:inline-block;background:linear-gradient(135deg,#1e3a5f,#0d6e6e);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:50px;letter-spacing:0.2px;">
                       Accept Invitation →
                     </a>
                   </td>
@@ -205,7 +205,7 @@ These are too light for button text. For email CTA buttons, darkened equivalents
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding-bottom:24px;">
-                    <img src="{{ .SiteURL }}/web-app-manifest-192x192.png" width="64" height="64"
+                    <img src="https://molaris-app-opal.vercel.app/web-app-manifest-192x192.png" width="64" height="64"
                          alt="Molaris"
                          style="border-radius:14px;display:block;margin:0 auto 12px;object-fit:cover;" />
                     <span style="display:block;font-size:20px;font-weight:700;color:#111827;letter-spacing:-0.3px;">Molaris</span>
@@ -226,7 +226,7 @@ These are too light for button text. For email CTA buttons, darkened equivalents
                 <tr>
                   <td align="center" style="padding-bottom:24px;">
                     <a href="{{ .ConfirmationURL }}"
-                       style="display:inline-block;background:linear-gradient(135deg,#0d9488,#2d8b55);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:8px;letter-spacing:0.2px;">
+                       style="display:inline-block;background:linear-gradient(135deg,#1e3a5f,#0d6e6e);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:50px;letter-spacing:0.2px;">
                       Reset Password →
                     </a>
                   </td>

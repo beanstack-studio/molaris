@@ -18,6 +18,13 @@ const ROLE_LABELS: Record<string, string> = {
   staff: "Staff",
 };
 
+type StaffInviteRow = {
+  clinic_id: string;
+  role: string;
+  dentist_id: string | null;
+  clinics: { name: string }[] | { name: string } | null;
+};
+
 function validatePassword(pwd: string): string | null {
   if (pwd.length < 8) return "Password must be at least 8 characters";
   if (!/\d/.test(pwd)) return "Password must contain at least one number";
@@ -29,8 +36,11 @@ export default function JoinPage() {
 
   const [pageState, setPageState] = useState<PageState>("loading");
   const [user, setUser] = useState<User | null>(null);
+  const [clinicId, setClinicId] = useState("");
   const [clinicName, setClinicName] = useState("your clinic");
   const [role, setRole] = useState("staff");
+  const [dentistId, setDentistId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -49,17 +59,62 @@ export default function JoinPage() {
           access_token: accessToken,
           refresh_token: params.get("refresh_token") ?? "",
         })
-        .then(({ data, error: sessionError }) => {
-          if (sessionError || !data.user) {
+        .then(async ({ error: sessionError }) => {
+          if (sessionError) {
+            setErrorMessage("This invite link is invalid or has expired.");
             setPageState("error");
             return;
           }
-          setUser(data.user);
-          setClinicName(data.user.user_metadata?.clinic_name ?? "your clinic");
-          setRole(data.user.user_metadata?.role ?? "staff");
+
+          // Get the freshest user data with metadata from the server
+          const { data: { user: freshUser } } = await supabase.auth.getUser();
+          setUser(freshUser);
+
+          if (!freshUser) {
+            setErrorMessage("This invite link is invalid or has expired.");
+            setPageState("error");
+            return;
+          }
+
+          const metaClinicId = freshUser.user_metadata?.clinic_id as string | undefined;
+          const metaRole = (freshUser.user_metadata?.role as string | undefined) ?? "staff";
+          const metaDentistId = (freshUser.user_metadata?.dentist_id as string | undefined) ?? null;
+          const metaClinicName = (freshUser.user_metadata?.clinic_name as string | undefined) ?? "";
+
+          if (!metaClinicId) {
+            // Fallback: look up from staff_invites by email
+            const { data: invite } = await supabase
+              .from("staff_invites")
+              .select("clinic_id, role, dentist_id, clinics(name)")
+              .eq("email", freshUser.email ?? "")
+              .eq("status", "pending")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (!invite) {
+              setErrorMessage("Could not find your invite. Please ask your admin to resend.");
+              setPageState("error");
+              return;
+            }
+
+            const row = invite as unknown as StaffInviteRow;
+            const clinicEntry = Array.isArray(row.clinics) ? row.clinics[0] : row.clinics;
+            setClinicId(row.clinic_id);
+            setRole(row.role);
+            setDentistId(row.dentist_id);
+            setClinicName(clinicEntry?.name ?? "your clinic");
+          } else {
+            setClinicId(metaClinicId);
+            setRole(metaRole);
+            setDentistId(metaDentistId);
+            setClinicName(metaClinicName || "your clinic");
+          }
+
           setPageState("form");
         });
     } else {
+      setErrorMessage("Invalid invite link.");
       setPageState("error");
     }
   }, []);
@@ -84,11 +139,7 @@ export default function JoinPage() {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${session?.access_token ?? ""}`,
       },
-      body: JSON.stringify({
-        clinicId: user?.user_metadata?.clinic_id,
-        role: user?.user_metadata?.role,
-        dentistId: user?.user_metadata?.dentist_id ?? null,
-      }),
+      body: JSON.stringify({ clinicId, role, dentistId }),
     });
 
     setBusy(false);
@@ -100,7 +151,7 @@ export default function JoinPage() {
     return (
       <AuthSuccess
         message="Account created!"
-        subMessage={`Welcome to ${clinicName}. Taking you to the dashboard\u2026`}
+        subMessage={`Welcome to ${clinicName}. Taking you to the dashboard…`}
       />
     );
   }
@@ -116,18 +167,20 @@ export default function JoinPage() {
   }
 
   if (pageState === "error") {
+    const displayError = errorMessage ?? "This link may have expired or already been used.";
     return (
       <AuthCard title="Invalid invite link">
         <div className="flex flex-col gap-4 items-center text-center pb-2">
           <p className="text-sm text-gray-500 leading-relaxed">
-            This link may have expired or already been used.<br />
+            {displayError}
+            <br />
             Ask your admin to send a new invite.
           </p>
           <a
             href="/login"
             className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
           >
-            \u2190 Back to login
+            ← Back to login
           </a>
         </div>
       </AuthCard>
@@ -160,7 +213,7 @@ export default function JoinPage() {
         </div>
         {error && <p className="error-banner">{error}</p>}
         <button type="submit" disabled={busy} className="auth-btn mt-2">
-          {busy ? "Creating account\u2026" : "Create Account"}
+          {busy ? "Creating account…" : "Create Account"}
         </button>
       </form>
     </AuthCard>
