@@ -17,7 +17,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
-import { formatDateStandard } from "@/lib/helpers";
+import { formatDateStandard, formatPhoneLocal } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Spinner } from "@/components/Spinner";
@@ -209,6 +209,7 @@ export default function TeamSettingsPage() {
   const [dentistPhone, setDentistPhone] = useState("");
   const [dentistInviteEmail, setDentistInviteEmail] = useState("");
   const [dentistInviteSuccess, setDentistInviteSuccess] = useState<string | null>(null);
+  const [dentistExistingInvite, setDentistExistingInvite] = useState<InviteRow | null>(null);
   const dentistDobRef = useRef<HTMLInputElement | null>(null);
 
   // Staff modal state
@@ -221,6 +222,7 @@ export default function TeamSettingsPage() {
   const [staffHandlerDentistIds, setStaffHandlerDentistIds] = useState<string[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [staffExistingInvite, setStaffExistingInvite] = useState<InviteRow | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   // Blockout modal state — blockoutPerson format: "dentist:{id}" or "staff:{id}"
@@ -527,17 +529,31 @@ export default function TeamSettingsPage() {
     setDentistPhotoPreview(null);
     setShowAddDentistModal(true);
   }
-  function openEditDentist(d: DentistRow) {
+  async function openEditDentist(d: DentistRow) {
     setEditingDentist(d); setDentistName(d.full_name); setDentistNickname(d.nickname ?? "");
     setDentistDob(d.date_of_birth ?? ""); setDentistPrc(d.prc_number ?? "");
     setDentistPtr(d.ptr_number ?? "");
-    setDentistSpecialty(d.specialty ?? ""); setDentistPhone(d.phone ?? "");
+    setDentistSpecialty(d.specialty ?? ""); setDentistPhone(d.phone ? formatPhoneLocal(d.phone) : "");
     setDentistSalaryRate(d.salary_rate != null ? String(d.salary_rate) : "");
-    setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistExistingInvite(null);
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
     setDentistPhotoPreview(d.photo_url ?? null);
     setDentistDeleteText("");
+    // Check for existing pending invite linked to this dentist
+    const { data: existingInvite } = await supabase
+      .from("staff_invites")
+      .select("id, email, role, status, created_at, expires_at")
+      .eq("clinic_id", clinicId)
+      .eq("status", "pending")
+      .eq("dentist_id", d.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingInvite) {
+      setDentistExistingInvite(existingInvite as InviteRow);
+      setDentistInviteEmail((existingInvite as InviteRow).email);
+    }
     setShowAddDentistModal(true);
   }
   function closeDentistModal() {
@@ -546,7 +562,7 @@ export default function TeamSettingsPage() {
     setDentistPhotoFile(null); setDentistPhotoPreview(null);
     setShowAddDentistModal(false); setEditingDentist(null);
     setDentistName(""); setDentistNickname(""); setDentistDob(""); setDentistPrc(""); setDentistPtr("");
-    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistExistingInvite(null);
   }
   async function saveDentist() {
     if (!dentistName.trim()) return;
@@ -562,7 +578,7 @@ export default function TeamSettingsPage() {
         nickname: dentistNickname.trim() || null, date_of_birth: dentistDob || null,
         prc_number: dentistPrc.trim() || null, ptr_number: dentistPtr ? parseInt(dentistPtr) : null,
         color: assignedColor, specialty: dentistSpecialty || null,
-        phone: dentistPhone.trim() || null,
+        phone: dentistPhone.replace(/\D/g, "") || null,
         salary_rate: dentistSalaryRate ? Number(dentistSalaryRate) : null,
       };
       let dentistId: string;
@@ -643,9 +659,9 @@ export default function TeamSettingsPage() {
   }
   async function openEditStaff(s: StaffRow) {
     setEditingStaff(s); setStaffName(s.full_name);
-    setStaffRole(s.role); setStaffDob(s.date_of_birth ?? ""); setStaffPhone(s.phone ?? "");
+    setStaffRole(s.role); setStaffDob(s.date_of_birth ?? ""); setStaffPhone(s.phone ? formatPhoneLocal(s.phone) : "");
     setStaffSalaryRate(s.salary_rate != null ? String(s.salary_rate) : "");
-    setInviteEmail(""); setInviteSuccess(null);
+    setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(s.photo_url ?? null);
@@ -655,6 +671,20 @@ export default function TeamSettingsPage() {
       .eq("staff_id", s.id)
       .eq("clinic_id", clinicId);
     setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
+    // Check for existing pending invite for staff role at this clinic
+    const { data: existingInvite } = await supabase
+      .from("staff_invites")
+      .select("id, email, role, status, created_at, expires_at")
+      .eq("clinic_id", clinicId)
+      .eq("status", "pending")
+      .eq("role", "staff")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingInvite) {
+      setStaffExistingInvite(existingInvite as InviteRow);
+      setInviteEmail((existingInvite as InviteRow).email);
+    }
     setStaffDeleteText("");
     setShowAddStaffModal(true);
   }
@@ -664,7 +694,7 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -675,7 +705,7 @@ export default function TeamSettingsPage() {
         nickname: null,
         role: staffRole.trim(), date_of_birth: staffDob || null,
         can_access_clinical: staffHandlerDentistIds.length > 0,
-        phone: staffPhone.trim() || null,
+        phone: staffPhone.replace(/\D/g, "") || null,
         salary_rate: staffSalaryRate ? Number(staffSalaryRate) : null,
       };
       let staffId: string;
@@ -1629,7 +1659,10 @@ export default function TeamSettingsPage() {
               className="field-input"
               placeholder="09XX XXX XXXX"
               value={dentistPhone}
-              onChange={(e) => setDentistPhone(e.target.value)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                setDentistPhone(formatPhoneLocal(digits));
+              }}
               disabled={busy}
             />
           </label>
@@ -1652,7 +1685,7 @@ export default function TeamSettingsPage() {
                   onChange={(e) => setDentistInviteEmail(e.target.value)}
                   disabled={busy || !isPro}
                 />
-                {editingDentist && (
+                {editingDentist && !dentistExistingInvite && (
                   <button
                     type="button"
                     className="save-btn shrink-0"
@@ -1663,6 +1696,35 @@ export default function TeamSettingsPage() {
                   </button>
                 )}
               </div>
+              {dentistExistingInvite && (
+                <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                  <span className="text-xs text-amber-700">
+                    ⏳ Invite pending — expires {formatDateStandard(dentistExistingInvite.expires_at.split("T")[0])}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                      onClick={() => void resendInvite(dentistExistingInvite)}
+                      disabled={busy}
+                    >
+                      Resend
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-red-500 hover:text-red-700"
+                      onClick={() => {
+                        void cancelInvite(dentistExistingInvite.id);
+                        setDentistExistingInvite(null);
+                        setDentistInviteEmail("");
+                      }}
+                      disabled={busy}
+                    >
+                      Cancel invite
+                    </button>
+                  </div>
+                </div>
+              )}
               {!isPro && <p className="hint-text mt-1">Requires Pro plan.</p>}
             </div>
           )}
@@ -1767,7 +1829,10 @@ export default function TeamSettingsPage() {
               className="field-input"
               placeholder="09XX XXX XXXX"
               value={staffPhone}
-              onChange={(e) => setStaffPhone(e.target.value)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                setStaffPhone(formatPhoneLocal(digits));
+              }}
               disabled={busy}
             />
           </label>
@@ -1790,7 +1855,7 @@ export default function TeamSettingsPage() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   disabled={busy || atStaffLimit}
                 />
-                {editingStaff && (
+                {editingStaff && !staffExistingInvite && (
                   <button
                     type="button"
                     className="save-btn shrink-0"
@@ -1801,6 +1866,35 @@ export default function TeamSettingsPage() {
                   </button>
                 )}
               </div>
+              {staffExistingInvite && (
+                <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                  <span className="text-xs text-amber-700">
+                    ⏳ Invite pending — expires {formatDateStandard(staffExistingInvite.expires_at.split("T")[0])}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                      onClick={() => void resendInvite(staffExistingInvite)}
+                      disabled={busy}
+                    >
+                      Resend
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-red-500 hover:text-red-700"
+                      onClick={() => {
+                        void cancelInvite(staffExistingInvite.id);
+                        setStaffExistingInvite(null);
+                        setInviteEmail("");
+                      }}
+                      disabled={busy}
+                    >
+                      Cancel invite
+                    </button>
+                  </div>
+                </div>
+              )}
               {atStaffLimit && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
             </div>
           )}

@@ -16,6 +16,15 @@ Add both of the following:
 
 ---
 
+## Color notes (teal-sage gradient)
+
+The app background gradient uses `hsl(175 52% 52%)` (teal) → `hsl(150 42% 55%)` (sage green).
+These are too light for button text. For email CTA buttons, darkened equivalents are used:
+- Teal: `#0d9488` (≈ hsl(175, 68%, 31%))
+- Sage green: `#2d8b55` (≈ hsl(150, 51%, 36%))
+
+---
+
 ## Template 1 — Confirm signup
 
 **Subject:** `Confirm your Molaris account`
@@ -28,55 +37,59 @@ Add both of the following:
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Confirm your email — Molaris</title>
 </head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,hsl(205,62%,56%) 0%,hsl(175,52%,52%) 50%,hsl(150,42%,55%) 100%);min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="min-height:100vh;">
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
-      <td align="center" valign="middle" style="padding:40px 16px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;">
+      <td align="center" style="padding:40px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+          <!-- Card -->
           <tr>
-            <td style="background:rgba(255,255,255,0.97);border-radius:20px;padding:40px 36px;box-shadow:0 24px 80px rgba(0,0,0,0.18),0 4px 16px rgba(59,130,246,0.12);">
+            <td style="background:#ffffff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08);padding:40px 36px;">
+              <!-- Header -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center" style="padding-bottom:28px;">
-                    <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,hsl(210,58%,36%) 0%,hsl(210,58%,54%) 100%);display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-                      <span style="color:white;font-size:24px;font-weight:800;line-height:1;">M</span>
-                    </div>
-                    <br />
-                    <span style="font-size:22px;font-weight:800;color:#1e293b;letter-spacing:-0.5px;">Molaris</span>
-                    <br />
-                    <span style="font-size:13px;color:#64748b;">Clinic Management Portal</span>
+                  <td align="center" style="padding-bottom:24px;">
+                    <img src="{{ .SiteURL }}/web-app-manifest-192x192.png" width="64" height="64"
+                         alt="Molaris"
+                         style="border-radius:14px;display:block;margin:0 auto 12px;object-fit:cover;" />
+                    <span style="display:block;font-size:20px;font-weight:700;color:#111827;letter-spacing:-0.3px;">Molaris</span>
+                    <span style="display:block;font-size:12px;color:#6b7280;margin-top:4px;">Clinic Management Portal</span>
                   </td>
                 </tr>
               </table>
-              <div style="height:1px;background:linear-gradient(to right,transparent,rgba(59,130,246,0.20),transparent);margin-bottom:28px;"></div>
-              <h1 style="margin:0 0 10px;font-size:20px;font-weight:700;color:#1e293b;text-align:center;">Confirm your email</h1>
-              <p style="margin:0 0 28px;font-size:14px;color:#64748b;text-align:center;line-height:1.6;">
+              <!-- Title -->
+              <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;text-align:center;">
+                Confirm your email address
+              </h1>
+              <!-- Body -->
+              <p style="margin:0 0 28px;font-size:14px;color:#4b5563;text-align:center;line-height:1.65;">
                 Thanks for signing up for Molaris! Click the button below to confirm your email and finish setting up your clinic account.
               </p>
+              <!-- CTA -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center">
+                  <td align="center" style="padding-bottom:24px;">
                     <a href="{{ .ConfirmationURL }}"
-                       style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,hsl(210,58%,36%) 0%,hsl(210,58%,54%) 100%);color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(59,130,246,0.35);">
-                      Confirm Email Address
+                       style="display:inline-block;background:linear-gradient(135deg,#0d9488,#2d8b55);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:8px;letter-spacing:0.2px;">
+                      Confirm Email Address →
                     </a>
                   </td>
                 </tr>
               </table>
-              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;">
-                Button not working? Copy and paste this link:<br />
-                <a href="{{ .ConfirmationURL }}" style="color:hsl(210,58%,44%);word-break:break-all;">{{ .ConfirmationURL }}</a>
-              </p>
-              <div style="height:1px;background:linear-gradient(to right,transparent,rgba(59,130,246,0.15),transparent);margin:28px 0 20px;"></div>
-              <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
-                This link expires in 60 minutes. If you didn&rsquo;t create a Molaris account, you can safely ignore this email.
-              </p>
+              <!-- Note -->
+              <div style="border-top:1px solid #f3f4f6;padding-top:20px;">
+                <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
+                  This link expires in 60 minutes. If you didn't sign up for Molaris, you can safely ignore this email.
+                </p>
+              </div>
             </td>
           </tr>
+          <!-- Footer -->
           <tr>
-            <td align="center" style="padding-top:20px;">
-              <span style="font-size:12px;color:rgba(255,255,255,0.70);">Powered by </span>
-              <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.90);">Beanstack Studio · Molaris Clinic Management</span>
+            <td align="center" style="padding:16px 32px;">
+              <p style="margin:0;font-size:11px;color:#9ca3af;">
+                Powered by Beanstack Studio &middot; Molaris Clinic Management
+              </p>
             </td>
           </tr>
         </table>
@@ -93,7 +106,7 @@ Add both of the following:
 
 **Subject:** `You've been invited to join {{ .Data.clinic_name }} on Molaris`
 
-> ⚠️ Also set the redirect URL in this template to: `https://molaris-app-opal.vercel.app/join`
+> Also set the redirect URL in Supabase for this template to: `https://molaris-app-opal.vercel.app/join`
 
 ```html
 <!DOCTYPE html>
@@ -101,73 +114,61 @@ Add both of the following:
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>You're invited to Molaris</title>
+  <title>You're invited — Molaris</title>
 </head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,hsl(205,62%,56%) 0%,hsl(175,52%,52%) 50%,hsl(150,42%,55%) 100%);min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="min-height:100vh;">
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
-      <td align="center" valign="middle" style="padding:40px 16px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;">
+      <td align="center" style="padding:40px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+          <!-- Card -->
           <tr>
-            <td style="background:rgba(255,255,255,0.97);border-radius:20px;padding:40px 36px;box-shadow:0 24px 80px rgba(0,0,0,0.18),0 4px 16px rgba(59,130,246,0.12);">
+            <td style="background:#ffffff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08);padding:40px 36px;">
+              <!-- Header -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center" style="padding-bottom:28px;">
-                    <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,hsl(210,58%,36%) 0%,hsl(210,58%,54%) 100%);display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-                      <span style="color:white;font-size:24px;font-weight:800;line-height:1;">M</span>
-                    </div>
-                    <br />
-                    <span style="font-size:22px;font-weight:800;color:#1e293b;letter-spacing:-0.5px;">Molaris</span>
-                    <br />
-                    <span style="font-size:13px;color:#64748b;">Clinic Management Portal</span>
+                  <td align="center" style="padding-bottom:24px;">
+                    <img src="{{ .SiteURL }}/web-app-manifest-192x192.png" width="64" height="64"
+                         alt="Molaris"
+                         style="border-radius:14px;display:block;margin:0 auto 12px;object-fit:cover;" />
+                    <span style="display:block;font-size:20px;font-weight:700;color:#111827;letter-spacing:-0.3px;">Molaris</span>
+                    <span style="display:block;font-size:12px;color:#6b7280;margin-top:4px;">Clinic Management Portal</span>
                   </td>
                 </tr>
               </table>
-              <div style="height:1px;background:linear-gradient(to right,transparent,rgba(59,130,246,0.20),transparent);margin-bottom:28px;"></div>
-              <div style="background:linear-gradient(135deg,rgba(219,234,254,0.8) 0%,rgba(191,219,254,0.6) 100%);border:1px solid rgba(59,130,246,0.20);border-radius:12px;padding:14px 18px;margin-bottom:24px;text-align:center;">
-                <span style="font-size:13px;font-weight:600;color:hsl(210,58%,38%);">You've been invited to join a clinic</span>
-              </div>
-              <h1 style="margin:0 0 10px;font-size:20px;font-weight:700;color:#1e293b;text-align:center;">You're invited!</h1>
-              <p style="margin:0 0 28px;font-size:14px;color:#64748b;text-align:center;line-height:1.6;">
-                {{ .Data.inviter_name }} has invited you to join {{ .Data.clinic_name }} on Molaris as a team member. Click the button below to set up your password and access the clinic portal.
+              <!-- Title -->
+              <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;text-align:center;">
+                You've been invited!
+              </h1>
+              <!-- Body -->
+              <p style="margin:0 0 28px;font-size:14px;color:#4b5563;text-align:center;line-height:1.65;">
+                {{ .Data.inviter_name }} has invited you to join <strong>{{ .Data.clinic_name }}</strong> on Molaris as a team member. Click the button below to set up your password and access the clinic portal.
               </p>
+              <!-- CTA -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center">
+                  <td align="center" style="padding-bottom:24px;">
                     <a href="{{ .ConfirmationURL }}"
-                       style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,hsl(210,58%,36%) 0%,hsl(210,58%,54%) 100%);color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(59,130,246,0.35);">
-                      Accept Invitation
+                       style="display:inline-block;background:linear-gradient(135deg,#0d9488,#2d8b55);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:8px;letter-spacing:0.2px;">
+                      Accept Invitation →
                     </a>
                   </td>
                 </tr>
               </table>
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;">
-                <tr>
-                  <td style="background:rgba(241,245,249,0.80);border-radius:12px;padding:16px 18px;">
-                    <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.8px;">What happens next</p>
-                    <p style="margin:0;font-size:13px;color:#64748b;line-height:1.7;">
-                      1. Click &ldquo;Accept Invitation&rdquo;<br />
-                      2. Set your password<br />
-                      3. Sign in to the clinic portal<br />
-                      4. Your admin will assign your role and access
-                    </p>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;">
-                Button not working? Copy and paste this link:<br />
-                <a href="{{ .ConfirmationURL }}" style="color:hsl(210,58%,44%);word-break:break-all;">{{ .ConfirmationURL }}</a>
-              </p>
-              <div style="height:1px;background:linear-gradient(to right,transparent,rgba(59,130,246,0.15),transparent);margin:24px 0 20px;"></div>
-              <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
-                This link expires in 7 days. If you didn&rsquo;t expect this invite, you can safely ignore this email.
-              </p>
+              <!-- Note -->
+              <div style="border-top:1px solid #f3f4f6;padding-top:20px;">
+                <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
+                  This link expires in 7 days. If you weren't expecting this invite, you can safely ignore this email.
+                </p>
+              </div>
             </td>
           </tr>
+          <!-- Footer -->
           <tr>
-            <td align="center" style="padding-top:20px;">
-              <span style="font-size:12px;color:rgba(255,255,255,0.70);">Powered by </span>
-              <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.90);">Beanstack Studio · Molaris Clinic Management</span>
+            <td align="center" style="padding:16px 32px;">
+              <p style="margin:0;font-size:11px;color:#9ca3af;">
+                Powered by Beanstack Studio &middot; Molaris Clinic Management
+              </p>
             </td>
           </tr>
         </table>
@@ -190,57 +191,61 @@ Add both of the following:
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reset your Molaris password</title>
+  <title>Reset your password — Molaris</title>
 </head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,hsl(205,62%,56%) 0%,hsl(175,52%,52%) 50%,hsl(150,42%,55%) 100%);min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="min-height:100vh;">
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
-      <td align="center" valign="middle" style="padding:40px 16px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;">
+      <td align="center" style="padding:40px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+          <!-- Card -->
           <tr>
-            <td style="background:rgba(255,255,255,0.97);border-radius:20px;padding:40px 36px;box-shadow:0 24px 80px rgba(0,0,0,0.18),0 4px 16px rgba(59,130,246,0.12);">
+            <td style="background:#ffffff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.08);padding:40px 36px;">
+              <!-- Header -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center" style="padding-bottom:28px;">
-                    <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,hsl(210,58%,36%) 0%,hsl(210,58%,54%) 100%);display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
-                      <span style="color:white;font-size:24px;font-weight:800;line-height:1;">M</span>
-                    </div>
-                    <br />
-                    <span style="font-size:22px;font-weight:800;color:#1e293b;letter-spacing:-0.5px;">Molaris</span>
-                    <br />
-                    <span style="font-size:13px;color:#64748b;">Clinic Management Portal</span>
+                  <td align="center" style="padding-bottom:24px;">
+                    <img src="{{ .SiteURL }}/web-app-manifest-192x192.png" width="64" height="64"
+                         alt="Molaris"
+                         style="border-radius:14px;display:block;margin:0 auto 12px;object-fit:cover;" />
+                    <span style="display:block;font-size:20px;font-weight:700;color:#111827;letter-spacing:-0.3px;">Molaris</span>
+                    <span style="display:block;font-size:12px;color:#6b7280;margin-top:4px;">Clinic Management Portal</span>
                   </td>
                 </tr>
               </table>
-              <div style="height:1px;background:linear-gradient(to right,transparent,rgba(59,130,246,0.20),transparent);margin-bottom:28px;"></div>
-              <h1 style="margin:0 0 10px;font-size:20px;font-weight:700;color:#1e293b;text-align:center;">Reset your password</h1>
-              <p style="margin:0 0 28px;font-size:14px;color:#64748b;text-align:center;line-height:1.6;">
+              <!-- Title -->
+              <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;text-align:center;">
+                Reset your password
+              </h1>
+              <!-- Body -->
+              <p style="margin:0 0 28px;font-size:14px;color:#4b5563;text-align:center;line-height:1.65;">
                 We received a request to reset the password for your Molaris account. Click the button below to choose a new password.
               </p>
+              <!-- CTA -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td align="center">
+                  <td align="center" style="padding-bottom:24px;">
                     <a href="{{ .ConfirmationURL }}"
-                       style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,hsl(210,58%,36%) 0%,hsl(210,58%,54%) 100%);color:#ffffff;text-decoration:none;border-radius:999px;font-size:15px;font-weight:700;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(59,130,246,0.35);">
-                      Reset Password
+                       style="display:inline-block;background:linear-gradient(135deg,#0d9488,#2d8b55);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:8px;letter-spacing:0.2px;">
+                      Reset Password →
                     </a>
                   </td>
                 </tr>
               </table>
-              <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;">
-                Button not working? Copy and paste this link:<br />
-                <a href="{{ .ConfirmationURL }}" style="color:hsl(210,58%,44%);word-break:break-all;">{{ .ConfirmationURL }}</a>
-              </p>
-              <div style="height:1px;background:linear-gradient(to right,transparent,rgba(59,130,246,0.15),transparent);margin:28px 0 20px;"></div>
-              <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
-                This link expires in 60 minutes. If you didn&rsquo;t request a password reset, you can safely ignore this email.
-              </p>
+              <!-- Note -->
+              <div style="border-top:1px solid #f3f4f6;padding-top:20px;">
+                <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
+                  This link expires in 60 minutes. If you didn't request a password reset, you can safely ignore this email.
+                </p>
+              </div>
             </td>
           </tr>
+          <!-- Footer -->
           <tr>
-            <td align="center" style="padding-top:20px;">
-              <span style="font-size:12px;color:rgba(255,255,255,0.70);">Powered by </span>
-              <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.90);">Beanstack Studio · Molaris Clinic Management</span>
+            <td align="center" style="padding:16px 32px;">
+              <p style="margin:0;font-size:11px;color:#9ca3af;">
+                Powered by Beanstack Studio &middot; Molaris Clinic Management
+              </p>
             </td>
           </tr>
         </table>
