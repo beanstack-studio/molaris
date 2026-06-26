@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -10,7 +12,7 @@ interface JoinCompleteBody {
 }
 
 export async function POST(req: NextRequest) {
-  // Verify the calling user via session cookie
+  // Verify the calling user — cookie first, Authorization header fallback
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,9 +29,21 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser();
+
+  let user = cookieUser;
+  if (cookieError || !cookieUser) {
+    // Fallback: verify via Authorization header token
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "").trim();
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { data: { user: headerUser }, error: headerError } = await supabaseAdmin.auth.getUser(token);
+    if (headerError || !headerUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    user = headerUser;
   }
 
   const body = await req.json() as JoinCompleteBody;
@@ -44,10 +58,10 @@ export async function POST(req: NextRequest) {
     .from("profiles")
     .upsert(
       {
-        id: user.id,
+        id: user!.id,
         clinic_id: clinicId,
         role,
-        email: user.email ?? null,
+        email: user!.email ?? null,
         full_name: null,
       },
       { onConflict: "id" }
@@ -61,17 +75,17 @@ export async function POST(req: NextRequest) {
   if (dentistId) {
     await supabaseAdmin
       .from("dentists")
-      .update({ profile_id: user.id })
+      .update({ profile_id: user!.id })
       .eq("id", dentistId)
       .eq("clinic_id", clinicId);
   }
 
   // 3. Mark invite as accepted
-  if (user.email) {
+  if (user!.email) {
     await supabaseAdmin
       .from("staff_invites")
       .update({ status: "accepted" })
-      .eq("email", user.email.toLowerCase())
+      .eq("email", user!.email.toLowerCase())
       .eq("clinic_id", clinicId)
       .eq("status", "pending");
   }

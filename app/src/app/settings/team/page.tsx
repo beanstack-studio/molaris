@@ -110,6 +110,7 @@ type StaffRow = {
   can_access_clinical: boolean | null;
   photo_url: string | null; phone: string | null;
   salary_rate: number | null;
+  profile_id: string | null;
 };
 type InviteRow = {
   id: string; email: string; role: string;
@@ -325,25 +326,29 @@ export default function TeamSettingsPage() {
       try {
         const handlerRes = await supabase
           .from("dentist_handlers")
-          .select("staff_id, dentist_id")
+          .select("profile_id, dentist_id")
           .eq("clinic_id", clinicId);
         if (!handlerRes.error && handlerRes.data && staffRes.data && dentistRes.data) {
           const loadedDentistMap = new Map<string, DentistRow>(loadedDentists.map((d) => [d.id, d]));
-          const staffMap = new Map<string, StaffRow>(loadedStaff.map((s) => [s.id, s]));
+          // Key by profile_id since dentist_handlers uses profile_id (not staff.id)
+          const staffByProfileId = new Map<string, StaffRow>();
+          for (const s of loadedStaff) {
+            if (s.profile_id) staffByProfileId.set(s.profile_id, s);
+          }
           const groupMap = new Map<string, HandlerGroupRow>();
-          for (const row of handlerRes.data as { staff_id: string; dentist_id: string }[]) {
-            const staffMember = staffMap.get(row.staff_id);
+          for (const row of handlerRes.data as { profile_id: string; dentist_id: string }[]) {
+            const staffMember = staffByProfileId.get(row.profile_id);
             const dentist = loadedDentistMap.get(row.dentist_id);
             if (!staffMember || !dentist) continue;
-            if (!groupMap.has(row.staff_id)) {
-              groupMap.set(row.staff_id, {
-                staffId: row.staff_id,
+            if (!groupMap.has(staffMember.id)) {
+              groupMap.set(staffMember.id, {
+                staffId: staffMember.id,
                 staffName: staffMember.full_name,
                 staffNickname: staffMember.nickname ?? null,
                 dentists: [],
               });
             }
-            groupMap.get(row.staff_id)!.dentists.push({
+            groupMap.get(staffMember.id)!.dentists.push({
               id: dentist.id,
               full_name: dentist.full_name,
               nickname: dentist.nickname ?? null,
@@ -665,12 +670,16 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(s.photo_url ?? null);
-    const { data: hRows } = await supabase
-      .from("dentist_handlers")
-      .select("dentist_id")
-      .eq("staff_id", s.id)
-      .eq("clinic_id", clinicId);
-    setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
+    if (s.profile_id) {
+      const { data: hRows } = await supabase
+        .from("dentist_handlers")
+        .select("dentist_id")
+        .eq("profile_id", s.profile_id)
+        .eq("clinic_id", clinicId);
+      setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
+    } else {
+      setStaffHandlerDentistIds([]);
+    }
     // Check for existing pending invite for staff role at this clinic
     const { data: existingInvite } = await supabase
       .from("staff_invites")
@@ -722,25 +731,39 @@ export default function TeamSettingsPage() {
         if (error) throw error;
         staffId = (data as { id: string }).id;
       }
-      const { data: existingHandlers } = await supabase
-        .from("dentist_handlers")
-        .select("dentist_id")
-        .eq("staff_id", staffId)
-        .eq("clinic_id", clinicId);
-      const existingIds = (existingHandlers ?? []).map((h: { dentist_id: string }) => h.dentist_id);
-      const toRemove = existingIds.filter((id) => !staffHandlerDentistIds.includes(id));
-      const toAdd = staffHandlerDentistIds.filter((id) => !existingIds.includes(id));
-      if (toRemove.length > 0) {
-        await supabase.from("dentist_handlers").delete()
-          .eq("staff_id", staffId).eq("clinic_id", clinicId).in("dentist_id", toRemove);
-      }
-      if (toAdd.length > 0) {
-        await supabase.from("dentist_handlers").insert(
-          toAdd.map((dentistId) => ({
-            clinic_id: clinicId, staff_id: staffId, dentist_id: dentistId,
-            can_record_treatments: true, can_create_invoices: true,
-          }))
-        );
+      // dentist_handlers uses profile_id (the auth UUID), not staff.id
+      // Handler assignment only possible for staff who have accepted their invite
+      const staffProfileId = editingStaff?.profile_id ?? null;
+      if (staffProfileId) {
+        // Upsert checked dentists
+        if (staffHandlerDentistIds.length > 0) {
+          await supabase
+            .from("dentist_handlers")
+            .upsert(
+              staffHandlerDentistIds.map((dentistId) => ({
+                clinic_id: clinicId,
+                dentist_id: dentistId,
+                profile_id: staffProfileId,
+                can_record_treatments: true,
+                can_create_invoices: true,
+              })),
+              { onConflict: "clinic_id,dentist_id,profile_id" }
+            );
+        }
+        // Remove unchecked dentists
+        const { data: existingHandlers } = await supabase
+          .from("dentist_handlers")
+          .select("dentist_id")
+          .eq("profile_id", staffProfileId)
+          .eq("clinic_id", clinicId);
+        const existingIds = (existingHandlers ?? []).map((h: { dentist_id: string }) => h.dentist_id);
+        const toRemove = existingIds.filter((id) => !staffHandlerDentistIds.includes(id));
+        if (toRemove.length > 0) {
+          await supabase.from("dentist_handlers").delete()
+            .eq("profile_id", staffProfileId)
+            .eq("clinic_id", clinicId)
+            .in("dentist_id", toRemove);
+        }
       }
       if (staffPhotoFile) {
         const ext = staffPhotoFile.name.split(".").pop() ?? "jpg";
@@ -762,7 +785,12 @@ export default function TeamSettingsPage() {
   async function deleteStaff(id: string) {
     if (staffDeleteText !== "DELETE") return;
     setBusy(true);
-    await supabase.from("dentist_handlers").delete().eq("staff_id", id).eq("clinic_id", clinicId);
+    const staffMember = staff.find((s) => s.id === id);
+    if (staffMember?.profile_id) {
+      await supabase.from("dentist_handlers").delete()
+        .eq("profile_id", staffMember.profile_id)
+        .eq("clinic_id", clinicId);
+    }
     const { error } = await supabase.from("staff").delete().eq("id", id);
     if (error) setError(error.message);
     else { closeStaffModal(); await loadData(); }

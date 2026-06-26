@@ -9,6 +9,8 @@
  * Add to Redirect URLs: https://molaris-app-opal.vercel.app/join
  */
 
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -24,7 +26,7 @@ interface InviteBody {
 }
 
 export async function POST(req: NextRequest) {
-  // 1. Verify calling user via session cookie
+  // 1. Verify calling user — cookie first, Authorization header fallback
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,9 +43,21 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  const { data: { user: callingUser }, error: authError } = await supabase.auth.getUser();
-  if (authError || !callingUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser();
+
+  let callingUser = cookieUser;
+  if (cookieError || !cookieUser) {
+    // Fallback: verify via Authorization header token
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "").trim();
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { data: { user: headerUser }, error: headerError } = await supabaseAdmin.auth.getUser(token);
+    if (headerError || !headerUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    callingUser = headerUser;
   }
 
   // 2. Parse and validate body
@@ -58,7 +72,7 @@ export async function POST(req: NextRequest) {
   const { data: callerProfile } = await supabaseAdmin
     .from("profiles")
     .select("role, clinic_id")
-    .eq("id", callingUser.id)
+    .eq("id", callingUser!.id)
     .maybeSingle();
 
   if (!callerProfile || callerProfile.clinic_id !== clinicId || callerProfile.role !== "admin") {
@@ -105,7 +119,7 @@ export async function POST(req: NextRequest) {
     email: normalizedEmail,
     role,
     dentist_id: dentistId ?? null,
-    invited_by: callingUser.id,
+    invited_by: callingUser!.id,
     token: crypto.randomUUID(),
     status: "pending",
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),

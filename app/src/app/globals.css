@@ -1541,7 +1541,7 @@ html.dark .readonly-input {
 /* Auth pages — shared button for /login, /join, /reset-password */
 .auth-btn {
   @apply w-full bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold
-         py-3.5 px-10 rounded-lg tracking-wide transition-colors disabled:opacity-60
+         py-3.5 px-10 rounded-full tracking-wide transition-colors disabled:opacity-60
          disabled:cursor-not-allowed;
 }
 

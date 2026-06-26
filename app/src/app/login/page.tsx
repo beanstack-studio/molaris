@@ -85,22 +85,8 @@ export default function LoginPage() {
     setSignupSuccess(true);
   }
 
-  // Compute AuthCard title/subtitle above the return (no logic in JSX)
-  let cardTitle: string;
-  let cardSubtitle: string;
-  if (showForgot) {
-    cardTitle = "Forgot your password?";
-    cardSubtitle = "Enter your email and we\u2019ll send you a reset link.";
-  } else if (tab === "signup") {
-    cardTitle = "Create clinic account";
-    cardSubtitle = "For clinic owners only.";
-  } else {
-    cardTitle = "Welcome back";
-    cardSubtitle = "Sign in to your clinic portal";
-  }
-
   return (
-    <AuthCard title={cardTitle} subtitle={cardSubtitle}>
+    <AuthCard>
 
       {/* Tab strip — hidden during forgot-password flow */}
       {!showForgot && (
@@ -169,6 +155,10 @@ export default function LoginPage() {
       {/* ── Forgot password ── */}
       {tab === "signin" && showForgot && (
         <form onSubmit={onSendReset} className="flex flex-col gap-4">
+          <div className="text-center mb-1">
+            <p className="text-base font-semibold text-gray-900">Forgot your password?</p>
+            <p className="text-xs text-gray-500 mt-1">Enter your email and we&rsquo;ll send you a reset link.</p>
+          </div>
           {resetSent ? (
             <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700 text-center font-medium">
               Reset link sent! Check your email.
@@ -220,6 +210,9 @@ export default function LoginPage() {
           </div>
         ) : (
           <form onSubmit={onSignUp} className="flex flex-col gap-4">
+            <div className="text-center mb-1">
+              <p className="text-base font-semibold text-gray-900">Create clinic account</p>
+            </div>
             <p className="text-xs text-gray-400 leading-relaxed bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
               For clinic owners only. Staff receive an email invite from their owner.
             </p>
