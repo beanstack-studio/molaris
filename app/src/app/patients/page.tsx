@@ -93,7 +93,7 @@ function daysBetween(isoDate: string): number {
 
 export default function PatientsPage() {
   const router = useRouter();
-  const { clinicId, isLoading: clinicLoading } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isPro } = useClinic();
 
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +123,9 @@ export default function PatientsPage() {
   const [middleName, setMiddleName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const PATIENT_LIMIT_FREE = 100;
+  const patientLimitReached = !isPro && patients.length >= PATIENT_LIMIT_FREE;
 
   async function enrichPatients(basePatients: PatientRow[]) {
     try {
@@ -556,11 +559,25 @@ export default function PatientsPage() {
                 Filters active ×
               </button>
             )}
-            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-              Add patient
-            </button>
+            {!patientLimitReached && (
+              <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+                Add patient
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Free plan patient limit banner */}
+        {patientLimitReached && (
+          <div className="mx-1 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-800">
+              You&apos;ve reached the 100-patient limit on the Free plan. Upgrade to Pro for unlimited patients.
+            </p>
+            <a href="/settings/billing" className="cancel-btn text-sm shrink-0 inline-flex items-center gap-1">
+              Upgrade →
+            </a>
+          </div>
+        )}
 
         {/* Error banner with retry */}
         {!loading && error && (

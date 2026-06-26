@@ -72,7 +72,7 @@ export type MedHist = {
   conditions: any;
 };
 
-export type DentistRow = { id: string; full_name: string; nickname?: string | null; color?: string | null };
+export type DentistRow = { id: string; full_name: string; nickname?: string | null; color?: string | null; profile_id?: string | null };
 
 /** Returns nickname if set, otherwise full_name */
 export function dentistLabel(d: Pick<DentistRow, "full_name" | "nickname">) {

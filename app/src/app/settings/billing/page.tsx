@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
-import { FeatureGate } from "@/components/shared/FeatureGate";
 
 function IconCheck() {
   return (
@@ -164,9 +165,16 @@ function BillingContent() {
 }
 
 export default function PlanBillingPage() {
-  return (
-    <FeatureGate feature="plan_billing" message="Plan & Billing is only accessible to clinic admins.">
-      <BillingContent />
-    </FeatureGate>
-  );
+  const { isAdmin, isLoading } = useClinic();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAdmin) {
+      router.replace("/settings/account");
+    }
+  }, [isLoading, isAdmin, router]);
+
+  if (isLoading || !isAdmin) return null;
+
+  return <BillingContent />;
 }

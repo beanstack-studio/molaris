@@ -25,7 +25,7 @@ interface MobileNavItem {
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isAdmin, isLoading } = useClinic();
+  const { isAdmin, isPro, isLoading } = useClinic();
 
   if (isLoading) {
     return (
@@ -38,10 +38,11 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   // Mobile tab items — ordered to match spec groupings
   const mobileSettingsItems: MobileNavItem[] = [
     // CLINIC
-    { label: "Profile",    href: "/settings/clinic-profile" },
-    { label: "Team",       href: "/settings/team" },
-    { label: "Services",   href: "/settings/services",           show: isAdmin },
-    { label: "Documents",  href: "/settings/document-templates", show: isAdmin },
+    { label: "Profile",                      href: "/settings/clinic-profile" },
+    { label: "Team",                         href: "/settings/team" },
+    { label: isAdmin ? "Services" : "Services 🔒", href: "/settings/services" },
+    { label: isAdmin ? "Documents" : "Documents 🔒", href: "/settings/document-templates" },
+    { label: isPro ? "Calendar Sync" : "Calendar Sync 🔒", href: "/settings/calendar-sync" },
     // ACCOUNT
     { label: "Account",    href: "/settings/account" },
     { label: "Billing",    href: "/settings/billing",           show: isAdmin },

@@ -222,7 +222,6 @@ const PRO_FEATURES = [
   'ortho',
   'documents',
   'calendar_sync',
-  'staff_handlers',
 ] as const
 
 const ADMIN_ONLY_FEATURES = [
@@ -230,6 +229,8 @@ const ADMIN_ONLY_FEATURES = [
   'manage_team',
   'edit_clinic_profile',
   'edit_catalog',
+  'void_payments',
+  'delete_patients',
 ] as const
 
 /**
@@ -250,15 +251,19 @@ export type ClinicalFeature = typeof CLINICAL_FEATURES[number]
 /**
  * Returns true if the current user has access to the requested feature.
  *
- * - Admin-only features → role === 'admin'
- * - Clinical features   → isAdmin || isDentist || isHandler (not Pro-gated)
- * - Pro features        → isPro
- * - Everything else     → true (all authenticated users)
+ * - Admin-only features       → role === 'admin'
+ * - Clinical features         → isAdmin || isDentist || isHandler (not Pro-gated)
+ * - Pro features              → isPro
+ * - staff_handlers            → isPro && isAdmin
+ * - verify_payments           → isAdmin || isStaff
+ * - Everything else           → true (all authenticated users)
  */
 export function useFeatureGate(feature: string): boolean {
-  const { isPro, isAdmin, isDentist, isHandler } = useClinic()
+  const { isPro, isAdmin, isDentist, isHandler, isStaff } = useClinic()
   if (ADMIN_ONLY_FEATURES.includes(feature as AdminFeature)) return isAdmin
   if (CLINICAL_FEATURES.includes(feature as ClinicalFeature)) return isAdmin || isDentist || isHandler
+  if (feature === 'staff_handlers') return isPro && isAdmin
+  if (feature === 'verify_payments') return isAdmin || isStaff
   if (PRO_FEATURES.includes(feature as ProFeature)) return isPro
   return true
 }

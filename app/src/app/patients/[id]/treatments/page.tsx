@@ -16,7 +16,7 @@ import { TableOptions, SortArrow, type ColumnConfig } from "@/components/shared/
 export default function TreatmentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, handlerFor } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, handlerFor, profileId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +119,7 @@ export default function TreatmentsPage() {
 
     const d = await supabase
       .from("dentists")
-      .select("id, full_name")
+      .select("id, full_name, nickname, profile_id")
       .eq("clinic_id", clinicId)
       .order("sort_order", { ascending: true })
       .order("full_name", { ascending: true });
@@ -180,7 +180,11 @@ export default function TreatmentsPage() {
   );
 
   const canWrite = isAdmin || isDentist || isHandler;
-  const filteredDentists = isAdmin || isDentist ? dentists : dentists.filter((d) => handlerFor.includes(d.id));
+  const filteredDentists = isAdmin
+    ? dentists
+    : isDentist
+      ? dentists.filter((d) => d.profile_id === profileId)
+      : dentists.filter((d) => handlerFor.includes(d.id));
 
   const patientLabel = patient
     ? formatPatientNameFormal(patient.first_name ?? null, patient.middle_name ?? null, patient.last_name ?? null)

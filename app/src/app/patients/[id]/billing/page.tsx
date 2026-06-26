@@ -44,8 +44,9 @@ function num(n: unknown) {
 function BillingPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, isStaff } = useClinic();
   const canCreateInvoice = isAdmin || isDentist || isHandler;
+  const canVerify = isAdmin || isStaff;
   const canVoid = isAdmin;
 
   const [loading, setLoading] = useState(true);
@@ -1258,7 +1259,7 @@ function BillingPage() {
                             </td>
                             <td className="data-table-cell-right">
                               <div className="flex gap-1 justify-end">
-                                {pay.status === 'pending' && !isVoided && (
+                                {pay.status === 'pending' && !isVoided && canVerify && (
                                   <button
                                     className="data-table-btn-warning"
                                     title="Verify this pending payment"
@@ -1360,7 +1361,7 @@ function BillingPage() {
                           </span>
                         </div>
                         <div className="mt-2 flex justify-end gap-1.5">
-                          {pay.status === 'pending' && !isVoided && (
+                          {pay.status === 'pending' && !isVoided && canVerify && (
                             <button className="data-table-btn-warning" disabled={busy} onClick={async () => { try { const { data: fullPayment, error } = await supabase.from("payments").select("*").eq("id", pay.id).eq("clinic_id", clinicId).single(); if (error) throw error; setVerifyingPaymentDetails(fullPayment); setVerifyingPaymentId(pay.id); setVerificationConfirmation(""); } catch { setError("Failed to load payment details"); } }}>Verify</button>
                           )}
                           {pay.status === 'verified' && !isVoided && (

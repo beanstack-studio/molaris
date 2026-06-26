@@ -34,7 +34,7 @@ const formatTime12Hr = (t: string) => {
 };
 
 export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, serviceMenu, defaultConcern }: Props) {
-  const { clinicId, isHandler } = useClinic();
+  const { clinicId, isHandler, isDentist } = useClinic();
   const [visitDate, setVisitDate] = useState(() => todayLocalISO());
   const [visitDentistId, setVisitDentistId] = useState("");
   const [visitConcern, setVisitConcern] = useState("");
@@ -49,8 +49,9 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
   useEffect(() => {
     if (open) {
       setVisitDate(todayLocalISO());
-      // Auto-select dentist for handlers with a single assignment
-      setVisitDentistId(isHandler && dentists.length === 1 ? dentists[0].id : "");
+      // Auto-select dentist when only one option available (handler with 1 assignment or dentist)
+      const singleDentist = (isHandler || isDentist) && dentists.length === 1 ? dentists[0].id : "";
+      setVisitDentistId(singleDentist);
       setVisitConcern(defaultConcern);
       setDraftLines([]);
       setBusy(false);
@@ -59,7 +60,7 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
       loadConfirmedAppts();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, defaultConcern, isHandler]);
+  }, [open, defaultConcern, isHandler, isDentist]);
 
   async function loadConfirmedAppts() {
     if (!patientId || !clinicId) return;
@@ -205,19 +206,27 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
               max={new Date().toISOString().split("T")[0]}
             />
           </div>
-          <div className="grid-gap-1 w-[60%]">
-            <label className="text-field-label">Dentist</label>
-            <select
-              className="input-full"
-              value={visitDentistId}
-              onChange={(e) => setVisitDentistId(e.target.value)}
-            >
-              <option value="">Select dentist…</option>
-              {dentists.map((d) => (
-                <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
-              ))}
-            </select>
-          </div>
+          {!isHandler && (
+            <div className="grid-gap-1 w-[60%]">
+              <label className="text-field-label">Dentist</label>
+              {isDentist && dentists.length === 1 ? (
+                <div className="input-full flex items-center h-10 px-3 text-sm text-slate-700 bg-slate-50 rounded-xl border border-slate-200">
+                  {dentistLabel(dentists[0])}
+                </div>
+              ) : (
+                <select
+                  className="input-full"
+                  value={visitDentistId}
+                  onChange={(e) => setVisitDentistId(e.target.value)}
+                >
+                  <option value="">Select dentist…</option>
+                  {dentists.map((d) => (
+                    <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Visit Concern */}

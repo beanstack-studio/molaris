@@ -60,7 +60,7 @@ export default function Page() {
   const params = useParams();
   const router = useRouter();
   const id = (params?.id as string) || "";
-  const { clinicId, isLoading: clinicLoading } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isAdmin } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -474,28 +474,32 @@ export default function Page() {
             <Toggle checked={editOrtho} onChange={(v) => setEditOrtho(v)} />
           </div>
 
-          <div className="delete-confirmation">
-            <div className="delete-confirmation-title">Delete Patient?</div>
-            <div className="delete-confirmation-hint">
-              Type <span className="delete-confirmation-code">DELETE</span> to confirm permanent deletion
+          {isAdmin && (
+            <div className="delete-confirmation">
+              <div className="delete-confirmation-title">Delete Patient?</div>
+              <div className="delete-confirmation-hint">
+                Type <span className="delete-confirmation-code">DELETE</span> to confirm permanent deletion
+              </div>
+              <input
+                type="text"
+                className="delete-confirmation-input"
+                placeholder="DELETE"
+                value={deletePatientText}
+                onChange={(e) => setDeletePatientText(e.target.value)}
+              />
             </div>
-            <input
-              type="text"
-              className="delete-confirmation-input"
-              placeholder="DELETE"
-              value={deletePatientText}
-              onChange={(e) => setDeletePatientText(e.target.value)}
-            />
-          </div>
+          )}
 
           <div className="modal-footer-spread">
-            <button
-              className="delete-btn"
-              disabled={busy || deletePatientText.trim().toUpperCase() !== "DELETE"}
-              onClick={deletePatient}
-            >
-              {busy ? "Deleting…" : "Delete"}
-            </button>
+            {isAdmin && (
+              <button
+                className="delete-btn"
+                disabled={busy || deletePatientText.trim().toUpperCase() !== "DELETE"}
+                onClick={deletePatient}
+              >
+                {busy ? "Deleting…" : "Delete"}
+              </button>
+            )}
             <div className="modal-footer-buttons">
               <button
                 className="cancel-btn"

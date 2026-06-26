@@ -1,8 +1,6 @@
 "use client";
 
-import { FeatureGate } from "@/components/shared/FeatureGate";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
 import { EditModal } from "@/components/EditModal";
@@ -63,9 +61,8 @@ function SortIndicator({ active, asc }: { active: boolean; asc: boolean }) {
 
 // ─── Combined page ─────────────────────────────────────────────────────────────
 
-function CatalogSettingsPage() {
+function CatalogSettingsPageInner() {
   const { clinicId, isAdmin, isLoading: clinicLoading } = useClinic();
-  const router = useRouter();
 
   // ── Services state ────────────────────────────────────────────────────────
   const [rows, setRows] = useState<ServicePriceRow[]>([]);
@@ -105,12 +102,7 @@ function CatalogSettingsPage() {
   const [pmRequiresReceivedBy, setPmRequiresReceivedBy] = useState(false);
   const [pmAutoVerifies, setPmAutoVerifies] = useState(false);
 
-  // ── Admin redirect ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!clinicLoading && !isAdmin) {
-      router.replace("/settings/account");
-    }
-  }, [clinicLoading, isAdmin, router]);
+  // Non-admins see a read-only view — no redirect needed.
 
   // ── Services data loading ─────────────────────────────────────────────────
 
@@ -170,7 +162,6 @@ function CatalogSettingsPage() {
 
   const combinedRows = useMemo(() => sortRows([...rows], sort), [rows, sort]);
 
-  if (!isAdmin && !clinicLoading) return null;
 
   async function addItem() {
     if (!name.trim() || !itemType) return;
@@ -400,9 +391,11 @@ function CatalogSettingsPage() {
         <div className="card">
           <div className="card-header">
             <div className="card-title">Services &amp; Extras</div>
-            <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
-              Add
-            </button>
+            {isAdmin && (
+              <button type="button" className="save-btn" onClick={openAdd} disabled={busy}>
+                Add
+              </button>
+            )}
           </div>
 
           {/* Services sub-table */}
@@ -437,21 +430,22 @@ function CatalogSettingsPage() {
                     <tr
                       key={r.id}
                       className={cn(
-                        "data-table-row cursor-pointer",
+                        "data-table-row",
+                        isAdmin && "cursor-pointer",
                         index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
                       )}
-                      onClick={() => openEdit(r)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Edit ${r.service_name}`}
+                      onClick={isAdmin ? () => openEdit(r) : undefined}
+                      onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } } : undefined}
+                      tabIndex={isAdmin ? 0 : undefined}
+                      role={isAdmin ? "button" : undefined}
+                      aria-label={isAdmin ? `Edit ${r.service_name}` : undefined}
                     >
                       <td className="data-table-cell">{r.service_name}</td>
                       <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
                       <td className="data-table-cell-right whitespace-nowrap">{formatMoney(r.default_price)}</td>
                       <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end">
-                          <TogglePill checked={r.is_active} disabled={busy} onChange={() => toggleActive(r.id, r.is_active)} />
+                          <TogglePill checked={r.is_active} disabled={!isAdmin || busy} onChange={isAdmin ? () => toggleActive(r.id, r.is_active) : () => {}} />
                         </div>
                       </td>
                     </tr>
@@ -496,21 +490,22 @@ function CatalogSettingsPage() {
                     <tr
                       key={r.id}
                       className={cn(
-                        "data-table-row cursor-pointer",
+                        "data-table-row",
+                        isAdmin && "cursor-pointer",
                         index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
                       )}
-                      onClick={() => openEdit(r)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Edit ${r.service_name}`}
+                      onClick={isAdmin ? () => openEdit(r) : undefined}
+                      onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(r); } } : undefined}
+                      tabIndex={isAdmin ? 0 : undefined}
+                      role={isAdmin ? "button" : undefined}
+                      aria-label={isAdmin ? `Edit ${r.service_name}` : undefined}
                     >
                       <td className="data-table-cell">{r.service_name}</td>
                       <td className="data-table-cell-right">{r.duration_minutes ? `${r.duration_minutes} min` : "—"}</td>
                       <td className="data-table-cell-right whitespace-nowrap">{formatMoney(r.default_price)}</td>
                       <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end">
-                          <TogglePill checked={r.is_active} disabled={busy} onChange={() => toggleActive(r.id, r.is_active)} />
+                          <TogglePill checked={r.is_active} disabled={!isAdmin || busy} onChange={isAdmin ? () => toggleActive(r.id, r.is_active) : () => {}} />
                         </div>
                       </td>
                     </tr>
@@ -528,9 +523,11 @@ function CatalogSettingsPage() {
         <div className="card">
           <div className="card-header">
             <div className="card-title">Payment Modes</div>
-            <button type="button" className="save-btn" onClick={openAddPm} disabled={pmBusy}>
-              Add
-            </button>
+            {isAdmin && (
+              <button type="button" className="save-btn" onClick={openAddPm} disabled={pmBusy}>
+                Add
+              </button>
+            )}
           </div>
 
           {pmError && <div className="error-banner">{pmError}</div>}
@@ -945,6 +942,6 @@ function CatalogSettingsPage() {
   );
 }
 
-export default function CatalogSettingsPageGated() {
-  return <FeatureGate feature="edit_catalog"><CatalogSettingsPage /></FeatureGate>;
+export default function CatalogSettingsPage() {
+  return <CatalogSettingsPageInner />;
 }

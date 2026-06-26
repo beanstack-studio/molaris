@@ -125,9 +125,10 @@ const settingsFlyoutSections: { title: string; items: SettingsNavItem[] }[] = [
     items: [
       { label: "Clinic Profile",      href: "/settings/clinic-profile" },
       { label: "Team",                href: "/settings/team" },
-      { label: "Services & Payments", href: "/settings/services",          adminLock: true },
-      { label: "Maintenance Log",     href: "/settings/maintenance",       adminLock: true },
+      { label: "Services & Payments", href: "/settings/services",           adminLock: true },
+      { label: "Maintenance Log",     href: "/settings/maintenance",        adminLock: true },
       { label: "Documents",           href: "/settings/document-templates", adminLock: true },
+      { label: "Calendar Sync",       href: "/settings/calendar-sync",      proLock: true },
     ],
   },
   {
@@ -294,7 +295,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                     <div className="ml-3 mt-0.5 border-l border-white/15 pl-2 flex flex-col gap-0">
                       {settingsFlyoutSections.map((section, si) => {
                         const visibleItems = section.items.filter(
-                          (sub) => !(sub.adminOnly && !isAdmin) && !(sub.adminLock && !isAdmin)
+                          (sub) => !(sub.adminOnly && !isAdmin)
                         );
                         if (visibleItems.length === 0) return null;
                         return (

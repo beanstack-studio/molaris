@@ -7,7 +7,9 @@ import { useFeatureGate } from "@/contexts/ClinicContext";
 interface FeatureGateProps {
   feature: string;
   children: ReactNode;
-  /** Custom message shown in the upgrade card. */
+  /** Custom blocked UI — rendered instead of the default card when access is denied. */
+  fallback?: ReactNode;
+  /** Custom message shown in the default upgrade/access card. */
   message?: string;
   /** Custom CTA label. Defaults to "Upgrade →" */
   ctaLabel?: string;
@@ -22,6 +24,7 @@ interface FeatureGateProps {
 export function FeatureGate({
   feature,
   children,
+  fallback,
   message,
   ctaLabel = "Upgrade →",
   ctaHref = "/settings/billing",
@@ -30,7 +33,16 @@ export function FeatureGate({
 
   if (hasAccess) return <>{children}</>;
 
-  const isAdminGate = ["plan_billing", "manage_team", "edit_clinic_profile", "edit_catalog"].includes(feature);
+  if (fallback) return <>{fallback}</>;
+
+  const isAdminGate = [
+    "plan_billing",
+    "manage_team",
+    "edit_clinic_profile",
+    "edit_catalog",
+    "void_payments",
+    "delete_patients",
+  ].includes(feature);
 
   return (
     <div className="card text-center py-12">
@@ -38,13 +50,13 @@ export function FeatureGate({
       <div className="card-title mb-1">
         {isAdminGate ? "Admin access required" : "Pro plan required"}
       </div>
-      <div className="text-muted mb-4 max-w-sm mx-auto">
+      <p className="text-sm text-slate-500 mb-4 max-w-sm mx-auto">
         {message ?? (
           isAdminGate
             ? "This section is only available to clinic admins."
             : "This feature requires a Pro plan. Upgrade to unlock billing, reports, document generation, ortho, and more."
         )}
-      </div>
+      </p>
       {!isAdminGate && (
         <Link href={ctaHref} className="save-btn inline-flex items-center gap-1">
           {ctaLabel}

@@ -1,11 +1,7 @@
 "use client";
 
-import { FeatureGate } from "@/components/shared/FeatureGate";
-
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
-import { useRouter } from "next/navigation";
-import { useClinic } from "@/contexts/ClinicContext";
 import { loadClinicMeta } from "@/lib/clinicMetaLoader";
 import { generatePrescriptionHTML } from "@/lib/prescriptionGenerator";
 import { generateCertificateHTML } from "@/lib/certificateGenerator";
@@ -15,25 +11,15 @@ import { generateInvoicePreviewHTML, generateReceiptPreviewHTML } from "@/lib/in
 const TABS = ["Prescription", "Certificate", "Referral", "Invoice", "Receipt"] as const;
 type Tab = typeof TABS[number];
 
-function DocumentTemplatesSettingsPage() {
-  const { isAdmin, isLoading: clinicLoading } = useClinic();
-  const router = useRouter();
+export default function DocumentTemplatesSettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Prescription");
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!clinicLoading && !isAdmin) {
-      router.replace("/settings/account");
-    }
-  }, [clinicLoading, isAdmin, router]);
-
-  useEffect(() => {
-    if (isAdmin) generatePreview(activeTab);
+    generatePreview(activeTab);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, isAdmin]);
-
-  if (!isAdmin && !clinicLoading) return null;
+  }, [activeTab]);
 
   async function generatePreview(tab: Tab) {
     setLoading(true);
@@ -108,59 +94,53 @@ function DocumentTemplatesSettingsPage() {
   }
 
   return (
-    <>
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">Document Templates</div>
-        </div>
-        {/* TODO: add ability to edit docs */}
-
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-1 mb-4 border-b border-slate-200">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
-                activeTab === tab
-                  ? "border-[hsl(var(--accent-hue)_var(--accent-sat)_45%)] text-[hsl(var(--accent-hue)_var(--accent-sat)_35%)]"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-              )}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {/* Preview area */}
-        <div className="rounded-xl border border-slate-200 overflow-x-auto bg-slate-50 h-[700px]">
-          {loading ? (
-            <div className="flex items-center justify-center h-full text-sm text-slate-500 min-w-[800px]">
-              Generating preview…
-            </div>
-          ) : previewHtml ? (
-            <iframe
-              srcDoc={previewHtml}
-              className="min-w-[800px] w-full h-full border-0"
-              title={`${activeTab} Preview`}
-              sandbox="allow-same-origin"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-sm text-slate-500">
-              No preview available.
-            </div>
-          )}
-        </div>
-
-        <p className="text-xs text-slate-400 mt-3">
-          Preview uses sample data. Update clinic information in Clinic Profile settings to see real details.
-        </p>
+    <div className="card">
+      <div className="card-header">
+        <div className="card-title">Document Templates</div>
       </div>
-    </>
-  );
-}
+      {/* TODO: add ability to edit docs */}
 
-export default function DocumentTemplatesSettingsPageGated() {
-  return <FeatureGate feature="edit_catalog"><DocumentTemplatesSettingsPage /></FeatureGate>;
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-1 mb-4 border-b border-slate-200">
+        {TABS.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+              activeTab === tab
+                ? "border-[hsl(var(--accent-hue)_var(--accent-sat)_45%)] text-[hsl(var(--accent-hue)_var(--accent-sat)_35%)]"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Preview area */}
+      <div className="rounded-xl border border-slate-200 overflow-x-auto bg-slate-50 h-[700px]">
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-sm text-slate-500 min-w-[800px]">
+            Generating preview…
+          </div>
+        ) : previewHtml ? (
+          <iframe
+            srcDoc={previewHtml}
+            className="min-w-[800px] w-full h-full border-0"
+            title={`${activeTab} Preview`}
+            sandbox="allow-same-origin"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-sm text-slate-500">
+            No preview available.
+          </div>
+        )}
+      </div>
+
+      <p className="hint-text mt-3">
+        Preview uses sample data. Update clinic information in Clinic Profile settings to see real details.
+      </p>
+    </div>
+  );
 }

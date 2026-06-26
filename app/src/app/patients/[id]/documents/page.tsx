@@ -44,7 +44,7 @@ import { SortArrow } from "@/components/shared/TableOptions";
 function DocumentsPage() {
   const params = useParams();
   const id = (params?.id as string) || "";
-  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, handlerFor } = useClinic();
+  const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, handlerFor, profileId } = useClinic();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -174,7 +174,7 @@ function DocumentsPage() {
     // Load dentists
     const d = await supabase
       .from("dentists")
-      .select("id, full_name")
+      .select("id, full_name, nickname, profile_id")
       .eq("clinic_id", clinicId)
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
@@ -546,7 +546,11 @@ function DocumentsPage() {
   }
 
   const canWrite = isAdmin || isDentist || isHandler;
-  const filteredDentists = isAdmin || isDentist ? dentists : dentists.filter((d) => handlerFor.includes(d.id));
+  const filteredDentists = isAdmin
+    ? dentists
+    : isDentist
+      ? dentists.filter((d) => d.profile_id === profileId)
+      : dentists.filter((d) => handlerFor.includes(d.id));
 
   if (loading) {
     return (
