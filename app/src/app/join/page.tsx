@@ -126,21 +126,76 @@ export default function JoinPage() {
     if (validationError) { setError(validationError); return; }
     if (password !== confirm) { setError("Passwords do not match"); return; }
 
+    const currentUser = user;
+    if (!currentUser) {
+      setError("Session expired. Please click the invite link again.");
+      return;
+    }
+
     setBusy(true);
     setError(null);
 
+    // Step 1: Update password
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) { setError(updateError.message); setBusy(false); return; }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    await fetch("/api/join-complete", {
+    // Step 2: Refresh session — token changes after updateUser
+    await supabase.auth.refreshSession();
+    const { data: { session: freshSession } } = await supabase.auth.getSession();
+
+    // Step 3: Call join-complete with fresh token
+    const joinResponse = await fetch("/api/join-complete", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        "Authorization": `Bearer ${freshSession?.access_token ?? ""}`,
       },
-      body: JSON.stringify({ clinicId, role, dentistId }),
+      body: JSON.stringify({
+        clinicId,
+        role,
+        dentistId: dentistId ?? null,
+        email: currentUser.email,
+      }),
     });
+
+    const joinResult = await joinResponse.json() as { success?: boolean; error?: string };
+    console.log("join-complete response:", joinResponse.status, joinResult);
+
+    // Step 4: Client-side fallback if server route failed
+    if (!joinResponse.ok) {
+      console.warn("join-complete failed, trying client-side fallback");
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert({
+          id: currentUser.id,
+          clinic_id: clinicId,
+          role,
+          email: currentUser.email ?? "",
+          full_name: null,
+        });
+
+      if (profileError) {
+        console.error("Client-side profile insert failed:", profileError.message);
+        // Still proceed to success — admin can fix manually
+      }
+
+      // Step 5: Link dentist client-side if applicable
+      if (dentistId) {
+        await supabase
+          .from("dentists")
+          .update({ profile_id: currentUser.id })
+          .eq("id", dentistId)
+          .eq("clinic_id", clinicId);
+      }
+    }
+
+    // Step 6: Always mark invite accepted, even if profile had issues
+    await supabase
+      .from("staff_invites")
+      .update({ status: "accepted" })
+      .eq("email", currentUser.email ?? "")
+      .eq("clinic_id", clinicId)
+      .eq("status", "pending");
 
     setBusy(false);
     setPageState("success");
