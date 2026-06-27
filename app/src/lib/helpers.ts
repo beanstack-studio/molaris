@@ -171,6 +171,19 @@ export function formatPhoneLocal(raw: string): string {
   return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
 }
 
+/**
+ * Formats a decimal hour (e.g. 8 = 8:00 AM, 17 = 5:00 PM, 8.5 = 8:30 AM)
+ * into "8:00 AM" or "5:30 PM" style.
+ */
+export function formatScheduleTime(decHour: number): string {
+  const h = Math.floor(decHour);
+  const m = Math.round((decHour - h) * 60);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  const min = `:${String(m).padStart(2, '0')}`;
+  return `${hour}${min} ${period}`;
+}
+
 export function formatMoney(amount: number) {
   return '₱ ' + (amount || 0).toLocaleString('en-PH', {
     minimumFractionDigits: 2,

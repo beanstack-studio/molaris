@@ -40,7 +40,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useClinic } from "@/contexts/ClinicContext";
 import { supabase } from "@/lib/supabaseClient";
-import { formatDateStandard, formatPhoneLocal } from "@/lib/helpers";
+import { formatDateStandard, formatPhoneLocal, formatScheduleTime } from "@/lib/helpers";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Spinner } from "@/components/Spinner";
@@ -199,11 +199,8 @@ function decimalToTime(h: number): string {
 
 function formatDayCell(ds: DaySchedule | undefined): string {
   if (!ds || !ds.is_working) return "—";
-  const st = isFinite(ds.start_time) ? ds.start_time : null;
-  const et = isFinite(ds.end_time) ? ds.end_time : null;
-  if (st === null || et === null) return "—";
-  const fmt12 = (h: number) => (h > 12 ? h - 12 : h === 0 ? 12 : h);
-  return `${fmt12(Math.floor(st))}–${fmt12(Math.floor(et))}`;
+  if (!isFinite(ds.start_time) || !isFinite(ds.end_time)) return "—";
+  return `${formatScheduleTime(ds.start_time)}–${formatScheduleTime(ds.end_time)}`;
 }
 
 function LoadingBlock() {
@@ -288,7 +285,6 @@ export default function TeamSettingsPage() {
 
   // Leave request state
   const [leaveRequests, setLeaveRequests] = useState<ScheduleRequestRow[]>([]);
-  const [showLeaveRequestsModal, setShowLeaveRequestsModal] = useState(false);
   const [leaveRequestsTab, setLeaveRequestsTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [showRequestLeaveModal, setShowRequestLeaveModal] = useState(false);
   const [reqLeaveFrom, setReqLeaveFrom] = useState('');
@@ -1079,11 +1075,6 @@ export default function TeamSettingsPage() {
     setLeaveRequests((requests ?? []) as unknown as ScheduleRequestRow[]);
   }
 
-  async function openViewRequestsModal() {
-    setShowLeaveRequestsModal(true);
-    await loadLeaveRequests();
-  }
-
   async function approveLeaveRequest(req: ScheduleRequestRow) {
     setBusy(true); setError(null);
     try {
@@ -1247,22 +1238,24 @@ export default function TeamSettingsPage() {
     });
   }, [blockouts, today]);
 
-  const myStaffRow = !isAdmin ? staff.find((s) => s.profile_id === profileId) ?? null : null;
-  const myDentistRow = !isAdmin ? dentists.find((d) => d.profile_id === profileId) ?? null : null;
-  const visibleBlockouts = isAdmin
-    ? sortedBlockouts
-    : sortedBlockouts.filter((b) => {
-        if (myStaffRow && b.staff_id === myStaffRow.id) return true;
-        if (myDentistRow && b.dentist_id === myDentistRow.id) return true;
-        return false;
-      });
-
-  const filteredLeaveRequests = leaveRequests.filter((r) => r.status === leaveRequestsTab);
-  const approvedLeaveList = useMemo(() =>
-    leaveRequests.filter((r) => r.status === 'approved').sort((a, b) => a.from_date.localeCompare(b.from_date)),
-    [leaveRequests]
-  );
   const pendingLeaveCount = leaveRequests.filter((r) => r.status === 'pending').length;
+
+  // Tab content for Leave Schedule card — filtering differs by role
+  const leaveTabContent = useMemo(() => {
+    if (isAdmin) {
+      return leaveRequests.filter((r) => r.status === leaveRequestsTab);
+    }
+    if (leaveRequestsTab === 'approved') {
+      // Non-admin: see all approved (team visibility)
+      return leaveRequests
+        .filter((r) => r.status === 'approved')
+        .sort((a, b) => a.from_date.localeCompare(b.from_date));
+    }
+    // Pending / rejected: own requests only
+    return leaveRequests.filter(
+      (r) => r.status === leaveRequestsTab && r.profile_id === profileId
+    );
+  }, [leaveRequests, leaveRequestsTab, isAdmin, profileId]);
 
   if (loading) return <LoadingBlock />;
 
@@ -1485,287 +1478,305 @@ export default function TeamSettingsPage() {
           )}
         </div>
 
-        {/* ── ROW 3: SCHEDULES + BLOCKOUTS ── */}
-        <div className="grid gap-4 lg:grid-cols-2">
-
-          {/* Weekly Schedule — dentists as rows, days as columns */}
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Weekly Schedule</h2>
-            </div>
-            {clinicHours.length > 0 && (
-              <p className="hint-text px-0 pb-2">Times constrained to clinic operating hours.</p>
-            )}
-            {dentists.length === 0 && staff.length === 0 ? (
-              <div className="data-table-empty">Add dentists above to manage their schedules.</div>
-            ) : (
-              <div className="table-wrapper overflow-x-auto">
-                <table className="data-table min-w-[620px]">
-                  <thead className="data-table-head">
-                    <tr>
-                      <th className="data-table-head-cell w-44 shrink-0">Person</th>
-                      {WEEK_ORDER.map(({ header, key }) => (
-                        <th key={key} className="data-table-head-cell text-center text-xs w-16">{header}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Dentist rows — entire row is clickable for admin */}
-                    {dentists.map((d, rowIdx) => {
-                      const isEditing = editingScheduleFor?.id === d.id;
-                      return (
-                        <tr
-                          key={d.id}
-                          className={cn(
-                            "data-table-row",
-                            rowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                            isAdmin && "cursor-pointer hover:bg-blue-50/40"
-                          )}
-                          onClick={isAdmin ? () => openScheduleEdit(d.id) : undefined}
-                          onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openScheduleEdit(d.id); } } : undefined}
-                          tabIndex={isAdmin ? 0 : undefined}
-                          role={isAdmin ? "button" : undefined}
-                        >
-                          <td className={cn("data-table-cell", isEditing && "bg-blue-50")}>
-                            <div className="flex items-center gap-2 pointer-events-none">
-                              {d.photo_url ? (
-                                <img src={d.photo_url} alt={d.nickname || d.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                              ) : (
-                                <span
-                                  className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
-                                  style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
-                                >
-                                  {(d.nickname || d.full_name).slice(0, 1).toUpperCase()}
-                                </span>
-                              )}
-                              <span className="text-xs">{d.nickname || d.full_name}</span>
-                            </div>
-                          </td>
-                          {WEEK_ORDER.map(({ key }) => {
-                            const ds = schedules[d.id]?.[key];
-                            const isWorking = ds?.is_working ?? false;
-                            return (
-                              <td key={key} className={cn("data-table-cell text-center", isEditing && "bg-blue-50")}>
-                                {isWorking ? (
-                                  <span className="text-blue-600 text-xs font-medium tabular-nums whitespace-nowrap">
-                                    {formatDayCell(ds)}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-300 text-xs">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                    {/* Staff rows — click to edit staff member */}
-                    {staff.map((s, rowIdx) => {
-                      const staffRowIdx = dentists.length + rowIdx;
-                      return (
-                        <tr
-                          key={s.id}
-                          className={cn(
-                            "data-table-row",
-                            staffRowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
-                            isAdmin && "cursor-pointer hover:bg-blue-50/40"
-                          )}
-                          onClick={isAdmin ? () => openStaffScheduleEdit(s.id) : undefined}
-                          onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStaffScheduleEdit(s.id); } } : undefined}
-                          tabIndex={isAdmin ? 0 : undefined}
-                          role={isAdmin ? "button" : undefined}
-                        >
-                          <td className="data-table-cell">
-                            <div className="flex items-center gap-2 pointer-events-none">
-                              {s.photo_url ? (
-                                <img src={s.photo_url} alt={s.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                              ) : (
-                                <span className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">
-                                  {s.full_name.slice(0, 1).toUpperCase()}
-                                </span>
-                              )}
-                              <span className="text-xs text-slate-500">{s.full_name}</span>
-                            </div>
-                          </td>
-                          {WEEK_ORDER.map(({ key }) => {
-                            const ss = staffSchedules[s.id]?.[key];
-                            const isWorking = ss?.is_working ?? false;
-                            return (
-                              <td key={key} className="data-table-cell text-center">
-                                {isWorking ? (
-                                  <span className="text-slate-600 text-xs font-medium tabular-nums whitespace-nowrap">
-                                    {formatDayCell(ss)}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-300 text-xs">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        {/* ── ROW 3: WEEKLY SCHEDULE — full width, two sections ── */}
+        <div className="card w-full">
+          <div className="card-header">
+            <h2 className="card-title">Weekly Schedule</h2>
           </div>
-
-          {/* Scheduled Off Days */}
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Leave Schedule</h2>
-              {isAdmin ? (
-                <button className="save-btn" onClick={() => void openViewRequestsModal()} disabled={busy}>
-                  View Requests
-                  {pendingLeaveCount > 0 && (
-                    <span className="ml-2 inline-flex items-center justify-center rounded-full bg-white/20 text-white text-xs font-bold min-w-[18px] h-[18px] px-1">
-                      {pendingLeaveCount}
-                    </span>
-                  )}
-                </button>
-              ) : (
-                <button className="save-btn" onClick={() => { setEditingLeaveRow(null); setShowRequestLeaveModal(true); }} disabled={busy}>
-                  Request Leave
-                </button>
-              )}
-            </div>
-            {isAdmin ? (
-              sortedBlockouts.length === 0 ? (
-                <div className="data-table-empty">
-                  {!hasPeople ? "Add dentists or staff above to schedule off days." : "No scheduled off days yet."}
+          {clinicHours.length > 0 && (
+            <p className="hint-text px-0 pb-2">Times constrained to clinic operating hours.</p>
+          )}
+          {dentists.length === 0 && staff.length === 0 ? (
+            <div className="data-table-empty">Add dentists or staff above to manage schedules.</div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {/* DENTISTS section */}
+              {dentists.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-1 pb-1">Dentists</p>
+                  <div className="table-wrapper overflow-x-auto">
+                    <table className="data-table min-w-[640px]">
+                      <thead className="data-table-head">
+                        <tr>
+                          <th className="data-table-head-cell w-40 shrink-0">Name</th>
+                          {WEEK_ORDER.map(({ header, key }) => (
+                            <th key={key} className="data-table-head-cell text-center text-xs">{header}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dentists.map((d, rowIdx) => {
+                          const isEditing = editingScheduleFor?.id === d.id;
+                          return (
+                            <tr
+                              key={d.id}
+                              className={cn(
+                                "data-table-row",
+                                rowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                                isAdmin && "cursor-pointer hover:bg-blue-50/40"
+                              )}
+                              onClick={isAdmin ? () => openScheduleEdit(d.id) : undefined}
+                              onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openScheduleEdit(d.id); } } : undefined}
+                              tabIndex={isAdmin ? 0 : undefined}
+                              role={isAdmin ? "button" : undefined}
+                            >
+                              <td className={cn("data-table-cell", isEditing && "bg-blue-50")}>
+                                <div className="flex items-center gap-2 pointer-events-none">
+                                  {d.photo_url ? (
+                                    <img src={d.photo_url} alt={d.nickname || d.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                  ) : (
+                                    <span
+                                      className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
+                                      style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
+                                    >
+                                      {(d.nickname || d.full_name).slice(0, 1).toUpperCase()}
+                                    </span>
+                                  )}
+                                  <span className="text-xs font-medium">{d.nickname || d.full_name}</span>
+                                </div>
+                              </td>
+                              {WEEK_ORDER.map(({ key }) => {
+                                const ds = schedules[d.id]?.[key];
+                                const isWorking = ds?.is_working ?? false;
+                                return (
+                                  <td key={key} className={cn("data-table-cell text-center", isEditing && "bg-blue-50")}>
+                                    {isWorking ? (
+                                      <span className="text-blue-600 text-xs font-medium tabular-nums whitespace-nowrap">
+                                        {formatDayCell(ds)}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-300 text-xs">—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              ) : (
-                <div className="table-wrapper overflow-x-auto">
-                  <table className="data-table min-w-[420px]">
-                    <colgroup>
-                      <col className="col-25" />
-                      <col className="col-20" />
-                      <col className="col-20" />
-                      <col className="col-35" />
-                    </colgroup>
-                    <thead className="data-table-head">
-                      <tr>
-                        <th className="data-table-head-cell">Person</th>
-                        <th className="data-table-head-cell">From</th>
-                        <th className="data-table-head-cell">To</th>
-                        <th className="data-table-head-cell">Reason</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedBlockouts.map((b, idx) => {
-                        const avatar = getBlockoutPersonAvatar(b);
-                        const personName = getBlockoutPersonName(b);
-                        return (
+              )}
+
+              {/* STAFF section */}
+              {staff.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-1 pb-1">Staff</p>
+                  <div className="table-wrapper overflow-x-auto">
+                    <table className="data-table min-w-[640px]">
+                      <thead className="data-table-head">
+                        <tr>
+                          <th className="data-table-head-cell w-40 shrink-0">Name</th>
+                          {WEEK_ORDER.map(({ header, key }) => (
+                            <th key={key} className="data-table-head-cell text-center text-xs">{header}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {staff.map((s, rowIdx) => (
                           <tr
-                            key={b.id}
-                            className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd", "cursor-pointer")}
-                            onClick={() => openEditBlockout(b)}
-                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditBlockout(b); } }}
-                            tabIndex={0}
-                            role="button"
+                            key={s.id}
+                            className={cn(
+                              "data-table-row",
+                              rowIdx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd",
+                              isAdmin && "cursor-pointer hover:bg-blue-50/40"
+                            )}
+                            onClick={isAdmin ? () => openStaffScheduleEdit(s.id) : undefined}
+                            onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStaffScheduleEdit(s.id); } } : undefined}
+                            tabIndex={isAdmin ? 0 : undefined}
+                            role={isAdmin ? "button" : undefined}
                           >
                             <td className="data-table-cell">
-                              <div className="flex items-center gap-1.5">
-                                {avatar.photoUrl ? (
-                                  <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
-                                ) : avatar.isStaff ? (
-                                  <span className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">
-                                    {avatar.initial}
-                                  </span>
+                              <div className="flex items-center gap-2 pointer-events-none">
+                                {s.photo_url ? (
+                                  <img src={s.photo_url} alt={s.full_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
                                 ) : (
-                                  <span
-                                    className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
-                                    style={{ background: avatar.color ?? DENTIST_COLORS[0].hex }}
-                                  >
-                                    {avatar.initial}
+                                  <span className="inline-flex w-6 h-6 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">
+                                    {s.full_name.slice(0, 1).toUpperCase()}
                                   </span>
                                 )}
-                                <span className="text-sm">{personName}</span>
+                                <span className="text-xs text-slate-600">{s.full_name}</span>
                               </div>
                             </td>
-                            <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(b.start_date)}</td>
-                            <td className="data-table-cell text-slate-600 text-sm">
-                              {b.end_date === b.start_date ? "—" : formatDateStandard(b.end_date)}
-                            </td>
-                            <td className="data-table-cell text-slate-500 text-sm">
-                              {b.reason ?? <span className="text-slate-300">—</span>}
-                            </td>
+                            {WEEK_ORDER.map(({ key }) => {
+                              const ss = staffSchedules[s.id]?.[key];
+                              const isWorking = ss?.is_working ?? false;
+                              return (
+                                <td key={key} className="data-table-cell text-center">
+                                  {isWorking ? (
+                                    <span className="text-slate-600 text-xs font-medium tabular-nums whitespace-nowrap">
+                                      {formatDayCell(ss)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 text-xs">—</span>
+                                  )}
+                                </td>
+                              );
+                            })}
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              )
-            ) : (
-              approvedLeaveList.length === 0 ? (
-                <div className="data-table-empty">No approved leaves yet.</div>
-              ) : (
-                <div className="table-wrapper overflow-x-auto">
-                  <table className="data-table min-w-[500px]">
-                    <thead className="data-table-head">
-                      <tr>
-                        <th className="data-table-head-cell">Person</th>
-                        <th className="data-table-head-cell">From</th>
-                        <th className="data-table-head-cell">To</th>
-                        <th className="data-table-head-cell">Reason</th>
-                        <th className="data-table-head-cell-right"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {approvedLeaveList.map((req, idx) => {
-                        const avatar = getLeaveRequestPersonAvatar(req);
-                        const personName = req.profiles?.full_name ?? '—';
-                        const isOwn = req.profile_id === profileId;
-                        return (
-                          <tr key={req.id} className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
-                            <td className="data-table-cell">
-                              <div className="flex items-center gap-1.5">
-                                {avatar.photoUrl ? (
-                                  <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
-                                ) : avatar.isStaff ? (
-                                  <span className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">
-                                    {avatar.initial}
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
-                                    style={{ background: avatar.color ?? DENTIST_COLORS[0].hex }}
-                                  >
-                                    {avatar.initial}
-                                  </span>
-                                )}
-                                <span className="text-sm">{personName}</span>
-                                {isOwn && <span className="text-xs text-slate-400">(you)</span>}
-                              </div>
-                            </td>
-                            <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(req.from_date)}</td>
-                            <td className="data-table-cell text-slate-600 text-sm">
-                              {req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}
-                            </td>
-                            <td className="data-table-cell text-slate-500 text-sm">
-                              {req.reason ?? <span className="text-slate-300">—</span>}
-                            </td>
-                            <td className="data-table-cell-right">
-                              {isOwn && (
-                                <div className="flex items-center justify-end gap-1">
-                                  <button type="button" className="data-table-btn" disabled={busy} onClick={() => openEditLeave(req)} title="Edit">✏</button>
-                                  <button type="button" className="data-table-btn-danger" disabled={busy} onClick={() => void withdrawLeaveRequest(req.id)} title="Withdraw">×</button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── ROW 4: LEAVE SCHEDULE — full width, tabbed ── */}
+        <div className="card w-full">
+          <div className="card-header">
+            <h2 className="card-title">Leave Schedule</h2>
+            {!isAdmin && (
+              <button
+                className="save-btn"
+                onClick={() => { setEditingLeaveRow(null); setReqLeaveFrom(''); setReqLeaveTo(''); setReqLeaveReason(''); setShowRequestLeaveModal(true); }}
+                disabled={busy}
+              >
+                + Request Leave
+              </button>
             )}
           </div>
 
+          {/* Tab bar */}
+          <div className="action-row mb-3">
+            {(['pending', 'approved', 'rejected'] as const).map((tab) => (
+              <button
+                key={tab}
+                className={leaveRequestsTab === tab ? 'toggle-btn-active' : 'toggle-btn'}
+                onClick={() => setLeaveRequestsTab(tab)}
+              >
+                {tab === 'pending' ? 'Pending' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'pending' && pendingLeaveCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1">
+                    {pendingLeaveCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          {leaveTabContent.length === 0 ? (
+            <div className="data-table-empty">
+              {leaveRequestsTab === 'pending'
+                ? (isAdmin ? 'No pending leave requests.' : 'No pending requests from you.')
+                : leaveRequestsTab === 'approved'
+                ? 'No approved leaves yet.'
+                : (isAdmin ? 'No rejected leave requests.' : 'No rejected requests from you.')}
+            </div>
+          ) : (
+            <div className="table-wrapper overflow-x-auto">
+              <table className="data-table min-w-[480px]">
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Person</th>
+                    <th className="data-table-head-cell">From</th>
+                    <th className="data-table-head-cell">To</th>
+                    <th className="data-table-head-cell">Reason</th>
+                    {(isAdmin && leaveRequestsTab === 'pending') || (!isAdmin && leaveRequestsTab === 'approved') ? (
+                      <th className="data-table-head-cell-right">Actions</th>
+                    ) : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaveTabContent.map((req, idx) => {
+                    const avatar = getLeaveRequestPersonAvatar(req);
+                    const personName = req.profiles?.full_name ?? '—';
+                    const isOwn = req.profile_id === profileId;
+                    return (
+                      <tr
+                        key={req.id}
+                        className={cn('data-table-row', idx % 2 === 0 ? 'data-table-row-even' : 'data-table-row-odd')}
+                      >
+                        <td className="data-table-cell">
+                          <div className="flex items-center gap-1.5">
+                            {avatar.photoUrl ? (
+                              <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                            ) : avatar.isStaff ? (
+                              <span className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">
+                                {avatar.initial}
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
+                                style={{ background: avatar.color ?? DENTIST_COLORS[0].hex }}
+                              >
+                                {avatar.initial}
+                              </span>
+                            )}
+                            <span className="text-sm font-medium">{personName}</span>
+                            {isOwn && <span className="text-xs text-slate-400">(you)</span>}
+                          </div>
+                        </td>
+                        <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(req.from_date)}</td>
+                        <td className="data-table-cell text-slate-600 text-sm">
+                          {req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}
+                        </td>
+                        <td className="data-table-cell text-slate-500 text-sm">{req.reason ?? <span className="text-slate-300">—</span>}</td>
+
+                        {/* Admin pending: Approve + Reject */}
+                        {isAdmin && leaveRequestsTab === 'pending' && (
+                          <td className="data-table-cell-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                className="data-table-btn"
+                                disabled={busy}
+                                onClick={() => void approveLeaveRequest(req)}
+                              >
+                                ✓ Approve
+                              </button>
+                              <button
+                                type="button"
+                                className="data-table-btn-danger"
+                                disabled={busy}
+                                onClick={() => void rejectLeaveRequest(req.id)}
+                              >
+                                ✗
+                              </button>
+                            </div>
+                          </td>
+                        )}
+
+                        {/* Non-admin approved: own rows get edit + withdraw */}
+                        {!isAdmin && leaveRequestsTab === 'approved' && (
+                          <td className="data-table-cell-right">
+                            {isOwn && (
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  className="data-table-btn"
+                                  disabled={busy}
+                                  onClick={() => openEditLeave(req)}
+                                  title="Edit"
+                                >
+                                  ✏
+                                </button>
+                                <button
+                                  type="button"
+                                  className="data-table-btn-danger"
+                                  disabled={busy}
+                                  onClick={() => void withdrawLeaveRequest(req.id)}
+                                  title="Withdraw"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+
       </div>
 
       {/* ── SCHEDULE EDITOR MODAL ── */}
@@ -2438,89 +2449,6 @@ export default function TeamSettingsPage() {
               >
                 {busy ? "Saving…" : editingBlockout ? "Update" : "Add"}
               </button>
-            </div>
-          </div>
-        </div>
-      </EditModal>
-
-      {/* ── VIEW REQUESTS MODAL (admin) ── */}
-      <EditModal
-        open={showLeaveRequestsModal}
-        title="Leave Requests"
-        onClose={() => setShowLeaveRequestsModal(false)}
-      >
-        <div className="spacing-vertical-lg">
-          <div className="action-row">
-            {(['pending', 'approved', 'rejected'] as const).map((tab) => (
-              <button
-                key={tab}
-                className={leaveRequestsTab === tab ? 'toggle-btn-active' : 'toggle-btn'}
-                onClick={() => setLeaveRequestsTab(tab)}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {filteredLeaveRequests.length === 0 ? (
-            <div className="data-table-empty">No {leaveRequestsTab} leave requests.</div>
-          ) : (
-            <div className="table-wrapper overflow-x-auto">
-              <table className="data-table min-w-[480px]">
-                <thead className="data-table-head">
-                  <tr>
-                    <th className="data-table-head-cell">Person</th>
-                    <th className="data-table-head-cell">From</th>
-                    <th className="data-table-head-cell">To</th>
-                    <th className="data-table-head-cell">Reason</th>
-                    {leaveRequestsTab === 'pending' && (
-                      <th className="data-table-head-cell-right">Actions</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLeaveRequests.map((req, idx) => (
-                    <tr key={req.id} className={cn('data-table-row', idx % 2 === 0 ? 'data-table-row-even' : 'data-table-row-odd')}>
-                      <td className="data-table-cell text-sm font-medium">
-                        {req.profiles?.full_name ?? '—'}
-                      </td>
-                      <td className="data-table-cell text-sm text-slate-600">{formatDateStandard(req.from_date)}</td>
-                      <td className="data-table-cell text-sm text-slate-600">
-                        {req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}
-                      </td>
-                      <td className="data-table-cell text-sm text-slate-500">{req.reason ?? '—'}</td>
-                      {leaveRequestsTab === 'pending' && (
-                        <td className="data-table-cell-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              className="data-table-btn"
-                              disabled={busy}
-                              onClick={() => void approveLeaveRequest(req)}
-                            >
-                              ✓ Approve
-                            </button>
-                            <button
-                              type="button"
-                              className="data-table-btn-danger"
-                              disabled={busy}
-                              onClick={() => void rejectLeaveRequest(req.id)}
-                            >
-                              ✗
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <div className="modal-actions">
-            <div className="modal-actions-right">
-              <button className="cancel-btn" onClick={() => setShowLeaveRequestsModal(false)}>Close</button>
             </div>
           </div>
         </div>

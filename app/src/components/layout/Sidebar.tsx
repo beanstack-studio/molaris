@@ -294,7 +294,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                   >
                     {item.icon}
                     {!collapsed && <span className="flex-1">{item.label}</span>}
-                    {!collapsed && isAdmin && pendingLeaveCount > 0 && pathname?.startsWith('/settings') && (
+                    {!collapsed && !settingsOpen && isAdmin && pendingLeaveCount > 0 && (
                       <span className="inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 mr-1">
                         {pendingLeaveCount}
                       </span>
