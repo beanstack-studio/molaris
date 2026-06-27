@@ -240,7 +240,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   return (
     <>
       <aside
-        className={cn("sidebar-wrapper hidden lg:flex", collapsed ? "w-14" : "w-[220px]")}
+        className={cn("sidebar-wrapper hidden lg:flex flex-col", collapsed ? "w-14" : "w-[220px]")}
         aria-label="Main navigation"
         onClick={() => { if (collapsed) onToggle(); }}
       >

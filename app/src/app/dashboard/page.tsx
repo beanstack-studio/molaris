@@ -449,6 +449,16 @@ export default function DashboardPage() {
             )}
           </div>
 
+          {/* ── View Reports link ───────────────────────── */}
+          <div className="flex justify-end">
+            <a
+              href="/reports/payments"
+              className="text-sm font-medium text-violet-600 hover:text-violet-700 hover:underline transition-colors"
+            >
+              View Reports →
+            </a>
+          </div>
+
         </div>
       </main>
     </div>

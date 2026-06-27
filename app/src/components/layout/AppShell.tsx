@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/cn";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
+import { ClinicMenu } from "./ClinicMenu";
 
 const SIDEBAR_KEY = "molaris_sidebar_v2";
 const INACTIVITY_MS = 10 * 60 * 1000; // 10 minutes
@@ -165,6 +166,7 @@ export default function AppShell({ children }: AppShellProps) {
         {children}
       </div>
       <BottomNav />
+      <ClinicMenu onSignOut={doSignOut} />
     </>
   );
 }

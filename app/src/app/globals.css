@@ -1944,7 +1944,7 @@ html.dark .readonly-input {
    ======================================== */
 
 .sidebar-wrapper {
-  @apply fixed inset-y-0 left-0 z-40 flex flex-col;
+  @apply fixed inset-y-0 left-0 z-40;
   background: linear-gradient(160deg, var(--color-violet-950) 0%, var(--color-violet-900) 45%, var(--color-violet-800) 100%);
   border-right: none;
   box-shadow: 4px 0 32px hsl(var(--accent-hue) var(--accent-sat) 25% / 0.30);
@@ -2016,17 +2016,27 @@ html.dark .readonly-input {
 /* Bottom navigation (mobile only) */
 .bottom-nav-wrapper {
   @apply fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 pt-2 lg:hidden;
-  background-color: var(--bg-card);
-  border-top: 1px solid var(--border-card);
+  background: linear-gradient(160deg, var(--color-violet-950) 0%, var(--color-violet-900) 45%, var(--color-violet-800) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 .bottom-nav-item {
-  @apply flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl text-xs font-medium text-slate-500 transition-colors;
+  @apply flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl text-xs font-medium transition-colors;
+  color: hsl(var(--accent-hue) 60% 82%);
 }
 
 .bottom-nav-item-active {
-  color: var(--color-violet-600);
+  color: white;
+}
+
+/* Clinic menu overlay safe-area helpers */
+.clinic-menu-safe-top {
+  padding-top: max(1rem, calc(env(safe-area-inset-top) + 0.75rem));
+}
+
+.clinic-menu-safe-bottom {
+  padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem));
 }
 
 /* Content offset for sidebar */
