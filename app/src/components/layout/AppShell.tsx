@@ -151,7 +151,7 @@ export default function AppShell({ children }: AppShellProps) {
   const contentClass = cn(
     "sidebar-content-offset",
     effectivelyCollapsed ? "lg:ml-14" : "lg:ml-[220px]",
-    "pb-16 lg:pb-0",
+    "pb-20 lg:pb-0",
   );
 
   return (

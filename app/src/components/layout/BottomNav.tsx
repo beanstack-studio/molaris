@@ -34,10 +34,11 @@ function IconPatients() {
   );
 }
 
-function IconReports() {
+function IconExpenses() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <path strokeLinecap="round" d="M18 20V10M12 20V4M6 20v-6" />
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path strokeLinecap="round" d="M2 10h20M6 15h2M10 15h4" />
     </svg>
   );
 }
@@ -49,12 +50,12 @@ interface BottomNavLink {
   matchPrefix: string;
 }
 
-// 4 items only: Dashboard, Appointments, Patients, Reports
+// 4 items only: Dashboard, Appointments, Patients, Expenses
 const bottomNavLinks: BottomNavLink[] = [
-  { href: "/dashboard",        label: "Dashboard",    icon: <IconDashboard />, matchPrefix: "/dashboard" },
-  { href: "/appointments",     label: "Appointments", icon: <IconCalendar />,  matchPrefix: "/appointments" },
-  { href: "/patients",         label: "Patients",     icon: <IconPatients />,  matchPrefix: "/patients" },
-  { href: "/reports/payments", label: "Reports",      icon: <IconReports />,   matchPrefix: "/reports" },
+  { href: "/dashboard",          label: "Dashboard",    icon: <IconDashboard />, matchPrefix: "/dashboard" },
+  { href: "/appointments",       label: "Appointments", icon: <IconCalendar />,  matchPrefix: "/appointments" },
+  { href: "/patients",           label: "Patients",     icon: <IconPatients />,  matchPrefix: "/patients" },
+  { href: "/expenses/operating", label: "Expenses",     icon: <IconExpenses />,  matchPrefix: "/expenses" },
 ];
 
 export function BottomNav() {
