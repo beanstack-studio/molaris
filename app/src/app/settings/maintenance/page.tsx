@@ -338,10 +338,10 @@ export default function MaintenancePage() {
                   <tr>
                     <th className="data-table-head-cell">Equipment</th>
                     <th className="data-table-head-cell">Issue / Work Done</th>
-                    <th className="data-table-head-cell">Date</th>
-                    <th className="data-table-head-cell-right">Cost</th>
-                    <th className="data-table-head-cell">Technician</th>
-                    <th className="data-table-head-cell"></th>
+                    <th className="data-table-head-cell w-28">Date</th>
+                    <th className="data-table-head-cell-right w-24">Cost</th>
+                    <th className="data-table-head-cell w-40">Technician</th>
+                    <th className="data-table-head-cell w-20"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -364,7 +364,7 @@ export default function MaintenancePage() {
                         <td className="data-table-cell-right text-sm tabular-nums">
                           {log.cost != null ? formatMoney(log.cost) : "—"}
                         </td>
-                        <td className="data-table-cell text-sm text-slate-600">{log.technician ?? "—"}</td>
+                        <td className="data-table-cell text-sm text-slate-600 truncate max-w-0">{log.technician ?? "—"}</td>
                         <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
                           {photoCount > 0 && (
                             <div className="flex items-center justify-end gap-1">

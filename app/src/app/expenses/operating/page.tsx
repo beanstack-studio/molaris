@@ -374,7 +374,7 @@ export default function OperatingPage() {
                   <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("description")}>
                     Description <SortArrow active={sortKey === "description"} asc={sortDir === "asc"} />
                   </th>
-                  <th className="data-table-head-cell">Technician</th>
+                  <th className="data-table-head-cell">Supplier</th>
                   <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
                     Amount <SortArrow active={sortKey === "amount"} asc={sortDir === "asc"} />
                   </th>
@@ -468,7 +468,7 @@ export default function OperatingPage() {
           </label>
 
           <label className="field-label">
-            <span className="field-label-text">Technician / Supplier</span>
+            <span className="field-label-text">Supplier</span>
             <input
               type="text"
               className="field-input"
@@ -629,7 +629,7 @@ export default function OperatingPage() {
           </label>
 
           <label className="field-label">
-            <span className="field-label-text">Technician / Supplier</span>
+            <span className="field-label-text">Supplier</span>
             <input
               type="text"
               className="field-input"
