@@ -10,6 +10,29 @@
  *   ALTER TABLE staff ADD COLUMN IF NOT EXISTS phone text;
  *   ALTER TABLE dentist_blockouts ADD COLUMN IF NOT EXISTS reason text;
  *   ALTER TABLE dentist_blockouts ADD COLUMN IF NOT EXISTS staff_id uuid REFERENCES staff(id);
+ *
+ * schedule_requests table (Sub-task 3 — run in Supabase SQL editor):
+ *   CREATE TABLE IF NOT EXISTS public.schedule_requests (
+ *     id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ *     clinic_id    uuid NOT NULL REFERENCES public.clinics(id),
+ *     profile_id   uuid NOT NULL REFERENCES public.profiles(id),
+ *     request_type text NOT NULL CHECK (request_type IN ('leave')),
+ *     from_date    date NOT NULL,
+ *     to_date      date NOT NULL,
+ *     reason       text,
+ *     status       text NOT NULL DEFAULT 'pending'
+ *                  CHECK (status IN ('pending', 'approved', 'rejected')),
+ *     reviewed_by  uuid REFERENCES public.profiles(id),
+ *     reviewed_at  timestamptz,
+ *     created_at   timestamptz DEFAULT now()
+ *   );
+ *   ALTER TABLE public.schedule_requests ENABLE ROW LEVEL SECURITY;
+ *   CREATE POLICY "Clinic isolation — schedule_requests"
+ *     ON public.schedule_requests FOR ALL TO authenticated
+ *     USING (clinic_id = (SELECT clinic_id FROM public.profiles WHERE id = auth.uid()))
+ *     WITH CHECK (clinic_id = (SELECT clinic_id FROM public.profiles WHERE id = auth.uid()));
+ *   CREATE INDEX IF NOT EXISTS idx_schedule_requests_clinic_id ON public.schedule_requests(clinic_id);
+ *   CREATE INDEX IF NOT EXISTS idx_schedule_requests_profile_id ON public.schedule_requests(profile_id);
  */
 
 "use client";
@@ -102,7 +125,7 @@ type DentistRow = {
   prc_number: string | null; ptr_number: string | null;
   date_of_birth: string | null; is_active: boolean; color: string | null;
   photo_url: string | null; specialty: string | null; phone: string | null;
-  salary_rate: number | null;
+  salary_rate: number | null; profile_id: string | null;
 };
 type StaffRow = {
   id: string; full_name: string; nickname: string | null; role: string;
@@ -129,6 +152,19 @@ type HandlerGroupRow = {
   staffName: string;
   staffNickname: string | null;
   dentists: HandlerDentistRef[];
+};
+type ScheduleRequestRow = {
+  id: string;
+  profile_id: string;
+  request_type: string;
+  from_date: string;
+  to_date: string;
+  reason: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  profiles?: { full_name: string | null } | null;
 };
 
 const DEFAULT_DAY: DaySchedule = { is_working: false, start_time: 8, end_time: 17 };
@@ -250,6 +286,16 @@ export default function TeamSettingsPage() {
   const [staffPhotoPreview, setStaffPhotoPreview] = useState<string | null>(null);
   const staffPhotoInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Leave request state
+  const [leaveRequests, setLeaveRequests] = useState<ScheduleRequestRow[]>([]);
+  const [showLeaveRequestsModal, setShowLeaveRequestsModal] = useState(false);
+  const [leaveRequestsTab, setLeaveRequestsTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [showRequestLeaveModal, setShowRequestLeaveModal] = useState(false);
+  const [reqLeaveFrom, setReqLeaveFrom] = useState('');
+  const [reqLeaveTo, setReqLeaveTo] = useState('');
+  const [reqLeaveReason, setReqLeaveReason] = useState('');
+  const [leaveSubmitSuccess, setLeaveSubmitSuccess] = useState<string | null>(null);
+
   const loadData = useCallback(async () => {
     if (clinicLoading || !clinicId) return;
     setLoading(true); setError(null);
@@ -358,6 +404,18 @@ export default function TeamSettingsPage() {
         }
       } catch {
         // dentist_handlers columns not yet migrated — silently ignore
+      }
+
+      // Load leave requests from schedule_requests
+      try {
+        const { data: leaveReqData } = await supabase
+          .from('schedule_requests')
+          .select('id, profile_id, request_type, from_date, to_date, reason, status, reviewed_by, reviewed_at, created_at, profiles(full_name)')
+          .eq('clinic_id', clinicId)
+          .order('created_at', { ascending: false });
+        if (leaveReqData) setLeaveRequests(leaveReqData as unknown as ScheduleRequestRow[]);
+      } catch {
+        // schedule_requests table not yet created — silently ignore
       }
 
       if (loadedDentists.length > 0) {
@@ -989,6 +1047,70 @@ export default function TeamSettingsPage() {
     setBusy(false);
   }
 
+  async function approveLeaveRequest(req: ScheduleRequestRow) {
+    setBusy(true); setError(null);
+    try {
+      const { error: updateErr } = await supabase
+        .from('schedule_requests')
+        .update({ status: 'approved', reviewed_by: profileId, reviewed_at: new Date().toISOString() })
+        .eq('id', req.id);
+      if (updateErr) throw updateErr;
+
+      const matchedStaff = staff.find((s) => s.profile_id === req.profile_id);
+      const matchedDentist = dentists.find((d) => d.profile_id === req.profile_id);
+
+      if (matchedStaff) {
+        await supabase.from('dentist_blockouts').insert({
+          clinic_id: clinicId, staff_id: matchedStaff.id, dentist_id: null,
+          start_date: req.from_date, end_date: req.to_date, reason: req.reason,
+        });
+      } else if (matchedDentist) {
+        await supabase.from('dentist_blockouts').insert({
+          clinic_id: clinicId, dentist_id: matchedDentist.id, staff_id: null,
+          start_date: req.from_date, end_date: req.to_date, reason: req.reason,
+        });
+      }
+
+      await loadData();
+      setSuccess('Leave request approved.'); setTimeout(() => setSuccess(null), 3000);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to approve request'); }
+    finally { setBusy(false); }
+  }
+
+  async function rejectLeaveRequest(id: string) {
+    setBusy(true); setError(null);
+    try {
+      const { error: updateErr } = await supabase
+        .from('schedule_requests')
+        .update({ status: 'rejected', reviewed_by: profileId, reviewed_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updateErr) throw updateErr;
+      setLeaveRequests((prev) => prev.map((r) => r.id === id ? { ...r, status: 'rejected' as const } : r));
+      setSuccess('Leave request rejected.'); setTimeout(() => setSuccess(null), 3000);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to reject request'); }
+    finally { setBusy(false); }
+  }
+
+  async function submitLeaveRequest() {
+    if (!reqLeaveFrom || !reqLeaveTo || !reqLeaveReason.trim()) return;
+    setBusy(true); setError(null);
+    try {
+      const { error: insertErr } = await supabase.from('schedule_requests').insert({
+        clinic_id: clinicId, profile_id: profileId, request_type: 'leave',
+        from_date: reqLeaveFrom, to_date: reqLeaveTo,
+        reason: reqLeaveReason.trim(), status: 'pending',
+      });
+      if (insertErr) throw insertErr;
+      setLeaveSubmitSuccess('Leave request submitted. Your admin will review it.');
+      setTimeout(() => {
+        setLeaveSubmitSuccess(null);
+        setShowRequestLeaveModal(false);
+        setReqLeaveFrom(''); setReqLeaveTo(''); setReqLeaveReason('');
+      }, 3000);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to submit leave request'); }
+    finally { setBusy(false); }
+  }
+
   // Helpers for blockout table display
   function getBlockoutPersonName(b: BlockoutRow): string {
     if (b.dentist_id) {
@@ -1035,6 +1157,18 @@ export default function TeamSettingsPage() {
       return a.start_date.localeCompare(b.start_date);
     });
   }, [blockouts, today]);
+
+  const myStaffRow = !isAdmin ? staff.find((s) => s.profile_id === profileId) ?? null : null;
+  const myDentistRow = !isAdmin ? dentists.find((d) => d.profile_id === profileId) ?? null : null;
+  const visibleBlockouts = isAdmin
+    ? sortedBlockouts
+    : sortedBlockouts.filter((b) => {
+        if (myStaffRow && b.staff_id === myStaffRow.id) return true;
+        if (myDentistRow && b.dentist_id === myDentistRow.id) return true;
+        return false;
+      });
+
+  const filteredLeaveRequests = leaveRequests.filter((r) => r.status === leaveRequestsTab);
 
   if (loading) return <LoadingBlock />;
 
@@ -1387,17 +1521,23 @@ export default function TeamSettingsPage() {
           <div className="card">
             <div className="card-header">
               <h2 className="card-title">Leave Schedule</h2>
-              {isAdmin && (
-                <button className="save-btn" onClick={openAddBlockout} disabled={busy || !hasPeople}>
-                  Add
+              {isAdmin ? (
+                <button className="save-btn" onClick={() => setShowLeaveRequestsModal(true)} disabled={busy}>
+                  View Requests
+                </button>
+              ) : (
+                <button className="save-btn" onClick={() => setShowRequestLeaveModal(true)} disabled={busy}>
+                  Request Leave
                 </button>
               )}
             </div>
-            {blockouts.length === 0 ? (
+            {visibleBlockouts.length === 0 ? (
               <div className="data-table-empty">
-                {!hasPeople
+                {isAdmin && !hasPeople
                   ? "Add dentists or staff above to schedule off days."
-                  : "No scheduled off days yet."}
+                  : isAdmin
+                  ? "No scheduled off days yet."
+                  : "No approved leaves yet."}
               </div>
             ) : (
               <div className="table-wrapper overflow-x-auto">
@@ -1417,7 +1557,7 @@ export default function TeamSettingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedBlockouts.map((b, idx) => {
+                    {visibleBlockouts.map((b, idx) => {
                       const avatar = getBlockoutPersonAvatar(b);
                       const personName = getBlockoutPersonName(b);
                       return (
@@ -2140,6 +2280,156 @@ export default function TeamSettingsPage() {
                 disabled={busy || !blockoutPerson || !blockoutStart || !blockoutEnd || !blockoutReason.trim()}
               >
                 {busy ? "Saving…" : editingBlockout ? "Update" : "Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
+
+      {/* ── VIEW REQUESTS MODAL (admin) ── */}
+      <EditModal
+        open={showLeaveRequestsModal}
+        title="Leave Requests"
+        onClose={() => setShowLeaveRequestsModal(false)}
+      >
+        <div className="spacing-vertical-lg">
+          <div className="action-row">
+            {(['pending', 'approved', 'rejected'] as const).map((tab) => (
+              <button
+                key={tab}
+                className={leaveRequestsTab === tab ? 'toggle-btn-active' : 'toggle-btn'}
+                onClick={() => setLeaveRequestsTab(tab)}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {filteredLeaveRequests.length === 0 ? (
+            <div className="data-table-empty">No {leaveRequestsTab} leave requests.</div>
+          ) : (
+            <div className="table-wrapper overflow-x-auto">
+              <table className="data-table min-w-[480px]">
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Person</th>
+                    <th className="data-table-head-cell">From</th>
+                    <th className="data-table-head-cell">To</th>
+                    <th className="data-table-head-cell">Reason</th>
+                    {leaveRequestsTab === 'pending' && (
+                      <th className="data-table-head-cell-right">Actions</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLeaveRequests.map((req, idx) => (
+                    <tr key={req.id} className={cn('data-table-row', idx % 2 === 0 ? 'data-table-row-even' : 'data-table-row-odd')}>
+                      <td className="data-table-cell text-sm font-medium">
+                        {req.profiles?.full_name ?? '—'}
+                      </td>
+                      <td className="data-table-cell text-sm text-slate-600">{formatDateStandard(req.from_date)}</td>
+                      <td className="data-table-cell text-sm text-slate-600">
+                        {req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}
+                      </td>
+                      <td className="data-table-cell text-sm text-slate-500">{req.reason ?? '—'}</td>
+                      {leaveRequestsTab === 'pending' && (
+                        <td className="data-table-cell-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              className="data-table-btn"
+                              disabled={busy}
+                              onClick={() => void approveLeaveRequest(req)}
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              type="button"
+                              className="data-table-btn-danger"
+                              disabled={busy}
+                              onClick={() => void rejectLeaveRequest(req.id)}
+                            >
+                              ✗
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button className="cancel-btn" onClick={() => setShowLeaveRequestsModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      </EditModal>
+
+      {/* ── REQUEST LEAVE MODAL (non-admin) ── */}
+      <EditModal
+        open={showRequestLeaveModal}
+        title="Request Leave"
+        onClose={() => {
+          setShowRequestLeaveModal(false);
+          setReqLeaveFrom(''); setReqLeaveTo(''); setReqLeaveReason('');
+          setLeaveSubmitSuccess(null);
+        }}
+      >
+        <div className="spacing-vertical-lg">
+          {leaveSubmitSuccess && <div className="success-banner">{leaveSubmitSuccess}</div>}
+          <div>
+            <span className="field-label-text block mb-2">Date Range <span className="text-red-400">*</span></span>
+            <div className="flex items-start gap-2">
+              <DatePickerField
+                label="From"
+                value={reqLeaveFrom}
+                onChange={setReqLeaveFrom}
+                min={today}
+                wrapperClassName="grid gap-1 flex-1"
+              />
+              <span className="text-slate-400 shrink-0 mt-7 text-lg">→</span>
+              <DatePickerField
+                label="To"
+                value={reqLeaveTo}
+                onChange={(v) => { if (!reqLeaveFrom || v >= reqLeaveFrom) setReqLeaveTo(v); }}
+                min={reqLeaveFrom || today}
+                wrapperClassName="grid gap-1 flex-1"
+              />
+            </div>
+          </div>
+          <label className="field-label">
+            <span className="field-label-text">Reason <span className="text-red-400">*</span></span>
+            <input
+              className="field-input"
+              placeholder="e.g. Vacation, Medical leave, Personal"
+              value={reqLeaveReason}
+              onChange={(e) => setReqLeaveReason(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <div className="modal-actions">
+            <div className="modal-actions-right">
+              <button
+                className="cancel-btn"
+                onClick={() => {
+                  setShowRequestLeaveModal(false);
+                  setReqLeaveFrom(''); setReqLeaveTo(''); setReqLeaveReason('');
+                  setLeaveSubmitSuccess(null);
+                }}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                className="save-btn"
+                onClick={() => void submitLeaveRequest()}
+                disabled={busy || !reqLeaveFrom || !reqLeaveTo || !reqLeaveReason.trim()}
+              >
+                {busy ? 'Submitting…' : 'Submit Request'}
               </button>
             </div>
           </div>

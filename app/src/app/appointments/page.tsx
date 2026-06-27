@@ -64,6 +64,7 @@ export default function AppointmentsPage() {
   const [holidayOverrides, setHolidayOverrides] = useState<Set<string>>(new Set());
   const [togglingOverride, setTogglingOverride] = useState(false);
   const [prefillPatient, setPrefillPatient] = useState<{ id: string; name: string } | undefined>(undefined);
+  const [approvedLeaves, setApprovedLeaves] = useState<{ profile_id: string; from_date: string; to_date: string; reason: string | null; profiles?: { full_name: string | null } | null }[]>([]);
   const [dayModalDate, setDayModalDate] = useState<string | null>(null);
   const clickTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [aptSortConfig, setAptSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "appointment_date", direction: "asc" });
@@ -153,6 +154,17 @@ export default function AppointmentsPage() {
 
     // Run autoMarkMissed in background (fire and forget — doesn't block display)
     autoMarkMissed();
+
+    // Load approved leave requests — silently ignore if table doesn't exist yet
+    Promise.resolve(
+      supabase
+        .from('schedule_requests')
+        .select('profile_id, from_date, to_date, reason, profiles(full_name)')
+        .eq('clinic_id', clinicId)
+        .eq('status', 'approved')
+        .order('from_date')
+    ).then(({ data }) => { if (data) setApprovedLeaves(data as unknown as typeof approvedLeaves); })
+     .catch(() => { /* schedule_requests table not yet created */ });
   }, [clinicLoading, clinicId]);
 
   const loadClinicHours = async () => {
@@ -282,6 +294,10 @@ export default function AppointmentsPage() {
       setPatients([]);
     }
   };
+
+  function getLeavesForDate(dateStr: string) {
+    return approvedLeaves.filter((l) => l.from_date <= dateStr && l.to_date >= dateStr);
+  }
 
   function handleCellInteraction(dateStr: string, isDouble: boolean) {
     if (isDouble) {
@@ -647,7 +663,8 @@ export default function AppointmentsPage() {
                 ) : (
                   datesList.map((date) => (
                     <div key={date} id={`appt-date-${date}`}>
-                      <div className="px-1 pb-2 flex flex-wrap items-center gap-2">
+                      <div className="px-1 pb-2 flex flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">{formatDateHeading(date)}</span>
                         {phHolidays.includes(date) && !holidayOverrides.has(date) && (
                           <span className="badge badge-warning">🇵🇭 {phHolidayNames[date]}</span>
@@ -668,6 +685,15 @@ export default function AppointmentsPage() {
                             {holidayOverrides.has(date) ? "Mark as Closed" : "Mark as Open"}
                           </button>
                         )}
+                        </div>
+                        {getLeavesForDate(date).map((l) => (
+                          <div key={`${l.profile_id}-${l.from_date}`} className="flex items-center gap-1.5 text-xs text-slate-400 italic">
+                            <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {l.profiles?.full_name ?? 'Team member'} — on leave{l.reason ? ` (${l.reason})` : ''}
+                          </div>
+                        ))}
                       </div>
                       <AppointmentsTable rows={appointmentsByDate[date]} />
                     </div>
@@ -818,6 +844,23 @@ export default function AppointmentsPage() {
                             )}
                           </div>
                         )}
+                        {isCurrentMonth && dateStr && (() => {
+                          const leaves = getLeavesForDate(dateStr);
+                          if (leaves.length === 0) return null;
+                          return (
+                            <div className="mt-0.5 border-t border-slate-100 pt-0.5">
+                              {leaves.length === 1 ? (
+                                <div className="text-[10px] text-slate-400 italic leading-tight truncate">
+                                  {leaves[0].profiles?.full_name ?? 'Someone'} on leave
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-slate-400 italic leading-tight">
+                                  {leaves.length} on leave
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
