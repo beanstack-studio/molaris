@@ -43,6 +43,10 @@
  *   UPDATE public.schedule_requests
  *   SET status = 'cancelled', cancelled_by = 'admin'
  *   WHERE status IN ('rejected', 'cancelled') AND cancelled_by IS NULL;
+ *
+ * is_seen_by_requester column (employee notification badge):
+ *   ALTER TABLE public.schedule_requests
+ *   ADD COLUMN IF NOT EXISTS is_seen_by_requester boolean DEFAULT false;
  */
 
 "use client";
@@ -176,6 +180,7 @@ type ScheduleRequestRow = {
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
+  is_seen_by_requester: boolean | null;
   profiles?: { full_name: string | null; role: string | null } | null;
 };
 
@@ -298,6 +303,7 @@ export default function TeamSettingsPage() {
   // Leave request state
   const [leaveRequests, setLeaveRequests] = useState<ScheduleRequestRow[]>([]);
   const [leaveRequestsTab, setLeaveRequestsTab] = useState<'approved' | 'cancelled' | 'pending'>('approved');
+  const [unseenDecisionCount, setUnseenDecisionCount] = useState(0);
   const [undoToast, setUndoToast] = useState<{ message: string; row: ScheduleRequestRow } | null>(null);
   const [showRequestLeaveModal, setShowRequestLeaveModal] = useState(false);
   const [reqLeaveFrom, setReqLeaveFrom] = useState('');
@@ -498,10 +504,10 @@ export default function TeamSettingsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Auto-adjust "To" date when "From" changes to prevent invalid ranges
+  // Clear "To" date when "From" moves later than the current "To"
   useEffect(() => {
     setReqLeaveTo((prev) => {
-      if (reqLeaveFrom && prev && prev < reqLeaveFrom) return reqLeaveFrom;
+      if (reqLeaveFrom && prev && prev < reqLeaveFrom) return '';
       return prev;
     });
   }, [reqLeaveFrom]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1073,6 +1079,7 @@ export default function TeamSettingsPage() {
         reviewed_by,
         reviewed_at,
         created_at,
+        is_seen_by_requester,
         profiles!schedule_requests_profile_id_fkey (
           full_name,
           role
@@ -1091,6 +1098,39 @@ export default function TeamSettingsPage() {
 
   function dispatchLeaveCountRefresh() {
     window.dispatchEvent(new CustomEvent('teamLeaveCountChanged'));
+  }
+
+  async function markLeaveRowsAsSeen(tab: 'approved' | 'cancelled' | 'pending') {
+    if (isAdmin) return;
+    // Mark unseen rows visible on this tab as seen
+    const unseenIds = leaveRequests
+      .filter(
+        (r) =>
+          r.profile_id === profileId &&
+          !r.is_seen_by_requester &&
+          (tab === 'approved'
+            ? r.status === 'approved'
+            : tab === 'pending'
+            ? r.status === 'pending'
+            : false)
+      )
+      .map((r) => r.id);
+    if (unseenIds.length === 0) return;
+    // Optimistic update
+    setLeaveRequests((prev) =>
+      prev.map((r) => (unseenIds.includes(r.id) ? { ...r, is_seen_by_requester: true } : r))
+    );
+    setUnseenDecisionCount(0);
+    await supabase
+      .from('schedule_requests')
+      .update({ is_seen_by_requester: true })
+      .in('id', unseenIds);
+    dispatchLeaveCountRefresh();
+  }
+
+  function handleLeaveTabClick(tab: 'approved' | 'cancelled' | 'pending') {
+    setLeaveRequestsTab(tab);
+    void markLeaveRowsAsSeen(tab);
   }
 
   async function approveLeaveRequest(req: ScheduleRequestRow) {
@@ -1277,6 +1317,15 @@ export default function TeamSettingsPage() {
   const userWithdrawnCount = leaveRequests.filter(
     (r) => r.status === 'cancelled' && r.cancelled_by === 'user'
   ).length;
+  // Employee badge: own rows with a decision (approved or admin-cancelled) not yet seen
+  const computedUnseenCount = !isAdmin
+    ? leaveRequests.filter(
+        (r) =>
+          r.profile_id === profileId &&
+          (r.status === 'approved' || (r.status === 'cancelled' && r.cancelled_by === 'admin')) &&
+          !r.is_seen_by_requester
+      ).length
+    : 0;
 
   // Tab content for Leave Schedule card — filtering differs by role
   const leaveTabContent = useMemo(() => {
@@ -1685,7 +1734,7 @@ export default function TeamSettingsPage() {
                 <button
                   key={tab}
                   className={leaveRequestsTab === tab ? 'toggle-btn-active' : 'toggle-btn'}
-                  onClick={() => setLeaveRequestsTab(tab)}
+                  onClick={() => handleLeaveTabClick(tab)}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                   {isAdmin && tab === 'pending' && pendingLeaveCount > 0 && (
@@ -1698,6 +1747,11 @@ export default function TeamSettingsPage() {
                       {userWithdrawnCount}
                     </span>
                   )}
+                  {!isAdmin && tab === 'approved' && computedUnseenCount > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1">
+                      {computedUnseenCount}
+                    </span>
+                  )}
                 </button>
               ))}
           </div>
@@ -1708,12 +1762,18 @@ export default function TeamSettingsPage() {
               <div className="data-table-empty">No approved leaves yet.</div>
             ) : (
               <div className="table-wrapper overflow-x-auto">
-                <table className="data-table min-w-[480px]">
+                <table className="data-table min-w-[520px]">
+                  <colgroup>
+                    <col className="w-48 min-w-[192px]" />
+                    <col className="w-28 min-w-[100px]" />
+                    <col className="w-28 min-w-[100px]" />
+                    <col />
+                  </colgroup>
                   <thead className="data-table-head">
                     <tr>
-                      <th className="data-table-head-cell min-w-[180px]">Person</th>
-                      <th className="data-table-head-cell">From</th>
-                      <th className="data-table-head-cell">To</th>
+                      <th className="data-table-head-cell">Person</th>
+                      <th className="data-table-head-cell whitespace-nowrap">From</th>
+                      <th className="data-table-head-cell whitespace-nowrap">To</th>
                       <th className="data-table-head-cell">Reason</th>
                     </tr>
                   </thead>
@@ -1745,8 +1805,8 @@ export default function TeamSettingsPage() {
                               {isOwn && <span className="text-xs text-slate-400">(you)</span>}
                             </div>
                           </td>
-                          <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(req.from_date)}</td>
-                          <td className="data-table-cell text-slate-600 text-sm">{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
+                          <td className="data-table-cell text-slate-600 text-sm whitespace-nowrap">{formatDateStandard(req.from_date)}</td>
+                          <td className="data-table-cell text-slate-600 text-sm whitespace-nowrap">{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
                           <td className="data-table-cell text-slate-500 text-sm">{req.reason ?? <span className="text-slate-300">—</span>}</td>
                         </tr>
                       );
@@ -1764,11 +1824,18 @@ export default function TeamSettingsPage() {
             ) : (
               <div className="table-wrapper overflow-x-auto">
                 <table className="data-table min-w-[520px]">
+                  <colgroup>
+                    <col className="w-48 min-w-[192px]" />
+                    <col className="w-28 min-w-[100px]" />
+                    <col className="w-28 min-w-[100px]" />
+                    <col />
+                    <col className="w-10" />
+                  </colgroup>
                   <thead className="data-table-head">
                     <tr>
-                      <th className="data-table-head-cell min-w-[180px]">Person</th>
-                      <th className="data-table-head-cell">From</th>
-                      <th className="data-table-head-cell">To</th>
+                      <th className="data-table-head-cell">Person</th>
+                      <th className="data-table-head-cell whitespace-nowrap">From</th>
+                      <th className="data-table-head-cell whitespace-nowrap">To</th>
                       <th className="data-table-head-cell">Reason</th>
                       <th className="data-table-head-cell-right"></th>
                     </tr>
@@ -1787,7 +1854,7 @@ export default function TeamSettingsPage() {
                             isUserWithdrawn && 'bg-amber-50/60'
                           )}
                         >
-                          <td className="data-table-cell min-w-[180px]">
+                          <td className="data-table-cell">
                             <div className="flex items-center gap-1.5">
                               {isUserWithdrawn && <span className="text-amber-500 shrink-0" title="Withdrawn by user">🔔</span>}
                               {avatar.photoUrl ? (
@@ -1800,8 +1867,8 @@ export default function TeamSettingsPage() {
                               <span className={cn("text-sm font-medium", !isUserWithdrawn && "text-slate-400")}>{personName}</span>
                             </div>
                           </td>
-                          <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-600" : "text-slate-400")}>{formatDateStandard(req.from_date)}</td>
-                          <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-600" : "text-slate-400")}>{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
+                          <td className={cn("data-table-cell text-sm whitespace-nowrap", isUserWithdrawn ? "text-slate-600" : "text-slate-400")}>{formatDateStandard(req.from_date)}</td>
+                          <td className={cn("data-table-cell text-sm whitespace-nowrap", isUserWithdrawn ? "text-slate-600" : "text-slate-400")}>{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
                           <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-500" : "text-slate-400")}>{req.reason ?? <span className="text-slate-300">—</span>}</td>
                           <td className="data-table-cell-right">
                             <button
@@ -1833,12 +1900,19 @@ export default function TeamSettingsPage() {
               </div>
             ) : (
               <div className="table-wrapper overflow-x-auto">
-                <table className="data-table min-w-[480px]">
+                <table className="data-table min-w-[520px]">
+                  <colgroup>
+                    <col className="w-48 min-w-[192px]" />
+                    <col className="w-28 min-w-[100px]" />
+                    <col className="w-28 min-w-[100px]" />
+                    <col />
+                    {isAdmin && <col className="w-24" />}
+                  </colgroup>
                   <thead className="data-table-head">
                     <tr>
-                      <th className="data-table-head-cell min-w-[180px]">Person</th>
-                      <th className="data-table-head-cell">From</th>
-                      <th className="data-table-head-cell">To</th>
+                      <th className="data-table-head-cell">Person</th>
+                      <th className="data-table-head-cell whitespace-nowrap">From</th>
+                      <th className="data-table-head-cell whitespace-nowrap">To</th>
                       <th className="data-table-head-cell">Reason</th>
                       {isAdmin && <th className="data-table-head-cell-right">Actions</th>}
                     </tr>
@@ -1849,7 +1923,7 @@ export default function TeamSettingsPage() {
                       const personName = req.profiles?.full_name ?? '—';
                       return (
                         <tr key={req.id} className={cn('data-table-row', idx % 2 === 0 ? 'data-table-row-even' : 'data-table-row-odd')}>
-                          <td className="data-table-cell min-w-[180px]">
+                          <td className="data-table-cell">
                             <div className="flex items-center gap-1.5">
                               {avatar.photoUrl ? (
                                 <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
@@ -1861,14 +1935,34 @@ export default function TeamSettingsPage() {
                               <span className="text-sm font-medium">{personName}</span>
                             </div>
                           </td>
-                          <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(req.from_date)}</td>
-                          <td className="data-table-cell text-slate-600 text-sm">{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
+                          <td className="data-table-cell text-slate-600 text-sm whitespace-nowrap">{formatDateStandard(req.from_date)}</td>
+                          <td className="data-table-cell text-slate-600 text-sm whitespace-nowrap">{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
                           <td className="data-table-cell text-slate-500 text-sm">{req.reason ?? <span className="text-slate-300">—</span>}</td>
                           {isAdmin && (
                             <td className="data-table-cell-right">
                               <div className="flex items-center justify-end gap-1">
-                                <button type="button" className="data-table-btn" disabled={busy} onClick={() => void approveLeaveRequest(req)}>✓ Approve</button>
-                                <button type="button" className="data-table-btn-danger" disabled={busy} onClick={() => void rejectLeaveRequest(req.id)}>✗</button>
+                                <button
+                                  type="button"
+                                  className="data-table-btn"
+                                  disabled={busy}
+                                  onClick={() => void approveLeaveRequest(req)}
+                                  title="Approve"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="data-table-btn-danger"
+                                  disabled={busy}
+                                  onClick={() => void rejectLeaveRequest(req.id)}
+                                  title="Reject"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
                               </div>
                             </td>
                           )}
@@ -2615,7 +2709,7 @@ export default function TeamSettingsPage() {
               {/* Withdraw button — only when editing an approved leave */}
               {editingLeaveRow?.status === 'approved' && (
                 <button
-                  className="cancel-btn text-red-500 hover:text-red-600"
+                  className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50"
                   onClick={() => void withdrawLeaveRequest(editingLeaveRow.id)}
                   disabled={busy}
                 >

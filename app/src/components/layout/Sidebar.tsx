@@ -144,10 +144,11 @@ const settingsFlyoutSections: { title: string; items: SettingsNavItem[] }[] = [
 export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { clinicName, clinicId, plan, role, isAdmin, isPro, userFullName, userEmail } = useClinic();
+  const { clinicName, clinicId, profileId, plan, role, isAdmin, isPro, userFullName, userEmail } = useClinic();
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [unseenDecisionCount, setUnseenDecisionCount] = useState(0);
 
   // Auto-open settings accordion when on a settings route
   useEffect(() => {
@@ -185,25 +186,38 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
   }, [logoSrc]);
 
   useEffect(() => {
-    if (!isAdmin || !clinicId) return;
+    if (!clinicId) return;
     async function fetchCount() {
       try {
-        const [{ count: pendingCount }, { count: withdrawnCount }] = await Promise.all([
-          supabase.from('schedule_requests').select('id', { count: 'exact', head: true })
-            .eq('clinic_id', clinicId).eq('status', 'pending'),
-          supabase.from('schedule_requests').select('id', { count: 'exact', head: true })
-            .eq('clinic_id', clinicId).eq('status', 'cancelled').eq('cancelled_by', 'user'),
-        ]);
-        setPendingLeaveCount((pendingCount ?? 0) + (withdrawnCount ?? 0));
+        if (isAdmin) {
+          const [{ count: pendingCount }, { count: withdrawnCount }] = await Promise.all([
+            supabase.from('schedule_requests').select('id', { count: 'exact', head: true })
+              .eq('clinic_id', clinicId).eq('status', 'pending'),
+            supabase.from('schedule_requests').select('id', { count: 'exact', head: true })
+              .eq('clinic_id', clinicId).eq('status', 'cancelled').eq('cancelled_by', 'user'),
+          ]);
+          setPendingLeaveCount((pendingCount ?? 0) + (withdrawnCount ?? 0));
+        } else if (profileId) {
+          // Non-admin: count own rows with a decision not yet seen
+          const { count } = await supabase
+            .from('schedule_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('clinic_id', clinicId)
+            .eq('profile_id', profileId)
+            .eq('is_seen_by_requester', false)
+            .or('status.eq.approved,and(status.eq.cancelled,cancelled_by.eq.admin)');
+          setUnseenDecisionCount(count ?? 0);
+        }
       } catch { /* schedule_requests not yet created */ }
     }
     void fetchCount();
     function handle() { void fetchCount(); }
     window.addEventListener('teamLeaveCountChanged', handle);
     return () => window.removeEventListener('teamLeaveCountChanged', handle);
-  }, [isAdmin, clinicId]);
+  }, [isAdmin, clinicId, profileId]);
 
   // ─── Derived values ──────────────────────────────────────────────────────────
+  const leaveNavBadge = isAdmin ? pendingLeaveCount : unseenDecisionCount;
   const emailHandle = userEmail?.split("@")[0] ?? "User";
   const userInitials = (userFullName ?? emailHandle)
     .split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -299,9 +313,12 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                   >
                     {item.icon}
                     {!collapsed && <span className="flex-1">{item.label}</span>}
-                    {!collapsed && !settingsOpen && isAdmin && pendingLeaveCount > 0 && (
-                      <span className="inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 mr-1">
-                        {pendingLeaveCount}
+                    {!collapsed && !settingsOpen && leaveNavBadge > 0 && (
+                      <span className={cn(
+                        "inline-flex items-center justify-center rounded-full text-white text-[10px] font-bold min-w-[16px] h-4 px-1 mr-1",
+                        isAdmin ? "bg-red-500" : "bg-blue-500"
+                      )}>
+                        {leaveNavBadge}
                       </span>
                     )}
                     {!collapsed && (
@@ -344,9 +361,12 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
                                   aria-current={subActive ? "page" : undefined}
                                 >
                                   <span className="flex-1">{sub.label}</span>
-                                  {sub.href === '/settings/team' && isAdmin && pendingLeaveCount > 0 && (
-                                    <span className="inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1">
-                                      {pendingLeaveCount}
+                                  {sub.href === '/settings/team' && leaveNavBadge > 0 && (
+                                    <span className={cn(
+                                      "inline-flex items-center justify-center rounded-full text-white text-[10px] font-bold min-w-[16px] h-4 px-1",
+                                      isAdmin ? "bg-red-500" : "bg-blue-500"
+                                    )}>
+                                      {leaveNavBadge}
                                     </span>
                                   )}
                                   {isLocked && (
