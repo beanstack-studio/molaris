@@ -1048,17 +1048,40 @@ export default function TeamSettingsPage() {
   }
 
   async function loadLeaveRequests() {
-    if (!clinicId) return;
-    try {
-      const { data: leaveReqData } = await supabase
-        .from('schedule_requests')
-        .select('id, profile_id, request_type, from_date, to_date, reason, status, reviewed_by, reviewed_at, created_at, profiles(full_name, role)')
-        .eq('clinic_id', clinicId)
-        .order('created_at', { ascending: false });
-      if (leaveReqData) setLeaveRequests(leaveReqData as unknown as ScheduleRequestRow[]);
-    } catch {
-      // schedule_requests table not yet created — silently ignore
+    if (!clinicId) {
+      console.warn('loadLeaveRequests: clinicId is empty, skipping');
+      return;
     }
+    console.log('loadLeaveRequests called, clinicId:', clinicId);
+
+    const { data: requests, error } = await supabase
+      .from('schedule_requests')
+      .select(`
+        id,
+        profile_id,
+        request_type,
+        from_date,
+        to_date,
+        reason,
+        status,
+        reviewed_by,
+        reviewed_at,
+        created_at,
+        profiles (
+          full_name,
+          role
+        )
+      `)
+      .eq('clinic_id', clinicId)
+      .order('created_at', { ascending: false });
+
+    console.log('schedule_requests query result:', {
+      data: requests,
+      error,
+      count: requests?.length,
+    });
+
+    setLeaveRequests((requests ?? []) as unknown as ScheduleRequestRow[]);
   }
 
   async function openViewRequestsModal() {
@@ -1247,6 +1270,8 @@ export default function TeamSettingsPage() {
   const pendingLeaveCount = leaveRequests.filter((r) => r.status === 'pending').length;
 
   if (loading) return <LoadingBlock />;
+
+  console.log('Rendering modal, leaveRequests state:', leaveRequests);
 
   return (
     <>
