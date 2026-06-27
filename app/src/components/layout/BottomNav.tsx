@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 
 function IconDashboard() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <rect x="3" y="3" width="7" height="7" rx="1" />
       <rect x="14" y="3" width="7" height="7" rx="1" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -17,7 +17,7 @@ function IconDashboard() {
 
 function IconCalendar() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <path strokeLinecap="round" d="M16 2v4M8 2v4M3 10h18" />
     </svg>
@@ -26,7 +26,7 @@ function IconCalendar() {
 
 function IconPatients() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <path strokeLinecap="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path strokeLinecap="round" d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
@@ -36,7 +36,7 @@ function IconPatients() {
 
 function IconExpenses() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
       <rect x="2" y="5" width="20" height="14" rx="2" />
       <path strokeLinecap="round" d="M2 10h20M6 15h2M10 15h4" />
     </svg>
