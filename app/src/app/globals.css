@@ -2023,16 +2023,17 @@ html.dark .readonly-input {
 
 /* Bottom navigation (mobile only) */
 .bottom-nav-wrapper {
-  @apply fixed bottom-0 left-0 right-0 w-full z-40 flex items-center overflow-hidden lg:hidden;
+  @apply fixed bottom-0 left-0 right-0 w-full z-40 flex items-stretch overflow-hidden lg:hidden;
   background: linear-gradient(160deg, var(--color-violet-950) 0%, var(--color-violet-900) 45%, var(--color-violet-800) 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.10);
-  /* 56px content area; safe area adds below (env returns 0 on non-notch) */
-  min-height: 56px;
+  /* Total = 56px nav bar + safe area. padding-bottom is inside the total,
+     so content area = 56px on non-notch, 56px on iPhone (safe area fills padding zone). */
+  height: calc(3.5rem + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 .bottom-nav-item {
-  @apply flex flex-col items-center gap-0.5 flex-1 py-0 rounded-xl font-medium transition-colors;
+  @apply flex flex-col items-center justify-center gap-0.5 flex-1 h-full py-0 rounded-xl font-medium transition-colors;
   font-size: 9px;
   color: hsl(var(--accent-hue) 60% 82%);
 }
