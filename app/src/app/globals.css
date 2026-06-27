@@ -35,7 +35,8 @@ html.dark {
 }
 
 html {
-  background-color: var(--bg-page);
+  /* Exact top-of-gradient color — fills status bar area on iOS PWA before gradient paints */
+  background-color: hsl(205, 52%, 72%);
   /* 135° = top-left blue → teal → bottom-right sage green */
   background-image: linear-gradient(
     135deg,
@@ -44,12 +45,15 @@ html {
     hsl(150 36% 70%) 100%
   );
   background-attachment: fixed;
+  min-height: 100dvh;
 }
 
 body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Transparent so html gradient bleeds through — including into the status bar zone */
   background-color: transparent;
-  /* Push content below the status bar / notch so the html gradient bleeds through */
+  min-height: 100dvh;
+  /* Push content below the status bar / notch so the html gradient bleeds behind it */
   padding-top: env(safe-area-inset-top);
 }
 
@@ -1509,9 +1513,9 @@ html.dark .readonly-input {
    ======================================== */
 
 /* Background image is now handled globally by ThemeBackground component in layout.tsx.
-   .page-bg is kept for pages that need min-height: 100vh. */
+   .page-bg is kept for pages that need full-viewport height. */
 .page-bg {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Login page — matches app's blue-teal-sage gradient, slightly more saturated */
@@ -2019,7 +2023,7 @@ html.dark .readonly-input {
 
 /* Bottom navigation (mobile only) */
 .bottom-nav-wrapper {
-  @apply fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 pt-2 lg:hidden;
+  @apply fixed bottom-0 left-0 right-0 w-full z-40 flex items-center overflow-hidden pt-2 lg:hidden;
   background: linear-gradient(160deg, var(--color-violet-950) 0%, var(--color-violet-900) 45%, var(--color-violet-800) 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.10);
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));

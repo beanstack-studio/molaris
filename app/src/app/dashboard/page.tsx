@@ -184,9 +184,10 @@ export default function DashboardPage() {
   return (
     <div className="page-bg">
       <main className="app-section">
-        <div className="app-section-header">
+        {/* Mobile: stack title then button below, left-aligned. Desktop: side by side. */}
+        <div className="flex flex-col gap-2 mb-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="app-section-title">Dashboard</div>
-          <Link href="/reports/payments" className="btn btn-secondary">View Reports</Link>
+          <Link href="/reports/payments" className="btn btn-primary self-start lg:self-auto">View Reports</Link>
         </div>
 
         {statsError && (
