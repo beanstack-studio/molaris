@@ -2602,6 +2602,7 @@ export default function TeamSettingsPage() {
                 value={blockoutEnd}
                 onChange={(v) => { if (!blockoutStart || v >= blockoutStart) setBlockoutEnd(v); }}
                 min={blockoutStart || undefined}
+                initialMonth={blockoutStart || undefined}
                 wrapperClassName="grid gap-1 flex-1"
               />
             </div>
@@ -2678,6 +2679,7 @@ export default function TeamSettingsPage() {
                 value={reqLeaveTo}
                 onChange={setReqLeaveTo}
                 min={reqLeaveFrom || today}
+                initialMonth={reqLeaveFrom || undefined}
                 wrapperClassName="grid gap-1 flex-1"
               />
             </div>

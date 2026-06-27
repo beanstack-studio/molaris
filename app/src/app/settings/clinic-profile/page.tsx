@@ -52,7 +52,7 @@ const DEFAULT_CLINIC_HOURS: Availability[] = [
 ];
 
 export default function ClinicProfileSettingsPage() {
-  const { clinicId, clinicName, plan, isLoading: clinicLoading } = useClinic();
+  const { clinicId, clinicName, plan, isAdmin, isLoading: clinicLoading } = useClinic();
   const [profile, setProfile] = useState<ClinicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -298,7 +298,7 @@ export default function ClinicProfileSettingsPage() {
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">Clinic Information</h3>
-          <button className="save-btn" onClick={openEditInfo}>Edit</button>
+          {isAdmin && <button className="save-btn" onClick={openEditInfo}>Edit</button>}
         </div>
 
         {/* Logo + Clinic Name inline */}
@@ -370,7 +370,7 @@ export default function ClinicProfileSettingsPage() {
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">Clinic Hours</h3>
-          {editingClinicHours && (
+          {isAdmin && editingClinicHours && (
             <div className="action-row">
               <button className="cancel-btn" onClick={() => setEditingClinicHours(false)}>Cancel</button>
               <button className="save-btn" onClick={handleSaveClinicHours} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
@@ -395,14 +395,15 @@ export default function ClinicProfileSettingsPage() {
                     <tr
                       key={hour.id}
                       className={cn(
-                        "data-table-row cursor-pointer",
+                        "data-table-row",
+                        isAdmin && "cursor-pointer",
                         idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
                       )}
-                      onClick={() => setEditingClinicHours(true)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditingClinicHours(true); } }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Edit ${hour.day} hours`}
+                      onClick={isAdmin ? () => setEditingClinicHours(true) : undefined}
+                      onKeyDown={isAdmin ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditingClinicHours(true); } } : undefined}
+                      tabIndex={isAdmin ? 0 : undefined}
+                      role={isAdmin ? "button" : undefined}
+                      aria-label={isAdmin ? `Edit ${hour.day} hours` : undefined}
                     >
                       <td className="data-table-cell font-medium text-slate-700">{hour.day}</td>
                       <td className="data-table-cell-right tabular-nums text-sm">
@@ -421,7 +422,7 @@ export default function ClinicProfileSettingsPage() {
         )}
 
         {/* Edit mode — per-day cards */}
-        {editingClinicHours && (
+        {isAdmin && editingClinicHours && (
           <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
             {clinicHours.map((hour) => {
               const isOpen = hour.is_open !== false;

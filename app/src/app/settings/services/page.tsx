@@ -445,7 +445,7 @@ function CatalogSettingsPageInner() {
                       <td className="data-table-cell-right whitespace-nowrap">{formatMoney(r.default_price)}</td>
                       <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end">
-                          <TogglePill checked={r.is_active} disabled={!isAdmin || busy} onChange={isAdmin ? () => toggleActive(r.id, r.is_active) : () => {}} />
+                          <TogglePill checked={r.is_active} disabled={busy} onChange={() => toggleActive(r.id, r.is_active)} />
                         </div>
                       </td>
                     </tr>
@@ -505,7 +505,7 @@ function CatalogSettingsPageInner() {
                       <td className="data-table-cell-right whitespace-nowrap">{formatMoney(r.default_price)}</td>
                       <td className="data-table-cell-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end">
-                          <TogglePill checked={r.is_active} disabled={!isAdmin || busy} onChange={isAdmin ? () => toggleActive(r.id, r.is_active) : () => {}} />
+                          <TogglePill checked={r.is_active} disabled={busy} onChange={() => toggleActive(r.id, r.is_active)} />
                         </div>
                       </td>
                     </tr>
@@ -561,14 +561,14 @@ function CatalogSettingsPageInner() {
                       key={mode.id}
                       className={cn(
                         "data-table-row",
-                        editingId === mode.id ? "" : "cursor-pointer hover:bg-slate-50",
+                        isAdmin && editingId !== mode.id && "cursor-pointer hover:bg-slate-50",
                         i % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"
                       )}
-                      onClick={() => { if (editingId !== mode.id) startEdit(mode); }}
-                      onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && editingId !== mode.id) { e.preventDefault(); startEdit(mode); } }}
-                      tabIndex={editingId === mode.id ? -1 : 0}
-                      role={editingId === mode.id ? undefined : "button"}
-                      aria-label={editingId === mode.id ? undefined : `Edit ${mode.name}`}
+                      onClick={isAdmin && editingId !== mode.id ? () => startEdit(mode) : undefined}
+                      onKeyDown={isAdmin && editingId !== mode.id ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startEdit(mode); } } : undefined}
+                      tabIndex={isAdmin && editingId !== mode.id ? 0 : undefined}
+                      role={isAdmin && editingId !== mode.id ? "button" : undefined}
+                      aria-label={isAdmin && editingId !== mode.id ? `Edit ${mode.name}` : undefined}
                     >
                       {editingId === mode.id && editData ? (
                         <>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MONTHS_LONG  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -17,8 +18,9 @@ interface DatePickerFieldProps {
   inputRef?: React.RefObject<HTMLInputElement | null>; // compat — unused internally
   wrapperClassName?: string;
   variant?: string; // compat — ignored, unified style
-  min?: string; // YYYY-MM-DD — e.g., today to block past (appointments)
-  max?: string; // YYYY-MM-DD — e.g., today to block future (birth/visit dates)
+  min?: string; // YYYY-MM-DD — e.g., today to block past dates
+  max?: string; // YYYY-MM-DD — e.g., today to block future dates
+  initialMonth?: string; // YYYY-MM-DD — when value is empty, open calendar at this month
 }
 
 /** "2026-04-11" → "11-APR-2026" */
@@ -29,6 +31,10 @@ function toDisplay(iso: string): string {
   return `${d}-${mon}-${y}`;
 }
 
+// Estimated calendar height for viewport flip detection
+const CAL_H = 340;
+const CAL_W = 316; // 300 + 8px × 2 paddings
+
 export function DatePickerField({
   label,
   value,
@@ -36,6 +42,7 @@ export function DatePickerField({
   wrapperClassName,
   min,
   max,
+  initialMonth,
 }: DatePickerFieldProps) {
   // ── Mode ─────────────────────────────────────────────────────────────────
   const [isEditing, setIsEditing] = useState(false);
@@ -46,12 +53,15 @@ export function DatePickerField({
   const [navYear, setNavYear]   = useState(new Date().getFullYear());
   const [navMonth, setNavMonth] = useState(new Date().getMonth());
 
-  // ── Segment display state (for rendering) ─────────────────────────────────
+  // Fixed-position coordinates for the portal calendar
+  const [calPos, setCalPos] = useState<{ left: number; top: number } | null>(null);
+
+  // ── Segment display state ─────────────────────────────────────────────────
   const [dd,   setDd]   = useState("");
   const [mm,   setMm]   = useState("");
   const [yyyy, setYyyy] = useState("");
 
-  // ── Refs: always hold the latest typed value, avoiding stale closures ─────
+  // ── Refs ──────────────────────────────────────────────────────────────────
   const ddR   = useRef("");
   const mmR   = useRef("");
   const yyyyR = useRef("");
@@ -77,6 +87,49 @@ export function DatePickerField({
       yyyyR.current = ""; setYyyy("");
     }
   }, [value]);
+
+  // ── Calendar open/close: calculate fixed position + initialMonth nav ──────
+  useEffect(() => {
+    if (!showCal) {
+      setCalPos(null);
+      return;
+    }
+
+    // When calendar opens with no value, navigate to initialMonth's month
+    if (!value && initialMonth && /^\d{4}-\d{2}-\d{2}$/.test(initialMonth)) {
+      const [y, m] = initialMonth.split("-");
+      setNavYear(parseInt(y));
+      setNavMonth(parseInt(m) - 1);
+    }
+
+    // Calculate fixed position relative to the anchor input
+    if (rootRef.current) {
+      const rect = rootRef.current.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      // Clamp left so the calendar doesn't overflow the viewport right edge
+      let left = rect.left;
+      if (left + CAL_W > vw - 8) left = vw - CAL_W - 8;
+      left = Math.max(8, left);
+
+      // Flip upward if not enough space below AND enough space above
+      const openUp = rect.bottom + CAL_H + 8 > vh && rect.top > CAL_H + 8;
+      const top = openUp ? rect.top - CAL_H - 8 : rect.bottom + 6;
+
+      setCalPos({ left, top: Math.max(8, top) });
+    }
+
+    // Close calendar when page scrolls or viewport resizes (position becomes stale)
+    function handleScroll() { setShowCal(false); setIsEditing(false); }
+    function handleResize() { setShowCal(false); setIsEditing(false); }
+    window.addEventListener("scroll", handleScroll, { passive: true, capture: true });
+    window.addEventListener("resize", handleResize, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [showCal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const todayISO = new Date().toISOString().split("T")[0];
@@ -106,7 +159,6 @@ export function DatePickerField({
     setDd(v);
     const n = parseInt(v);
     if (v.length === 2 && n >= 1 && n <= 31) {
-      // Only advance to MM when the day value is valid (1–31)
       setTimeout(() => { monRef.current?.select(); monRef.current?.focus(); }, 0);
     }
     tryEmit(v, mmR.current, yyyyR.current);
@@ -118,7 +170,6 @@ export function DatePickerField({
     setMm(v);
     const n = parseInt(v);
     if (v.length === 2 && n >= 1 && n <= 12) {
-      // Only advance to YYYY when the month value is valid (1–12)
       setTimeout(() => { yrRef.current?.select(); yrRef.current?.focus(); }, 0);
     }
     tryEmit(ddR.current, v, yyyyR.current);
@@ -131,7 +182,7 @@ export function DatePickerField({
     tryEmit(ddR.current, mmR.current, v);
   }
 
-  // ── Focus / blur — controls edit↔display mode ─────────────────────────────
+  // ── Focus / blur ──────────────────────────────────────────────────────────
   function onPartFocus() {
     clearTimeout(blurTmr.current);
     setIsEditing(true);
@@ -139,7 +190,6 @@ export function DatePickerField({
 
   function onPartBlur() {
     blurTmr.current = setTimeout(() => {
-      // Pad and clamp values when leaving the entire picker
       let d = ddR.current, m = mmR.current, y = yyyyR.current;
 
       if (d.length === 1) { d = d.padStart(2, "0"); ddR.current = d; setDd(d); }
@@ -162,7 +212,7 @@ export function DatePickerField({
     }, 150);
   }
 
-  // Prevent calendar clicks from triggering blur → mode switch
+  // Prevent calendar portal clicks from triggering blur → mode switch
   function onCalMouseDown(e: React.MouseEvent) {
     e.preventDefault();
     clearTimeout(blurTmr.current);
@@ -304,6 +354,29 @@ export function DatePickerField({
     </svg>
   );
 
+  // ── Calendar portal ───────────────────────────────────────────────────────
+  const calendarPortal = showCal && calPos && typeof document !== "undefined"
+    ? createPortal(
+        <div
+          onMouseDown={onCalMouseDown}
+          className="rounded-2xl border border-slate-100 bg-white p-4"
+          style={{
+            position: "fixed",
+            left: calPos.left,
+            top: calPos.top,
+            minWidth: 300,
+            zIndex: 2000,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)",
+          }}
+        >
+          {calView === "days"   && renderDays()}
+          {calView === "months" && renderMonths()}
+          {calView === "years"  && renderYears()}
+        </div>,
+        document.body
+      )
+    : null;
+
   // ── Render ────────────────────────────────────────────────────────────────
   const displayVal = toDisplay(value);
 
@@ -333,7 +406,12 @@ export function DatePickerField({
               maxLength={4}
             />
             <button type="button" tabIndex={-1}
-              onMouseDown={(e) => { e.preventDefault(); clearTimeout(blurTmr.current); setShowCal(s => !s); if (!showCal) setCalView("days"); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                clearTimeout(blurTmr.current);
+                setShowCal(s => !s);
+                if (!showCal) setCalView("days");
+              }}
               className="ml-auto pl-2 text-slate-400 hover:text-slate-600 flex-shrink-0"
             ><CalIcon /></button>
           </div>
@@ -350,25 +428,20 @@ export function DatePickerField({
               {displayVal || "DD-MMM-YYYY"}
             </span>
             <button type="button" tabIndex={-1}
-              onClick={(e) => { e.stopPropagation(); setIsEditing(true); setShowCal(true); setCalView("days"); setTimeout(() => dayRef.current?.focus(), 10); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+                setShowCal(true);
+                setCalView("days");
+                setTimeout(() => dayRef.current?.focus(), 10);
+              }}
               className="text-slate-400 hover:text-slate-600"
             ><CalIcon /></button>
           </div>
         )}
 
-        {/* Calendar dropdown */}
-        {showCal && (
-          <div
-            onMouseDown={onCalMouseDown}
-            className="absolute left-0 mt-1.5 bg-white rounded-2xl border border-slate-100 z-50 p-4"
-            style={{ minWidth: 300, top: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)" }}
-          >
-            {calView === "days"   && renderDays()}
-            {calView === "months" && renderMonths()}
-            {calView === "years"  && renderYears()}
-          </div>
-        )}
       </div>
+      {calendarPortal}
     </div>
   );
 }
