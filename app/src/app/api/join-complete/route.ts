@@ -1,3 +1,8 @@
+// -- Fix existing dentist profile names (run once in Supabase SQL editor):
+// UPDATE public.profiles
+// SET full_name = (SELECT full_name FROM public.dentists WHERE profile_id = profiles.id)
+// WHERE role = 'dentist' AND (full_name IS NULL OR full_name = email);
+
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -52,6 +57,20 @@ export async function POST(request: Request) {
 
   console.log("Found user:", user.email, "for clinic:", invite.clinic_id);
 
+  // Resolve full_name: dentists use the name from the dentists table; staff use invite.full_name
+  let fullName: string | null = (invite as { full_name?: string | null }).full_name ?? null;
+
+  if (invite.role === "dentist" && invite.dentist_id) {
+    const { data: dentistRecord } = await supabaseAdmin
+      .from("dentists")
+      .select("full_name")
+      .eq("id", invite.dentist_id)
+      .single();
+    if (dentistRecord?.full_name) {
+      fullName = dentistRecord.full_name;
+    }
+  }
+
   // Upsert profile — handles both new and existing profiles
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
@@ -61,7 +80,7 @@ export async function POST(request: Request) {
         clinic_id: invite.clinic_id,
         role: invite.role,
         email: invite.email,
-        full_name: (invite as { full_name?: string | null }).full_name ?? null,
+        full_name: fullName,
       },
       { onConflict: "id" },
     );
