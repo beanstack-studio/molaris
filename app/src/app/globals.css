@@ -2030,7 +2030,8 @@ html.dark .readonly-input {
 }
 
 .bottom-nav-item {
-  @apply flex flex-col items-center gap-0.5 flex-1 py-1 rounded-xl text-xs font-medium transition-colors;
+  @apply flex flex-col items-center gap-0.5 flex-1 py-1 rounded-xl font-medium transition-colors;
+  font-size: 10px;
   color: hsl(var(--accent-hue) 60% 82%);
 }
 
