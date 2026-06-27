@@ -504,14 +504,6 @@ export default function TeamSettingsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Clear "To" date when "From" moves later than the current "To"
-  useEffect(() => {
-    setReqLeaveTo((prev) => {
-      if (reqLeaveFrom && prev && prev < reqLeaveFrom) return '';
-      return prev;
-    });
-  }, [reqLeaveFrom]); // eslint-disable-line react-hooks/exhaustive-deps
-
   function getConstrainedTimeOptions(day: DayKey): { value: number; label: string }[] {
     if (clinicHours.length === 0) return TIME_OPTIONS;
     const ch = clinicHours.find((h) => h.id === DAY_KEY_TO_CLINIC_ID[day]);
@@ -1762,12 +1754,12 @@ export default function TeamSettingsPage() {
               <div className="data-table-empty">No approved leaves yet.</div>
             ) : (
               <div className="table-wrapper overflow-x-auto">
-                <table className="data-table min-w-[520px]">
+                <table className="data-table min-w-[720px]">
                   <colgroup>
-                    <col className="w-48 min-w-[192px]" />
-                    <col className="w-28 min-w-[100px]" />
-                    <col className="w-28 min-w-[100px]" />
-                    <col />
+                    <col className="w-56" />
+                    <col className="w-28" />
+                    <col className="w-28" />
+                    <col className="w-56" />
                   </colgroup>
                   <thead className="data-table-head">
                     <tr>
@@ -1792,7 +1784,7 @@ export default function TeamSettingsPage() {
                           )}
                           onClick={!isAdmin && isOwn ? () => openEditLeave(req) : undefined}
                         >
-                          <td className="data-table-cell min-w-[180px]">
+                          <td className="data-table-cell">
                             <div className="flex items-center gap-1.5">
                               {avatar.photoUrl ? (
                                 <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
@@ -1823,13 +1815,13 @@ export default function TeamSettingsPage() {
               <div className="data-table-empty">No cancelled leave records.</div>
             ) : (
               <div className="table-wrapper overflow-x-auto">
-                <table className="data-table min-w-[520px]">
+                <table className="data-table min-w-[820px]">
                   <colgroup>
-                    <col className="w-48 min-w-[192px]" />
-                    <col className="w-28 min-w-[100px]" />
-                    <col className="w-28 min-w-[100px]" />
-                    <col />
-                    <col className="w-10" />
+                    <col className="w-56" />
+                    <col className="w-28" />
+                    <col className="w-28" />
+                    <col className="w-56" />
+                    <col className="w-20" />
                   </colgroup>
                   <thead className="data-table-head">
                     <tr>
@@ -1900,13 +1892,13 @@ export default function TeamSettingsPage() {
               </div>
             ) : (
               <div className="table-wrapper overflow-x-auto">
-                <table className="data-table min-w-[520px]">
+                <table className={cn("data-table", isAdmin ? "min-w-[820px]" : "min-w-[720px]")}>
                   <colgroup>
-                    <col className="w-48 min-w-[192px]" />
-                    <col className="w-28 min-w-[100px]" />
-                    <col className="w-28 min-w-[100px]" />
-                    <col />
-                    {isAdmin && <col className="w-24" />}
+                    <col className="w-56" />
+                    <col className="w-28" />
+                    <col className="w-28" />
+                    <col className="w-56" />
+                    {isAdmin && <col className="w-28" />}
                   </colgroup>
                   <thead className="data-table-head">
                     <tr>
@@ -2673,7 +2665,10 @@ export default function TeamSettingsPage() {
               <DatePickerField
                 label="From"
                 value={reqLeaveFrom}
-                onChange={setReqLeaveFrom}
+                onChange={(v) => {
+                  setReqLeaveFrom(v);
+                  if (reqLeaveTo && reqLeaveTo < v) setReqLeaveTo('');
+                }}
                 min={today}
                 wrapperClassName="grid gap-1 flex-1"
               />
@@ -2681,7 +2676,7 @@ export default function TeamSettingsPage() {
               <DatePickerField
                 label="To"
                 value={reqLeaveTo}
-                onChange={(v) => { if (!reqLeaveFrom || v >= reqLeaveFrom) setReqLeaveTo(v); }}
+                onChange={setReqLeaveTo}
                 min={reqLeaveFrom || today}
                 wrapperClassName="grid gap-1 flex-1"
               />
