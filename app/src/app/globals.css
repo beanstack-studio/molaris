@@ -49,6 +49,8 @@ html {
 body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
   background-color: transparent;
+  /* Push content below the status bar / notch so the html gradient bleeds through */
+  padding-top: env(safe-area-inset-top);
 }
 
 /* ============================================================
@@ -1057,7 +1059,9 @@ html.dark .field-input-readonly {
    ======================================== */
 
 .topnav-wrapper {
-  @apply sticky top-0 z-50;
+  @apply sticky z-50;
+  /* Stick below the safe area so nav never slides under the notch/Dynamic Island */
+  top: env(safe-area-inset-top);
   background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-card);
   box-shadow: var(--shadow-card);

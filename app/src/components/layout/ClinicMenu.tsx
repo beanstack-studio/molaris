@@ -1,11 +1,37 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
+import type { ComponentType } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
 import { cn } from "@/lib/cn";
+
+// ─── Lazy-loaded settings page components ────────────────────────────────────
+// Only loaded when the user taps a section card — not in the initial bundle.
+
+const sectionLoadingUI = () => (
+  <div className="flex items-center justify-center py-16 text-sm text-slate-400">Loading…</div>
+);
+
+const DynClinicProfile     = dynamic(() => import("@/app/settings/clinic-profile/page"),      { ssr: false, loading: sectionLoadingUI });
+const DynTeam              = dynamic(() => import("@/app/settings/team/page"),                { ssr: false, loading: sectionLoadingUI });
+const DynServices          = dynamic(() => import("@/app/settings/services/page"),            { ssr: false, loading: sectionLoadingUI });
+const DynMaintenance       = dynamic(() => import("@/app/settings/maintenance/page"),         { ssr: false, loading: sectionLoadingUI });
+const DynDocumentTemplates = dynamic(() => import("@/app/settings/document-templates/page"), { ssr: false, loading: sectionLoadingUI });
+const DynAccount           = dynamic(() => import("@/app/settings/account/page"),             { ssr: false, loading: sectionLoadingUI });
+const DynBilling           = dynamic(() => import("@/app/settings/billing/page"),             { ssr: false, loading: sectionLoadingUI });
+
+const SECTION_MAP: Record<string, ComponentType> = {
+  "clinic-profile":      DynClinicProfile,
+  "team":                DynTeam,
+  "services":            DynServices,
+  "maintenance":         DynMaintenance,
+  "document-templates":  DynDocumentTemplates,
+  "account":             DynAccount,
+  "billing":             DynBilling,
+};
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +39,14 @@ function IconClose() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function IconBack() {
+  return (
+    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
     </svg>
   );
 }
@@ -99,7 +133,7 @@ function IconBilling() {
 // ─── Nav item types ───────────────────────────────────────────────────────────
 
 interface MenuNavItem {
-  href: string;
+  sectionKey: string;
   label: string;
   sublabel: string;
   icon: React.ReactNode;
@@ -108,16 +142,16 @@ interface MenuNavItem {
 }
 
 const clinicItems: MenuNavItem[] = [
-  { href: "/settings/clinic-profile",     label: "Clinic Profile",      sublabel: "Name, address, hours, contacts", icon: <IconClinicProfile /> },
-  { href: "/settings/team",              label: "Team",                sublabel: "Schedule and leave requests",    icon: <IconTeam />, isTeam: true },
-  { href: "/settings/services",          label: "Services & Payments", sublabel: "Fees, payment modes",            icon: <IconServices /> },
-  { href: "/settings/maintenance",       label: "Maintenance Log",     sublabel: "Equipment upkeep",               icon: <IconMaintenance /> },
-  { href: "/settings/document-templates", label: "Documents",           sublabel: "Templates and files",            icon: <IconDocuments /> },
+  { sectionKey: "clinic-profile",     label: "Clinic Profile",      sublabel: "Name, address, hours, contacts", icon: <IconClinicProfile /> },
+  { sectionKey: "team",               label: "Team",                sublabel: "Schedule and leave requests",    icon: <IconTeam />, isTeam: true },
+  { sectionKey: "services",           label: "Services & Payments", sublabel: "Fees, payment modes",            icon: <IconServices /> },
+  { sectionKey: "maintenance",        label: "Maintenance Log",     sublabel: "Equipment upkeep",               icon: <IconMaintenance /> },
+  { sectionKey: "document-templates", label: "Documents",           sublabel: "Templates and files",            icon: <IconDocuments /> },
 ];
 
 const accountItems: MenuNavItem[] = [
-  { href: "/settings/account",  label: "My Account",   sublabel: "Email, password, display name",  icon: <IconAccount /> },
-  { href: "/settings/billing",  label: "Plan & Billing", sublabel: "Your subscription and limits", icon: <IconBilling />, adminOnly: true },
+  { sectionKey: "account",  label: "My Account",    sublabel: "Email, password, display name",  icon: <IconAccount /> },
+  { sectionKey: "billing",  label: "Plan & Billing", sublabel: "Your subscription and limits",  icon: <IconBilling />, adminOnly: true },
 ];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -132,13 +166,19 @@ export function ClinicMenu({ onSignOut }: ClinicMenuProps) {
   const pathname = usePathname();
   const { clinicName, clinicId, profileId, plan, role, isAdmin, userFullName, userEmail } = useClinic();
 
-  const [open, setOpen] = useState(false);
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
-  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [open, setOpen]                       = useState(false);
+  const [activeSection, setActiveSection]     = useState<string | null>(null);
+  const [logoSrc, setLogoSrc]                 = useState<string | null>(null);
+  const [pendingLeaveCount, setPendingLeaveCount]     = useState(0);
   const [unseenDecisionCount, setUnseenDecisionCount] = useState(0);
 
-  // Close on route change
+  // Close overlay on route change
   useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Reset section when overlay closes
+  useEffect(() => {
+    if (!open) setActiveSection(null);
+  }, [open]);
 
   // Load clinic logo from localStorage cache then Supabase
   useEffect(() => {
@@ -198,13 +238,17 @@ export function ClinicMenu({ onSignOut }: ClinicMenuProps) {
   }, [isAdmin, clinicId, profileId]);
 
   // Derived values
-  const leaveNavBadge = isAdmin ? pendingLeaveCount : unseenDecisionCount;
-  const emailHandle = userEmail?.split("@")[0] ?? "User";
-  const displayName = userFullName ?? emailHandle;
-  const roleLabel = role === "admin" ? "Admin" : role === "dentist" ? "Dentist" : "Staff";
-  const planLabel = plan === "pro" ? "Pro" : "Free";
-  const clinicInitials = clinicName.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "C";
-  const userInitials = (userFullName ?? emailHandle).split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const leaveNavBadge    = isAdmin ? pendingLeaveCount : unseenDecisionCount;
+  const emailHandle      = userEmail?.split("@")[0] ?? "User";
+  const displayName      = userFullName ?? emailHandle;
+  const roleLabel        = role === "admin" ? "Admin" : role === "dentist" ? "Dentist" : "Staff";
+  const planLabel        = plan === "pro" ? "Pro" : "Free";
+  const clinicInitials   = clinicName.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "C";
+  const userInitials     = (userFullName ?? emailHandle).split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const activeSectionLabel = activeSection
+    ? [...clinicItems, ...accountItems].find((i) => i.sectionKey === activeSection)?.label ?? "Settings"
+    : null;
+  const SectionComponent = activeSection ? (SECTION_MAP[activeSection] ?? null) : null;
 
   return (
     <div className="lg:hidden">
@@ -226,117 +270,160 @@ export function ClinicMenu({ onSignOut }: ClinicMenuProps) {
       {open && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-hidden">
 
-          {/* Header */}
-          <div className="clinic-menu-safe-top flex items-center gap-3 px-4 pb-4 border-b border-slate-100 shrink-0">
-            <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 sidebar-user-avatar">
-              {logoSrc ? (
-                <img src={logoSrc} alt="Clinic logo" className="h-full w-full object-contain" />
-              ) : (
-                <span className="text-sm font-bold text-white">{clinicInitials}</span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-base font-bold text-slate-900 truncate">{clinicName}</div>
-              <span className={cn(
-                "text-xs px-2 py-0.5 rounded-full font-semibold",
-                plan === "pro" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"
-              )}>
-                {planLabel}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-center h-9 w-9 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
-              aria-label="Close menu"
-            >
-              <IconClose />
-            </button>
-          </div>
-
-          {/* Scrollable nav sections */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-
-            {/* Clinic section */}
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">Clinic</div>
-              <div className="rounded-2xl border border-slate-100 overflow-hidden divide-y divide-slate-100">
-                {clinicItems.map((item) => {
-                  const badge = item.isTeam && leaveNavBadge > 0 ? leaveNavBadge : 0;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="flex items-center gap-3 px-4 py-3.5 bg-white hover:bg-slate-50 active:bg-slate-100 transition-colors"
-                    >
-                      <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-violet-50 text-violet-600 shrink-0">
-                        {item.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-800">{item.label}</div>
-                        <div className="text-xs text-slate-400 truncate">{item.sublabel}</div>
-                      </div>
-                      {badge > 0 && (
-                        <span className={cn(
-                          "inline-flex items-center justify-center rounded-full text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 shrink-0",
-                          isAdmin ? "bg-red-500" : "bg-blue-500"
-                        )}>
-                          {badge}
-                        </span>
-                      )}
-                      <IconChevron />
-                    </Link>
-                  );
-                })}
+          {activeSection === null ? (
+            /* ════════════════════════════════════════════
+               HUB VIEW — settings card list
+               ════════════════════════════════════════════ */
+            <>
+              {/* Header */}
+              <div className="clinic-menu-safe-top flex items-center gap-3 px-4 pb-4 border-b border-slate-100 shrink-0">
+                <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 sidebar-user-avatar">
+                  {logoSrc ? (
+                    <img src={logoSrc} alt="Clinic logo" className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="text-sm font-bold text-white">{clinicInitials}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-base font-bold text-slate-900 truncate">{clinicName}</div>
+                  <span className={cn(
+                    "text-xs px-2 py-0.5 rounded-full font-semibold",
+                    plan === "pro" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"
+                  )}>
+                    {planLabel}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-center h-9 w-9 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
+                  aria-label="Close menu"
+                >
+                  <IconClose />
+                </button>
               </div>
-            </div>
 
-            {/* Account section */}
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">Account</div>
-              <div className="rounded-2xl border border-slate-100 overflow-hidden divide-y divide-slate-100">
-                {accountItems
-                  .filter((item) => !(item.adminOnly && !isAdmin))
-                  .map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="flex items-center gap-3 px-4 py-3.5 bg-white hover:bg-slate-50 active:bg-slate-100 transition-colors"
-                    >
-                      <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-violet-50 text-violet-600 shrink-0">
-                        {item.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-800">{item.label}</div>
-                        <div className="text-xs text-slate-400 truncate">{item.sublabel}</div>
-                      </div>
-                      <IconChevron />
-                    </Link>
-                  ))}
-              </div>
-            </div>
-          </div>
+              {/* Scrollable nav cards */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
 
-          {/* Footer — user info + sign out */}
-          <div className="clinic-menu-safe-bottom shrink-0 px-4 pt-3 border-t border-slate-100 space-y-3">
-            <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-slate-50">
-              <div className="sidebar-user-avatar w-9 h-9 text-sm shrink-0">
-                <span>{userInitials}</span>
+                {/* Clinic section */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">Clinic</div>
+                  <div className="rounded-2xl border border-slate-100 overflow-hidden divide-y divide-slate-100">
+                    {clinicItems.map((item) => {
+                      const badge = item.isTeam && leaveNavBadge > 0 ? leaveNavBadge : 0;
+                      return (
+                        <button
+                          key={item.sectionKey}
+                          type="button"
+                          className="w-full flex items-center gap-3 px-4 py-3.5 bg-white hover:bg-slate-50 active:bg-slate-100 transition-colors text-left"
+                          onClick={() => setActiveSection(item.sectionKey)}
+                        >
+                          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-violet-50 text-violet-600 shrink-0">
+                            {item.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-slate-800">{item.label}</div>
+                            <div className="text-xs text-slate-400 truncate">{item.sublabel}</div>
+                          </div>
+                          {badge > 0 && (
+                            <span className={cn(
+                              "inline-flex items-center justify-center rounded-full text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 shrink-0",
+                              isAdmin ? "bg-red-500" : "bg-blue-500"
+                            )}>
+                              {badge}
+                            </span>
+                          )}
+                          <IconChevron />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Account section */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">Account</div>
+                  <div className="rounded-2xl border border-slate-100 overflow-hidden divide-y divide-slate-100">
+                    {accountItems
+                      .filter((item) => !(item.adminOnly && !isAdmin))
+                      .map((item) => (
+                        <button
+                          key={item.sectionKey}
+                          type="button"
+                          className="w-full flex items-center gap-3 px-4 py-3.5 bg-white hover:bg-slate-50 active:bg-slate-100 transition-colors text-left"
+                          onClick={() => setActiveSection(item.sectionKey)}
+                        >
+                          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-violet-50 text-violet-600 shrink-0">
+                            {item.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-slate-800">{item.label}</div>
+                            <div className="text-xs text-slate-400 truncate">{item.sublabel}</div>
+                          </div>
+                          <IconChevron />
+                        </button>
+                      ))}
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-800 truncate">{displayName}</div>
-                <div className="text-xs text-slate-500">{roleLabel}</div>
+
+              {/* Footer — user row with inline sign-out icon */}
+              <div className="clinic-menu-safe-bottom shrink-0 px-4 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-slate-50">
+                  <div className="sidebar-user-avatar w-9 h-9 text-sm shrink-0">
+                    <span>{userInitials}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-slate-800 truncate">{displayName}</div>
+                    <div className="text-xs text-slate-500">{roleLabel}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onSignOut}
+                    className="flex items-center justify-center h-9 w-9 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 active:bg-red-100 transition-colors shrink-0"
+                    aria-label="Sign out"
+                  >
+                    <IconSignOut />
+                  </button>
+                </div>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl border border-red-100 bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 active:bg-red-200 transition-colors"
-            >
-              <IconSignOut />
-              Sign Out
-            </button>
-          </div>
+            </>
+          ) : (
+            /* ════════════════════════════════════════════
+               DETAIL VIEW — inline settings page content
+               URL does not change; back button → hub
+               ════════════════════════════════════════════ */
+            <>
+              {/* Detail header: back + section title + close */}
+              <div className="clinic-menu-safe-top flex items-center gap-3 px-4 pb-4 border-b border-slate-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveSection(null)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors shrink-0"
+                >
+                  <IconBack />
+                  Settings
+                </button>
+                <div className="flex-1 min-w-0 text-sm font-semibold text-slate-800 truncate text-center">
+                  {activeSectionLabel}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-center h-9 w-9 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
+                  aria-label="Close menu"
+                >
+                  <IconClose />
+                </button>
+              </div>
+
+              {/* Settings page content rendered inline */}
+              <div className="flex-1 overflow-y-auto">
+                {SectionComponent && <SectionComponent />}
+              </div>
+            </>
+          )}
 
         </div>
       )}

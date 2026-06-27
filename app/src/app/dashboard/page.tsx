@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
 import {
@@ -185,6 +186,7 @@ export default function DashboardPage() {
       <main className="app-section">
         <div className="app-section-header">
           <div className="app-section-title">Dashboard</div>
+          <Link href="/reports/payments" className="btn btn-secondary">View Reports</Link>
         </div>
 
         {statsError && (
@@ -447,16 +449,6 @@ export default function DashboardPage() {
                 </div>
               </>
             )}
-          </div>
-
-          {/* ── View Reports link ───────────────────────── */}
-          <div className="flex justify-end">
-            <a
-              href="/reports/payments"
-              className="text-sm font-medium text-violet-600 hover:text-violet-700 hover:underline transition-colors"
-            >
-              View Reports →
-            </a>
           </div>
 
         </div>
