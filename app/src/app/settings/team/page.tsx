@@ -164,7 +164,7 @@ type ScheduleRequestRow = {
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
-  profiles?: { full_name: string | null } | null;
+  profiles?: { full_name: string | null; role: string | null } | null;
 };
 
 const DEFAULT_DAY: DaySchedule = { is_working: false, start_time: 8, end_time: 17 };
@@ -407,17 +407,8 @@ export default function TeamSettingsPage() {
         // dentist_handlers columns not yet migrated — silently ignore
       }
 
-      // Load leave requests from schedule_requests
-      try {
-        const { data: leaveReqData } = await supabase
-          .from('schedule_requests')
-          .select('id, profile_id, request_type, from_date, to_date, reason, status, reviewed_by, reviewed_at, created_at, profiles(full_name)')
-          .eq('clinic_id', clinicId)
-          .order('created_at', { ascending: false });
-        if (leaveReqData) setLeaveRequests(leaveReqData as unknown as ScheduleRequestRow[]);
-      } catch {
-        // schedule_requests table not yet created — silently ignore
-      }
+      // Load leave requests from schedule_requests (best-effort — table may not exist yet)
+      await loadLeaveRequests();
 
       if (loadedDentists.length > 0) {
         const schedRes = await supabase
@@ -1056,6 +1047,25 @@ export default function TeamSettingsPage() {
     setBusy(false);
   }
 
+  async function loadLeaveRequests() {
+    if (!clinicId) return;
+    try {
+      const { data: leaveReqData } = await supabase
+        .from('schedule_requests')
+        .select('id, profile_id, request_type, from_date, to_date, reason, status, reviewed_by, reviewed_at, created_at, profiles(full_name, role)')
+        .eq('clinic_id', clinicId)
+        .order('created_at', { ascending: false });
+      if (leaveReqData) setLeaveRequests(leaveReqData as unknown as ScheduleRequestRow[]);
+    } catch {
+      // schedule_requests table not yet created — silently ignore
+    }
+  }
+
+  async function openViewRequestsModal() {
+    setShowLeaveRequestsModal(true);
+    await loadLeaveRequests();
+  }
+
   async function approveLeaveRequest(req: ScheduleRequestRow) {
     setBusy(true); setError(null);
     try {
@@ -1588,7 +1598,7 @@ export default function TeamSettingsPage() {
             <div className="card-header">
               <h2 className="card-title">Leave Schedule</h2>
               {isAdmin ? (
-                <button className="save-btn" onClick={() => setShowLeaveRequestsModal(true)} disabled={busy}>
+                <button className="save-btn" onClick={() => void openViewRequestsModal()} disabled={busy}>
                   View Requests
                   {pendingLeaveCount > 0 && (
                     <span className="ml-2 inline-flex items-center justify-center rounded-full bg-white/20 text-white text-xs font-bold min-w-[18px] h-[18px] px-1">
