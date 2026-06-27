@@ -1048,11 +1048,7 @@ export default function TeamSettingsPage() {
   }
 
   async function loadLeaveRequests() {
-    if (!clinicId) {
-      console.warn('loadLeaveRequests: clinicId is empty, skipping');
-      return;
-    }
-    console.log('loadLeaveRequests called, clinicId:', clinicId);
+    if (!clinicId) return;
 
     const { data: requests, error } = await supabase
       .from('schedule_requests')
@@ -1067,7 +1063,7 @@ export default function TeamSettingsPage() {
         reviewed_by,
         reviewed_at,
         created_at,
-        profiles (
+        profiles!schedule_requests_profile_id_fkey (
           full_name,
           role
         )
@@ -1075,11 +1071,10 @@ export default function TeamSettingsPage() {
       .eq('clinic_id', clinicId)
       .order('created_at', { ascending: false });
 
-    console.log('schedule_requests query result:', {
-      data: requests,
-      error,
-      count: requests?.length,
-    });
+    if (error) {
+      console.error('schedule_requests fetch error:', error.message);
+      return;
+    }
 
     setLeaveRequests((requests ?? []) as unknown as ScheduleRequestRow[]);
   }
@@ -1270,8 +1265,6 @@ export default function TeamSettingsPage() {
   const pendingLeaveCount = leaveRequests.filter((r) => r.status === 'pending').length;
 
   if (loading) return <LoadingBlock />;
-
-  console.log('Rendering modal, leaveRequests state:', leaveRequests);
 
   return (
     <>
