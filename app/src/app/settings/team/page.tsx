@@ -1089,6 +1089,10 @@ export default function TeamSettingsPage() {
     setLeaveRequests((requests ?? []) as unknown as ScheduleRequestRow[]);
   }
 
+  function dispatchLeaveCountRefresh() {
+    window.dispatchEvent(new CustomEvent('teamLeaveCountChanged'));
+  }
+
   async function approveLeaveRequest(req: ScheduleRequestRow) {
     setBusy(true); setError(null);
     try {
@@ -1114,6 +1118,7 @@ export default function TeamSettingsPage() {
       }
 
       await loadData();
+      dispatchLeaveCountRefresh();
       setSuccess('Leave request approved.'); setTimeout(() => setSuccess(null), 3000);
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to approve request'); }
     finally { setBusy(false); }
@@ -1130,6 +1135,7 @@ export default function TeamSettingsPage() {
       setLeaveRequests((prev) => prev.map((r) =>
         r.id === id ? { ...r, status: 'cancelled' as const, cancelled_by: 'admin' as const } : r
       ));
+      dispatchLeaveCountRefresh();
       setSuccess('Leave request rejected.'); setTimeout(() => setSuccess(null), 3000);
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to reject request'); }
     finally { setBusy(false); }
@@ -1265,9 +1271,11 @@ export default function TeamSettingsPage() {
     });
   }, [blockouts, today]);
 
-  // Badge = pending rows + user-withdrawn rows (admin needs to action both)
-  const pendingLeaveCount = leaveRequests.filter(
-    (r) => r.status === 'pending' || (r.status === 'cancelled' && r.cancelled_by === 'user')
+  // Pending badge: genuinely pending rows only (status='pending', not user-withdrawn)
+  const pendingLeaveCount = leaveRequests.filter((r) => r.status === 'pending').length;
+  // Cancelled badge: user-withdrawn rows admin still needs to action
+  const userWithdrawnCount = leaveRequests.filter(
+    (r) => r.status === 'cancelled' && r.cancelled_by === 'user'
   ).length;
 
   // Tab content for Leave Schedule card — filtering differs by role
@@ -1680,9 +1688,14 @@ export default function TeamSettingsPage() {
                   onClick={() => setLeaveRequestsTab(tab)}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  {tab === 'pending' && pendingLeaveCount > 0 && (
+                  {isAdmin && tab === 'pending' && pendingLeaveCount > 0 && (
                     <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1">
                       {pendingLeaveCount}
+                    </span>
+                  )}
+                  {isAdmin && tab === 'cancelled' && userWithdrawnCount > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1">
+                      {userWithdrawnCount}
                     </span>
                   )}
                 </button>
@@ -1702,7 +1715,6 @@ export default function TeamSettingsPage() {
                       <th className="data-table-head-cell">From</th>
                       <th className="data-table-head-cell">To</th>
                       <th className="data-table-head-cell">Reason</th>
-                      {!isAdmin && <th className="data-table-head-cell-right"></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1736,13 +1748,6 @@ export default function TeamSettingsPage() {
                           <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(req.from_date)}</td>
                           <td className="data-table-cell text-slate-600 text-sm">{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
                           <td className="data-table-cell text-slate-500 text-sm">{req.reason ?? <span className="text-slate-300">—</span>}</td>
-                          {!isAdmin && (
-                            <td className="data-table-cell-right">
-                              {isOwn && (
-                                <span className="text-xs text-blue-500">Click to edit</span>
-                              )}
-                            </td>
-                          )}
                         </tr>
                       );
                     })}
@@ -1765,7 +1770,6 @@ export default function TeamSettingsPage() {
                       <th className="data-table-head-cell">From</th>
                       <th className="data-table-head-cell">To</th>
                       <th className="data-table-head-cell">Reason</th>
-                      <th className="data-table-head-cell">Cancelled by</th>
                       <th className="data-table-head-cell-right"></th>
                     </tr>
                   </thead>
@@ -1799,11 +1803,6 @@ export default function TeamSettingsPage() {
                           <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-600" : "text-slate-400")}>{formatDateStandard(req.from_date)}</td>
                           <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-600" : "text-slate-400")}>{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
                           <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-500" : "text-slate-400")}>{req.reason ?? <span className="text-slate-300">—</span>}</td>
-                          <td className="data-table-cell text-xs">
-                            {isUserWithdrawn
-                              ? <span className="text-amber-600 font-medium">User withdrew</span>
-                              : <span className="text-slate-400">Admin rejected</span>}
-                          </td>
                           <td className="data-table-cell-right">
                             <button
                               type="button"
@@ -2664,6 +2663,7 @@ export default function TeamSettingsPage() {
               .delete()
               .eq('id', undoToast.row.id)
               .eq('clinic_id', clinicId);
+            dispatchLeaveCountRefresh();
           }}
           onDismiss={() => setUndoToast(null)}
         />

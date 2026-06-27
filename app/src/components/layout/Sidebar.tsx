@@ -186,7 +186,7 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
 
   useEffect(() => {
     if (!isAdmin || !clinicId) return;
-    void (async () => {
+    async function fetchCount() {
       try {
         const [{ count: pendingCount }, { count: withdrawnCount }] = await Promise.all([
           supabase.from('schedule_requests').select('id', { count: 'exact', head: true })
@@ -196,7 +196,11 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
         ]);
         setPendingLeaveCount((pendingCount ?? 0) + (withdrawnCount ?? 0));
       } catch { /* schedule_requests not yet created */ }
-    })();
+    }
+    void fetchCount();
+    function handle() { void fetchCount(); }
+    window.addEventListener('teamLeaveCountChanged', handle);
+    return () => window.removeEventListener('teamLeaveCountChanged', handle);
   }, [isAdmin, clinicId]);
 
   // ─── Derived values ──────────────────────────────────────────────────────────
