@@ -25,7 +25,7 @@ interface MobileNavItem {
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isAdmin, isPro, isLoading } = useClinic();
+  const { isAdmin, isLoading } = useClinic();
 
   if (isLoading) {
     return (
@@ -40,8 +40,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     // CLINIC
     { label: "Profile",                      href: "/settings/clinic-profile" },
     { label: "Team",                         href: "/settings/team" },
-    { label: isAdmin ? "Services" : "Services 🔒", href: "/settings/services" },
-    { label: isAdmin ? "Documents" : "Documents 🔒", href: "/settings/document-templates" },
+    { label: "Services", href: "/settings/services" },
+    { label: "Documents", href: "/settings/document-templates" },
     // ACCOUNT
     { label: "Account",    href: "/settings/account" },
     { label: "Billing",    href: "/settings/billing",           show: isAdmin },

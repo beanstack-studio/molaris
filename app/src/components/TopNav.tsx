@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useClinic } from "@/contexts/ClinicContext";
 
+let isSigningOut = false;
+
 function isInvalidRefreshTokenError(err: unknown): boolean {
   if (!err) return false;
   const msg =
@@ -68,11 +70,15 @@ export default function TopNav() {
   }, [logoSrc]);
 
   async function signOut() {
+    if (isSigningOut) return;
+    isSigningOut = true;
     setBusy(true);
     try {
+      localStorage.removeItem("clinic-logo-url");
+      sessionStorage.clear();
       await supabase.auth.signOut({ scope: "local" });
-    } catch (e) {
-      console.error("Sign out error:", e);
+    } catch {
+      // ignore
     } finally {
       window.location.replace("/login");
     }
@@ -81,6 +87,7 @@ export default function TopNav() {
   // Redirect on auth state change (sign-out / token expiry)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (isSigningOut) return;
       if (pathname?.startsWith("/login")) return;
       if (event === "SIGNED_OUT" || (event as string) === "TOKEN_EXPIRED") {
         if (!session) {
@@ -90,7 +97,8 @@ export default function TopNav() {
       }
     });
     return () => subscription.unsubscribe();
-  }, [pathname]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auth gate on every navigation
   useEffect(() => {

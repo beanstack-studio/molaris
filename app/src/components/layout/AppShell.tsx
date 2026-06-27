@@ -10,11 +10,21 @@ import { BottomNav } from "./BottomNav";
 const SIDEBAR_KEY = "molaris_sidebar_v2";
 const INACTIVITY_MS = 10 * 60 * 1000; // 10 minutes
 
+// Module-level flag — prevents re-entrant sign-out and post-signout state updates
+let isSigningOut = false;
+
 async function doSignOut() {
+  if (isSigningOut) return;
+  isSigningOut = true;
   try {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("molaris_sidebar_v2");
+      localStorage.removeItem("clinic-logo-url");
+      sessionStorage.clear();
+    }
     await supabase.auth.signOut({ scope: "local" });
-  } catch (e) {
-    console.error("Sign out error:", e);
+  } catch {
+    // Ignore all errors — we're navigating away regardless
   } finally {
     window.location.replace("/login");
   }
@@ -71,10 +81,12 @@ export default function AppShell({ children }: AppShellProps) {
   }
 
   // Auth: listen for sign-out / token expiry
+  // Runs once on mount only — dependency on pathname caused double-subscription on nav
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (isSigningOut) return; // ignore events triggered by our own sign-out
       if (pathname?.startsWith("/login")) return;
       if (event === "SIGNED_OUT" || (event as string) === "TOKEN_EXPIRED") {
         if (!session) {
@@ -83,16 +95,17 @@ export default function AppShell({ children }: AppShellProps) {
       }
     });
     return () => subscription.unsubscribe();
-  }, [pathname]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally run once — auth listener lives for the session
 
   // Auth gate on every navigation
   useEffect(() => {
-    if (isLoginPage) return;
+    if (isLoginPage || isSigningOut) return;
     let cancelled = false;
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
-        if (cancelled) return;
+        if (cancelled || isSigningOut) return;
         if (error && isInvalidRefreshTokenError(error)) {
           await doSignOut();
           return;
@@ -101,13 +114,11 @@ export default function AppShell({ children }: AppShellProps) {
           await doSignOut();
         }
       } catch {
-        if (cancelled) return;
+        if (cancelled || isSigningOut) return;
         await doSignOut();
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [pathname, isLoginPage]);
 
   // Inactivity auto-logout after 10 minutes

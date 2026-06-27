@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/cn";
 import { AuthCard } from "@/components/auth/AuthCard";
@@ -17,6 +17,13 @@ function validatePassword(pwd: string): string | null {
 
 export default function LoginPage() {
   const [tab, setTab] = useState<Tab>("signin");
+
+  // Redirect already-authenticated users straight to the app
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) window.location.replace("/dashboard");
+    });
+  }, []);
 
   // Sign-in state
   const [email, setEmail] = useState("");
