@@ -199,7 +199,9 @@ export default function MaintenancePage() {
       cost:            cost,
       technician:      form.technician.trim() || null,
       photo_url:       uploadedUrls[0] ?? null,
-      photo_urls:      uploadedUrls,
+      // Only include photo_urls when non-empty; column requires migration:
+      // ALTER TABLE maintenance_logs ADD COLUMN IF NOT EXISTS photo_urls text[] DEFAULT '{}';
+      ...(uploadedUrls.length > 0 && { photo_urls: uploadedUrls }),
       expense_id:      expenseId,
     });
 
@@ -267,7 +269,9 @@ export default function MaintenancePage() {
         cost:            cost,
         technician:      editForm.technician.trim() || null,
         photo_url:       allUrls[0] ?? null,
-        photo_urls:      allUrls,
+        // Only include photo_urls when non-empty; column requires migration:
+        // ALTER TABLE maintenance_logs ADD COLUMN IF NOT EXISTS photo_urls text[] DEFAULT '{}';
+        ...(allUrls.length > 0 && { photo_urls: allUrls }),
       })
       .eq("id", editTarget.id)
       .eq("clinic_id", clinicId);
@@ -506,7 +510,7 @@ export default function MaintenancePage() {
               </div>
             )}
 
-            <div className="modal-footer-buttons">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <button type="button" className="cancel-btn" onClick={() => setShowAdd(false)} disabled={saving}>Cancel</button>
               <button type="button" className="save-btn" onClick={handleAdd} disabled={saving}>
                 {saving ? "Saving…" : "Add Log"}

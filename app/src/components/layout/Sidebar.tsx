@@ -45,14 +45,6 @@ function IconPatients() {
   );
 }
 
-function IconReports() {
-  return (
-    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <path strokeLinecap="round" d="M18 20V10M12 20V4M6 20v-6" />
-    </svg>
-  );
-}
-
 function IconExpenses() {
   return (
     <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -102,7 +94,6 @@ const navItems: NavItem[] = [
   { href: "/appointments",     label: "Appointments", icon: <IconCalendar />,  matchPrefix: "/appointments" },
   { href: "/patients",         label: "Patients",     icon: <IconPatients />,  matchPrefix: "/patients" },
   { href: "/expenses/operating", label: "Expenses",   icon: <IconExpenses />,  matchPrefix: "/expenses" },
-  { href: "/reports/payments", label: "Reports",      icon: <IconReports />,   matchPrefix: "/reports" },
   { href: "/settings/clinic-profile", label: "Settings", icon: <IconSettings />, matchPrefix: "/settings", isSettings: true },
 ];
 
