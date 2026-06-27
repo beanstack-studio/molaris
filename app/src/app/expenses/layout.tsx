@@ -20,6 +20,7 @@ export default function ExpensesLayout({ children }: { children: React.ReactNode
   return (
     <div className="page-bg">
       <main className="app-section">
+        <div className="app-section-title mb-4">Expenses</div>
         <div className="mb-4">
           <SlidingTabBar>
             {tabs.map((tab) => {

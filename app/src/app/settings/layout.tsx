@@ -50,6 +50,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div className="page-bg">
       <main className="app-section">
+        <div className="app-section-title mb-4">Settings</div>
 
         {/* Mobile only: horizontal scrollable tab strip */}
         <div className="lg:hidden mb-4">
