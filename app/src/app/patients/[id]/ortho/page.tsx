@@ -10,6 +10,7 @@ import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType, getOrthoOnlyReasons, getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow, Invoice } from "@/lib/types";
+import { dentistLabel } from "@/lib/types";
 import { formatDateStandard } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
 
@@ -572,10 +573,10 @@ function OrthoPage() {
                     <input 
                       className="field-input-readonly" 
                       value={
-                      orthoCase.provider_dentist_id 
-                        ? dentists.find(d => d.id === orthoCase.provider_dentist_id)?.full_name || ""
+                      orthoCase.provider_dentist_id
+                        ? (() => { const d = dentists.find(x => x.id === orthoCase.provider_dentist_id); return d ? dentistLabel(d) : ""; })()
                         : ""
-                    } 
+                    }
                       readOnly 
                     />
                   </label>
@@ -841,9 +842,7 @@ function OrthoPage() {
               <select className="field-input" value={editProviderDentistId} onChange={(e) => setEditProviderDentistId(e.target.value)}>
                 <option value="">— None —</option>
                 {filteredDentists.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.full_name}
-                  </option>
+                  <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
                 ))}
               </select>
             </div>

@@ -188,12 +188,13 @@ export function Sidebar({ collapsed, onToggle, onSignOut }: SidebarProps) {
     if (!isAdmin || !clinicId) return;
     void (async () => {
       try {
-        const { count } = await supabase
-          .from('schedule_requests')
-          .select('id', { count: 'exact', head: true })
-          .eq('clinic_id', clinicId)
-          .eq('status', 'pending');
-        setPendingLeaveCount(count ?? 0);
+        const [{ count: pendingCount }, { count: withdrawnCount }] = await Promise.all([
+          supabase.from('schedule_requests').select('id', { count: 'exact', head: true })
+            .eq('clinic_id', clinicId).eq('status', 'pending'),
+          supabase.from('schedule_requests').select('id', { count: 'exact', head: true })
+            .eq('clinic_id', clinicId).eq('status', 'cancelled').eq('cancelled_by', 'user'),
+        ]);
+        setPendingLeaveCount((pendingCount ?? 0) + (withdrawnCount ?? 0));
       } catch { /* schedule_requests not yet created */ }
     })();
   }, [isAdmin, clinicId]);

@@ -453,17 +453,18 @@ export type Appointment = {
 
 Three roles exist in `profiles.role`:
 
-| Role    | Who                       | Clinical access                          | Admin access            |
-|---------|---------------------------|------------------------------------------|-------------------------|
-| `admin` | Clinic owner/admin        | Full — all patients, all dentists        | Full settings & reports |
-| `dentist` | Attending dentist        | Clinical — own patients/treatments       | None                    |
-| `staff` | Receptionist, assistant   | Scheduling only — unless handler-assigned| None                    |
+| Role      | Who                     | Clinical access                           | Admin access            |
+| --------- | ----------------------- | ----------------------------------------- | ----------------------- |
+| `admin`   | Clinic owner/admin      | Full — all patients, all dentists         | Full settings & reports |
+| `dentist` | Attending dentist       | Clinical — own patients/treatments        | None                    |
+| `staff`   | Receptionist, assistant | Scheduling only — unless handler-assigned | None                    |
 
 ### Handler system (`dentist_handlers` table)
 
 Staff members can be assigned as **handlers** for specific dentists. A handler can perform clinical operations (record treatments, create invoices, manage ortho, generate documents) on behalf of their assigned dentists.
 
 **DB schema:**
+
 ```sql
 dentist_handlers (
   id uuid PRIMARY KEY,
@@ -480,6 +481,7 @@ dentist_handlers (
 ```
 
 **Context values (from `useClinic()`):**
+
 ```typescript
 const { isAdmin, isDentist, isHandler, handlerFor, canActFor } = useClinic();
 // isHandler: true if staff with ≥1 dentist_handler assignment
@@ -488,6 +490,7 @@ const { isAdmin, isDentist, isHandler, handlerFor, canActFor } = useClinic();
 ```
 
 **Lookup chain (ClinicContext on login for staff role):**
+
 1. Find `staff.id` where `staff.profile_id = auth.uid()`
 2. Query `dentist_handlers` where `staff_id = staff.id`
 3. Store resulting `dentist_id[]` as `handlerFor`
@@ -502,39 +505,50 @@ const canWrite = isAdmin || isDentist || isHandler;
 const canVoid = isAdmin;
 
 // Dentist dropdown filtering — handlers see only their assigned dentists
-const filteredDentists = isAdmin || isDentist
-  ? dentists
-  : dentists.filter((d) => handlerFor.includes(d.id));
+const filteredDentists =
+  isAdmin || isDentist
+    ? dentists
+    : dentists.filter((d) => handlerFor.includes(d.id));
 ```
 
-| Feature                            | Admin | Dentist | Handler (staff) | Staff (no handler) |
-|-----------------------------------|-------|---------|------------------|--------------------|
-| Record treatments                  | ✓     | ✓       | ✓                | ✗                  |
-| Create invoices                    | ✓     | ✓       | ✓                | ✗                  |
-| Manage ortho                       | ✓     | ✓       | ✓                | ✗                  |
-| Generate documents                 | ✓     | ✓       | ✓                | ✗                  |
-| Void invoices                      | ✓     | ✗       | ✗                | ✗                  |
-| Settings / team management        | ✓     | ✗       | ✗                | ✗                  |
-| Assign handlers (Pro+Admin only)   | ✓     | ✗       | ✗                | ✗                  |
-| View patients & appointments       | ✓     | ✓       | ✓                | ✓                  |
+| Feature                          | Admin | Dentist | Handler (staff) | Staff (no handler) |
+| -------------------------------- | ----- | ------- | --------------- | ------------------ |
+| Record treatments                | ✓     | ✓       | ✓               | ✗                  |
+| Create invoices                  | ✓     | ✓       | ✓               | ✗                  |
+| Manage ortho                     | ✓     | ✓       | ✓               | ✗                  |
+| Generate documents               | ✓     | ✓       | ✓               | ✗                  |
+| Void invoices                    | ✓     | ✗       | ✗               | ✗                  |
+| Settings / team management       | ✓     | ✗       | ✗               | ✗                  |
+| Assign handlers (Pro+Admin only) | ✓     | ✗       | ✗               | ✗                  |
+| View patients & appointments     | ✓     | ✓       | ✓               | ✓                  |
 
 ### "Recording on behalf of" indicator
 
 When `isHandler` is true and a clinical form is open (Add Visit modal, Generate Document modal), show a blue banner at the top:
 
 ```tsx
-{isHandler && filteredDentists.length > 0 && (
-  <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-    <span className="font-medium shrink-0">Recording on behalf of:</span>
-    {filteredDentists.length === 1 ? (
-      <span>{filteredDentists[0].full_name}</span>
-    ) : (
-      <select className="..." value={dentistId} onChange={(e) => setDentistId(e.target.value)}>
-        {filteredDentists.map((d) => <option key={d.id} value={d.id}>{d.full_name}</option>)}
-      </select>
-    )}
-  </div>
-)}
+{
+  isHandler && filteredDentists.length > 0 && (
+    <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+      <span className="font-medium shrink-0">Recording on behalf of:</span>
+      {filteredDentists.length === 1 ? (
+        <span>{filteredDentists[0].full_name}</span>
+      ) : (
+        <select
+          className="..."
+          value={dentistId}
+          onChange={(e) => setDentistId(e.target.value)}
+        >
+          {filteredDentists.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.full_name}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
 ```
 
 Role is stored in `profiles.role`. Gate UI with `isAdmin`, `isDentist`, `isHandler` from `useClinic()` — never re-fetch role inside components.
@@ -763,12 +777,170 @@ When changing schema: update types.ts first, then grep for every usage of that c
 
 ## TODO / Roadmap
 
-- [x] My Account page — fixed
-- [x] Reset password page — redesigned with branded auth card
-- [x] Feature gate audit — completed
-- [x] Staff invite flow — /join page, invite API, email templates
-- [ ] **Google Calendar sync** — UI placeholder built inside My Account page.
-  Implement when ready: OAuth flow, token storage in `calendar_tokens` table,
-  bidirectional appointment sync via Edge Function. Pro only, per-user.
-- [ ] **Invite 401 debug** — after deploying, check Vercel function logs → Functions tab → /api/invite → view logs. Confirm auth header is present and token resolves to a user email. Remove debug console.log lines once confirmed working.
-- [ ] **Beanstack Studio logo** — add beanstack-logo.png to public/ folder for use in email footer and login page footer.
+Remove items as they are completed.
+
+---
+
+### 🔴 High priority — fixes
+
+- [ ] **Clinic Profile — admin only edit** — Hide all Edit buttons on Clinic Profile and Clinic Hours for non-admin. Staff and dentists see read-only view only.
+- [ ] **Services & Payments — staff/dentist can toggle, not edit** — Allow staff and dentists to toggle service active/inactive and payment mode active/inactive. Hide Add/Edit/Delete buttons for non-admin. Toggles only.
+- [ ] **Edit Staff modal — show email + status when already joined** — When staff has `profile_id` (already accepted invite): show their email as read-only display (not editable), change "Send" button to "✓ Has Molaris access" badge. Show Clinical Access section with dentist checkboxes so admin can assign handlers.
+- [ ] **Dentist display name** — Dentist sidebar shows `biancacmatira` (email handle) instead of full name. Fix: same as staff — `join-complete` must copy `full_name` from `dentists` table into `profiles.full_name` when dentist accepts invite.
+- [ ] **Staff invite — auto-expire old invite on resend** — When admin sends new invite to same email, auto-expire the previous pending invite instead of requiring manual cancel first.
+
+---
+
+### 🟡 Schedule & leave system
+
+- [ ] **Schedule changes visible in appointments** — When a dentist or staff has a leave or schedule change, appointments calendar and list view must reflect it:
+  - Calendar view: show leave/absence as a subtle note at the bottom of the day cell (below patient appointments — patient visits always take priority)
+  - List view: show a muted "Dr. X on leave" indicator for that day
+  - Do NOT block existing confirmed appointments — just show the note
+- [ ] **Leave/schedule change request system** — Instead of direct edits, staff and dentists submit requests:
+  - Request types: `leave` | `schedule_change`
+  - Staff/dentist can only submit for themselves
+  - Admin sees pending requests with approve/reject buttons on Team page
+  - Pending count badge on Team nav item for admins
+  - On approval: auto-updates `team_schedules` or creates `dentist_blockouts` entry
+  - Table needed: `schedule_requests (id, clinic_id, profile_id, request_type, from_date, to_date, new_schedule?, reason, status ['pending'|'approved'|'rejected'], reviewed_by, reviewed_at, created_at)`
+
+---
+
+### 🟡 Auth & user management
+
+- [ ] **Dentist invite flow — end-to-end test** — Confirm `dentists.profile_id` is linked correctly after joining. Confirm `profiles.full_name` is copied from `dentists.full_name` (not from `staff_invites.full_name`) so dentist name shows correctly in sidebar.
+- [ ] **Staff invite — cancel then re-invite** — Auto-expire old invite when new one is sent to same email (no manual cancel needed).
+
+---
+
+### 🟡 Inventory module (Pro only — add to nav BEFORE Reports)
+
+- [ ] **Inventory page** — track dental supplies (brackets, alginate, gloves, burs, etc.)
+  - Nav position: between Expenses and Reports in sidebar
+  - Mobile bottom nav: replace one item or use ⋯ More
+  - **Auto-add to inventory from expenses** — when user records a supply expense, it automatically creates/updates an inventory item (same logic as Hydra)
+  - **Link to services** — each inventory item can be linked to specific services/procedures; when a treatment using that service is recorded, qty decrements automatically
+  - Tables: `inventory_items (id, clinic_id, name, category, unit, qty_on_hand, reorder_level, unit_cost, linked_service_ids[], created_at)`, `inventory_transactions (id, clinic_id, item_id, type ['purchase'|'usage'|'adjustment'], qty, reference_id, reference_type ['expense'|'treatment'|'manual'], notes, created_at)`
+  - Low stock alert: show badge on Inventory nav item when any item is below `reorder_level`
+  - Design: sortable/filterable table, click-to-edit rows, Table Options modal
+  - Pro only — free plan sees upgrade prompt
+  - **Note:** Request Hydra inventory logic from Hydra conversation before implementing
+
+---
+
+### 🟡 Expenses
+
+- [ ] **Connect Expenses → Inventory** — supply purchases auto-create inventory transaction
+- [ ] **Connect Expenses → Reports** — expenses vs revenue chart on reports page
+- [ ] **Confirm Expenses in nav** — appears correctly in sidebar between Patients and Reports ✅ (verify bottom nav placement on mobile)
+
+---
+
+### 🟡 Dashboard + Reports
+
+- [ ] **Reports accessible from Dashboard** — add "Reports →" quick-access cards on Dashboard linking to each report type
+- [ ] **Reports page — tabbed layout** — consolidate 6 routes into one tabbed page: Payments | Appointments | Performance | Patient Revenue | Treatments | Bulk Payments
+- [ ] **Bottom nav — Reports slot** — decide if Reports gets a bottom nav slot or is accessed from Dashboard only
+- [ ] **PDF export for all reports** — currently CSV only
+
+---
+
+### 🟡 My Account page improvements
+
+- [ ] **My Account — feels too bare** — add more useful content:
+  - Profile photo upload (same as staff/dentist photo in Team page)
+  - Display name editing (already works — keep)
+  - Email display (already works — keep)
+  - Role badge (already works — keep)
+  - Change password (already works — keep)
+  - **Login activity** — show last login date/time
+  - **Linked dentist** — if user is a dentist with a linked `dentists` record, show "Linked as: Dr. Daisy R. Cipriano-Matira" with a subtle badge
+  - **Calendar Sync card** — already implemented ✅ (keep as second card)
+  - Overall: more padding, better card spacing, section headers
+
+---
+
+### 🟡 Google Calendar integration
+
+- [ ] **Google Calendar sync** — per-user OAuth (not per-clinic). Each user connects their own Google account. Appointments sync bidirectionally.
+  - Requires: Google Cloud Console project, OAuth2 client ID/secret, callback URL
+  - Store tokens in `calendar_tokens (id, profile_id, clinic_id, access_token, refresh_token, expires_at, created_at)`
+  - Sync: confirmed appointments → Google Calendar; cancellations remove event
+  - Edge Function or Next.js API route for token exchange and sync
+  - Pro only, per-user
+  - Currently: "Coming soon" placeholder in My Account ✅
+
+---
+
+### 🟡 Mobile — full redesign
+
+- [ ] **Bottom nav (mobile) — 4-5 items max** — Appointments | Patients | Inventory | Expenses | ⋯ More (opens sheet with Dashboard, Reports, Settings)
+- [ ] **Floating clinic menu (mobile)** — top-right clinic logo/photo button opens full-screen overlay:
+  - Clinic name + plan badge at top
+  - All settings nav items as large tappable cards (icon + title + subtitle + chevron) — exactly like Hydra Image 3
+  - User info + Sign Out at bottom
+  - Replaces sidebar settings nav on mobile entirely
+- [ ] **Status bar theme bleed** — gradient bleeds into iOS/Android status bar
+  - Use `env(safe-area-inset-top)` for padding
+  - Must work on: iPhone notch, Dynamic Island, Android notch, iPad, tablet landscape
+- [ ] **Card content layout audit** — go through each card type, fix internal padding, typography hierarchy, spacing rhythm
+- [ ] **Seamless cross-device UI** — test on: iPhone (all notch types + Dynamic Island), iPad portrait + landscape, Android phone + tablet, desktop Chrome/Safari/Firefox
+
+---
+
+### 🟢 Refactoring
+
+- [ ] **`dentist_schedules` → `team_schedules` migration** — migrate existing data, then drop `dentist_schedules`
+- [ ] **`bulkPaymentHelpers.ts`** — pre-existing tech debt
+- [ ] **PWA offline mode** — service worker caching: patient list, appointments, clinic profile
+- [ ] **Document templates editor** — replace raw HTML with TipTap rich text editor
+- [ ] **Print stylesheet** — `/patients/[id]/print` needs `@media print` CSS
+- [ ] **Reports & Dashboard** — audit for duplicate data fetching, refactor shared hooks
+
+---
+
+### 🔵 Nice to have / future
+
+- [ ] **Multi-language** — Filipino/Tagalog option
+- [ ] **SMS appointment reminders** — Semaphore or Vonage for PH
+- [ ] **Patient portal** — read-only patient view: appointments, treatments, balance
+- [ ] **Per-clinic accent color** — stored in `clinic_profile`, CSS variables
+- [ ] **Molaris logo finalization** — replace placeholder PWA icons with final Molaris brand assets when ready
+- [ ] **Remove `NEXT_PUBLIC_DEV_TOOLS`** from Vercel environment variables (DevViewToggle already removed ✅)
+
+---
+
+### ✅ Completed
+
+- [x] Multi-tenant restructure — `clinic_id` on all tables, RLS, backfill 7,496 patients
+- [x] `middle_name` added to patients
+- [x] Messaging feature removed (tables, API routes, UI)
+- [x] PWA setup — manifest, icons, `next-pwa`
+- [x] App renamed to Molaris throughout
+- [x] Collapsible sidebar
+- [x] Settings sub-sidebar with grouped nav
+- [x] Dark/light mode toggle (gear icon dropdown)
+- [x] Theme system removed — clean light/dark only
+- [x] Three roles: `admin`, `dentist`, `staff`
+- [x] `dentist_handlers` table — staff authorized to act on behalf of dentists
+- [x] `staff_invites` table + invite flow via Resend SMTP
+- [x] `/join` page — isolated from app shell, email-based profile creation
+- [x] `/reset-password` page — branded, password validation
+- [x] Branded email templates (confirm signup, invite, reset password)
+- [x] `user_role` enum cleaned — admin/dentist/staff only
+- [x] Feature gates — Pro/free, admin/staff/dentist
+- [x] Click-to-edit rows on all tables
+- [x] Table Options modal — sort, filter (patients), column visibility, CSV export
+- [x] Column resize — patients, appointments
+- [x] Mobile responsive audit
+- [x] My Account page (basic)
+- [x] Plan & Billing page
+- [x] Staff display name from `profiles.full_name`
+- [x] Dev toggle removed entirely
+- [x] Sign out using `scope: 'local'`
+- [x] Root URL redirects to `/login`
+- [x] `/join` page isolated from app shell (auth route group)
+- [x] `join-complete` email-based profile creation (no auth token needed)
+- [x] Calendar Sync placeholder in My Account
+- [x] Favicon + PWA icons updated with Molaris logo

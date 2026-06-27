@@ -33,6 +33,16 @@
  *     WITH CHECK (clinic_id = (SELECT clinic_id FROM public.profiles WHERE id = auth.uid()));
  *   CREATE INDEX IF NOT EXISTS idx_schedule_requests_clinic_id ON public.schedule_requests(clinic_id);
  *   CREATE INDEX IF NOT EXISTS idx_schedule_requests_profile_id ON public.schedule_requests(profile_id);
+ *
+ * cancelled_by column (run AFTER creating the table above):
+ *   ALTER TABLE public.schedule_requests
+ *   ADD COLUMN IF NOT EXISTS cancelled_by text
+ *     CHECK (cancelled_by IN ('admin', 'user'));
+ *
+ *   -- Migrate old 'rejected' rows:
+ *   UPDATE public.schedule_requests
+ *   SET status = 'cancelled', cancelled_by = 'admin'
+ *   WHERE status IN ('rejected', 'cancelled') AND cancelled_by IS NULL;
  */
 
 "use client";
@@ -44,6 +54,7 @@ import { formatDateStandard, formatPhoneLocal, formatScheduleTime } from "@/lib/
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { Spinner } from "@/components/Spinner";
+import { UndoToast } from "@/components/shared/UndoToast";
 import { cn } from "@/lib/cn";
 import type { ClinicHoursEntry } from "@/lib/types";
 
@@ -160,7 +171,8 @@ type ScheduleRequestRow = {
   from_date: string;
   to_date: string;
   reason: string | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'cancelled';
+  cancelled_by: 'admin' | 'user' | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
@@ -285,7 +297,8 @@ export default function TeamSettingsPage() {
 
   // Leave request state
   const [leaveRequests, setLeaveRequests] = useState<ScheduleRequestRow[]>([]);
-  const [leaveRequestsTab, setLeaveRequestsTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [leaveRequestsTab, setLeaveRequestsTab] = useState<'approved' | 'cancelled' | 'pending'>('approved');
+  const [undoToast, setUndoToast] = useState<{ message: string; row: ScheduleRequestRow } | null>(null);
   const [showRequestLeaveModal, setShowRequestLeaveModal] = useState(false);
   const [reqLeaveFrom, setReqLeaveFrom] = useState('');
   const [reqLeaveTo, setReqLeaveTo] = useState('');
@@ -1056,6 +1069,7 @@ export default function TeamSettingsPage() {
         to_date,
         reason,
         status,
+        cancelled_by,
         reviewed_by,
         reviewed_at,
         created_at,
@@ -1110,10 +1124,12 @@ export default function TeamSettingsPage() {
     try {
       const { error: updateErr } = await supabase
         .from('schedule_requests')
-        .update({ status: 'rejected', reviewed_by: profileId, reviewed_at: new Date().toISOString() })
+        .update({ status: 'cancelled', cancelled_by: 'admin', reviewed_by: profileId, reviewed_at: new Date().toISOString() })
         .eq('id', id);
       if (updateErr) throw updateErr;
-      setLeaveRequests((prev) => prev.map((r) => r.id === id ? { ...r, status: 'rejected' as const } : r));
+      setLeaveRequests((prev) => prev.map((r) =>
+        r.id === id ? { ...r, status: 'cancelled' as const, cancelled_by: 'admin' as const } : r
+      ));
       setSuccess('Leave request rejected.'); setTimeout(() => setSuccess(null), 3000);
     } catch (err) { setError(err instanceof Error ? err.message : 'Failed to reject request'); }
     finally { setBusy(false); }
@@ -1127,10 +1143,10 @@ export default function TeamSettingsPage() {
         const { error: updateErr } = await supabase.from('schedule_requests').update({
           from_date: reqLeaveFrom, to_date: reqLeaveTo,
           reason: reqLeaveReason.trim(), status: 'pending',
-          reviewed_by: null, reviewed_at: null,
+          reviewed_by: null, reviewed_at: null, cancelled_by: null,
         }).eq('id', editingLeaveRow.id);
         if (updateErr) throw updateErr;
-        setLeaveSubmitSuccess('Leave request updated and resubmitted for review.');
+        setLeaveSubmitSuccess('Request updated and sent back for admin review.');
       } else {
         const { error: insertErr } = await supabase.from('schedule_requests').insert({
           clinic_id: clinicId, profile_id: profileId, request_type: 'leave',
@@ -1164,14 +1180,25 @@ export default function TeamSettingsPage() {
     setBusy(true); setError(null);
     try {
       const { error: updateErr } = await supabase.from('schedule_requests')
-        .update({ status: 'pending', reason: 'Withdrawal requested' })
+        .update({ status: 'cancelled', cancelled_by: 'user' })
         .eq('id', id);
       if (updateErr) throw updateErr;
-      await loadData();
-      setSuccess('Leave withdrawal submitted. Your admin will review it.');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to withdraw leave request'); }
+      setLeaveRequests((prev) => prev.map((r) =>
+        r.id === id ? { ...r, status: 'cancelled' as const, cancelled_by: 'user' as const } : r
+      ));
+      setLeaveSubmitSuccess('Leave withdrawn. Your admin has been notified.');
+      setTimeout(() => {
+        setLeaveSubmitSuccess(null);
+        setShowRequestLeaveModal(false);
+        setEditingLeaveRow(null);
+      }, 2000);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to withdraw leave'); }
     finally { setBusy(false); }
+  }
+
+  function deleteLeaveRow(row: ScheduleRequestRow) {
+    setLeaveRequests((prev) => prev.filter((r) => r.id !== row.id));
+    setUndoToast({ message: 'Leave record deleted', row });
   }
 
   // Helpers for blockout table display
@@ -1238,22 +1265,24 @@ export default function TeamSettingsPage() {
     });
   }, [blockouts, today]);
 
-  const pendingLeaveCount = leaveRequests.filter((r) => r.status === 'pending').length;
+  // Badge = pending rows + user-withdrawn rows (admin needs to action both)
+  const pendingLeaveCount = leaveRequests.filter(
+    (r) => r.status === 'pending' || (r.status === 'cancelled' && r.cancelled_by === 'user')
+  ).length;
 
   // Tab content for Leave Schedule card — filtering differs by role
   const leaveTabContent = useMemo(() => {
     if (isAdmin) {
       return leaveRequests.filter((r) => r.status === leaveRequestsTab);
     }
+    // Non-admin: Cancelled tab is hidden; Approved tab shows all team; Pending shows own only
     if (leaveRequestsTab === 'approved') {
-      // Non-admin: see all approved (team visibility)
       return leaveRequests
         .filter((r) => r.status === 'approved')
         .sort((a, b) => a.from_date.localeCompare(b.from_date));
     }
-    // Pending / rejected: own requests only
     return leaveRequests.filter(
-      (r) => r.status === leaveRequestsTab && r.profile_id === profileId
+      (r) => r.status === 'pending' && r.profile_id === profileId
     );
   }, [leaveRequests, leaveRequestsTab, isAdmin, profileId]);
 
@@ -1632,7 +1661,7 @@ export default function TeamSettingsPage() {
             {!isAdmin && (
               <button
                 className="save-btn"
-                onClick={() => { setEditingLeaveRow(null); setReqLeaveFrom(''); setReqLeaveTo(''); setReqLeaveReason(''); setShowRequestLeaveModal(true); }}
+                onClick={() => { setEditingLeaveRow(null); setReqLeaveFrom(''); setReqLeaveTo(''); setReqLeaveReason(''); setLeaveSubmitSuccess(null); setShowRequestLeaveModal(true); }}
                 disabled={busy}
               >
                 + Request Leave
@@ -1640,140 +1669,217 @@ export default function TeamSettingsPage() {
             )}
           </div>
 
-          {/* Tab bar */}
+          {/* Tab bar — Approved | Cancelled (admin only) | Pending */}
           <div className="action-row mb-3">
-            {(['pending', 'approved', 'rejected'] as const).map((tab) => (
-              <button
-                key={tab}
-                className={leaveRequestsTab === tab ? 'toggle-btn-active' : 'toggle-btn'}
-                onClick={() => setLeaveRequestsTab(tab)}
-              >
-                {tab === 'pending' ? 'Pending' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                {tab === 'pending' && pendingLeaveCount > 0 && (
-                  <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1">
-                    {pendingLeaveCount}
-                  </span>
-                )}
-              </button>
-            ))}
+            {(['approved', 'cancelled', 'pending'] as const)
+              .filter((tab) => isAdmin || tab !== 'cancelled')
+              .map((tab) => (
+                <button
+                  key={tab}
+                  className={leaveRequestsTab === tab ? 'toggle-btn-active' : 'toggle-btn'}
+                  onClick={() => setLeaveRequestsTab(tab)}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {tab === 'pending' && pendingLeaveCount > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1">
+                      {pendingLeaveCount}
+                    </span>
+                  )}
+                </button>
+              ))}
           </div>
 
-          {/* Tab content */}
-          {leaveTabContent.length === 0 ? (
-            <div className="data-table-empty">
-              {leaveRequestsTab === 'pending'
-                ? (isAdmin ? 'No pending leave requests.' : 'No pending requests from you.')
-                : leaveRequestsTab === 'approved'
-                ? 'No approved leaves yet.'
-                : (isAdmin ? 'No rejected leave requests.' : 'No rejected requests from you.')}
-            </div>
-          ) : (
-            <div className="table-wrapper overflow-x-auto">
-              <table className="data-table min-w-[480px]">
-                <thead className="data-table-head">
-                  <tr>
-                    <th className="data-table-head-cell">Person</th>
-                    <th className="data-table-head-cell">From</th>
-                    <th className="data-table-head-cell">To</th>
-                    <th className="data-table-head-cell">Reason</th>
-                    {(isAdmin && leaveRequestsTab === 'pending') || (!isAdmin && leaveRequestsTab === 'approved') ? (
-                      <th className="data-table-head-cell-right">Actions</th>
-                    ) : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {leaveTabContent.map((req, idx) => {
-                    const avatar = getLeaveRequestPersonAvatar(req);
-                    const personName = req.profiles?.full_name ?? '—';
-                    const isOwn = req.profile_id === profileId;
-                    return (
-                      <tr
-                        key={req.id}
-                        className={cn('data-table-row', idx % 2 === 0 ? 'data-table-row-even' : 'data-table-row-odd')}
-                      >
-                        <td className="data-table-cell">
-                          <div className="flex items-center gap-1.5">
-                            {avatar.photoUrl ? (
-                              <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
-                            ) : avatar.isStaff ? (
-                              <span className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">
-                                {avatar.initial}
-                              </span>
-                            ) : (
-                              <span
-                                className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold"
-                                style={{ background: avatar.color ?? DENTIST_COLORS[0].hex }}
-                              >
-                                {avatar.initial}
-                              </span>
-                            )}
-                            <span className="text-sm font-medium">{personName}</span>
-                            {isOwn && <span className="text-xs text-slate-400">(you)</span>}
-                          </div>
-                        </td>
-                        <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(req.from_date)}</td>
-                        <td className="data-table-cell text-slate-600 text-sm">
-                          {req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}
-                        </td>
-                        <td className="data-table-cell text-slate-500 text-sm">{req.reason ?? <span className="text-slate-300">—</span>}</td>
-
-                        {/* Admin pending: Approve + Reject */}
-                        {isAdmin && leaveRequestsTab === 'pending' && (
-                          <td className="data-table-cell-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                className="data-table-btn"
-                                disabled={busy}
-                                onClick={() => void approveLeaveRequest(req)}
-                              >
-                                ✓ Approve
-                              </button>
-                              <button
-                                type="button"
-                                className="data-table-btn-danger"
-                                disabled={busy}
-                                onClick={() => void rejectLeaveRequest(req.id)}
-                              >
-                                ✗
-                              </button>
+          {/* ── APPROVED tab ── */}
+          {leaveRequestsTab === 'approved' && (
+            leaveTabContent.length === 0 ? (
+              <div className="data-table-empty">No approved leaves yet.</div>
+            ) : (
+              <div className="table-wrapper overflow-x-auto">
+                <table className="data-table min-w-[480px]">
+                  <thead className="data-table-head">
+                    <tr>
+                      <th className="data-table-head-cell min-w-[180px]">Person</th>
+                      <th className="data-table-head-cell">From</th>
+                      <th className="data-table-head-cell">To</th>
+                      <th className="data-table-head-cell">Reason</th>
+                      {!isAdmin && <th className="data-table-head-cell-right"></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaveTabContent.map((req, idx) => {
+                      const avatar = getLeaveRequestPersonAvatar(req);
+                      const personName = req.profiles?.full_name ?? '—';
+                      const isOwn = req.profile_id === profileId;
+                      return (
+                        <tr
+                          key={req.id}
+                          className={cn(
+                            'data-table-row',
+                            idx % 2 === 0 ? 'data-table-row-even' : 'data-table-row-odd',
+                            !isAdmin && isOwn && 'cursor-pointer hover:bg-blue-50/40'
+                          )}
+                          onClick={!isAdmin && isOwn ? () => openEditLeave(req) : undefined}
+                        >
+                          <td className="data-table-cell min-w-[180px]">
+                            <div className="flex items-center gap-1.5">
+                              {avatar.photoUrl ? (
+                                <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                              ) : avatar.isStaff ? (
+                                <span className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">{avatar.initial}</span>
+                              ) : (
+                                <span className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold" style={{ background: avatar.color ?? DENTIST_COLORS[0].hex }}>{avatar.initial}</span>
+                              )}
+                              <span className="text-sm font-medium">{personName}</span>
+                              {isOwn && <span className="text-xs text-slate-400">(you)</span>}
                             </div>
                           </td>
-                        )}
+                          <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(req.from_date)}</td>
+                          <td className="data-table-cell text-slate-600 text-sm">{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
+                          <td className="data-table-cell text-slate-500 text-sm">{req.reason ?? <span className="text-slate-300">—</span>}</td>
+                          {!isAdmin && (
+                            <td className="data-table-cell-right">
+                              {isOwn && (
+                                <span className="text-xs text-blue-500">Click to edit</span>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
 
-                        {/* Non-admin approved: own rows get edit + withdraw */}
-                        {!isAdmin && leaveRequestsTab === 'approved' && (
-                          <td className="data-table-cell-right">
-                            {isOwn && (
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  type="button"
-                                  className="data-table-btn"
-                                  disabled={busy}
-                                  onClick={() => openEditLeave(req)}
-                                  title="Edit"
-                                >
-                                  ✏
-                                </button>
-                                <button
-                                  type="button"
-                                  className="data-table-btn-danger"
-                                  disabled={busy}
-                                  onClick={() => void withdrawLeaveRequest(req.id)}
-                                  title="Withdraw"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            )}
+          {/* ── CANCELLED tab (admin only) ── */}
+          {leaveRequestsTab === 'cancelled' && isAdmin && (
+            leaveTabContent.length === 0 ? (
+              <div className="data-table-empty">No cancelled leave records.</div>
+            ) : (
+              <div className="table-wrapper overflow-x-auto">
+                <table className="data-table min-w-[520px]">
+                  <thead className="data-table-head">
+                    <tr>
+                      <th className="data-table-head-cell min-w-[180px]">Person</th>
+                      <th className="data-table-head-cell">From</th>
+                      <th className="data-table-head-cell">To</th>
+                      <th className="data-table-head-cell">Reason</th>
+                      <th className="data-table-head-cell">Cancelled by</th>
+                      <th className="data-table-head-cell-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaveTabContent.map((req, idx) => {
+                      const avatar = getLeaveRequestPersonAvatar(req);
+                      const personName = req.profiles?.full_name ?? '—';
+                      const isUserWithdrawn = req.cancelled_by === 'user';
+                      return (
+                        <tr
+                          key={req.id}
+                          className={cn(
+                            'data-table-row',
+                            idx % 2 === 0 ? 'data-table-row-even' : 'data-table-row-odd',
+                            isUserWithdrawn && 'bg-amber-50/60'
+                          )}
+                        >
+                          <td className="data-table-cell min-w-[180px]">
+                            <div className="flex items-center gap-1.5">
+                              {isUserWithdrawn && <span className="text-amber-500 shrink-0" title="Withdrawn by user">🔔</span>}
+                              {avatar.photoUrl ? (
+                                <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                              ) : avatar.isStaff ? (
+                                <span className={cn("inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-xs font-bold", isUserWithdrawn ? "bg-amber-300 text-white" : "bg-slate-300 text-white")}>{avatar.initial}</span>
+                              ) : (
+                                <span className={cn("inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold", isUserWithdrawn ? "opacity-100" : "opacity-50")} style={{ background: avatar.color ?? DENTIST_COLORS[0].hex }}>{avatar.initial}</span>
+                              )}
+                              <span className={cn("text-sm font-medium", !isUserWithdrawn && "text-slate-400")}>{personName}</span>
+                            </div>
                           </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-600" : "text-slate-400")}>{formatDateStandard(req.from_date)}</td>
+                          <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-600" : "text-slate-400")}>{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
+                          <td className={cn("data-table-cell text-sm", isUserWithdrawn ? "text-slate-500" : "text-slate-400")}>{req.reason ?? <span className="text-slate-300">—</span>}</td>
+                          <td className="data-table-cell text-xs">
+                            {isUserWithdrawn
+                              ? <span className="text-amber-600 font-medium">User withdrew</span>
+                              : <span className="text-slate-400">Admin rejected</span>}
+                          </td>
+                          <td className="data-table-cell-right">
+                            <button
+                              type="button"
+                              className="data-table-btn-danger"
+                              disabled={busy}
+                              onClick={() => deleteLeaveRow(req)}
+                              title="Delete record"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+
+          {/* ── PENDING tab ── */}
+          {leaveRequestsTab === 'pending' && (
+            leaveTabContent.length === 0 ? (
+              <div className="data-table-empty">
+                {isAdmin ? 'No pending leave requests.' : 'No pending requests from you.'}
+              </div>
+            ) : (
+              <div className="table-wrapper overflow-x-auto">
+                <table className="data-table min-w-[480px]">
+                  <thead className="data-table-head">
+                    <tr>
+                      <th className="data-table-head-cell min-w-[180px]">Person</th>
+                      <th className="data-table-head-cell">From</th>
+                      <th className="data-table-head-cell">To</th>
+                      <th className="data-table-head-cell">Reason</th>
+                      {isAdmin && <th className="data-table-head-cell-right">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaveTabContent.map((req, idx) => {
+                      const avatar = getLeaveRequestPersonAvatar(req);
+                      const personName = req.profiles?.full_name ?? '—';
+                      return (
+                        <tr key={req.id} className={cn('data-table-row', idx % 2 === 0 ? 'data-table-row-even' : 'data-table-row-odd')}>
+                          <td className="data-table-cell min-w-[180px]">
+                            <div className="flex items-center gap-1.5">
+                              {avatar.photoUrl ? (
+                                <img src={avatar.photoUrl} alt={personName} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                              ) : avatar.isStaff ? (
+                                <span className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center bg-slate-300 text-white text-xs font-bold">{avatar.initial}</span>
+                              ) : (
+                                <span className="inline-flex w-5 h-5 rounded-full shrink-0 items-center justify-center text-white text-xs font-bold" style={{ background: avatar.color ?? DENTIST_COLORS[0].hex }}>{avatar.initial}</span>
+                              )}
+                              <span className="text-sm font-medium">{personName}</span>
+                            </div>
+                          </td>
+                          <td className="data-table-cell text-slate-600 text-sm">{formatDateStandard(req.from_date)}</td>
+                          <td className="data-table-cell text-slate-600 text-sm">{req.to_date === req.from_date ? '—' : formatDateStandard(req.to_date)}</td>
+                          <td className="data-table-cell text-slate-500 text-sm">{req.reason ?? <span className="text-slate-300">—</span>}</td>
+                          {isAdmin && (
+                            <td className="data-table-cell-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <button type="button" className="data-table-btn" disabled={busy} onClick={() => void approveLeaveRequest(req)}>✓ Approve</button>
+                                <button type="button" className="data-table-btn-danger" disabled={busy} onClick={() => void rejectLeaveRequest(req.id)}>✗</button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
         </div>
 
@@ -2498,7 +2604,26 @@ export default function TeamSettingsPage() {
               disabled={busy}
             />
           </label>
+          {/* Re-approval note — only when editing an approved leave */}
+          {editingLeaveRow?.status === 'approved' && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+              Saving changes will move this request back to <strong>Pending</strong> for admin review and re-approval.
+            </div>
+          )}
+
           <div className="modal-actions">
+            <div className="flex items-center gap-2 flex-1">
+              {/* Withdraw button — only when editing an approved leave */}
+              {editingLeaveRow?.status === 'approved' && (
+                <button
+                  className="cancel-btn text-red-500 hover:text-red-600"
+                  onClick={() => void withdrawLeaveRequest(editingLeaveRow.id)}
+                  disabled={busy}
+                >
+                  Withdraw Leave
+                </button>
+              )}
+            </div>
             <div className="modal-actions-right">
               <button
                 className="cancel-btn"
@@ -2523,6 +2648,26 @@ export default function TeamSettingsPage() {
           </div>
         </div>
       </EditModal>
+
+      {/* ── UNDO TOAST — delete cancelled leave record ── */}
+      {undoToast && (
+        <UndoToast
+          message={undoToast.message}
+          onUndo={() => {
+            setLeaveRequests((prev) =>
+              [...prev, undoToast.row].sort((a, b) => b.created_at.localeCompare(a.created_at))
+            );
+          }}
+          onConfirm={async () => {
+            await supabase
+              .from('schedule_requests')
+              .delete()
+              .eq('id', undoToast.row.id)
+              .eq('clinic_id', clinicId);
+          }}
+          onDismiss={() => setUndoToast(null)}
+        />
+      )}
 
     </>
   );

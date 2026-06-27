@@ -9,6 +9,7 @@ import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
 import { supabase } from "@/lib/supabaseClient";
 import type { Patient, DentistRow, Document } from "@/lib/types";
+import { dentistLabel } from "@/lib/types";
 import {
   todayLocalISO,
   formatDateStandard,
@@ -118,7 +119,7 @@ function DocumentsPage() {
 
   const dentistNameById = useMemo(() => {
     const m: Record<string, string> = {};
-    for (const d of dentists) m[d.id] = d.full_name;
+    for (const d of dentists) m[d.id] = dentistLabel(d);
     return m;
   }, [dentists]);
 
@@ -660,7 +661,7 @@ function DocumentsPage() {
             <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
               <span className="font-medium shrink-0">Recording on behalf of:</span>
               {filteredDentists.length === 1 ? (
-                <span>{filteredDentists[0].full_name}</span>
+                <span>{dentistLabel(filteredDentists[0])}</span>
               ) : (
                 <select
                   className="flex-1 h-8 rounded-lg border border-blue-200 bg-blue-50 px-2 text-sm text-blue-700 focus:outline-none"
@@ -669,7 +670,7 @@ function DocumentsPage() {
                 >
                   <option value="">Select dentist…</option>
                   {filteredDentists.map((d) => (
-                    <option key={d.id} value={d.id}>{d.full_name}</option>
+                    <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
                   ))}
                 </select>
               )}
@@ -727,7 +728,7 @@ function DocumentsPage() {
                     <option value="">Select dentist</option>
                     {filteredDentists.map((d) => (
                       <option key={d.id} value={d.id}>
-                        {d.full_name}
+                        {dentistLabel(d)}
                       </option>
                     ))}
                   </select>
