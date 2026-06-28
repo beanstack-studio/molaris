@@ -302,7 +302,11 @@ export default function AttachmentsPage() {
               </thead>
               <tbody>
                 {displayedAttachments.map((a, index) => (
-                  <tr key={a.id} className={`data-table-row ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}>
+                  <tr
+                    key={a.id}
+                    className={`data-table-row cursor-pointer ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                    onClick={() => openEditModal(a)}
+                  >
                     <td className="data-table-cell">{formatDateStandard(a.created_at.split('T')[0])}</td>
                     <td className="data-table-cell">{a.type}</td>
                     <td className="data-table-cell">
@@ -315,8 +319,8 @@ export default function AttachmentsPage() {
                     </td>
                     <td className="data-table-cell-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="data-table-btn" onClick={() => openAttachment(a)}>Open</button>
-                        <button className="data-table-btn" onClick={() => openEditModal(a)}>Edit</button>
+                        <button className="data-table-btn" onClick={(e) => { e.stopPropagation(); openAttachment(a); }}>Open</button>
+                        <button className="data-table-btn hidden lg:inline-flex" onClick={(e) => { e.stopPropagation(); openEditModal(a); }}>Edit</button>
                       </div>
                     </td>
                   </tr>

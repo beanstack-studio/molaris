@@ -17,10 +17,10 @@ export function SlidingTabBar({ children, className }: SlidingTabBarProps) {
       if (!container) return;
       const active = container.querySelector<HTMLElement>(".tab-item-active");
       if (!active) return;
-      const cLeft = container.getBoundingClientRect().left;
-      const aRect = active.getBoundingClientRect();
-      container.style.setProperty("--tab-x", `${aRect.left - cLeft}px`);
-      container.style.setProperty("--tab-w", `${aRect.width}px`);
+      // Use offsetLeft/offsetWidth — unaffected by horizontal scroll of the container,
+      // giving correct position relative to the container's content edge.
+      container.style.setProperty("--tab-x", `${active.offsetLeft}px`);
+      container.style.setProperty("--tab-w", `${active.offsetWidth}px`);
     }
 
     move();

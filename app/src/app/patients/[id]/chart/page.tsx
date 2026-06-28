@@ -359,14 +359,18 @@ export default function ChartPage() {
                   {[...chart]
                     .sort(sortChart)
                     .map((entry, index) => (
-                    <tr key={entry.id} className={cn("data-table-row", index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}>
+                    <tr
+                      key={entry.id}
+                      className={cn("data-table-row cursor-pointer", index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
+                      onClick={() => editChartEntry(entry)}
+                    >
                       <td className="data-table-cell">{entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}</td>
                       <td className="data-table-cell">{entry.tooth_number}</td>
                       <td className="data-table-cell">{entry.finding_code}</td>
                       <td className="data-table-cell">{entry.surfaces ?? "—"}</td>
                       <td className="data-table-cell-truncate">{entry.finding_detail ?? "—"}</td>
                       <td className="data-table-cell-right">
-                        <button onClick={() => editChartEntry(entry)} className="data-table-btn">Edit</button>
+                        <button onClick={(e) => { e.stopPropagation(); editChartEntry(entry); }} className="data-table-btn hidden lg:inline-flex">Edit</button>
                       </td>
                     </tr>
                   ))}
