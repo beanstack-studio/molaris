@@ -327,36 +327,63 @@ export default function PayrollPage() {
             No payroll runs yet. Click &quot;Run Payroll&quot; to record the first run.
           </div>
         ) : (
-          <div className="w-full overflow-x-auto lg:overflow-x-visible">
-            <table className="data-table min-w-[480px]">
-              <thead className="data-table-head">
-                <tr>
-                  <th className="data-table-head-cell">Period</th>
-                  <th className="data-table-head-cell">Payment Date</th>
-                  <th className="data-table-head-cell">Via</th>
-                  <th className="data-table-head-cell-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map((run, idx) => (
-                  <tr
-                    key={run.id}
-                    className={cn("data-table-row cursor-pointer", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
-                    onClick={() => openViewRun(run)}
-                  >
-                    <td className="data-table-cell text-sm">
-                      {run.period_start === run.period_end
-                        ? formatDateStandard(run.period_start)
-                        : `${formatDateStandard(run.period_start)} – ${formatDateStandard(run.period_end)}`}
-                    </td>
-                    <td className="data-table-cell text-sm">{formatDateStandard(run.payment_date)}</td>
-                    <td className="data-table-cell text-sm text-slate-600">{run.payment_mode ?? "—"}</td>
-                    <td className="data-table-cell-right text-sm font-semibold tabular-nums">{formatMoney(run.total_amount)}</td>
+          <>
+            {/* Desktop table — lg+ */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="data-table min-w-[480px]">
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell">Period</th>
+                    <th className="data-table-head-cell">Payment Date</th>
+                    <th className="data-table-head-cell">Via</th>
+                    <th className="data-table-head-cell-right">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {runs.map((run, idx) => (
+                    <tr
+                      key={run.id}
+                      className={cn("data-table-row cursor-pointer", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd")}
+                      onClick={() => openViewRun(run)}
+                    >
+                      <td className="data-table-cell text-sm">
+                        {run.period_start === run.period_end
+                          ? formatDateStandard(run.period_start)
+                          : `${formatDateStandard(run.period_start)} – ${formatDateStandard(run.period_end)}`}
+                      </td>
+                      <td className="data-table-cell text-sm">{formatDateStandard(run.payment_date)}</td>
+                      <td className="data-table-cell text-sm text-slate-600">{run.payment_mode ?? "—"}</td>
+                      <td className="data-table-cell-right text-sm font-semibold tabular-nums">{formatMoney(run.total_amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards — below lg */}
+            <div className="lg:hidden mt-3 flex flex-col gap-3">
+              {runs.map((run) => (
+                <div
+                  key={run.id}
+                  className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm cursor-pointer"
+                  onClick={() => openViewRun(run)}
+                >
+                  <div className="text-sm font-medium text-slate-800">
+                    {run.period_start === run.period_end
+                      ? formatDateStandard(run.period_start)
+                      : `${formatDateStandard(run.period_start)} – ${formatDateStandard(run.period_end)}`}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Paid: {formatDateStandard(run.payment_date)}
+                    {run.payment_mode ? ` · via ${run.payment_mode}` : ""}
+                  </div>
+                  <div className="font-semibold text-slate-800 text-sm mt-2 pt-2 border-t border-slate-50">
+                    {formatMoney(run.total_amount)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

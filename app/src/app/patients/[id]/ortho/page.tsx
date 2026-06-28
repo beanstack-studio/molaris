@@ -11,7 +11,7 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { VISIT_REASONS, VisitReasonType, getOrthoOnlyReasons, getVisitReasonLabel } from "@/lib/visitReasonHelpers";
 import type { OrthoCase, OrthoEntry, OrthoEntryItem, DentistRow, Appointment, ServicePriceRow, Invoice } from "@/lib/types";
 import { dentistLabel } from "@/lib/types";
-import { formatDateStandard } from "@/lib/helpers";
+import { formatDateStandard, formatMoney } from "@/lib/helpers";
 import { PageLoader } from "@/components/Spinner";
 
 /* Helpers */
@@ -689,92 +689,137 @@ function OrthoPage() {
               ) : entries.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">No visits recorded yet.</div>
               ) : (
-                <div className="w-full overflow-x-auto lg:overflow-x-visible">
-                  <table className="data-table min-w-[550px]">
-                    <colgroup>
-                      <col className="col-14" />
-                      <col className="col-16" />
-                      <col className="col-56" />
-                      <col className="col-14" />
-                    </colgroup>
-                    <thead className="data-table-head">
-                      <tr>
-                        <th className="data-table-head-cell">Date</th>
-                        <th className="data-table-head-cell">Visit Type</th>
-                        <th className="data-table-head-cell">Service</th>
-                        <th className="data-table-head-cell">Charged Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((entry, index) => {
-                        const items = entryItems.get(entry.id) || [];
-                        const chargedItems = items.filter(item => item.is_charged);
-                        let chargedTotal = chargedItems.reduce((sum, item) => {
-                          const amount = item.amount_override || 
-                            orthoServices.find(s => s.id === item.service_id)?.default_price || 0;
-                          return sum + (Number(amount) || 0);
-                        }, 0);
-
-                        // Add package fee if invoice_package is true
-                        if (entry.invoice_package && orthoCase?.package_fee) {
-                          chargedTotal += Number(orthoCase.package_fee);
-                        }
-
-                        // Build services list including package if invoiced
-                        const addonsSummary = [];
-                        if (entry.invoice_package && orthoCase?.package_service_id) {
-                          const packageService = orthoServices.find(s => s.id === orthoCase.package_service_id);
-                          if (packageService) {
-                            addonsSummary.push(packageService.service_name);
+                <>
+                  {/* Desktop table — lg+ */}
+                  <div className="hidden lg:block overflow-x-auto">
+                    <table className="data-table min-w-[550px]">
+                      <colgroup>
+                        <col className="col-14" />
+                        <col className="col-16" />
+                        <col className="col-56" />
+                        <col className="col-14" />
+                      </colgroup>
+                      <thead className="data-table-head">
+                        <tr>
+                          <th className="data-table-head-cell">Date</th>
+                          <th className="data-table-head-cell">Visit Type</th>
+                          <th className="data-table-head-cell">Service</th>
+                          <th className="data-table-head-cell">Charged Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {entries.map((entry, index) => {
+                          const items = entryItems.get(entry.id) || [];
+                          const chargedItems = items.filter((item: OrthoEntryItem) => item.is_charged);
+                          let chargedTotal = chargedItems.reduce((sum: number, item: OrthoEntryItem) => {
+                            const amount = item.amount_override ||
+                              orthoServices.find(s => s.id === item.service_id)?.default_price || 0;
+                            return sum + (Number(amount) || 0);
+                          }, 0);
+                          if (entry.invoice_package && orthoCase?.package_fee) {
+                            chargedTotal += Number(orthoCase.package_fee);
                           }
-                        }
-                        // Add charged add-ons
-                        items.filter(item => item.is_charged).forEach(item => {
-                          const service = orthoServices.find(s => s.id === item.service_id);
-                          if (service) {
-                            addonsSummary.push(service.service_name);
+                          const addonsSummary: string[] = [];
+                          if (entry.invoice_package && orthoCase?.package_service_id) {
+                            const packageService = orthoServices.find(s => s.id === orthoCase.package_service_id);
+                            if (packageService) addonsSummary.push(packageService.service_name);
                           }
-                        });
+                          items.filter((item: OrthoEntryItem) => item.is_charged).forEach((item: OrthoEntryItem) => {
+                            const service = orthoServices.find(s => s.id === item.service_id);
+                            if (service) addonsSummary.push(service.service_name);
+                          });
+                          const visitTypeDisplay = entry.concern_type
+                            ? entry.concern_type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')
+                            : '—';
+                          return (
+                            <tr
+                              key={entry.id}
+                              className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
+                              onClick={() => openEditVisitModal(entry)}
+                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditVisitModal(entry); } }}
+                              tabIndex={0}
+                              role="button"
+                              aria-label={`Edit ortho visit on ${formatDateStandard(entry.entry_date)}`}
+                            >
+                              <td className="data-table-cell">{formatDateStandard(entry.entry_date)}</td>
+                              <td className="data-table-cell">
+                                <span className="badge badge-secondary">{visitTypeDisplay}</span>
+                              </td>
+                              <td className="data-table-cell text-sm">
+                                {addonsSummary.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {addonsSummary.map((svc, idx) => (
+                                      <div key={idx}>{svc}</div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="data-table-cell">
+                                <span className="font-medium">{chargedTotal > 0 ? `₱ ${Number(chargedTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
 
-                        // Format concern type (capitalize and replace underscores)
-                        const visitTypeDisplay = entry.concern_type
-                          ? entry.concern_type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')
-                          : '—';
-
-                        return (
-                          <tr
-                            key={entry.id}
-                            className={`data-table-row cursor-pointer hover:bg-slate-50 ${index % 2 === 0 ? "data-table-row-even" : "data-table-row-odd"}`}
-                            onClick={() => openEditVisitModal(entry)}
-                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditVisitModal(entry); } }}
-                            tabIndex={0}
-                            role="button"
-                            aria-label={`Edit ortho visit on ${formatDateStandard(entry.entry_date)}`}
-                          >
-                            <td className="data-table-cell">{formatDateStandard(entry.entry_date)}</td>
-                            <td className="data-table-cell">
-                              <span className="badge badge-secondary">{visitTypeDisplay}</span>
-                            </td>
-                            <td className="data-table-cell text-sm">
-                              {addonsSummary.length > 0 ? (
-                                <div className="space-y-1">
-                                  {addonsSummary.map((svc, idx) => (
-                                    <div key={idx}>{svc}</div>
-                                  ))}
-                                </div>
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-                            <td className="data-table-cell">
-                              <span className="font-medium">{chargedTotal > 0 ? `₱ ${Number(chargedTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                  {/* Mobile cards — below lg */}
+                  <div className="lg:hidden mt-3 flex flex-col gap-3">
+                    {entries.map((entry) => {
+                      const items = entryItems.get(entry.id) || [];
+                      const chargedItems = items.filter((item: OrthoEntryItem) => item.is_charged);
+                      let chargedTotal = chargedItems.reduce((sum: number, item: OrthoEntryItem) => {
+                        const amount = item.amount_override ||
+                          orthoServices.find(s => s.id === item.service_id)?.default_price || 0;
+                        return sum + (Number(amount) || 0);
+                      }, 0);
+                      if (entry.invoice_package && orthoCase?.package_fee) {
+                        chargedTotal += Number(orthoCase.package_fee);
+                      }
+                      const addonsSummary: string[] = [];
+                      if (entry.invoice_package && orthoCase?.package_service_id) {
+                        const packageService = orthoServices.find(s => s.id === orthoCase.package_service_id);
+                        if (packageService) addonsSummary.push(packageService.service_name);
+                      }
+                      items.filter((item: OrthoEntryItem) => item.is_charged).forEach((item: OrthoEntryItem) => {
+                        const service = orthoServices.find(s => s.id === item.service_id);
+                        if (service) addonsSummary.push(service.service_name);
+                      });
+                      const visitTypeDisplay = entry.concern_type
+                        ? entry.concern_type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')
+                        : '—';
+                      return (
+                        <div
+                          key={entry.id}
+                          className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm cursor-pointer"
+                          onClick={() => openEditVisitModal(entry)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-500">{formatDateStandard(entry.entry_date)}</span>
+                            <span className="badge badge-secondary">{visitTypeDisplay}</span>
+                          </div>
+                          <div className="text-sm font-medium text-slate-800 mt-1">
+                            {addonsSummary.length > 0 ? addonsSummary.join(", ") : "—"}
+                          </div>
+                          <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-50">
+                            <span className="font-semibold text-slate-800 text-sm">
+                              {chargedTotal > 0 ? formatMoney(chargedTotal) : "—"}
+                            </span>
+                            <button
+                              className="data-table-btn"
+                              onClick={(e) => { e.stopPropagation(); openEditVisitModal(entry); }}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}

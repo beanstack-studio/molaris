@@ -361,72 +361,114 @@ export default function OperatingPage() {
             No general expenses recorded yet. Click &quot;Add Expense&quot; to get started.
           </div>
         ) : (
-          <div className="w-full overflow-x-auto lg:overflow-x-visible">
-            <table className="data-table min-w-[800px]">
-              <thead className="data-table-head">
-                <tr>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("expense_date")}>
-                    Date <SortArrow active={sortKey === "expense_date"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("category")}>
-                    Category <SortArrow active={sortKey === "category"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("description")}>
-                    Description <SortArrow active={sortKey === "description"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell">Supplier</th>
-                  <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
-                    Amount <SortArrow active={sortKey === "amount"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("payment_mode")}>
-                    Via <SortArrow active={sortKey === "payment_mode"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("status")}>
-                    Status <SortArrow active={sortKey === "status"} asc={sortDir === "asc"} />
-                  </th>
-                  {/* Pay button column — only shown when there are unpaid items */}
-                  <th className="data-table-head-cell"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedExpenses.map((exp, idx) => (
-                  <tr
-                    key={exp.id}
-                    className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd", isAdmin && "cursor-pointer")}
-                    onClick={() => isAdmin && openEdit(exp)}
-                  >
-                    <td className="data-table-cell text-sm">{formatDateStandard(exp.expense_date)}</td>
-                    <td className="data-table-cell">
-                      <span className={CATEGORY_COLORS[exp.category] ?? "badge badge-secondary"}>{exp.category}</span>
-                    </td>
-                    <td className="data-table-cell text-sm text-slate-600">{exp.description ?? "—"}</td>
-                    <td className="data-table-cell text-sm text-slate-600">{exp.vendor ?? "—"}</td>
-                    <td className="data-table-cell-right text-sm font-medium tabular-nums">{formatMoney(exp.amount)}</td>
-                    <td className="data-table-cell text-sm text-slate-600">{exp.payment_mode ?? "—"}</td>
-                    <td className="data-table-cell">
+          <>
+            {/* Desktop table — lg+ */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="data-table min-w-[800px]">
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("expense_date")}>
+                      Date <SortArrow active={sortKey === "expense_date"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("category")}>
+                      Category <SortArrow active={sortKey === "category"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("description")}>
+                      Description <SortArrow active={sortKey === "description"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell">Supplier</th>
+                    <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
+                      Amount <SortArrow active={sortKey === "amount"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("payment_mode")}>
+                      Via <SortArrow active={sortKey === "payment_mode"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("status")}>
+                      Status <SortArrow active={sortKey === "status"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedExpenses.map((exp, idx) => (
+                    <tr
+                      key={exp.id}
+                      className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd", isAdmin && "cursor-pointer")}
+                      onClick={() => isAdmin && openEdit(exp)}
+                    >
+                      <td className="data-table-cell text-sm">{formatDateStandard(exp.expense_date)}</td>
+                      <td className="data-table-cell">
+                        <span className={CATEGORY_COLORS[exp.category] ?? "badge badge-secondary"}>{exp.category}</span>
+                      </td>
+                      <td className="data-table-cell text-sm text-slate-600">{exp.description ?? "—"}</td>
+                      <td className="data-table-cell text-sm text-slate-600">{exp.vendor ?? "—"}</td>
+                      <td className="data-table-cell-right text-sm font-medium tabular-nums">{formatMoney(exp.amount)}</td>
+                      <td className="data-table-cell text-sm text-slate-600">{exp.payment_mode ?? "—"}</td>
+                      <td className="data-table-cell">
+                        {exp.status === "paid" ? (
+                          <span className="badge bg-emerald-100 text-emerald-700 border border-emerald-200">Paid</span>
+                        ) : (
+                          <span className="badge bg-rose-100 text-rose-600 border border-rose-200">Unpaid</span>
+                        )}
+                      </td>
+                      <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
+                        {exp.status === "unpaid" && (
+                          <div className="flex items-center justify-end">
+                            <button type="button" className="data-table-btn" title="Mark as paid" onClick={() => openPay(exp)}>
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards — below lg */}
+            <div className="lg:hidden mt-3 flex flex-col gap-3">
+              {sortedExpenses.map((exp) => (
+                <div
+                  key={exp.id}
+                  className={cn("rounded-xl border border-slate-100 bg-white p-3 shadow-sm", isAdmin && "cursor-pointer")}
+                  onClick={() => isAdmin && openEdit(exp)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-500">{formatDateStandard(exp.expense_date)}</span>
+                    <span className={CATEGORY_COLORS[exp.category] ?? "badge badge-secondary"}>{exp.category}</span>
+                  </div>
+                  {exp.description && (
+                    <div className="text-sm font-medium text-slate-800 mt-1">{exp.description}</div>
+                  )}
+                  {exp.vendor && (
+                    <div className="text-xs text-slate-500 mt-0.5">Supplier: {exp.vendor}</div>
+                  )}
+                  <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-50">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-800 text-sm">{formatMoney(exp.amount)}</span>
                       {exp.status === "paid" ? (
                         <span className="badge bg-emerald-100 text-emerald-700 border border-emerald-200">Paid</span>
                       ) : (
                         <span className="badge bg-rose-100 text-rose-600 border border-rose-200">Unpaid</span>
                       )}
-                    </td>
-                    <td className="data-table-cell" onClick={(e) => e.stopPropagation()}>
-                      {exp.status === "unpaid" && (
-                        <div className="flex items-center justify-end">
-                          <button type="button" className="data-table-btn" title="Mark as paid" onClick={() => openPay(exp)}>
-                            {/* receipt/payment icon */}
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                    {exp.status === "unpaid" && (
+                      <button
+                        type="button"
+                        className="data-table-btn"
+                        onClick={(e) => { e.stopPropagation(); openPay(exp); }}
+                      >
+                        Pay
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

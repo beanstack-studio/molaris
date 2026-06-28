@@ -306,59 +306,90 @@ export default function BillsPage() {
             No bills recorded yet. Click &quot;Add Bill&quot; to get started.
           </div>
         ) : (
-          <div className="w-full overflow-x-auto lg:overflow-x-visible">
-            <table className="data-table min-w-[640px]">
-              <thead className="data-table-head">
-                <tr>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("category")}>
-                    Type <SortArrow active={sortKey === "category"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("due_date")}>
-                    Due Date <SortArrow active={sortKey === "due_date"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell">Status</th>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("date_paid")}>
-                    Date Paid <SortArrow active={sortKey === "date_paid"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("payment_mode")}>
-                    Via <SortArrow active={sortKey === "payment_mode"} asc={sortDir === "asc"} />
-                  </th>
-                  <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
-                    Amount <SortArrow active={sortKey === "amount"} asc={sortDir === "asc"} />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedBills.map((bill, idx) => {
-                  const isPaid = Boolean(bill.date_paid);
-                  return (
-                    <tr
-                      key={bill.id}
-                      className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd", isAdmin && "cursor-pointer")}
-                      onClick={() => isAdmin && openEdit(bill)}
-                    >
-                      <td className="data-table-cell">
-                        <span className={CATEGORY_COLORS[bill.category as BillCategory] ?? "badge badge-secondary"}>
-                          {bill.category}
-                        </span>
-                      </td>
-                      <td className="data-table-cell text-sm">{formatDateStandard(bill.due_date)}</td>
-                      <td className="data-table-cell">
-                        {isPaid ? (
-                          <span className="badge bg-emerald-100 text-emerald-700 border border-emerald-200">Paid</span>
-                        ) : (
-                          <span className="badge bg-rose-100 text-rose-600 border border-rose-200">Unpaid</span>
-                        )}
-                      </td>
-                      <td className="data-table-cell text-sm">{formatDateStandard(bill.date_paid)}</td>
-                      <td className="data-table-cell text-sm text-slate-600">{bill.payment_mode ?? "—"}</td>
-                      <td className="data-table-cell-right text-sm font-medium tabular-nums">{formatMoney(bill.amount)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Desktop table — lg+ */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="data-table min-w-[640px]">
+                <thead className="data-table-head">
+                  <tr>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("category")}>
+                      Type <SortArrow active={sortKey === "category"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("due_date")}>
+                      Due Date <SortArrow active={sortKey === "due_date"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell">Status</th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("date_paid")}>
+                      Date Paid <SortArrow active={sortKey === "date_paid"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("payment_mode")}>
+                      Via <SortArrow active={sortKey === "payment_mode"} asc={sortDir === "asc"} />
+                    </th>
+                    <th className="data-table-head-cell-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
+                      Amount <SortArrow active={sortKey === "amount"} asc={sortDir === "asc"} />
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedBills.map((bill, idx) => {
+                    const isPaid = Boolean(bill.date_paid);
+                    return (
+                      <tr
+                        key={bill.id}
+                        className={cn("data-table-row", idx % 2 === 0 ? "data-table-row-even" : "data-table-row-odd", isAdmin && "cursor-pointer")}
+                        onClick={() => isAdmin && openEdit(bill)}
+                      >
+                        <td className="data-table-cell">
+                          <span className={CATEGORY_COLORS[bill.category as BillCategory] ?? "badge badge-secondary"}>
+                            {bill.category}
+                          </span>
+                        </td>
+                        <td className="data-table-cell text-sm">{formatDateStandard(bill.due_date)}</td>
+                        <td className="data-table-cell">
+                          {isPaid ? (
+                            <span className="badge bg-emerald-100 text-emerald-700 border border-emerald-200">Paid</span>
+                          ) : (
+                            <span className="badge bg-rose-100 text-rose-600 border border-rose-200">Unpaid</span>
+                          )}
+                        </td>
+                        <td className="data-table-cell text-sm">{formatDateStandard(bill.date_paid)}</td>
+                        <td className="data-table-cell text-sm text-slate-600">{bill.payment_mode ?? "—"}</td>
+                        <td className="data-table-cell-right text-sm font-medium tabular-nums">{formatMoney(bill.amount)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards — below lg */}
+            <div className="lg:hidden mt-3 flex flex-col gap-3">
+              {sortedBills.map((bill) => {
+                const isPaid = Boolean(bill.date_paid);
+                return (
+                  <div
+                    key={bill.id}
+                    className={cn("rounded-xl border border-slate-100 bg-white p-3 shadow-sm", isAdmin && "cursor-pointer")}
+                    onClick={() => isAdmin && openEdit(bill)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={CATEGORY_COLORS[bill.category as BillCategory] ?? "badge badge-secondary"}>{bill.category}</span>
+                      {isPaid ? (
+                        <span className="badge bg-emerald-100 text-emerald-700 border border-emerald-200">Paid</span>
+                      ) : (
+                        <span className="badge bg-rose-100 text-rose-600 border border-rose-200">Unpaid</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {bill.due_date ? `Due: ${formatDateStandard(bill.due_date)}` : "No due date"}
+                      {isPaid && bill.date_paid ? ` · Paid: ${formatDateStandard(bill.date_paid)}` : ""}
+                    </div>
+                    <div className="font-semibold text-slate-800 text-sm mt-2">{formatMoney(bill.amount)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 

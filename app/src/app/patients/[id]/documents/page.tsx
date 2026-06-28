@@ -563,8 +563,9 @@ function DocumentsPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
-      <button onClick={() => router.back()} className="lg:hidden flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-3">
-        ← Back
+      <button onClick={() => router.back()} className="lg:hidden flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors mb-3">
+        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+        Back
       </button>
 
         <div className="card">
