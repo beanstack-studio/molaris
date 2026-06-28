@@ -368,7 +368,7 @@ export function CreateAppointmentModal({ open, onClose, onCreated, dentists, pat
         </label>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 pt-1">
+        <div className="modal-footer-buttons pt-1">
           <button onClick={onClose} className="cancel-btn">Cancel</button>
           <button onClick={handleCreate} className="save-btn" disabled={!canConfirm}>Confirm</button>
         </div>

@@ -204,23 +204,41 @@ export function EditVisitModal({
             </div>
 
             {visitTreatments.map((t) => (
-              <div key={t.id} className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-3 space-y-2">
-                <div className="three-col-row">
-                  <div className="grid gap-1">
-                    <label className="field-sublabel">Tooth #</label>
-                    <input
-                      type="number"
-                      className="input-standard-sm"
-                      placeholder="Optional"
-                      value={treatmentTooth[t.id] ?? (t.tooth_number?.toString() || "")}
-                      onChange={(e) =>
-                        setTreatmentTooth((prev) => ({ ...prev, [t.id]: e.target.value }))
-                      }
-                      min="1"
-                      max="32"
-                    />
+              <div key={t.id} className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-3">
+                {/* Mobile layout (below lg) */}
+                <div className="lg:hidden grid gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="w-1/3 grid gap-1">
+                      <label className="field-sublabel">Tooth #</label>
+                      <input
+                        type="number"
+                        className="input-standard-sm"
+                        placeholder="Optional"
+                        value={treatmentTooth[t.id] ?? (t.tooth_number?.toString() || "")}
+                        onChange={(e) =>
+                          setTreatmentTooth((prev) => ({ ...prev, [t.id]: e.target.value }))
+                        }
+                        min="1"
+                        max="32"
+                      />
+                    </div>
+                    <button
+                      className="item-delete-btn shrink-0"
+                      onClick={async () => {
+                        setBusy(true);
+                        setError(null);
+                        const { error } = await supabase.from("treatments").delete().eq("id", t.id);
+                        setBusy(false);
+                        if (error) return setError(error.message);
+                        onSaved();
+                      }}
+                      title="Delete treatment"
+                      disabled={busy}
+                    >
+                      Delete
+                    </button>
                   </div>
-                  <div className="field-full-row">
+                  <div className="grid gap-1">
                     <label className="field-sublabel">Treatment</label>
                     <select
                       className="input-standard"
@@ -237,33 +255,77 @@ export function EditVisitModal({
                       ))}
                     </select>
                   </div>
-                </div>
-                <div className="input-row">
                   <input
                     type="text"
-                    className="input-flex-sm"
+                    className="input-full"
                     placeholder="Notes…"
                     value={treatmentNotes[t.id] ?? t.notes ?? ""}
                     onChange={(e) =>
                       setTreatmentNotes((prev) => ({ ...prev, [t.id]: e.target.value }))
                     }
                   />
-                  <button
-                    className="item-delete-btn"
-                    onClick={async () => {
-                      setBusy(true);
-                      setError(null);
-                      const { error } = await supabase.from("treatments").delete().eq("id", t.id);
-                      setBusy(false);
-                      if (error) return setError(error.message);
-                      onSaved();
-                      // Remove from local view without closing modal
-                    }}
-                    title="Delete treatment"
-                    disabled={busy}
-                  >
-                    Delete
-                  </button>
+                </div>
+                {/* Desktop layout (lg+) */}
+                <div className="hidden lg:block space-y-2">
+                  <div className="three-col-row">
+                    <div className="grid gap-1">
+                      <label className="field-sublabel">Tooth #</label>
+                      <input
+                        type="number"
+                        className="input-standard-sm"
+                        placeholder="Optional"
+                        value={treatmentTooth[t.id] ?? (t.tooth_number?.toString() || "")}
+                        onChange={(e) =>
+                          setTreatmentTooth((prev) => ({ ...prev, [t.id]: e.target.value }))
+                        }
+                        min="1"
+                        max="32"
+                      />
+                    </div>
+                    <div className="field-full-row">
+                      <label className="field-sublabel">Treatment</label>
+                      <select
+                        className="input-standard"
+                        value={treatmentServiceId[t.id] ?? (t.service_price_id || "")}
+                        onChange={(e) => {
+                          const svc = serviceMenu.find((s) => s.id === e.target.value);
+                          setTreatmentServiceId((prev) => ({ ...prev, [t.id]: e.target.value }));
+                          setTreatmentProcedure((prev) => ({ ...prev, [t.id]: svc?.service_name ?? "" }));
+                        }}
+                      >
+                        <option value="">Select treatment</option>
+                        {sortedMenu.map((s) => (
+                          <option key={s.id} value={s.id}>{s.service_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="input-row">
+                    <input
+                      type="text"
+                      className="input-flex-sm"
+                      placeholder="Notes…"
+                      value={treatmentNotes[t.id] ?? t.notes ?? ""}
+                      onChange={(e) =>
+                        setTreatmentNotes((prev) => ({ ...prev, [t.id]: e.target.value }))
+                      }
+                    />
+                    <button
+                      className="item-delete-btn"
+                      onClick={async () => {
+                        setBusy(true);
+                        setError(null);
+                        const { error } = await supabase.from("treatments").delete().eq("id", t.id);
+                        setBusy(false);
+                        if (error) return setError(error.message);
+                        onSaved();
+                      }}
+                      title="Delete treatment"
+                      disabled={busy}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -274,22 +336,32 @@ export function EditVisitModal({
 
             {newTreatments.map((newT) => (
               <div key={newT.id} className="info-box">
-                <div className="three-col-row">
-                  <div className="grid gap-1">
-                    <label className="field-sublabel">Tooth #</label>
-                    <input
-                      type="number"
-                      className="input-standard-sm"
-                      placeholder="Optional"
-                      value={treatmentTooth[newT.id] ?? ""}
-                      onChange={(e) =>
-                        setTreatmentTooth((prev) => ({ ...prev, [newT.id]: e.target.value }))
-                      }
-                      min="1"
-                      max="32"
-                    />
+                {/* Mobile layout (below lg) */}
+                <div className="lg:hidden grid gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="w-1/3 grid gap-1">
+                      <label className="field-sublabel">Tooth #</label>
+                      <input
+                        type="number"
+                        className="input-standard-sm"
+                        placeholder="Optional"
+                        value={treatmentTooth[newT.id] ?? ""}
+                        onChange={(e) =>
+                          setTreatmentTooth((prev) => ({ ...prev, [newT.id]: e.target.value }))
+                        }
+                        min="1"
+                        max="32"
+                      />
+                    </div>
+                    <button
+                      className="item-delete-btn shrink-0"
+                      onClick={() => setNewTreatments((prev) => prev.filter((nt) => nt.id !== newT.id))}
+                      title="Remove treatment"
+                    >
+                      Delete
+                    </button>
                   </div>
-                  <div className="field-full-row">
+                  <div className="grid gap-1">
                     <label className="field-sublabel">Treatment</label>
                     <select
                       className="input-standard"
@@ -306,24 +378,69 @@ export function EditVisitModal({
                       ))}
                     </select>
                   </div>
-                </div>
-                <div className="input-row">
                   <input
                     type="text"
-                    className="input-flex-sm"
+                    className="input-full"
                     placeholder="Notes…"
                     value={treatmentNotes[newT.id] ?? ""}
                     onChange={(e) =>
                       setTreatmentNotes((prev) => ({ ...prev, [newT.id]: e.target.value }))
                     }
                   />
-                  <button
-                    className="item-delete-btn"
-                    onClick={() => setNewTreatments((prev) => prev.filter((nt) => nt.id !== newT.id))}
-                    title="Remove treatment"
-                  >
-                    Delete
-                  </button>
+                </div>
+                {/* Desktop layout (lg+) */}
+                <div className="hidden lg:block space-y-2">
+                  <div className="three-col-row">
+                    <div className="grid gap-1">
+                      <label className="field-sublabel">Tooth #</label>
+                      <input
+                        type="number"
+                        className="input-standard-sm"
+                        placeholder="Optional"
+                        value={treatmentTooth[newT.id] ?? ""}
+                        onChange={(e) =>
+                          setTreatmentTooth((prev) => ({ ...prev, [newT.id]: e.target.value }))
+                        }
+                        min="1"
+                        max="32"
+                      />
+                    </div>
+                    <div className="field-full-row">
+                      <label className="field-sublabel">Treatment</label>
+                      <select
+                        className="input-standard"
+                        value={treatmentServiceId[newT.id] ?? ""}
+                        onChange={(e) => {
+                          const svc = serviceMenu.find((s) => s.id === e.target.value);
+                          setTreatmentServiceId((prev) => ({ ...prev, [newT.id]: e.target.value }));
+                          setTreatmentProcedure((prev) => ({ ...prev, [newT.id]: svc?.service_name ?? "" }));
+                        }}
+                      >
+                        <option value="">Select treatment</option>
+                        {sortedMenu.map((s) => (
+                          <option key={s.id} value={s.id}>{s.service_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="input-row">
+                    <input
+                      type="text"
+                      className="input-flex-sm"
+                      placeholder="Notes…"
+                      value={treatmentNotes[newT.id] ?? ""}
+                      onChange={(e) =>
+                        setTreatmentNotes((prev) => ({ ...prev, [newT.id]: e.target.value }))
+                      }
+                    />
+                    <button
+                      className="item-delete-btn"
+                      onClick={() => setNewTreatments((prev) => prev.filter((nt) => nt.id !== newT.id))}
+                      title="Remove treatment"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

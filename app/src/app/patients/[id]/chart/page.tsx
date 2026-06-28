@@ -575,15 +575,17 @@ export default function ChartPage() {
                 />
               </div>
 
-              <div className="flex-between-gap-2 mt-4">
-                <button
-                  onClick={() => deleteChartEntry()}
-                  disabled={busy || deleteConfirmation.trim().toUpperCase() !== "DELETE"}
-                  className="delete-btn"
-                >
-                  {busy ? "Deleting…" : "Delete"}
-                </button>
-                <div className="action-row">
+              <div className="modal-actions mt-4">
+                <div className="modal-actions-left">
+                  <button
+                    onClick={() => deleteChartEntry()}
+                    disabled={busy || deleteConfirmation.trim().toUpperCase() !== "DELETE"}
+                    className="delete-btn"
+                  >
+                    {busy ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+                <div className="modal-actions-right">
                   <button
                     onClick={() => {
                       setEditingEntry(null);

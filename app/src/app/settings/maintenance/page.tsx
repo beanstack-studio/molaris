@@ -510,11 +510,13 @@ export default function MaintenancePage() {
               </div>
             )}
 
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-              <button type="button" className="cancel-btn" onClick={() => setShowAdd(false)} disabled={saving}>Cancel</button>
-              <button type="button" className="save-btn" onClick={handleAdd} disabled={saving}>
-                {saving ? "Saving…" : "Add Log"}
-              </button>
+            <div className="modal-actions">
+              <div className="modal-actions-right">
+                <button type="button" className="cancel-btn" onClick={() => setShowAdd(false)} disabled={saving}>Cancel</button>
+                <button type="button" className="save-btn" onClick={handleAdd} disabled={saving}>
+                  {saving ? "Saving…" : "Add Log"}
+                </button>
+              </div>
             </div>
           </div>
         </EditModal>

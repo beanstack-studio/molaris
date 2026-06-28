@@ -298,8 +298,8 @@ export default function Page() {
               </label>
             </div>
 
-            {/* Row 2: Birthday, Age, Gender - 33/33/33 */}
-            <div className="grid-gap-4-cols-3">
+            {/* Row 2: Birthday, Age, Gender — always 3 columns (even on mobile) */}
+            <div className="grid grid-cols-3 gap-2">
               <label className="field-label">
                 <span className="field-label-text">Date of birth</span>
                 <input className="field-input-readonly" value={formatDateStandard(patient.birth_date)} readOnly />

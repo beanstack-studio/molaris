@@ -166,7 +166,7 @@ export function CreateInvoiceModal({
                 </div>
                 {showDiscount && (
                   <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div className="inline-row">
+                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
                       <input
                         type="text"
                         placeholder="Discount code/description"
@@ -174,12 +174,12 @@ export function CreateInvoiceModal({
                         value={discountDescription}
                         onChange={(e) => setDiscountDescription(e.target.value)}
                       />
-                      <span className="text-sm font-semibold text-red-600">−</span>
+                      <span className="text-sm font-semibold text-red-600 hidden lg:inline">−</span>
                       <input
                         type="text"
                         inputMode="decimal"
                         placeholder="0.00"
-                        className="input-standard w-24"
+                        className="input-standard lg:w-24"
                         value={discountAmount}
                         onChange={(e) => {
                           const raw = e.target.value.replace(/[^0-9.]/g, "");
@@ -201,7 +201,7 @@ export function CreateInvoiceModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="modal-footer-buttons pt-2">
             <button className="cancel-btn" onClick={onClose}>
               Cancel
             </button>

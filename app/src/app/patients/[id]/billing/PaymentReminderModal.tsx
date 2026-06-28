@@ -72,7 +72,7 @@ export function PaymentReminderModal({ open, patient, balance, onClose }: Props)
           Copy this message and send it to the patient via SMS or any messaging platform.
         </p>
 
-        <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+        <div className="modal-footer-buttons border-t border-slate-100 pt-3">
           <button onClick={onClose} className="cancel-btn">Close</button>
           <button onClick={handleCopy} className="save-btn">
             {copied ? "Copied!" : "Copy message"}

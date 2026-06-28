@@ -716,7 +716,7 @@ html.dark .delete-confirmation {
 
 /* Modal button layout */
 .modal-actions {
-  @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5;
+  @apply flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mt-5;
 }
 
 .modal-actions-left {
@@ -724,7 +724,7 @@ html.dark .delete-confirmation {
 }
 
 .modal-actions-right {
-  @apply flex flex-col-reverse sm:flex-row gap-2 sm:ml-auto;
+  @apply flex flex-col-reverse lg:flex-row gap-2 lg:ml-auto;
 }
 
 .button-group {
@@ -979,11 +979,11 @@ html.dark .field-input-readonly {
 
 /* Modal footer */
 .modal-footer-spread {
-  @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-4;
+  @apply flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 pt-4;
 }
 
 .modal-footer-buttons {
-  @apply flex flex-col-reverse sm:flex-row gap-2;
+  @apply flex flex-col-reverse lg:flex-row gap-2;
 }
 
 .modal-footer-single {
@@ -1166,31 +1166,59 @@ html.dark .field-input-readonly {
 }
 
 .modal-wrapper {
-  @apply rounded-2xl overflow-hidden w-full max-w-md mx-3 sm:mx-0;
+  @apply rounded-2xl overflow-hidden w-full max-w-md mx-4 lg:mx-0;
   background-color: var(--bg-modal);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
 
 .modal-panel {
-  @apply w-full max-w-md rounded-2xl overflow-hidden mx-3 sm:mx-0;
+  @apply w-full max-w-md rounded-2xl overflow-hidden mx-4 lg:mx-0;
   background-color: var(--bg-modal);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
 
 .modal-panel-wide {
-  @apply w-full max-w-2xl rounded-2xl overflow-hidden mx-3 sm:mx-0;
+  @apply w-full max-w-2xl rounded-2xl overflow-hidden mx-4 lg:mx-0;
   background-color: var(--bg-modal);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
 }
 
 .modal-panel-lg {
-  @apply w-full max-w-lg rounded-2xl overflow-hidden mx-3 sm:mx-0;
+  @apply w-full max-w-lg rounded-2xl overflow-hidden mx-4 lg:mx-0;
   background-color: var(--bg-modal);
   border: 1px solid var(--border-card);
   box-shadow: var(--shadow-modal);
+}
+
+/* Mobile (below lg): cap modal width to viewport - 2rem and make buttons full-width */
+@media (max-width: 1023px) {
+  .modal-panel,
+  .modal-panel-wide,
+  .modal-panel-lg,
+  .modal-wrapper {
+    max-width: calc(100vw - 2rem);
+  }
+
+  .modal-actions-right .save-btn,
+  .modal-actions-right .cancel-btn,
+  .modal-actions-right .delete-btn,
+  .modal-actions-left .save-btn,
+  .modal-actions-left .cancel-btn,
+  .modal-actions-left .delete-btn,
+  .modal-footer-buttons .save-btn,
+  .modal-footer-buttons .cancel-btn,
+  .modal-footer-buttons .delete-btn,
+  .modal-footer-spread .save-btn,
+  .modal-footer-spread .cancel-btn,
+  .modal-footer-spread .delete-btn,
+  .modal-footer .save-btn,
+  .modal-footer .cancel-btn,
+  .modal-footer .delete-btn {
+    width: 100%;
+  }
 }
 
 /* Modal header — blue-tinted glass with visible separator */
@@ -1753,7 +1781,7 @@ html.dark .readonly-input {
   @apply p-6 grid gap-5;
 }
 .modal-footer {
-  @apply px-6 pb-6 pt-4 flex justify-end gap-2 border-t;
+  @apply px-6 pb-6 pt-4 flex flex-col-reverse lg:flex-row lg:justify-end gap-2 border-t;
   border-color: var(--border-card);
 }
 

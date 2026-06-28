@@ -246,28 +246,38 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
           <div className="text-field-label">Treatments ({draftLines.length})</div>
           {draftLines.map((t) => (
             <div key={t.id} className="info-box">
-              <div className="three-col-row">
-                <div className="grid gap-1">
-                  <label className="field-sublabel">Tooth #</label>
-                  <input
-                    type="number"
-                    className="input-standard-sm"
-                    placeholder="Optional"
-                    value={t.tooth_number?.toString() || ""}
-                    onChange={(e) =>
-                      setDraftLines((prev) =>
-                        prev.map((dl) =>
-                          dl.id === t.id
-                            ? { ...dl, tooth_number: e.target.value.trim() ? Number(e.target.value) : null }
-                            : dl
+              {/* Mobile layout (below lg) */}
+              <div className="lg:hidden grid gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="w-1/3 grid gap-1">
+                    <label className="field-sublabel">Tooth #</label>
+                    <input
+                      type="number"
+                      className="input-standard-sm"
+                      placeholder="Optional"
+                      value={t.tooth_number?.toString() || ""}
+                      onChange={(e) =>
+                        setDraftLines((prev) =>
+                          prev.map((dl) =>
+                            dl.id === t.id
+                              ? { ...dl, tooth_number: e.target.value.trim() ? Number(e.target.value) : null }
+                              : dl
+                          )
                         )
-                      )
-                    }
-                    min="1"
-                    max="32"
-                  />
+                      }
+                      min="1"
+                      max="32"
+                    />
+                  </div>
+                  <button
+                    className="item-delete-btn shrink-0"
+                    onClick={() => removeDraftLine(t.id)}
+                    title="Remove treatment"
+                  >
+                    Delete
+                  </button>
                 </div>
-                <div className="field-full-row">
+                <div className="grid gap-1">
                   <label className="field-sublabel">Treatment</label>
                   <select
                     className="input-standard"
@@ -289,11 +299,9 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
                     ))}
                   </select>
                 </div>
-              </div>
-              <div className="input-row">
                 <input
                   type="text"
-                  className="input-flex-sm"
+                  className="input-full"
                   placeholder="Notes…"
                   value={t.note ?? ""}
                   onChange={(e) =>
@@ -302,13 +310,73 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
                     )
                   }
                 />
-                <button
-                  className="item-delete-btn"
-                  onClick={() => removeDraftLine(t.id)}
-                  title="Remove treatment"
-                >
-                  Delete
-                </button>
+              </div>
+              {/* Desktop layout (lg+) */}
+              <div className="hidden lg:block">
+                <div className="three-col-row">
+                  <div className="grid gap-1">
+                    <label className="field-sublabel">Tooth #</label>
+                    <input
+                      type="number"
+                      className="input-standard-sm"
+                      placeholder="Optional"
+                      value={t.tooth_number?.toString() || ""}
+                      onChange={(e) =>
+                        setDraftLines((prev) =>
+                          prev.map((dl) =>
+                            dl.id === t.id
+                              ? { ...dl, tooth_number: e.target.value.trim() ? Number(e.target.value) : null }
+                              : dl
+                          )
+                        )
+                      }
+                      min="1"
+                      max="32"
+                    />
+                  </div>
+                  <div className="field-full-row">
+                    <label className="field-sublabel">Treatment</label>
+                    <select
+                      className="input-standard"
+                      value={t.service_price_id || ""}
+                      onChange={(e) => {
+                        const svc = serviceMenu.find((s) => s.id === e.target.value);
+                        setDraftLines((prev) =>
+                          prev.map((dl) =>
+                            dl.id === t.id
+                              ? { ...dl, service_price_id: e.target.value, procedure: svc?.service_name ?? "" }
+                              : dl
+                          )
+                        );
+                      }}
+                    >
+                      <option value="">Select treatment</option>
+                      {sortedMenu.map((s) => (
+                        <option key={s.id} value={s.id}>{s.service_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="input-row">
+                  <input
+                    type="text"
+                    className="input-flex-sm"
+                    placeholder="Notes…"
+                    value={t.note ?? ""}
+                    onChange={(e) =>
+                      setDraftLines((prev) =>
+                        prev.map((dl) => (dl.id === t.id ? { ...dl, note: e.target.value } : dl))
+                      )
+                    }
+                  />
+                  <button
+                    className="item-delete-btn"
+                    onClick={() => removeDraftLine(t.id)}
+                    title="Remove treatment"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}

@@ -265,7 +265,7 @@ export function AddPaymentModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="modal-footer-buttons pt-2">
             <button
               className="cancel-btn"
               onClick={() => {
