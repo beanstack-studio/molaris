@@ -2119,7 +2119,7 @@ html.dark .readonly-input {
   padding-bottom: calc(env(safe-area-inset-bottom) + 0.25rem);
 }
 
-.bottom-nav-item {xxs
+.bottom-nav-item {
   @apply flex flex-col items-center pt-1 pb-0 gap-0.5 flex-1 h-full rounded-xl font-medium transition-colors;
   font-size: 10px;
   color: hsl(var(--accent-hue) 60% 82%);
