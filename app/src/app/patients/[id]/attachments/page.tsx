@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import PatientTabs from "@/components/PatientTabs";
 import { EditModal } from "@/components/EditModal";
 import { supabase } from "@/lib/supabaseClient";
@@ -17,6 +17,7 @@ type AttachmentType = (typeof attachmentTypes)[number];
 
 export default function AttachmentsPage() {
   const params = useParams();
+  const router = useRouter();
   const id = (params?.id as string) || "";
   const { clinicId } = useClinic();
 
@@ -250,6 +251,9 @@ export default function AttachmentsPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
+      <button onClick={() => router.back()} className="lg:hidden flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-3">
+        ← Back
+      </button>
 
         <div className="card">
           <div className="card-header">

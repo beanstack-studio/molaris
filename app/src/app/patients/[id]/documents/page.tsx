@@ -3,7 +3,7 @@
 import { FeatureGate } from "@/components/shared/FeatureGate";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useClinic } from "@/contexts/ClinicContext";
 import { EditModal } from "@/components/EditModal";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -44,6 +44,7 @@ import { SortArrow } from "@/components/shared/TableOptions";
 
 function DocumentsPage() {
   const params = useParams();
+  const router = useRouter();
   const id = (params?.id as string) || "";
   const { clinicId, isLoading: clinicLoading, isAdmin, isDentist, isHandler, handlerFor, profileId } = useClinic();
 
@@ -562,6 +563,9 @@ function DocumentsPage() {
   return (
     <>
       {error ? <div className="error-banner">{error}</div> : null}
+      <button onClick={() => router.back()} className="lg:hidden flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-3">
+        ← Back
+      </button>
 
         <div className="card">
           <div className="card-header">

@@ -327,7 +327,7 @@ export default function PayrollPage() {
             No payroll runs yet. Click &quot;Run Payroll&quot; to record the first run.
           </div>
         ) : (
-          <div className="table-wrapper overflow-x-auto">
+          <div className="w-full overflow-x-auto lg:overflow-x-visible">
             <table className="data-table min-w-[480px]">
               <thead className="data-table-head">
                 <tr>
@@ -449,7 +449,7 @@ export default function PayrollPage() {
           {entries.length > 0 ? (
             <div>
               <p className="field-label-text mb-2">Days Worked</p>
-              <div className="table-wrapper overflow-x-auto rounded-xl border border-slate-100">
+              <div className="w-full overflow-x-auto lg:overflow-x-visible rounded-xl border border-slate-100">
                 <table className="data-table min-w-[480px]">
                   <colgroup>
                     <col className="w-8" />

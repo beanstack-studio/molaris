@@ -306,7 +306,7 @@ export default function BillsPage() {
             No bills recorded yet. Click &quot;Add Bill&quot; to get started.
           </div>
         ) : (
-          <div className="table-wrapper overflow-x-auto">
+          <div className="w-full overflow-x-auto lg:overflow-x-visible">
             <table className="data-table min-w-[640px]">
               <thead className="data-table-head">
                 <tr>

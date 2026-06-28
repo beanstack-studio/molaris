@@ -361,8 +361,8 @@ export default function OperatingPage() {
             No general expenses recorded yet. Click &quot;Add Expense&quot; to get started.
           </div>
         ) : (
-          <div className="table-wrapper overflow-x-auto">
-            <table className="data-table min-w-[780px]">
+          <div className="w-full overflow-x-auto lg:overflow-x-visible">
+            <table className="data-table min-w-[800px]">
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell cursor-pointer select-none" onClick={() => toggleSort("expense_date")}>

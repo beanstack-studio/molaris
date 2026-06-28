@@ -389,8 +389,8 @@ export default function ChartPage() {
                 [...chart]
                   .sort(sortChart)
                   .map((entry) => (
-                    <div key={entry.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                      <div className="flex items-start justify-between gap-2">
+                    <div key={entry.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm cursor-pointer" onClick={() => editChartEntry(entry)}>
+                      <div className="flex items-start gap-2">
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-800">Tooth {entry.tooth_number}</span>
@@ -400,7 +400,6 @@ export default function ChartPage() {
                           <div className="text-xs text-slate-500 mt-0.5">{entry.recorded_at ? formatDateStandard(entry.recorded_at.split('T')[0]) : "—"}</div>
                           {entry.finding_detail && <div className="text-xs text-slate-600 mt-1">{entry.finding_detail}</div>}
                         </div>
-                        <button onClick={() => editChartEntry(entry)} className="data-table-btn flex-shrink-0">Edit</button>
                       </div>
                     </div>
                   ))
