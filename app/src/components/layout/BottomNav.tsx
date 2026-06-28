@@ -73,7 +73,6 @@ export function BottomNav() {
             aria-current={isActive ? "page" : undefined}
           >
             {item.icon}
-            <span>{item.label}</span>
           </Link>
         );
       })}

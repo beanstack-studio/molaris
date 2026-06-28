@@ -597,27 +597,44 @@ export default function AppointmentsPage() {
           )}
 
             {/* View mode toggle + dentist filter + new appointment */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="action-row">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={viewMode === "list" ? "toggle-btn-active" : "toggle-btn"}
-                >
-                  List View
-                </button>
-                <button
-                  onClick={() => setViewMode("calendar")}
-                  className={viewMode === "calendar" ? "toggle-btn-active" : "toggle-btn"}
-                >
-                  Calendar View
-                </button>
+            {/* Mobile: 2-row layout — Desktop: single row */}
+            <div className="space-y-2 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-3">
+              {/* Row 1 (mobile) / Left (desktop): view toggles + table options on mobile */}
+              <div className="flex items-center gap-2">
+                <div className="action-row flex-1 lg:flex-none">
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={viewMode === "list" ? "toggle-btn-active" : "toggle-btn"}
+                  >
+                    List View
+                  </button>
+                  <button
+                    onClick={() => setViewMode("calendar")}
+                    className={viewMode === "calendar" ? "toggle-btn-active" : "toggle-btn"}
+                  >
+                    Calendar View
+                  </button>
+                </div>
+                {/* Table options — row 1 on mobile */}
+                {viewMode === "list" && (
+                  <div className="lg:hidden">
+                    <TableOptions
+                      tableName="appointments"
+                      columns={APT_COLUMNS}
+                      currentSort={aptSortConfig}
+                      onSortChange={(key, direction) => setAptSortConfig({ key, direction })}
+                      data={appointments}
+                      onDownloadCSV={exportAppointmentsCsv}
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Dentist filter dropdown */}
+              {/* Row 2 (mobile) / Right (desktop): dentist filter + table options (desktop) + new appointment */}
+              <div className="flex items-center gap-2">
                 {dentists.length > 0 && (
                   <select
-                    className="input-standard w-auto min-w-[160px] text-sm"
+                    className="input-standard flex-1 lg:flex-none lg:w-auto lg:min-w-[160px] text-sm"
                     value={filterDentistId}
                     onChange={(e) => {
                       setFilterDentistId(e.target.value);
@@ -630,21 +647,24 @@ export default function AppointmentsPage() {
                     ))}
                   </select>
                 )}
+                {/* Table options — right side on desktop only */}
                 {viewMode === "list" && (
-                  <TableOptions
-                    tableName="appointments"
-                    columns={APT_COLUMNS}
-                    currentSort={aptSortConfig}
-                    onSortChange={(key, direction) => setAptSortConfig({ key, direction })}
-                    data={appointments}
-                    onDownloadCSV={exportAppointmentsCsv}
-                  />
+                  <div className="hidden lg:block">
+                    <TableOptions
+                      tableName="appointments"
+                      columns={APT_COLUMNS}
+                      currentSort={aptSortConfig}
+                      onSortChange={(key, direction) => setAptSortConfig({ key, direction })}
+                      data={appointments}
+                      onDownloadCSV={exportAppointmentsCsv}
+                    />
+                  </div>
                 )}
                 <button
-                  className="save-btn"
+                  className="save-btn shrink-0"
                   onClick={() => setShowCreateModal(true)}
                 >
-                  + New Appointment
+                  New Appointment
                 </button>
               </div>
             </div>
