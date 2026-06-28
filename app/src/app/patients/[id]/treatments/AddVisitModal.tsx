@@ -194,9 +194,9 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
           )}
         </div>
 
-        {/* Visit Date and Dentist - Side by Side */}
-        <div className="section-columns">
-          <div className="w-[40%]">
+        {/* Visit Date and Dentist */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
             <DatePickerField
               label="Visit date"
               value={visitDate}
@@ -207,7 +207,7 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
             />
           </div>
           {!isHandler && (
-            <div className="grid-gap-1 w-[60%]">
+            <div className="grid-gap-1">
               <label className="text-field-label">Dentist</label>
               {isDentist && dentists.length === 1 ? (
                 <div className="input-full flex items-center h-10 px-3 text-sm text-slate-700 bg-slate-50 rounded-xl border border-slate-200">

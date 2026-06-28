@@ -50,8 +50,8 @@ export function CreateInvoiceModal({
   return (
     <EditModal open={open} title="Create invoice" onClose={onClose} wide>
       <div className="grid gap-4">
-          <div className="flex gap-3 items-end">
-            <label className="flex-1 grid gap-1 text-sm">
+          <div className="grid gap-2">
+            <label className="grid gap-1 text-sm">
               <span className="text-slate-700">Visit date</span>
               <select
                 className="input-standard"
@@ -70,7 +70,7 @@ export function CreateInvoiceModal({
               </select>
             </label>
             <button
-              className="cancel-btn"
+              className="cancel-btn w-full"
               disabled={!selectedVisitDate}
               onClick={() => setShowDiscount(!showDiscount)}
             >

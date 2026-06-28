@@ -981,9 +981,9 @@ function OrthoPage() {
           onClose={() => { setVisitModalOpen(false); setError(null); }}
         >
           <div className="spacing-vertical-lg">
-            {/* Visit Date and Visit Type - Side by Side */}
-            <div className="section-columns">
-              <div className="w-[40%]">
+            {/* Visit Date and Visit Type */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
                 <DatePickerField
                   label="Visit date"
                   value={editVisitDate}
@@ -995,7 +995,7 @@ function OrthoPage() {
                 />
               </div>
 
-              <div className="grid-gap-1 w-[60%]">
+              <div className="grid-gap-1">
                 <label className="text-field-label">Visit Type</label>
                 <select
                   className="input-full"
@@ -1103,26 +1103,38 @@ function OrthoPage() {
 
                 return (
                   <div key={index} className="form-section">
-                    {/* Row 1: Service Dropdown + Charge Extra Toggle */}
-                    <div className="flex gap-2 items-start">
-                      <div className="flex-1 grid gap-1">
-                        <label className="field-sublabel">Service/Add-ons</label>
-                        <select
-                          className="input-standard"
-                          value={item.service_id || ""}
-                          onChange={(e) => updateVisitItem(index, { service_id: e.target.value })}
-                        >
-                          <option value="" disabled>Select service/treatment</option>
-                          {availableServices.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.service_name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {/* Charge Extra Toggle */}
-                      <div className="flex flex-col gap-2">
+                    {/* Row 1: Service Dropdown - full width */}
+                    <div className="grid gap-1">
+                      <label className="field-sublabel">Service/Add-ons</label>
+                      <select
+                        className="input-standard"
+                        value={item.service_id || ""}
+                        onChange={(e) => updateVisitItem(index, { service_id: e.target.value })}
+                      >
+                        <option value="" disabled>Select service/treatment</option>
+                        {availableServices.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.service_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Row 2: Details - full width */}
+                    <div className="grid gap-1">
+                      <label className="field-sublabel">Details</label>
+                      <input
+                        type="text"
+                        className="input-standard"
+                        value={item.service_detail || ""}
+                        onChange={(e) => updateVisitItem(index, { service_detail: e.target.value })}
+                        placeholder="Wire, arc, teeth..."
+                      />
+                    </div>
+
+                    {/* Row 3: Charge extra toggle + Delete */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
                         <label className="field-sublabel">Charge extra?</label>
                         <button
                           type="button"
@@ -1133,25 +1145,9 @@ function OrthoPage() {
                           <span className={`switch-thumb ${item.is_charged ? 'switch-thumb-on' : 'switch-thumb-off'}`} />
                         </button>
                       </div>
-                    </div>
-
-                    {/* Row 2: Details + Delete Button */}
-                    <div className="flex gap-2 items-end">
-                      <div className="flex-1 grid gap-1">
-                        <label className="field-sublabel">Details</label>
-                        <input
-                          type="text"
-                          className="input-standard"
-                          value={item.service_detail || ""}
-                          onChange={(e) => updateVisitItem(index, { service_detail: e.target.value })}
-                          placeholder="Wire, arc, teeth..."
-                        />
-                      </div>
-                      
-                      {/* Delete Button */}
                       <button
                         type="button"
-                        className="item-delete-btn h-10"
+                        className="item-delete-btn"
                         onClick={() => removeVisitItem(index)}
                         title="Remove service"
                       >

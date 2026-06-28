@@ -383,9 +383,9 @@ export default function AttachmentsPage() {
           }}
         >
           <div className="spacing-vertical-lg">
-            {/* Type and File - Side by Side */}
-            <div className="section-columns">
-              <div className="grid-gap-1 w-1/4">
+            {/* Type and File */}
+            <div className="grid grid-cols-1 gap-4">
+              <div className="grid-gap-1">
                 <label className="text-field-label">Type</label>
                 <select
                   className="input-full"
@@ -399,10 +399,9 @@ export default function AttachmentsPage() {
                     </option>
                   ))}
                 </select>
-                <div className="text-xs text-transparent">—</div>
               </div>
 
-              <div className="grid-gap-1 w-3/4">
+              <div className="grid-gap-1">
                 <label className="text-field-label">File</label>
                 <div className="relative">
                   <input
@@ -416,7 +415,7 @@ export default function AttachmentsPage() {
                     }}
                   />
                   <div className="input-full flex items-center py-2 px-3 text-sm gap-3">
-                    
+
                     <span className={`flex-1 truncate ${editFileName ? "text-slate-900" : "text-slate-500"}`}>
                       {editFileName || "no file chosen"}
                     </span>
@@ -497,9 +496,9 @@ export default function AttachmentsPage() {
         onClose={closeUploadModal}
       >
         <div className="spacing-vertical-lg">
-          {/* Type and File - Side by Side */}
-          <div className="section-columns">
-            <div className="grid-gap-1 w-1/4">
+          {/* Type and File */}
+          <div className="grid grid-cols-1 gap-4">
+            <div className="grid-gap-1">
               <label className="text-field-label">Type</label>
               <select
                 className="input-full"
@@ -513,10 +512,9 @@ export default function AttachmentsPage() {
                   </option>
                 ))}
               </select>
-              <div className="text-xs text-transparent">—</div>
             </div>
 
-            <div className="grid-gap-1 w-3/4">
+            <div className="grid-gap-1">
               <label className="text-field-label">File</label>
               <div className="relative">
                 <input
@@ -530,7 +528,7 @@ export default function AttachmentsPage() {
                   }}
                 />
                 <div className="input-full flex items-center py-2 px-3 text-sm gap-3">
-                  
+
                   <span className={`flex-1 truncate ${fileDisplayName ? "text-slate-900" : "text-slate-500"}`}>
                     {fileDisplayName || "No file chosen."}
                   </span>

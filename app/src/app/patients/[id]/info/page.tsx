@@ -298,8 +298,8 @@ export default function Page() {
               </label>
             </div>
 
-            {/* Row 2: Birthday, Age, Gender — always 3 columns (even on mobile) */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* Row 2: Birthday 50%, Age 25%, Gender 25% */}
+            <div className="grid grid-cols-[2fr_1fr_1fr] gap-2">
               <label className="field-label">
                 <span className="field-label-text">Date of birth</span>
                 <input className="field-input-readonly" value={formatDateStandard(patient.birth_date)} readOnly />
@@ -314,21 +314,23 @@ export default function Page() {
               </label>
             </div>
 
-            {/* Row 3: Email 25%, Phone 25%, Address 50% */}
-            <div className="grid-gap-4-cols-4">
-              <label className="field-label">
-                <span className="field-label-text">Email</span>
-                <input className="field-input-readonly" value={patient.email ?? ""} readOnly />
-              </label>
-              <label className="field-label">
-                <span className="field-label-text">Phone number</span>
-                <input className="field-input-readonly" value={formatPhoneLocal(patient.phone ?? "")} readOnly />
-              </label>
-              <label className="field-label col-span-2">
-                <span className="field-label-text">Address</span>
-                <input className="field-input-readonly" value={patient.address ?? ""} readOnly />
-              </label>
-            </div>
+            {/* Row 3: Email full width */}
+            <label className="field-label">
+              <span className="field-label-text">Email</span>
+              <input className="field-input-readonly" value={patient.email ?? ""} readOnly />
+            </label>
+
+            {/* Row 4: Phone full width */}
+            <label className="field-label">
+              <span className="field-label-text">Phone number</span>
+              <input className="field-input-readonly" value={formatPhoneLocal(patient.phone ?? "")} readOnly />
+            </label>
+
+            {/* Row 5: Address full width */}
+            <label className="field-label">
+              <span className="field-label-text">Address</span>
+              <input className="field-input-readonly" value={patient.address ?? ""} readOnly />
+            </label>
           </div>
         </div>
 
