@@ -114,8 +114,8 @@ function TreatmentAnalyticsReportPage() {
         {sorted.length === 0 ? (
           <p className="text-center text-slate-500 py-6">No treatment data yet.</p>
         ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[500px]">
               <colgroup>
                 <col className="col-35" />
                 <col className="col-25" />

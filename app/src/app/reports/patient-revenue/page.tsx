@@ -139,8 +139,8 @@ function PatientRevenueReportPage() {
         {sorted.length === 0 ? (
           <p className="text-center text-slate-500 py-6">No invoice data yet.</p>
         ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[600px]">
               <colgroup>
                 <col className="col-25" />
                 <col className="col-10" />

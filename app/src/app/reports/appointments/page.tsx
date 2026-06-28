@@ -135,8 +135,8 @@ function AppointmentsReportPage() {
           {byDentist.length === 0 ? (
             <p className="text-center text-slate-500 py-4">No data</p>
           ) : (
-            <div className="table-wrapper">
-              <table className="data-table">
+            <div className="table-wrapper overflow-x-auto">
+              <table className="data-table min-w-[480px]">
                 <thead className="data-table-head">
                   <tr>
                     <th className="data-table-head-cell">Dentist</th>

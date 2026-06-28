@@ -580,7 +580,7 @@ function DocumentsPage() {
 
           {/* Desktop table */}
           <div className="table-wrapper hidden md:block">
-            <table className="data-table">
+            <table className="data-table min-w-[550px]">
               <colgroup>
                 <col className="col-20" />
                 <col className="col-30" />

@@ -1354,8 +1354,8 @@ export default function TeamSettingsPage() {
               </button>
             )}
           </div>
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[550px]">
               <colgroup>
                 <col className="col-35" />
                 <col className="col-20" />
@@ -1428,8 +1428,8 @@ export default function TeamSettingsPage() {
               </button>
             )}
           </div>
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[500px]">
               <colgroup>
                 <col className="col-35" />
                 <col className="col-20" />

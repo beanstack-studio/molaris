@@ -239,7 +239,7 @@ export default function TreatmentsPage() {
 
             {/* Desktop table */}
             <div className="table-wrapper hidden md:block">
-              <table className="data-table">
+              <table className="data-table min-w-[550px]">
                 <colgroup>
                   <col className="col-15" />
                   <col className="col-20" />

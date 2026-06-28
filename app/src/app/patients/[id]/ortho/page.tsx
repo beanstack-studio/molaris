@@ -689,8 +689,8 @@ function OrthoPage() {
               ) : entries.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">No visits recorded yet.</div>
               ) : (
-                <div className="table-wrapper">
-                  <table className="data-table">
+                <div className="table-wrapper overflow-x-auto">
+                  <table className="data-table min-w-[550px]">
                     <colgroup>
                       <col className="col-14" />
                       <col className="col-16" />

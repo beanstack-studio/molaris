@@ -188,8 +188,8 @@ function PaymentReportsPage() {
           </button>
         </div>
         {outstanding.length > 0 ? (
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[500px]">
               <colgroup>
                 <col className="col-40" />
                 <col className="col-20" />
@@ -244,8 +244,8 @@ function PaymentReportsPage() {
           </div>
         </div>
         {payments.length > 0 ? (
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[560px]">
               <colgroup>
                 <col className="col-25" />
                 <col className="col-25" />
@@ -310,8 +310,8 @@ function PaymentReportsPage() {
         {byPatient.length === 0 ? (
           <p className="text-center text-slate-500 py-4">No patient data</p>
         ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[500px]">
               <colgroup><col className="col-30" /><col className="col-23" /><col className="col-23" /><col className="col-24" /></colgroup>
               <thead className="data-table-head">
                 <tr>

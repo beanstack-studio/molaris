@@ -380,8 +380,8 @@ export default function ClinicProfileSettingsPage() {
 
         {/* Read mode — table with clickable rows */}
         {!editingClinicHours && (
-          <div className="table-wrapper">
-            <table className="data-table">
+          <div className="table-wrapper overflow-x-auto">
+            <table className="data-table min-w-[320px]">
               <thead className="data-table-head">
                 <tr>
                   <th className="data-table-head-cell">Day</th>

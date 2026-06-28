@@ -594,7 +594,7 @@ export default function PatientsPage() {
 
         {/* TABLE (desktop) */}
         <div className="table-wrapper hidden md:block">
-          <table className="data-table">
+          <table className="data-table min-w-[700px]">
             <thead className="data-table-head">
               <tr>
                 {isVisible("last_name")   && (

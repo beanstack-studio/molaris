@@ -234,8 +234,8 @@ function BulkPaymentsPage() {
           {/* MANUAL ENTRY TAB */}
           {activeTab === "manual" && (
             <div className="space-y-4">
-              <div className="table-wrapper">
-                <table className="data-table-compact">
+              <div className="table-wrapper overflow-x-auto">
+                <table className="data-table-compact min-w-[800px]">
                   <thead className="data-table-head">
                     <tr>
                       <th className="data-table-head-cell">Invoice #</th>
@@ -417,8 +417,8 @@ function BulkPaymentsPage() {
 
               {parsedRecords.length > 0 && csvErrors.length === 0 && (
                 <div className="space-y-4">
-                  <div className="table-wrapper">
-                    <table className="data-table">
+                  <div className="table-wrapper overflow-x-auto">
+                    <table className="data-table min-w-[500px]">
                       <thead className="data-table-head">
                         <tr>
                           <th className="data-table-head-cell">Invoice</th>
@@ -486,8 +486,8 @@ function BulkPaymentsPage() {
                 </div>
               )}
 
-              <div className="table-wrapper">
-                <table className="data-table">
+              <div className="table-wrapper overflow-x-auto">
+                <table className="data-table min-w-[600px]">
                   <thead className="data-table-head">
                     <tr>
                       <th className="data-table-head-cell">Invoice</th>
@@ -549,8 +549,8 @@ function BulkPaymentsPage() {
                 </div>
               </div>
 
-              <div className="table-wrapper">
-                <table className="data-table">
+              <div className="table-wrapper overflow-x-auto">
+                <table className="data-table min-w-[550px]">
                   <thead className="data-table-head">
                     <tr>
                       <th className="data-table-head-cell">Invoice</th>

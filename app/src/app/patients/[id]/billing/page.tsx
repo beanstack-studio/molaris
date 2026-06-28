@@ -1034,7 +1034,7 @@ function BillingPage() {
                 </div>
 
                 <div className="table-wrapper hidden md:block">
-                  <table className="data-table">
+                  <table className="data-table min-w-[700px]">
                     <colgroup>
                       <col className="col-16" />
                       <col className="col-15" />
@@ -1207,7 +1207,7 @@ function BillingPage() {
                 </div>
 
                 <div className="table-wrapper hidden md:block">
-                  <table className="data-table">
+                  <table className="data-table min-w-[650px]">
                     <colgroup>
                       <col className="col-14" />
                       <col className="col-18" />
