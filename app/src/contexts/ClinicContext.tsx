@@ -140,25 +140,16 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 
       const role = mapRole((profile as { role?: string }).role)
 
-      // Fetch handler assignments for staff members via staff.profile_id → dentist_handlers.staff_id
+      // Fetch handler assignments — dentist_handlers stores profile_id (auth uid), not staff.id
       let handlerFor: string[] = []
       if (role === 'staff') {
-        const { data: staffRow } = await supabase
-          .from('staff')
-          .select('id')
-          .eq('clinic_id', profile.clinic_id)
+        const { data: handlers } = await supabase
+          .from('dentist_handlers')
+          .select('dentist_id')
           .eq('profile_id', user.id)
-          .maybeSingle()
-
-        if (staffRow) {
-          const { data: handlers } = await supabase
-            .from('dentist_handlers')
-            .select('dentist_id')
-            .eq('staff_id', staffRow.id)
-            .eq('clinic_id', profile.clinic_id)
-          if (handlers) {
-            handlerFor = handlers.map((h: { dentist_id: string }) => h.dentist_id)
-          }
+          .eq('clinic_id', profile.clinic_id)
+        if (handlers) {
+          handlerFor = handlers.map((h: { dentist_id: string }) => h.dentist_id)
         }
       }
 

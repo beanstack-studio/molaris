@@ -261,6 +261,7 @@ export default function TeamSettingsPage() {
   const [dentistInviteEmail, setDentistInviteEmail] = useState("");
   const [dentistInviteSuccess, setDentistInviteSuccess] = useState<string | null>(null);
   const [dentistExistingInvite, setDentistExistingInvite] = useState<InviteRow | null>(null);
+  const [dentistProfileEmail, setDentistProfileEmail] = useState<string | null>(null);
   const dentistDobRef = useRef<HTMLInputElement | null>(null);
 
   // Staff modal state
@@ -594,7 +595,7 @@ export default function TeamSettingsPage() {
   function openAddDentist() {
     setEditingDentist(null); setDentistName(""); setDentistNickname("");
     setDentistDob(""); setDentistPrc(""); setDentistPtr("");
-    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null);
+    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistProfileEmail(null);
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
     setDentistPhotoPreview(null);
@@ -606,24 +607,35 @@ export default function TeamSettingsPage() {
     setDentistPtr(d.ptr_number ?? "");
     setDentistSpecialty(d.specialty ?? ""); setDentistPhone(d.phone ? formatPhoneLocal(d.phone) : "");
     setDentistSalaryRate(d.salary_rate != null ? String(d.salary_rate) : "");
-    setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistExistingInvite(null);
+    setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistExistingInvite(null); setDentistProfileEmail(null);
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
     setDentistPhotoPreview(d.photo_url ?? null);
     setDentistDeleteText("");
-    // Check for existing pending invite linked to this dentist
-    const { data: existingInvite } = await supabase
-      .from("staff_invites")
-      .select("id, email, role, status, created_at, expires_at")
-      .eq("clinic_id", clinicId)
-      .eq("status", "pending")
-      .eq("dentist_id", d.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existingInvite) {
-      setDentistExistingInvite(existingInvite as InviteRow);
-      setDentistInviteEmail((existingInvite as InviteRow).email);
+    // Fetch profile email if dentist already has an account
+    if (d.profile_id) {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("id", d.profile_id)
+        .maybeSingle();
+      setDentistProfileEmail((profileData as { email: string | null } | null)?.email ?? null);
+    }
+    // Check for existing pending invite linked to this dentist (only if no account yet)
+    if (!d.profile_id) {
+      const { data: existingInvite } = await supabase
+        .from("staff_invites")
+        .select("id, email, role, status, created_at, expires_at")
+        .eq("clinic_id", clinicId)
+        .eq("status", "pending")
+        .eq("dentist_id", d.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existingInvite) {
+        setDentistExistingInvite(existingInvite as InviteRow);
+        setDentistInviteEmail((existingInvite as InviteRow).email);
+      }
     }
     setShowAddDentistModal(true);
   }
@@ -633,7 +645,7 @@ export default function TeamSettingsPage() {
     setDentistPhotoFile(null); setDentistPhotoPreview(null);
     setShowAddDentistModal(false); setEditingDentist(null);
     setDentistName(""); setDentistNickname(""); setDentistDob(""); setDentistPrc(""); setDentistPtr("");
-    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistExistingInvite(null);
+    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistExistingInvite(null); setDentistProfileEmail(null);
   }
   async function saveDentist() {
     if (!dentistName.trim()) return;
@@ -768,8 +780,7 @@ export default function TeamSettingsPage() {
 
         if (linkedProfile) {
           resolvedProfileId = (linkedProfile as { id: string; email: string | null }).id;
-          // Auto-repair: write profile_id back to the staff row
-          await supabase.from("staff").update({ profile_id: resolvedProfileId }).eq("id", s.id);
+          // Update local state so the modal shows correctly; the DB link is written on Save
           setEditingStaff({ ...s, profile_id: resolvedProfileId });
           setStaffProfileEmail((linkedProfile as { id: string; email: string | null }).email ?? null);
         }
@@ -838,7 +849,11 @@ export default function TeamSettingsPage() {
       };
       let staffId: string;
       if (editingStaff) {
-        const { error } = await supabase.from("staff").update(payload).eq("id", editingStaff.id);
+        // Include profile_id in update — repairs broken link if we resolved it on modal open
+        const editPayload = editingStaff.profile_id
+          ? { ...payload, profile_id: editingStaff.profile_id }
+          : payload;
+        const { error } = await supabase.from("staff").update(editPayload).eq("id", editingStaff.id);
         if (error) throw error;
         staffId = editingStaff.id;
       } else {
@@ -2286,25 +2301,31 @@ export default function TeamSettingsPage() {
             />
           </label>
 
-          {/* 9. Invite email */}
+          {/* 9. Email — invite or has-access badge */}
           {isAdmin && (
             <div>
               <label className="field-label">
                 <span className="field-label-text">
-                  Invite email <span className="text-slate-400 font-normal text-xs">(optional)</span>
+                  Email <span className="text-slate-400 font-normal text-xs">(optional)</span>
                 </span>
               </label>
               {dentistInviteSuccess && <div className="success-banner mb-2">{dentistInviteSuccess}</div>}
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-stretch">
                 <input
                   type="email"
-                  className="field-input flex-1"
-                  placeholder="email@example.com"
-                  value={dentistInviteEmail}
-                  onChange={(e) => setDentistInviteEmail(e.target.value)}
-                  disabled={busy || !isPro}
+                  className={cn("field-input flex-1", editingDentist?.profile_id && "text-slate-400 bg-slate-50 cursor-default")}
+                  placeholder={editingDentist?.profile_id ? "" : "email@example.com"}
+                  value={editingDentist?.profile_id ? (dentistProfileEmail ?? "") : dentistInviteEmail}
+                  readOnly={!!editingDentist?.profile_id}
+                  disabled={!!editingDentist?.profile_id || (!editingDentist?.profile_id && (!isPro || busy))}
+                  onChange={(e) => { if (!editingDentist?.profile_id) setDentistInviteEmail(e.target.value); }}
                 />
-                {editingDentist && !dentistExistingInvite && (
+                {editingDentist?.profile_id ? (
+                  <div className="flex items-center gap-1.5 shrink-0 rounded-xl border border-green-100 bg-green-50 px-3 text-sm text-green-700 font-medium whitespace-nowrap">
+                    <span className="font-semibold">✓</span>
+                    <span>Has access</span>
+                  </div>
+                ) : editingDentist && !dentistExistingInvite ? (
                   <button
                     type="button"
                     className="save-btn shrink-0"
@@ -2313,9 +2334,9 @@ export default function TeamSettingsPage() {
                   >
                     Send
                   </button>
-                )}
+                ) : null}
               </div>
-              {dentistExistingInvite && (
+              {dentistExistingInvite && !editingDentist?.profile_id && (
                 <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
                   <span className="text-xs text-amber-700">
                     ⏳ Invite pending — expires {formatDateStandard(dentistExistingInvite.expires_at.split("T")[0])}
@@ -2344,7 +2365,7 @@ export default function TeamSettingsPage() {
                   </div>
                 </div>
               )}
-              {!isPro && <p className="hint-text mt-1">Requires Pro plan.</p>}
+              {!isPro && !editingDentist?.profile_id && <p className="hint-text mt-1">Requires Pro plan.</p>}
             </div>
           )}
 
@@ -2456,84 +2477,72 @@ export default function TeamSettingsPage() {
             />
           </label>
 
-          {/* 6. Account status / Invite email */}
+          {/* 6. Email — invite or has-access badge */}
           {isAdmin && (
-            editingStaff?.profile_id ? (
-              <div>
-                <p className="field-label-text mb-1.5">Access</p>
-                <div className="flex items-center gap-2 rounded-xl border border-green-100 bg-green-50 px-3 py-2">
-                  <span className="text-green-600 shrink-0 font-semibold">✓</span>
-                  <span className="text-sm text-green-700 font-medium">Has clinic access</span>
-                </div>
-                {staffProfileEmail && (
-                  <input
-                    type="text"
-                    readOnly
-                    value={staffProfileEmail}
-                    className="field-input mt-2 text-slate-400 bg-slate-50 cursor-default select-all"
-                  />
-                )}
+            <div>
+              <label className="field-label">
+                <span className="field-label-text">
+                  Email <span className="text-slate-400 font-normal text-xs">(optional)</span>
+                </span>
+              </label>
+              {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
+              <div className="flex gap-2 items-stretch">
+                <input
+                  type="email"
+                  className={cn("field-input flex-1", editingStaff?.profile_id && "text-slate-400 bg-slate-50 cursor-default")}
+                  placeholder={editingStaff?.profile_id ? "" : "email@example.com"}
+                  value={editingStaff?.profile_id ? (staffProfileEmail ?? "") : inviteEmail}
+                  readOnly={!!editingStaff?.profile_id}
+                  disabled={!!editingStaff?.profile_id || (!editingStaff?.profile_id && (busy || atStaffLimit))}
+                  onChange={(e) => { if (!editingStaff?.profile_id) setInviteEmail(e.target.value); }}
+                />
+                {editingStaff?.profile_id ? (
+                  <div className="flex items-center gap-1.5 shrink-0 rounded-xl border border-green-100 bg-green-50 px-3 text-sm text-green-700 font-medium whitespace-nowrap">
+                    <span className="font-semibold">✓</span>
+                    <span>Has access</span>
+                  </div>
+                ) : editingStaff && !staffExistingInvite ? (
+                  <button
+                    type="button"
+                    className="save-btn shrink-0"
+                    onClick={sendInvite}
+                    disabled={busy || !inviteEmail.trim() || atStaffLimit}
+                  >
+                    Send
+                  </button>
+                ) : null}
               </div>
-            ) : (
-              <div>
-                <label className="field-label">
-                  <span className="field-label-text">
-                    Invite email <span className="text-slate-400 font-normal text-xs">(optional)</span>
+              {staffExistingInvite && !editingStaff?.profile_id && (
+                <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                  <span className="text-xs text-amber-700">
+                    ⏳ Invite pending — expires {formatDateStandard(staffExistingInvite.expires_at.split("T")[0])}
                   </span>
-                </label>
-                {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    className="field-input flex-1"
-                    placeholder="email@example.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    disabled={busy || atStaffLimit}
-                  />
-                  {editingStaff && !staffExistingInvite && (
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      className="save-btn shrink-0"
-                      onClick={sendInvite}
-                      disabled={busy || !inviteEmail.trim() || atStaffLimit}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                      onClick={() => void resendInvite(staffExistingInvite)}
+                      disabled={busy}
                     >
-                      Send
+                      Resend
                     </button>
-                  )}
-                </div>
-                {staffExistingInvite && (
-                  <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
-                    <span className="text-xs text-amber-700">
-                      ⏳ Invite pending — expires {formatDateStandard(staffExistingInvite.expires_at.split("T")[0])}
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                        onClick={() => void resendInvite(staffExistingInvite)}
-                        disabled={busy}
-                      >
-                        Resend
-                      </button>
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-red-500 hover:text-red-700"
-                        onClick={() => {
-                          void cancelInvite(staffExistingInvite.id);
-                          setStaffExistingInvite(null);
-                          setInviteEmail("");
-                        }}
-                        disabled={busy}
-                      >
-                        Cancel invite
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-red-500 hover:text-red-700"
+                      onClick={() => {
+                        void cancelInvite(staffExistingInvite.id);
+                        setStaffExistingInvite(null);
+                        setInviteEmail("");
+                      }}
+                      disabled={busy}
+                    >
+                      Cancel invite
+                    </button>
                   </div>
-                )}
-                {atStaffLimit && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
-              </div>
-            )
+                </div>
+              )}
+              {atStaffLimit && !editingStaff?.profile_id && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
+            </div>
           )}
 
           {/* 7. Clinical Access — visible once staff has joined */}
