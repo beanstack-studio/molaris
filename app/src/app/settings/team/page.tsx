@@ -768,17 +768,14 @@ export default function TeamSettingsPage() {
         token = refreshed.session?.access_token ?? null;
       }
       if (!token) throw new Error("Session expired. Please sign in again.");
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/revoke-user-access`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({ profile_id: profileId }),
-        }
-      );
+      const res = await fetch("/api/revoke-access", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ profile_id: profileId }),
+      });
       const json = await res.json() as { success?: boolean; error?: string };
       if (!res.ok) throw new Error(json.error ?? "Failed to revoke access");
       onSuccess();
@@ -2342,75 +2339,85 @@ export default function TeamSettingsPage() {
             />
           </label>
 
-          {/* 9. Email — invite or has-access badge */}
+          {/* 9. Email + Access */}
           {isAdmin && (
-            <div>
-              <label className="field-label">
-                <span className="field-label-text">
-                  Email <span className="text-slate-400 font-normal text-xs">(optional)</span>
-                </span>
-              </label>
-              {dentistInviteSuccess && <div className="success-banner mb-2">{dentistInviteSuccess}</div>}
-              <div className="flex gap-2 items-stretch">
-                <input
-                  type="email"
-                  className={cn("field-input flex-1", editingDentist?.profile_id && "text-slate-400 bg-slate-50 cursor-default")}
-                  placeholder={editingDentist?.profile_id ? "" : "email@example.com"}
-                  value={editingDentist?.profile_id ? (dentistProfileEmail ?? "") : dentistInviteEmail}
-                  readOnly={!!editingDentist?.profile_id}
-                  disabled={!!editingDentist?.profile_id || (!editingDentist?.profile_id && (!isPro || busy))}
-                  onChange={(e) => { if (!editingDentist?.profile_id) setDentistInviteEmail(e.target.value); }}
-                />
-                {editingDentist?.profile_id ? (
-                  <div className="flex items-center gap-1.5 shrink-0 rounded-xl border border-green-100 bg-green-50 px-3 text-sm text-green-700 font-medium whitespace-nowrap">
-                    <span className="font-semibold">✓</span>
-                    <span>Has access</span>
-                  </div>
-                ) : editingDentist && !dentistExistingInvite ? (
-                  <button
-                    type="button"
-                    className="save-btn shrink-0"
-                    onClick={sendDentistInvite}
-                    disabled={busy || !dentistInviteEmail.trim() || !isPro}
-                  >
-                    Send
-                  </button>
-                ) : null}
-              </div>
-              {dentistExistingInvite && !editingDentist?.profile_id && (
-                <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
-                  <span className="text-xs text-amber-700">
-                    ⏳ Invite pending — expires {formatDateStandard(dentistExistingInvite.expires_at.split("T")[0])}
+            <div className="grid gap-3">
+              {/* EMAIL row */}
+              <div>
+                <label className="field-label">
+                  <span className="field-label-text">
+                    Email <span className="text-slate-400 font-normal text-xs">(optional)</span>
                   </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                      onClick={() => void resendInvite(dentistExistingInvite)}
-                      disabled={busy}
-                    >
-                      Resend
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-red-500 hover:text-red-700"
-                      onClick={() => {
-                        void cancelInvite(dentistExistingInvite.id);
-                        setDentistExistingInvite(null);
-                        setDentistInviteEmail("");
-                      }}
-                      disabled={busy}
-                    >
-                      Cancel invite
-                    </button>
-                  </div>
-                </div>
-              )}
-              {!isPro && !editingDentist?.profile_id && <p className="hint-text mt-1">Requires Pro plan.</p>}
+                </label>
+                {dentistInviteSuccess && <div className="success-banner mb-2">{dentistInviteSuccess}</div>}
+                {editingDentist?.profile_id ? (
+                  <input
+                    type="email"
+                    className="field-input text-slate-400 bg-slate-50 cursor-default"
+                    value={dentistProfileEmail ?? ""}
+                    readOnly
+                    disabled
+                  />
+                ) : (
+                  <>
+                    <div className="flex gap-2 items-stretch">
+                      <input
+                        type="email"
+                        className="field-input flex-1"
+                        placeholder="email@example.com"
+                        value={dentistInviteEmail}
+                        disabled={!isPro || busy}
+                        onChange={(e) => setDentistInviteEmail(e.target.value)}
+                      />
+                      {editingDentist && !dentistExistingInvite && (
+                        <button
+                          type="button"
+                          className="save-btn shrink-0"
+                          onClick={sendDentistInvite}
+                          disabled={busy || !dentistInviteEmail.trim() || !isPro}
+                        >
+                          Send
+                        </button>
+                      )}
+                    </div>
+                    {dentistExistingInvite && (
+                      <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                        <span className="text-xs text-amber-700">
+                          ⏳ Invite pending — expires {formatDateStandard(dentistExistingInvite.expires_at.split("T")[0])}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                            onClick={() => void resendInvite(dentistExistingInvite)}
+                            disabled={busy}
+                          >
+                            Resend
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-red-500 hover:text-red-700"
+                            onClick={() => {
+                              void cancelInvite(dentistExistingInvite.id);
+                              setDentistExistingInvite(null);
+                              setDentistInviteEmail("");
+                            }}
+                            disabled={busy}
+                          >
+                            Cancel invite
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {!isPro && <p className="hint-text mt-1">Requires Pro plan.</p>}
+                  </>
+                )}
+              </div>
 
-              {/* Revoke Access — shown when dentist has an active account */}
+              {/* ACCESS row — only when dentist has an active account */}
               {editingDentist?.profile_id && (
-                <div className="mt-3">
+                <div>
+                  <span className="field-label-text block mb-2">Access</span>
                   {showRevokeConfirmDentist ? (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                       <p className="text-sm text-amber-800 mb-3">Are you sure? This will remove their login access.</p>
@@ -2438,14 +2445,20 @@ export default function TeamSettingsPage() {
                       </div>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50 w-full lg:w-auto"
-                      onClick={() => setShowRevokeConfirmDentist(true)}
-                      disabled={busy}
-                    >
-                      Revoke Access
-                    </button>
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+                      <div className="flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-700 font-medium">
+                        <span className="font-semibold">✓</span>
+                        <span>Has access</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50"
+                        onClick={() => setShowRevokeConfirmDentist(true)}
+                        disabled={busy}
+                      >
+                        Revoke Access
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -2560,75 +2573,85 @@ export default function TeamSettingsPage() {
             />
           </label>
 
-          {/* 6. Email — invite or has-access badge */}
+          {/* 6. Email + Access */}
           {isAdmin && (
-            <div>
-              <label className="field-label">
-                <span className="field-label-text">
-                  Email <span className="text-slate-400 font-normal text-xs">(optional)</span>
-                </span>
-              </label>
-              {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
-              <div className="flex gap-2 items-stretch">
-                <input
-                  type="email"
-                  className={cn("field-input flex-1", staffProfileEmail !== null && "text-slate-400 bg-slate-50 cursor-default")}
-                  placeholder={staffProfileEmail !== null ? "" : "email@example.com"}
-                  value={staffProfileEmail !== null ? (staffProfileEmail ?? "") : inviteEmail}
-                  readOnly={staffProfileEmail !== null}
-                  disabled={staffProfileEmail !== null || (staffProfileEmail === null && (busy || atStaffLimit))}
-                  onChange={(e) => { if (staffProfileEmail === null) setInviteEmail(e.target.value); }}
-                />
-                {staffProfileEmail !== null ? (
-                  <div className="flex items-center gap-1.5 shrink-0 rounded-xl border border-green-100 bg-green-50 px-3 text-sm text-green-700 font-medium whitespace-nowrap">
-                    <span className="font-semibold">✓</span>
-                    <span>Has access</span>
-                  </div>
-                ) : editingStaff && !staffExistingInvite ? (
-                  <button
-                    type="button"
-                    className="save-btn shrink-0"
-                    onClick={sendInvite}
-                    disabled={busy || !inviteEmail.trim() || atStaffLimit}
-                  >
-                    Send
-                  </button>
-                ) : null}
-              </div>
-              {staffExistingInvite && staffProfileEmail === null && (
-                <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
-                  <span className="text-xs text-amber-700">
-                    ⏳ Invite pending — expires {formatDateStandard(staffExistingInvite.expires_at.split("T")[0])}
+            <div className="grid gap-3">
+              {/* EMAIL row */}
+              <div>
+                <label className="field-label">
+                  <span className="field-label-text">
+                    Email <span className="text-slate-400 font-normal text-xs">(optional)</span>
                   </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                      onClick={() => void resendInvite(staffExistingInvite)}
-                      disabled={busy}
-                    >
-                      Resend
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-red-500 hover:text-red-700"
-                      onClick={() => {
-                        void cancelInvite(staffExistingInvite.id);
-                        setStaffExistingInvite(null);
-                        setInviteEmail("");
-                      }}
-                      disabled={busy}
-                    >
-                      Cancel invite
-                    </button>
-                  </div>
-                </div>
-              )}
-              {atStaffLimit && staffProfileEmail === null && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
+                </label>
+                {inviteSuccess && <div className="success-banner mb-2">{inviteSuccess}</div>}
+                {staffProfileEmail !== null ? (
+                  <input
+                    type="email"
+                    className="field-input text-slate-400 bg-slate-50 cursor-default"
+                    value={staffProfileEmail}
+                    readOnly
+                    disabled
+                  />
+                ) : (
+                  <>
+                    <div className="flex gap-2 items-stretch">
+                      <input
+                        type="email"
+                        className="field-input flex-1"
+                        placeholder="email@example.com"
+                        value={inviteEmail}
+                        disabled={busy || atStaffLimit}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                      />
+                      {editingStaff && !staffExistingInvite && (
+                        <button
+                          type="button"
+                          className="save-btn shrink-0"
+                          onClick={sendInvite}
+                          disabled={busy || !inviteEmail.trim() || atStaffLimit}
+                        >
+                          Send
+                        </button>
+                      )}
+                    </div>
+                    {staffExistingInvite && (
+                      <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+                        <span className="text-xs text-amber-700">
+                          ⏳ Invite pending — expires {formatDateStandard(staffExistingInvite.expires_at.split("T")[0])}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                            onClick={() => void resendInvite(staffExistingInvite)}
+                            disabled={busy}
+                          >
+                            Resend
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-red-500 hover:text-red-700"
+                            onClick={() => {
+                              void cancelInvite(staffExistingInvite.id);
+                              setStaffExistingInvite(null);
+                              setInviteEmail("");
+                            }}
+                            disabled={busy}
+                          >
+                            Cancel invite
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {atStaffLimit && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
+                  </>
+                )}
+              </div>
 
-              {/* Revoke Access — shown when staff has an active account */}
+              {/* ACCESS row — only when staff has an active account */}
               {staffProfileEmail !== null && resolvedStaffProfileId !== null && editingStaff && (
-                <div className="mt-3">
+                <div>
+                  <span className="field-label-text block mb-2">Access</span>
                   {showRevokeConfirmStaff ? (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                       <p className="text-sm text-amber-800 mb-3">Are you sure? This will remove their login access.</p>
@@ -2657,14 +2680,20 @@ export default function TeamSettingsPage() {
                       </div>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50 w-full lg:w-auto"
-                      onClick={() => setShowRevokeConfirmStaff(true)}
-                      disabled={busy}
-                    >
-                      Revoke Access
-                    </button>
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+                      <div className="flex items-center gap-1.5 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-700 font-medium">
+                        <span className="font-semibold">✓</span>
+                        <span>Has access</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50"
+                        onClick={() => setShowRevokeConfirmStaff(true)}
+                        disabled={busy}
+                      >
+                        Revoke Access
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
