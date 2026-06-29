@@ -99,6 +99,16 @@ export async function POST(request: Request) {
       .eq("clinic_id", invite.clinic_id);
   }
 
+  // Link staff profile_id if applicable
+  if (invite.role === "staff" && (invite as { full_name?: string | null }).full_name) {
+    await supabaseAdmin
+      .from("staff")
+      .update({ profile_id: user.id })
+      .eq("clinic_id", invite.clinic_id)
+      .eq("full_name", (invite as { full_name?: string | null }).full_name as string)
+      .is("profile_id", null);
+  }
+
   // Mark invite accepted
   await supabaseAdmin
     .from("staff_invites")

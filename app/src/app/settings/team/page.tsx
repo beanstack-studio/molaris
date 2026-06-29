@@ -744,35 +744,74 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(s.photo_url ?? null);
-    if (s.profile_id) {
+    // Resolve profile_id — may be missing if join-complete didn't link it (existing bug)
+    let resolvedProfileId = s.profile_id;
+
+    if (!resolvedProfileId && s.full_name) {
+      // Try to find an accepted invite matching this staff member by full_name
+      const { data: acceptedInvite } = await supabase
+        .from("staff_invites")
+        .select("email")
+        .eq("clinic_id", clinicId)
+        .eq("status", "accepted")
+        .eq("full_name", s.full_name)
+        .limit(1)
+        .maybeSingle();
+
+      if (acceptedInvite?.email) {
+        const { data: linkedProfile } = await supabase
+          .from("profiles")
+          .select("id, email")
+          .eq("clinic_id", clinicId)
+          .eq("email", acceptedInvite.email)
+          .maybeSingle();
+
+        if (linkedProfile) {
+          resolvedProfileId = (linkedProfile as { id: string; email: string | null }).id;
+          // Auto-repair: write profile_id back to the staff row
+          await supabase.from("staff").update({ profile_id: resolvedProfileId }).eq("id", s.id);
+          setEditingStaff({ ...s, profile_id: resolvedProfileId });
+          setStaffProfileEmail((linkedProfile as { id: string; email: string | null }).email ?? null);
+        }
+      }
+    }
+
+    if (resolvedProfileId) {
       const { data: hRows } = await supabase
         .from("dentist_handlers")
         .select("dentist_id")
-        .eq("profile_id", s.profile_id)
+        .eq("profile_id", resolvedProfileId)
         .eq("clinic_id", clinicId);
       setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("email")
-        .eq("id", s.profile_id)
-        .maybeSingle();
-      setStaffProfileEmail((profileData as { email: string | null } | null)?.email ?? null);
+      // Fetch email if we didn't already get it from the repair branch
+      if (s.profile_id) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("id", resolvedProfileId)
+          .maybeSingle();
+        setStaffProfileEmail((profileData as { email: string | null } | null)?.email ?? null);
+      }
     } else {
       setStaffHandlerDentistIds([]);
     }
-    // Check for existing pending invite for staff role at this clinic
-    const { data: existingInvite } = await supabase
-      .from("staff_invites")
-      .select("id, email, role, status, created_at, expires_at")
-      .eq("clinic_id", clinicId)
-      .eq("status", "pending")
-      .eq("role", "staff")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existingInvite) {
-      setStaffExistingInvite(existingInvite as InviteRow);
-      setInviteEmail((existingInvite as InviteRow).email);
+
+    // Only show pending invite prompt if staff member has no account at all
+    if (!resolvedProfileId) {
+      const { data: existingInvite } = await supabase
+        .from("staff_invites")
+        .select("id, email, role, status, created_at, expires_at")
+        .eq("clinic_id", clinicId)
+        .eq("status", "pending")
+        .eq("role", "staff")
+        .eq("full_name", s.full_name)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existingInvite) {
+        setStaffExistingInvite(existingInvite as InviteRow);
+        setInviteEmail((existingInvite as InviteRow).email);
+      }
     }
     setStaffDeleteText("");
     setShowAddStaffModal(true);
