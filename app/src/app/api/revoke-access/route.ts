@@ -74,6 +74,18 @@ export async function POST(req: NextRequest) {
     .eq("profile_id", profile_id)
     .eq("clinic_id", callerProfile.clinic_id);
 
+  // Null out FK references that would block the profiles row deletion.
+  // These columns reference profiles(id) without ON DELETE SET NULL.
+  await Promise.all([
+    supabaseAdmin.from("appointments").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("appointments").update({ updated_by: null }).eq("updated_by", profile_id),
+    supabaseAdmin.from("clinic_operating_expenses").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("clinic_bills").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("payroll_runs").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("maintenance_logs").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("staff_invites").update({ invited_by: null }).eq("invited_by", profile_id),
+  ]);
+
   // Delete the profiles row
   const { error: profileDeleteError } = await supabaseAdmin
     .from("profiles")
