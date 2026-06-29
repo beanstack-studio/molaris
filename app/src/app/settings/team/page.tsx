@@ -637,7 +637,14 @@ export default function TeamSettingsPage() {
         .select("email")
         .eq("id", d.profile_id)
         .maybeSingle();
-      setDentistProfileEmail((profileData as { email: string | null } | null)?.email ?? null);
+      const resolvedEmail = (profileData as { email: string | null } | null)?.email ?? null;
+      setDentistProfileEmail(resolvedEmail);
+      // If profile_id is set but the profiles row no longer exists (stale after a
+      // failed/partial revoke), auto-clear the link so the invite form shows correctly.
+      if (!resolvedEmail) {
+        await supabase.from("dentists").update({ profile_id: null }).eq("id", d.id);
+        setEditingDentist({ ...d, profile_id: null });
+      }
     }
     // Check for existing pending invite linked to this dentist (only if no account yet)
     if (!d.profile_id) {
