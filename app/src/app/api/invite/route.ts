@@ -88,50 +88,30 @@ export async function POST(req: NextRequest) {
       }
 
       if (isPartialRevoke) {
-        // The auth user already exists and has a Molaris account — deleting and re-inviting
-        // fails because Supabase blocks inviteUserByEmail for confirmed users.
-        // Instead: reinstate access directly by creating a new profiles row and re-linking
-        // the dentist record. No email needed — they already know their login.
+        // The auth user exists with a confirmed Molaris account.
+        // Deleting + re-inviting fails (inviteUserByEmail blocks confirmed users,
+        // and the profiles row can't be deleted due to unknown FK constraints).
+        // Solution: upsert the profiles row in-place and re-link the dentist.
         const reinstateId = existingProfile.id;
 
-        // Ensure profiles row is gone first (null any remaining FK refs that blocked it)
-        await Promise.all([
-          supabaseAdmin.from("appointments").update({ created_by: null }).eq("created_by", reinstateId),
-          supabaseAdmin.from("appointments").update({ updated_by: null }).eq("updated_by", reinstateId),
-          supabaseAdmin.from("clinic_operating_expenses").update({ created_by: null }).eq("created_by", reinstateId),
-          supabaseAdmin.from("clinic_bills").update({ created_by: null }).eq("created_by", reinstateId),
-          supabaseAdmin.from("payroll_runs").update({ created_by: null }).eq("created_by", reinstateId),
-          supabaseAdmin.from("maintenance_logs").update({ created_by: null }).eq("created_by", reinstateId),
-          supabaseAdmin.from("staff_invites").update({ invited_by: null }).eq("invited_by", reinstateId),
-        ]);
-        await supabaseAdmin.from("profiles").delete().eq("id", reinstateId);
-
-        // Create fresh profiles row for the existing auth user
-        const { error: profileInsertErr } = await supabaseAdmin.from("profiles").insert({
+        const { error: upsertErr } = await supabaseAdmin.from("profiles").upsert({
           id: reinstateId,
           clinic_id: clinicId,
           email: email.trim().toLowerCase(),
           role,
-          full_name: full_name ?? existingAuthUser.user_metadata?.full_name ?? null,
-        });
-        if (profileInsertErr) {
-          return NextResponse.json({ error: profileInsertErr.message }, { status: 500 });
+          full_name: full_name ?? (existingAuthUser.user_metadata as Record<string, unknown>)?.full_name as string ?? null,
+        }, { onConflict: "id" });
+        if (upsertErr) {
+          return NextResponse.json({ error: upsertErr.message }, { status: 500 });
         }
 
-        // Re-link dentist record if applicable
+        // Re-link dentist record
         if (dentistId) {
           await supabaseAdmin.from("dentists")
             .update({ profile_id: reinstateId })
             .eq("id", dentistId)
             .eq("clinic_id", clinicId);
         }
-
-        // Mark any old pending invites for this email as accepted
-        await supabaseAdmin.from("staff_invites")
-          .update({ status: "accepted" })
-          .eq("clinic_id", clinicId)
-          .eq("email", email.trim().toLowerCase())
-          .eq("status", "pending");
 
         return NextResponse.json({ success: true, reinstated: true });
       } else {
