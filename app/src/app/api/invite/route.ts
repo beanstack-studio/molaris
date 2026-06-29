@@ -68,10 +68,19 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (existingProfile) {
-    return NextResponse.json(
-      { error: "This person already has access to this clinic." },
-      { status: 409 }
-    );
+    // Check if the underlying auth user still exists.
+    // If it was deleted by a prior revoke but the profiles row is stale
+    // (delete failed or a trigger re-created it), clean up and allow re-invite.
+    const { data: { user: existingAuthUser } } = await supabaseAdmin.auth.admin.getUserById(existingProfile.id);
+    if (!existingAuthUser) {
+      // Auth user gone — delete the stale profiles row and proceed
+      await supabaseAdmin.from("profiles").delete().eq("id", existingProfile.id);
+    } else {
+      return NextResponse.json(
+        { error: "This person already has access to this clinic." },
+        { status: 409 }
+      );
+    }
   }
 
   const normalizedEmail = email.trim().toLowerCase();
