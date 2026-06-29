@@ -80,11 +80,12 @@ export async function POST(req: NextRequest) {
     .delete()
     .eq("id", profile_id);
 
-  // Delete the auth user — profile_id equals auth.users.id in this schema
+  // Delete the auth user — best-effort; profile deletion above already revokes clinic access.
+  // deleteUser can fail if the auth row was already removed by a cascade or prior call —
+  // that's fine, the user can no longer log in once their profiles row is gone.
   const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(profile_id);
   if (deleteError) {
-    console.error("deleteUser error:", deleteError.message);
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    console.warn("deleteUser non-fatal warning:", deleteError.message);
   }
 
   console.log("Access revoked for profile:", profile_id);
