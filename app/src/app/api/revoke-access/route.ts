@@ -74,35 +74,50 @@ export async function POST(req: NextRequest) {
     .eq("profile_id", profile_id)
     .eq("clinic_id", callerProfile.clinic_id);
 
-  // Null out FK references that would block the profiles row deletion.
-  // These columns reference profiles(id) without ON DELETE SET NULL.
-  await Promise.all([
+  // Null out every column across every table that might hold this profile_id as a FK.
+  // This covers both tables with formal REFERENCES profiles(id) constraints and those
+  // that store the UUID loosely — running all in parallel, failures are non-fatal.
+  await Promise.allSettled([
+    // Scheduling
     supabaseAdmin.from("appointments").update({ created_by: null }).eq("created_by", profile_id),
     supabaseAdmin.from("appointments").update({ updated_by: null }).eq("updated_by", profile_id),
+    // Expenses
     supabaseAdmin.from("clinic_operating_expenses").update({ created_by: null }).eq("created_by", profile_id),
     supabaseAdmin.from("clinic_bills").update({ created_by: null }).eq("created_by", profile_id),
     supabaseAdmin.from("payroll_runs").update({ created_by: null }).eq("created_by", profile_id),
     supabaseAdmin.from("maintenance_logs").update({ created_by: null }).eq("created_by", profile_id),
+    // Billing
+    supabaseAdmin.from("invoices").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("payments").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("payments").update({ verified_by: null }).eq("verified_by", profile_id),
+    supabaseAdmin.from("receipts").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("receipts").update({ voided_by: null }).eq("voided_by", profile_id),
+    // Patients & clinical
+    supabaseAdmin.from("patients").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("treatments").update({ created_by: null }).eq("created_by", profile_id),
+    supabaseAdmin.from("documents").update({ issued_by: null }).eq("issued_by", profile_id),
+    // Staff & invites
+    supabaseAdmin.from("staff").update({ created_by: null }).eq("created_by", profile_id),
     supabaseAdmin.from("staff_invites").update({ invited_by: null }).eq("invited_by", profile_id),
   ]);
 
-  // Delete the profiles row
+  // Delete the profiles row — all FK refs are now nulled
   const { error: profileDeleteError } = await supabaseAdmin
     .from("profiles")
     .delete()
     .eq("id", profile_id);
   if (profileDeleteError) {
-    console.warn("profiles delete warning:", profileDeleteError.message);
+    console.error("profiles delete failed:", profileDeleteError.message);
+    return NextResponse.json({ error: `Could not remove profile: ${profileDeleteError.message}` }, { status: 500 });
   }
 
-  // Delete the auth user — best-effort; profile deletion above already revokes clinic access.
-  // deleteUser can fail if the auth row was already removed by a cascade or prior call —
-  // that's fine, the user can no longer log in once their profiles row is gone.
+  // Delete the auth user — profile is gone so they can no longer log in.
+  // If this fails (e.g. already deleted), it's non-fatal since access is already revoked.
   const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(profile_id);
   if (deleteError) {
-    console.warn("deleteUser non-fatal warning:", deleteError.message);
+    console.warn("deleteUser warning (non-fatal, access already revoked):", deleteError.message);
   }
 
-  console.log("Access revoked for profile:", profile_id);
+  console.log("Access fully revoked for profile:", profile_id);
   return NextResponse.json({ success: true });
 }

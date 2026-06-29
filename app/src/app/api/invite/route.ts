@@ -68,59 +68,18 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (existingProfile) {
+    // Check if the auth user still exists.
+    // If revoke completed fully, auth user is deleted — profiles row is just stale, clean it up.
+    // If auth user still exists, they have active access — block the invite.
     const { data: { user: existingAuthUser } } = await supabaseAdmin.auth.admin.getUserById(existingProfile.id);
-
-    if (!existingAuthUser) {
-      // Auth user already deleted — profiles row is stale, clean it up and proceed
-      await supabaseAdmin.from("profiles").delete().eq("id", existingProfile.id);
-    } else {
-      // Auth user still exists. Check if a prior revoke partially completed.
-      // For dentists: revoke clears dentists.profile_id first. If that link is gone,
-      // the revoke started but FK constraints prevented the profiles/auth cleanup.
-      let isPartialRevoke = false;
-      if (dentistId) {
-        const { data: dentistRow } = await supabaseAdmin
-          .from("dentists")
-          .select("profile_id")
-          .eq("id", dentistId)
-          .maybeSingle();
-        isPartialRevoke = dentistRow != null && dentistRow.profile_id === null;
-      }
-
-      if (isPartialRevoke) {
-        // The auth user exists with a confirmed Molaris account.
-        // Deleting + re-inviting fails (inviteUserByEmail blocks confirmed users,
-        // and the profiles row can't be deleted due to unknown FK constraints).
-        // Solution: upsert the profiles row in-place and re-link the dentist.
-        const reinstateId = existingProfile.id;
-
-        const { error: upsertErr } = await supabaseAdmin.from("profiles").upsert({
-          id: reinstateId,
-          clinic_id: clinicId,
-          email: email.trim().toLowerCase(),
-          role,
-          full_name: full_name ?? (existingAuthUser.user_metadata as Record<string, unknown>)?.full_name as string ?? null,
-        }, { onConflict: "id" });
-        if (upsertErr) {
-          return NextResponse.json({ error: upsertErr.message }, { status: 500 });
-        }
-
-        // Re-link dentist record
-        if (dentistId) {
-          await supabaseAdmin.from("dentists")
-            .update({ profile_id: reinstateId })
-            .eq("id", dentistId)
-            .eq("clinic_id", clinicId);
-        }
-
-        return NextResponse.json({ success: true, reinstated: true });
-      } else {
-        return NextResponse.json(
-          { error: "This person already has access to this clinic." },
-          { status: 409 }
-        );
-      }
+    if (existingAuthUser) {
+      return NextResponse.json(
+        { error: "This person already has access to this clinic." },
+        { status: 409 }
+      );
     }
+    // Auth user gone — delete the stale profiles row and proceed with fresh invite
+    await supabaseAdmin.from("profiles").delete().eq("id", existingProfile.id);
   }
 
   const normalizedEmail = email.trim().toLowerCase();
