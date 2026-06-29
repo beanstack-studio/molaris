@@ -277,6 +277,8 @@ export default function TeamSettingsPage() {
   const [staffExistingInvite, setStaffExistingInvite] = useState<InviteRow | null>(null);
   const [staffProfileEmail, setStaffProfileEmail] = useState<string | null>(null);
   const [resolvedStaffProfileId, setResolvedStaffProfileId] = useState<string | null>(null);
+  const [showRevokeConfirmStaff, setShowRevokeConfirmStaff] = useState(false);
+  const [showRevokeConfirmDentist, setShowRevokeConfirmDentist] = useState(false);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   // Blockout modal state — blockoutPerson format: "dentist:{id}" or "staff:{id}"
@@ -611,7 +613,7 @@ export default function TeamSettingsPage() {
   function openAddDentist() {
     setEditingDentist(null); setDentistName(""); setDentistNickname("");
     setDentistDob(""); setDentistPrc(""); setDentistPtr("");
-    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistProfileEmail(null);
+    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistProfileEmail(null); setShowRevokeConfirmDentist(false);
     setDentistPhotoFile(null);
     if (dentistPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(dentistPhotoPreview);
     setDentistPhotoPreview(null);
@@ -661,7 +663,7 @@ export default function TeamSettingsPage() {
     setDentistPhotoFile(null); setDentistPhotoPreview(null);
     setShowAddDentistModal(false); setEditingDentist(null);
     setDentistName(""); setDentistNickname(""); setDentistDob(""); setDentistPrc(""); setDentistPtr("");
-    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistExistingInvite(null); setDentistProfileEmail(null);
+    setDentistSpecialty(""); setDentistPhone(""); setDentistSalaryRate(""); setDentistInviteEmail(""); setDentistInviteSuccess(null); setDentistExistingInvite(null); setDentistProfileEmail(null); setShowRevokeConfirmDentist(false);
   }
   async function saveDentist() {
     if (!dentistName.trim()) return;
@@ -755,10 +757,44 @@ export default function TeamSettingsPage() {
     finally { setBusy(false); }
   }
 
+  // ── Revoke Access ─────────────────────────────────────────────────────────────
+  async function revokeAccess(profileId: string, onSuccess: () => void): Promise<void> {
+    setBusy(true); setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      let token = session?.access_token ?? null;
+      if (!token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        token = refreshed.session?.access_token ?? null;
+      }
+      if (!token) throw new Error("Session expired. Please sign in again.");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/revoke-user-access`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ profile_id: profileId }),
+        }
+      );
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Failed to revoke access");
+      onSuccess();
+      setSuccess("Access revoked successfully");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to revoke access");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // ── Staff CRUD ────────────────────────────────────────────────────────────────
   function openAddStaff() {
     setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffProfileEmail(null); setResolvedStaffProfileId(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffProfileEmail(null); setResolvedStaffProfileId(null); setShowRevokeConfirmStaff(false);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(null);
@@ -841,7 +877,7 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setStaffProfileEmail(null); setResolvedStaffProfileId(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setStaffProfileEmail(null); setResolvedStaffProfileId(null); setShowRevokeConfirmStaff(false);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -2371,6 +2407,48 @@ export default function TeamSettingsPage() {
                 </div>
               )}
               {!isPro && !editingDentist?.profile_id && <p className="hint-text mt-1">Requires Pro plan.</p>}
+
+              {/* Revoke Access — shown when dentist has an active account */}
+              {editingDentist?.profile_id && (
+                <div className="mt-3">
+                  {showRevokeConfirmDentist ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-sm text-amber-800 mb-3">Are you sure? This will remove their login access.</p>
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          className="cancel-btn"
+                          onClick={() => setShowRevokeConfirmDentist(false)}
+                          disabled={busy}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50"
+                          onClick={() => void revokeAccess(editingDentist.profile_id!, () => {
+                            setEditingDentist((prev) => prev ? { ...prev, profile_id: null } : null);
+                            setDentistProfileEmail(null);
+                            setShowRevokeConfirmDentist(false);
+                          })}
+                          disabled={busy}
+                        >
+                          {busy ? "Revoking…" : "Yes, revoke"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50 w-full lg:w-auto"
+                      onClick={() => setShowRevokeConfirmDentist(true)}
+                      disabled={busy}
+                    >
+                      Revoke Access
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -2547,6 +2625,49 @@ export default function TeamSettingsPage() {
                 </div>
               )}
               {atStaffLimit && staffProfileEmail === null && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
+
+              {/* Revoke Access — shown when staff has an active account */}
+              {staffProfileEmail !== null && resolvedStaffProfileId !== null && editingStaff && (
+                <div className="mt-3">
+                  {showRevokeConfirmStaff ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-sm text-amber-800 mb-3">Are you sure? This will remove their login access.</p>
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          className="cancel-btn"
+                          onClick={() => setShowRevokeConfirmStaff(false)}
+                          disabled={busy}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50"
+                          onClick={() => void revokeAccess(resolvedStaffProfileId, () => {
+                            setStaffProfileEmail(null);
+                            setResolvedStaffProfileId(null);
+                            setStaffHandlerDentistIds([]);
+                            setShowRevokeConfirmStaff(false);
+                          })}
+                          disabled={busy}
+                        >
+                          {busy ? "Revoking…" : "Yes, revoke"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-3 py-2 transition-colors disabled:opacity-50 w-full lg:w-auto"
+                      onClick={() => setShowRevokeConfirmStaff(true)}
+                      disabled={busy}
+                    >
+                      Revoke Access
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
