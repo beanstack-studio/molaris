@@ -68,18 +68,44 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (existingProfile) {
-    // Check if the underlying auth user still exists.
-    // If it was deleted by a prior revoke but the profiles row is stale
-    // (delete failed or a trigger re-created it), clean up and allow re-invite.
     const { data: { user: existingAuthUser } } = await supabaseAdmin.auth.admin.getUserById(existingProfile.id);
+
     if (!existingAuthUser) {
-      // Auth user gone — delete the stale profiles row and proceed
+      // Auth user already deleted — profiles row is stale, clean it up and proceed
       await supabaseAdmin.from("profiles").delete().eq("id", existingProfile.id);
     } else {
-      return NextResponse.json(
-        { error: "This person already has access to this clinic." },
-        { status: 409 }
-      );
+      // Auth user still exists. Check if a prior revoke partially completed.
+      // For dentists: revoke clears dentists.profile_id first. If that link is gone,
+      // the revoke started but FK constraints prevented the profiles/auth cleanup.
+      let isPartialRevoke = false;
+      if (dentistId) {
+        const { data: dentistRow } = await supabaseAdmin
+          .from("dentists")
+          .select("profile_id")
+          .eq("id", dentistId)
+          .maybeSingle();
+        isPartialRevoke = dentistRow != null && dentistRow.profile_id === null;
+      }
+
+      if (isPartialRevoke) {
+        // Complete the revoke: null FK refs, delete profiles row, delete auth user
+        await Promise.all([
+          supabaseAdmin.from("appointments").update({ created_by: null }).eq("created_by", existingProfile.id),
+          supabaseAdmin.from("appointments").update({ updated_by: null }).eq("updated_by", existingProfile.id),
+          supabaseAdmin.from("clinic_operating_expenses").update({ created_by: null }).eq("created_by", existingProfile.id),
+          supabaseAdmin.from("clinic_bills").update({ created_by: null }).eq("created_by", existingProfile.id),
+          supabaseAdmin.from("payroll_runs").update({ created_by: null }).eq("created_by", existingProfile.id),
+          supabaseAdmin.from("maintenance_logs").update({ created_by: null }).eq("created_by", existingProfile.id),
+          supabaseAdmin.from("staff_invites").update({ invited_by: null }).eq("invited_by", existingProfile.id),
+        ]);
+        await supabaseAdmin.from("profiles").delete().eq("id", existingProfile.id);
+        await supabaseAdmin.auth.admin.deleteUser(existingProfile.id);
+      } else {
+        return NextResponse.json(
+          { error: "This person already has access to this clinic." },
+          { status: 409 }
+        );
+      }
     }
   }
 
