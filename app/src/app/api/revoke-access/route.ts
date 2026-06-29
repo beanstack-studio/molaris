@@ -99,6 +99,9 @@ export async function POST(req: NextRequest) {
     // Staff & invites
     supabaseAdmin.from("staff").update({ created_by: null }).eq("created_by", profile_id),
     supabaseAdmin.from("staff_invites").update({ invited_by: null }).eq("invited_by", profile_id),
+    // Schedule requests
+    supabaseAdmin.from("schedule_requests").update({ profile_id: null }).eq("profile_id", profile_id),
+    supabaseAdmin.from("schedule_requests").update({ reviewed_by: null }).eq("reviewed_by", profile_id),
   ]);
 
   // Delete the profiles row — all FK refs are now nulled
