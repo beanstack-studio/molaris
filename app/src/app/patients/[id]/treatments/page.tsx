@@ -155,14 +155,14 @@ export default function TreatmentsPage() {
 
     const appt = await supabase
       .from("appointments")
-      .select("concerns")
+      .select("notes")
       .eq("patient_id", id)
       .eq("clinic_id", clinicId)
       .eq("status", "completed")
       .order("appointment_date", { ascending: false })
       .limit(1);
-    if (!appt.error && appt.data?.length && appt.data[0].concerns) {
-      setDefaultAppointmentConcern(appt.data[0].concerns);
+    if (!appt.error && appt.data?.length && appt.data[0].notes) {
+      setDefaultAppointmentConcern(appt.data[0].notes);
     } else {
       setDefaultAppointmentConcern("");
     }

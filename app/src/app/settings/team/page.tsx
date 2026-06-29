@@ -276,6 +276,7 @@ export default function TeamSettingsPage() {
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [staffExistingInvite, setStaffExistingInvite] = useState<InviteRow | null>(null);
   const [staffProfileEmail, setStaffProfileEmail] = useState<string | null>(null);
+  const [resolvedStaffProfileId, setResolvedStaffProfileId] = useState<string | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   // Blockout modal state — blockoutPerson format: "dentist:{id}" or "staff:{id}"
@@ -392,16 +393,29 @@ export default function TeamSettingsPage() {
           .from("dentist_handlers")
           .select("profile_id, dentist_id")
           .eq("clinic_id", clinicId);
-        if (!handlerRes.error && handlerRes.data && staffRes.data && dentistRes.data) {
+        if (!handlerRes.error && handlerRes.data && handlerRes.data.length > 0) {
           const loadedDentistMap = new Map<string, DentistRow>(loadedDentists.map((d) => [d.id, d]));
-          // Key by profile_id since dentist_handlers uses profile_id (not staff.id)
-          const staffByProfileId = new Map<string, StaffRow>();
-          for (const s of loadedStaff) {
-            if (s.profile_id) staffByProfileId.set(s.profile_id, s);
+          // staff.profile_id column may not exist yet — resolve via profiles table by full_name
+          const handlerProfileIds = [...new Set(
+            (handlerRes.data as { profile_id: string; dentist_id: string }[]).map((r) => r.profile_id)
+          )];
+          const { data: profileRows } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", handlerProfileIds)
+            .eq("clinic_id", clinicId);
+          const profileNameMap = new Map<string, string>(); // profile_id → full_name
+          if (profileRows) {
+            for (const p of profileRows as { id: string; full_name: string | null }[]) {
+              if (p.full_name) profileNameMap.set(p.id, p.full_name);
+            }
           }
+          const staffByName = new Map<string, StaffRow>(loadedStaff.map((s) => [s.full_name, s]));
           const groupMap = new Map<string, HandlerGroupRow>();
           for (const row of handlerRes.data as { profile_id: string; dentist_id: string }[]) {
-            const staffMember = staffByProfileId.get(row.profile_id);
+            const profileName = profileNameMap.get(row.profile_id);
+            if (!profileName) continue;
+            const staffMember = staffByName.get(profileName);
             const dentist = loadedDentistMap.get(row.dentist_id);
             if (!staffMember || !dentist) continue;
             if (!groupMap.has(staffMember.id)) {
@@ -419,6 +433,8 @@ export default function TeamSettingsPage() {
             });
           }
           setHandlers(Array.from(groupMap.values()));
+        } else if (!handlerRes.error) {
+          setHandlers([]);
         }
       } catch {
         // dentist_handlers columns not yet migrated — silently ignore
@@ -742,7 +758,7 @@ export default function TeamSettingsPage() {
   // ── Staff CRUD ────────────────────────────────────────────────────────────────
   function openAddStaff() {
     setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffProfileEmail(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffProfileEmail(null); setResolvedStaffProfileId(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(null);
@@ -752,15 +768,16 @@ export default function TeamSettingsPage() {
     setEditingStaff(s); setStaffName(s.full_name);
     setStaffRole(s.role); setStaffDob(s.date_of_birth ?? ""); setStaffPhone(s.phone ? formatPhoneLocal(s.phone) : "");
     setStaffSalaryRate(s.salary_rate != null ? String(s.salary_rate) : "");
-    setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setStaffProfileEmail(null);
+    setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setStaffProfileEmail(null); setResolvedStaffProfileId(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(s.photo_url ?? null);
-    // Resolve profile_id — may be missing if join-complete didn't link it (existing bug)
-    let resolvedProfileId = s.profile_id;
+    // Resolve profile_id without relying on staff.profile_id (column may not exist in DB yet)
+    // Try accepted invite → profiles chain by full_name
+    let resolvedProfileId: string | null = null;
+    let resolvedEmail: string | null = null;
 
-    if (!resolvedProfileId && s.full_name) {
-      // Try to find an accepted invite matching this staff member by full_name
+    if (s.full_name) {
       const { data: acceptedInvite } = await supabase
         .from("staff_invites")
         .select("email")
@@ -780,9 +797,9 @@ export default function TeamSettingsPage() {
 
         if (linkedProfile) {
           resolvedProfileId = (linkedProfile as { id: string; email: string | null }).id;
-          // Update local state so the modal shows correctly; the DB link is written on Save
-          setEditingStaff({ ...s, profile_id: resolvedProfileId });
-          setStaffProfileEmail((linkedProfile as { id: string; email: string | null }).email ?? null);
+          resolvedEmail = (linkedProfile as { id: string; email: string | null }).email ?? null;
+          setResolvedStaffProfileId(resolvedProfileId);
+          setStaffProfileEmail(resolvedEmail);
         }
       }
     }
@@ -794,15 +811,6 @@ export default function TeamSettingsPage() {
         .eq("profile_id", resolvedProfileId)
         .eq("clinic_id", clinicId);
       setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
-      // Fetch email if we didn't already get it from the repair branch
-      if (s.profile_id) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("email")
-          .eq("id", resolvedProfileId)
-          .maybeSingle();
-        setStaffProfileEmail((profileData as { email: string | null } | null)?.email ?? null);
-      }
     } else {
       setStaffHandlerDentistIds([]);
     }
@@ -833,7 +841,7 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setStaffProfileEmail(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setStaffProfileEmail(null); setResolvedStaffProfileId(null);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -849,11 +857,8 @@ export default function TeamSettingsPage() {
       };
       let staffId: string;
       if (editingStaff) {
-        // Include profile_id in update — repairs broken link if we resolved it on modal open
-        const editPayload = editingStaff.profile_id
-          ? { ...payload, profile_id: editingStaff.profile_id }
-          : payload;
-        const { error } = await supabase.from("staff").update(editPayload).eq("id", editingStaff.id);
+        // Do NOT include profile_id — column doesn't exist in DB yet
+        const { error } = await supabase.from("staff").update(payload).eq("id", editingStaff.id);
         if (error) throw error;
         staffId = editingStaff.id;
       } else {
@@ -865,8 +870,8 @@ export default function TeamSettingsPage() {
         if (error) throw error;
         staffId = (data as { id: string }).id;
       }
-      // dentist_handlers uses profile_id (auth UUID), not staff.id
-      const staffProfileId = editingStaff?.profile_id ?? null;
+      // dentist_handlers uses profile_id (auth UUID)
+      const staffProfileId = resolvedStaffProfileId;
       if (staffProfileId) {
         // Read current DB state before mutating, so we can compute removals accurately
         const { data: existingHandlers } = await supabase
@@ -2489,14 +2494,14 @@ export default function TeamSettingsPage() {
               <div className="flex gap-2 items-stretch">
                 <input
                   type="email"
-                  className={cn("field-input flex-1", editingStaff?.profile_id && "text-slate-400 bg-slate-50 cursor-default")}
-                  placeholder={editingStaff?.profile_id ? "" : "email@example.com"}
-                  value={editingStaff?.profile_id ? (staffProfileEmail ?? "") : inviteEmail}
-                  readOnly={!!editingStaff?.profile_id}
-                  disabled={!!editingStaff?.profile_id || (!editingStaff?.profile_id && (busy || atStaffLimit))}
-                  onChange={(e) => { if (!editingStaff?.profile_id) setInviteEmail(e.target.value); }}
+                  className={cn("field-input flex-1", staffProfileEmail !== null && "text-slate-400 bg-slate-50 cursor-default")}
+                  placeholder={staffProfileEmail !== null ? "" : "email@example.com"}
+                  value={staffProfileEmail !== null ? (staffProfileEmail ?? "") : inviteEmail}
+                  readOnly={staffProfileEmail !== null}
+                  disabled={staffProfileEmail !== null || (staffProfileEmail === null && (busy || atStaffLimit))}
+                  onChange={(e) => { if (staffProfileEmail === null) setInviteEmail(e.target.value); }}
                 />
-                {editingStaff?.profile_id ? (
+                {staffProfileEmail !== null ? (
                   <div className="flex items-center gap-1.5 shrink-0 rounded-xl border border-green-100 bg-green-50 px-3 text-sm text-green-700 font-medium whitespace-nowrap">
                     <span className="font-semibold">✓</span>
                     <span>Has access</span>
@@ -2512,7 +2517,7 @@ export default function TeamSettingsPage() {
                   </button>
                 ) : null}
               </div>
-              {staffExistingInvite && !editingStaff?.profile_id && (
+              {staffExistingInvite && staffProfileEmail === null && (
                 <div className="flex items-center justify-between mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
                   <span className="text-xs text-amber-700">
                     ⏳ Invite pending — expires {formatDateStandard(staffExistingInvite.expires_at.split("T")[0])}
@@ -2541,12 +2546,12 @@ export default function TeamSettingsPage() {
                   </div>
                 </div>
               )}
-              {atStaffLimit && !editingStaff?.profile_id && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
+              {atStaffLimit && staffProfileEmail === null && <p className="hint-text mt-1 text-amber-600">Free plan includes up to 1 staff account.</p>}
             </div>
           )}
 
           {/* 7. Clinical Access — visible once staff has joined */}
-          {editingStaff?.profile_id && (
+          {resolvedStaffProfileId !== null && (
             <div className="section-divider">
               <p className="field-label-text mb-1">Clinical Access</p>
               <p className="hint-text mb-3">

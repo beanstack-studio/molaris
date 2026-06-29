@@ -174,28 +174,29 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
           </div>
         )}
 
-        {/* Linked appointment */}
-        <div className="grid-gap-1">
-          <label className="text-field-label">Appointment</label>
-          <select
-            className="input-full"
-            value={linkedApptId}
-            onChange={(e) => handleApptSelect(e.target.value)}
-          >
-            <option value="">Walk-in (no appointment)</option>
-            {confirmedAppts.map((a) => {
-              const d = new Date(a.appointment_date + "T00:00:00");
-              const label = `${d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "2-digit" })} · ${formatTime12Hr(a.appointment_time)}${a.dentistName ? " · " + a.dentistName : ""}${a.concern_type ? " — " + a.concern_type : ""}`;
-              return <option key={a.id} value={a.id}>{label}</option>;
-            })}
-          </select>
-          {confirmedAppts.length === 0 && (
-            <p className="text-xs text-slate-400">No pending appointments found for this patient.</p>
-          )}
-        </div>
-
-        {/* Visit Date and Dentist */}
+        {/* Appointment + Visit Date — same row on desktop */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Linked appointment */}
+          <div className="grid-gap-1">
+            <label className="text-field-label">Appointment</label>
+            <select
+              className="input-full"
+              value={linkedApptId}
+              onChange={(e) => handleApptSelect(e.target.value)}
+            >
+              <option value="">Walk-in (no appointment)</option>
+              {confirmedAppts.map((a) => {
+                const d = new Date(a.appointment_date + "T00:00:00");
+                const label = `${d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "2-digit" })} · ${formatTime12Hr(a.appointment_time)}${a.dentistName ? " · " + a.dentistName : ""}${a.concern_type ? " — " + a.concern_type : ""}`;
+                return <option key={a.id} value={a.id}>{label}</option>;
+              })}
+            </select>
+            {confirmedAppts.length === 0 && (
+              <p className="text-xs text-slate-400">No pending appointments found for this patient.</p>
+            )}
+          </div>
+
+          {/* Visit Date */}
           <div>
             <DatePickerField
               label="Visit date"
@@ -206,28 +207,30 @@ export function AddVisitModal({ open, onClose, onSaved, patientId, dentists, ser
               max={new Date().toISOString().split("T")[0]}
             />
           </div>
-          {!isHandler && (
-            <div className="grid-gap-1">
-              <label className="text-field-label">Dentist</label>
-              {isDentist && dentists.length === 1 ? (
-                <div className="input-full flex items-center h-10 px-3 text-sm text-slate-700 bg-slate-50 rounded-xl border border-slate-200">
-                  {dentistLabel(dentists[0])}
-                </div>
-              ) : (
-                <select
-                  className="input-full"
-                  value={visitDentistId}
-                  onChange={(e) => setVisitDentistId(e.target.value)}
-                >
-                  <option value="">Select dentist…</option>
-                  {dentists.map((d) => (
-                    <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
         </div>
+
+        {/* Dentist — full width row */}
+        {!isHandler && (
+          <div className="grid-gap-1">
+            <label className="text-field-label">Dentist</label>
+            {isDentist && dentists.length === 1 ? (
+              <div className="input-full flex items-center h-10 px-3 text-sm text-slate-700 bg-slate-50 rounded-xl border border-slate-200">
+                {dentistLabel(dentists[0])}
+              </div>
+            ) : (
+              <select
+                className="input-full"
+                value={visitDentistId}
+                onChange={(e) => setVisitDentistId(e.target.value)}
+              >
+                <option value="">Select dentist…</option>
+                {dentists.map((d) => (
+                  <option key={d.id} value={d.id}>{dentistLabel(d)}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
         {/* Visit Concern */}
         <div className="grid-gap-1">
