@@ -60,7 +60,7 @@ import { DatePickerField } from "@/components/DatePickerField";
 import { Spinner } from "@/components/Spinner";
 import { UndoToast } from "@/components/shared/UndoToast";
 import { cn } from "@/lib/cn";
-import type { ClinicHoursEntry } from "@/lib/types";
+import { dentistLabel, type ClinicHoursEntry } from "@/lib/types";
 
 const DENTIST_COLORS = [
   { hex: "#6366f1", label: "Indigo" },
@@ -274,6 +274,7 @@ export default function TeamSettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [staffExistingInvite, setStaffExistingInvite] = useState<InviteRow | null>(null);
+  const [staffProfileEmail, setStaffProfileEmail] = useState<string | null>(null);
   const staffDobRef = useRef<HTMLInputElement | null>(null);
 
   // Blockout modal state — blockoutPerson format: "dentist:{id}" or "staff:{id}"
@@ -729,7 +730,7 @@ export default function TeamSettingsPage() {
   // ── Staff CRUD ────────────────────────────────────────────────────────────────
   function openAddStaff() {
     setEditingStaff(null); setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffProfileEmail(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(null);
@@ -739,7 +740,7 @@ export default function TeamSettingsPage() {
     setEditingStaff(s); setStaffName(s.full_name);
     setStaffRole(s.role); setStaffDob(s.date_of_birth ?? ""); setStaffPhone(s.phone ? formatPhoneLocal(s.phone) : "");
     setStaffSalaryRate(s.salary_rate != null ? String(s.salary_rate) : "");
-    setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null);
+    setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setStaffProfileEmail(null);
     setStaffPhotoFile(null);
     if (staffPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(staffPhotoPreview);
     setStaffPhotoPreview(s.photo_url ?? null);
@@ -750,6 +751,12 @@ export default function TeamSettingsPage() {
         .eq("profile_id", s.profile_id)
         .eq("clinic_id", clinicId);
       setStaffHandlerDentistIds(hRows ? (hRows as { dentist_id: string }[]).map((r) => r.dentist_id) : []);
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("id", s.profile_id)
+        .maybeSingle();
+      setStaffProfileEmail((profileData as { email: string | null } | null)?.email ?? null);
     } else {
       setStaffHandlerDentistIds([]);
     }
@@ -776,7 +783,7 @@ export default function TeamSettingsPage() {
     setStaffPhotoFile(null); setStaffPhotoPreview(null);
     setShowAddStaffModal(false); setEditingStaff(null);
     setStaffName(""); setStaffRole(""); setStaffDob(""); setStaffPhone("");
-    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null);
+    setStaffSalaryRate(""); setStaffHandlerDentistIds([]); setInviteEmail(""); setInviteSuccess(null); setStaffExistingInvite(null); setStaffProfileEmail(null);
   }
   async function saveStaff() {
     if (!staffName.trim() || !staffRole.trim()) return;
@@ -2414,10 +2421,19 @@ export default function TeamSettingsPage() {
           {isAdmin && (
             editingStaff?.profile_id ? (
               <div>
-                <p className="field-label-text mb-1.5">Account Status</p>
-                <span className="inline-flex items-center gap-1.5 text-sm text-green-600 font-medium">
-                  ✓ Active — has Molaris account
-                </span>
+                <p className="field-label-text mb-1.5">Access</p>
+                <div className="flex items-center gap-2 rounded-xl border border-green-100 bg-green-50 px-3 py-2">
+                  <span className="text-green-600 shrink-0 font-semibold">✓</span>
+                  <span className="text-sm text-green-700 font-medium">Has clinic access</span>
+                </div>
+                {staffProfileEmail && (
+                  <input
+                    type="text"
+                    readOnly
+                    value={staffProfileEmail}
+                    className="field-input mt-2 text-slate-400 bg-slate-50 cursor-default select-all"
+                  />
+                )}
               </div>
             ) : (
               <div>
@@ -2486,8 +2502,7 @@ export default function TeamSettingsPage() {
             <div className="section-divider">
               <p className="field-label-text mb-1">Clinical Access</p>
               <p className="hint-text mb-3">
-                Assign this staff member to act on behalf of a dentist. They can record treatments,
-                create invoices, manage ortho, and generate documents on behalf of assigned dentists.
+                Which dentists can this staff member act on behalf of?
               </p>
               {dentists.length === 0 ? (
                 <p className="hint-text text-slate-400">Add dentists first to assign handlers.</p>
@@ -2517,10 +2532,7 @@ export default function TeamSettingsPage() {
                           className="inline-block w-3 h-3 rounded-full shrink-0"
                           style={{ background: d.color ?? DENTIST_COLORS[0].hex }}
                         />
-                        <span className="text-sm text-slate-700">
-                          {d.full_name}
-                          {d.nickname && <span className="ml-1 text-slate-400">({d.nickname})</span>}
-                        </span>
+                        <span className="text-sm text-slate-700">{dentistLabel(d)}</span>
                       </label>
                     );
                   })}
